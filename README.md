@@ -18,7 +18,7 @@ The platform is designed to support future integrations such as **mobile applica
 
 Developed by:
 
-**[Your Name]**  
+**Nusirwan Eka Putra**  
 Full Stack Web & Mobile Developer – ReadyRoom
 
 Responsibilities:
