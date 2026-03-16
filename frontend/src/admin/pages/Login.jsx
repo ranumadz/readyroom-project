@@ -76,7 +76,7 @@ export default function AdminLogin() {
               Admin Panel
             </h1>
             <p className="text-gray-200 text-sm mt-2">
-              Masuk ke dashboard ReadyRoom
+              Silahkan Masuk ke dashboard ReadyRoom
             </p>
           </div>
 

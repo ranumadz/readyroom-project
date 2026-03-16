@@ -1,19 +1,50 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, ArrowRight, Sparkles, ShieldCheck, Tag } from "lucide-react";
+import api from "../services/api";
 
 export default function Login() {
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
-    e.preventDefault();
+const [form, setForm] = useState({
+  phone: "",
+  password: "",
+});
 
-    // sementara simulasi login
-    navigate("/");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await api.post("/login", form);
+
+      console.log("LOGIN RESPONSE:", res.data);
+
+      localStorage.setItem("customer", JSON.stringify(res.data.customer));
+
+      alert("Login berhasil");
+      navigate("/");
+    } catch (err) {
+      console.error("LOGIN ERROR:", err);
+      setError(err.response?.data?.message || "Login gagal");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-gray-100">
-      {/* Intro Section */}
       <div className="relative hidden lg:flex items-center justify-center overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center scale-105"
@@ -23,7 +54,6 @@ export default function Login() {
         />
 
         <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/55 to-red-900/40" />
-
         <div className="absolute top-10 left-10 w-72 h-72 bg-red-500/20 blur-3xl rounded-full" />
         <div className="absolute bottom-10 right-10 w-80 h-80 bg-white/10 blur-3xl rounded-full" />
 
@@ -78,7 +108,6 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Form Section */}
       <div className="flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 md:p-10">
@@ -94,19 +123,29 @@ export default function Login() {
               </p>
             </div>
 
+            {error && (
+              <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <div className="flex items-center border border-gray-300 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-red-500 bg-gray-50">
-                  <Mail size={18} className="text-gray-400 mr-3" />
-                  <input
-                    type="email"
-                    placeholder="Masukkan email"
-                    className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-400"
-                  />
-                </div>
+  Nomor WhatsApp
+</label>
+
+<div className="flex items-center border border-gray-300 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-red-500 bg-gray-50">
+  <Mail size={18} className="text-gray-400 mr-3" />
+  <input
+    type="text"
+    name="phone"
+    value={form.phone}
+    onChange={handleChange}
+    placeholder="Masukkan nomor WhatsApp"
+    className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-400"
+  />
+</div>
               </div>
 
               <div>
@@ -126,6 +165,9 @@ export default function Login() {
                   <Lock size={18} className="text-gray-400 mr-3" />
                   <input
                     type="password"
+                    name="password"
+                    value={form.password}
+                    onChange={handleChange}
                     placeholder="Masukkan password"
                     className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-400"
                   />
@@ -134,17 +176,11 @@ export default function Login() {
 
               <button
                 type="submit"
-                className="w-full bg-red-600 text-white py-3.5 rounded-2xl font-semibold hover:bg-red-700 transition shadow-lg shadow-red-500/20 flex items-center justify-center gap-2"
+                disabled={loading}
+                className="w-full bg-red-600 text-white py-3.5 rounded-2xl font-semibold hover:bg-red-700 transition shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 disabled:opacity-70"
               >
-                Masuk Sekarang
-                <ArrowRight size={18} />
-              </button>
-
-              <button
-                type="button"
-                className="w-full border border-gray-300 text-gray-700 py-3.5 rounded-2xl font-medium hover:bg-gray-50 transition"
-              >
-                Masuk dengan Google
+                {loading ? "Memproses..." : "Masuk Sekarang"}
+                {!loading && <ArrowRight size={18} />}
               </button>
             </form>
 

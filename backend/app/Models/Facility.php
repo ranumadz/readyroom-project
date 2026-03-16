@@ -11,9 +11,4 @@ class Facility extends Model
         'icon',
         'status',
     ];
-
-    public function hotels()
-    {
-        return $this->belongsToMany(Hotel::class, 'hotel_facilities');
-    }
 }
