@@ -31,7 +31,7 @@ export default function RoomsList() {
         <div className="p-6 md:p-8">
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Rooms List</h1>
+              <h1 className="text-3xl font-bold text-gray-800">Daftar Kamar List</h1>
               <p className="text-gray-500 mt-1">
                 Daftar semua kamar hotel ReadyRoom
               </p>

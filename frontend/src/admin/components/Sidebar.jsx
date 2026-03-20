@@ -43,6 +43,11 @@ const menuSections = [
         icon: BedDouble,
       },
       {
+        name: "Room Units",
+        path: "/admin/room-units",
+       icon: BedDouble,
+      },
+      {
         name: "Facilities",
         path: "/admin/facilities",
         icon: Sparkles,

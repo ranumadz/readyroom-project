@@ -49,7 +49,7 @@ export default function Home() {
 
             <h2 className="text-4xl md:text-6xl font-extrabold leading-tight mb-5">
               Find Your Perfect Stay with{" "}
-              <span className="text-white drop-shadow-[0_0_18px_rgba(255,255,255,0.85)]">
+              <span className="bg-gradient-to-r from-amber-100 via-yellow-50 to-white bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(255,245,200,0.55)]">
                 ReadyRoom
               </span>
             </h2>
