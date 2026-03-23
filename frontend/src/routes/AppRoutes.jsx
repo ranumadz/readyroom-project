@@ -7,6 +7,7 @@ import HotelsList from "../admin/pages/HotelsList";
 import RoomUnits from "../admin/pages/RoomUnits";
 import BookingList from "../admin/pages/BookingList";
 import ManualBooking from "../admin/pages/ManualBooking";
+import BookingCalendar from "../admin/pages/BookingCalendar";
 
 import Home from "../pages/Home";
 import Login from "../pages/Login";
@@ -24,9 +25,9 @@ export default function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/verify-otp" element={<VerifyOtp />} />
 
-
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/hotels" element={<HotelsList />} />
+
       <Route
         path="/admin/dashboard"
         element={
@@ -62,39 +63,51 @@ export default function AppRoutes() {
           </AdminProtectedRoute>
         }
       />
-      
+
       <Route
-  path="/admin/room-units"
-  element={
-    <AdminProtectedRoute>
-      <RoomUnits />
-    </AdminProtectedRoute>
-  }
-/>
+        path="/admin/room-units"
+        element={
+          <AdminProtectedRoute>
+            <RoomUnits />
+          </AdminProtectedRoute>
+        }
+      />
+
       <Route
-         path="/admin/facilities"
-         element={
+        path="/admin/facilities"
+        element={
           <AdminProtectedRoute>
             <Facilities />
           </AdminProtectedRoute>
-       }
+        }
       />
+
       <Route
-  path="/admin/bookings"
-  element={
-    <AdminProtectedRoute>
-      <BookingList />
-    </AdminProtectedRoute>
-  }
-/>
-<Route
-  path="/admin/bookings/manual"
-  element={
-    <AdminProtectedRoute>
-      <ManualBooking />
-    </AdminProtectedRoute>
-  }
-/>
+        path="/admin/bookings"
+        element={
+          <AdminProtectedRoute>
+            <BookingList />
+          </AdminProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/bookings/manual"
+        element={
+          <AdminProtectedRoute>
+            <ManualBooking />
+          </AdminProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/bookings/calendar"
+        element={
+          <AdminProtectedRoute>
+            <BookingCalendar />
+          </AdminProtectedRoute>
+        }
+      />
     </Routes>
   );
 }

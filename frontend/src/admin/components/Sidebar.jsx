@@ -56,20 +56,20 @@ const menuSections = [
   },
 
   {
-    title: "Bookings",
-    items: [
-      {
-        name: "Booking List",
-        path: "/admin/bookings",
-        icon: ClipboardList,
-      },
-      {
-        name: "Booking Calendar",
-        path: "/admin/calendar",
-        icon: CalendarDays,
-      },
-    ],
-  },
+  title: "Bookings",
+  items: [
+    {
+      name: "Booking List",
+      path: "/admin/bookings",
+      icon: ClipboardList,
+    },
+    {
+      name: "Booking Calendar",
+      path: "/admin/bookings/calendar",
+      icon: CalendarDays,
+    },
+  ],
+},
 
   {
     title: "Analytics",

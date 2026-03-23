@@ -25,6 +25,8 @@ import {
   Phone,
   Mail,
   Pencil,
+  Layers3,
+  History,
 } from "lucide-react";
 
 export default function BookingList() {
@@ -54,6 +56,13 @@ export default function BookingList() {
     admin_note: "",
   });
 
+  const [selectedRefundBooking, setSelectedRefundBooking] = useState(null);
+  const [refunding, setRefunding] = useState(false);
+  const [refundForm, setRefundForm] = useState({
+    refund_amount: "",
+    refund_reason: "",
+  });
+
   const [showManualModal, setShowManualModal] = useState(false);
   const [hotels, setHotels] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -73,6 +82,7 @@ export default function BookingList() {
     booking_type: "transit",
     duration_hours: "3",
     check_in: "",
+    manual_discount_percent: "",
     admin_note: "",
   });
 
@@ -83,6 +93,12 @@ export default function BookingList() {
     hotelId: "",
     month: "",
   });
+
+  const [viewMode, setViewMode] = useState("today_active");
+
+  const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
+  const canEditBooking =
+    adminUser?.role === "boss" || adminUser?.role === "super_admin";
 
   useEffect(() => {
     fetchBookings();
@@ -399,8 +415,6 @@ export default function BookingList() {
     try {
       setEditing(true);
 
-      const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
-
       await api.post(`/admin/bookings/${selectedEditBooking.id}/update`, {
         guest_name: editForm.guest_name.trim(),
         guest_phone: editForm.guest_phone.trim(),
@@ -422,6 +436,59 @@ export default function BookingList() {
     }
   };
 
+  const openRefundModal = (booking) => {
+    setSelectedRefundBooking(booking);
+    setRefundForm({
+      refund_amount: booking.total_price || "",
+      refund_reason: "",
+    });
+  };
+
+  const closeRefundModal = () => {
+    setSelectedRefundBooking(null);
+    setRefundForm({
+      refund_amount: "",
+      refund_reason: "",
+    });
+  };
+
+  const handleRefundChange = (e) => {
+    const { name, value } = e.target;
+    setRefundForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleRefundBooking = async () => {
+    if (!selectedRefundBooking) return;
+    if (!refundForm.refund_reason.trim()) {
+      toast.error("Alasan refund wajib diisi");
+      return;
+    }
+
+    try {
+      setRefunding(true);
+
+      await api.post(`/admin/bookings/${selectedRefundBooking.id}/refund`, {
+        refunded_by: adminUser?.id || null,
+        refund_reason: refundForm.refund_reason.trim(),
+        refund_amount: refundForm.refund_amount
+          ? Number(refundForm.refund_amount)
+          : Number(selectedRefundBooking.total_price || 0),
+      });
+
+      toast.success("Refund berhasil diproses");
+      closeRefundModal();
+      fetchBookings();
+    } catch (error) {
+      console.error("REFUND BOOKING ERROR:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal memproses refund");
+    } finally {
+      setRefunding(false);
+    }
+  };
+
   const openManualModal = () => {
     setShowManualModal(true);
   };
@@ -438,6 +505,7 @@ export default function BookingList() {
       booking_type: "transit",
       duration_hours: "3",
       check_in: "",
+      manual_discount_percent: "",
       admin_note: "",
     });
     setManualRoomUnits([]);
@@ -500,6 +568,23 @@ export default function BookingList() {
     return selectedManualRoom.price_per_night || 0;
   }, [selectedManualRoom, manualForm.booking_type, manualForm.duration_hours]);
 
+  const manualDiscountPercent = useMemo(() => {
+    const raw = Number(manualForm.manual_discount_percent || 0);
+    if (Number.isNaN(raw)) return 0;
+    if (raw < 0) return 0;
+    if (raw > 100) return 100;
+    return raw;
+  }, [manualForm.manual_discount_percent]);
+
+  const manualDiscountAmount = useMemo(() => {
+    if (!estimatedManualPrice || !manualDiscountPercent) return 0;
+    return Math.round((estimatedManualPrice * manualDiscountPercent) / 100);
+  }, [estimatedManualPrice, manualDiscountPercent]);
+
+  const finalManualPrice = useMemo(() => {
+    return Math.max(0, estimatedManualPrice - manualDiscountAmount);
+  }, [estimatedManualPrice, manualDiscountAmount]);
+
   const handleSaveManualBooking = async () => {
     if (!manualForm.guest_name.trim()) return toast.error("Nama tamu wajib diisi");
     if (!manualForm.guest_phone.trim()) return toast.error("Nomor HP wajib diisi");
@@ -513,8 +598,6 @@ export default function BookingList() {
 
     try {
       setSavingManual(true);
-
-      const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
 
       const payload = {
         guest_name: manualForm.guest_name.trim(),
@@ -530,6 +613,7 @@ export default function BookingList() {
             ? Number(manualForm.duration_hours)
             : null,
         check_in: manualForm.check_in.replace("T", " ") + ":00",
+        discount_percent: canEditBooking ? manualDiscountPercent : 0,
         admin_note: manualForm.admin_note || "",
       };
 
@@ -585,6 +669,17 @@ export default function BookingList() {
     }
   };
 
+  const getPaymentStatusClass = (paymentStatus) => {
+    switch (paymentStatus) {
+      case "paid":
+        return "bg-emerald-100 text-emerald-700";
+      case "refunded":
+        return "bg-purple-100 text-purple-700";
+      default:
+        return "bg-gray-200 text-gray-700";
+    }
+  };
+
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({
       ...prev,
@@ -600,6 +695,7 @@ export default function BookingList() {
       hotelId: "",
       month: "",
     });
+    setViewMode("today_active");
   };
 
   const uniqueHotels = useMemo(() => {
@@ -612,7 +708,72 @@ export default function BookingList() {
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [bookings]);
 
+  const isSameDay = (dateA, dateB) => {
+    return (
+      dateA.getFullYear() === dateB.getFullYear() &&
+      dateA.getMonth() === dateB.getMonth() &&
+      dateA.getDate() === dateB.getDate()
+    );
+  };
+
+  const isBookingRelevantToday = (booking) => {
+    const now = new Date();
+
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0
+    );
+
+    const todayEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59
+    );
+
+    const checkIn = booking.check_in ? new Date(booking.check_in) : null;
+    const checkOut = booking.check_out ? new Date(booking.check_out) : null;
+
+    const activeStatuses = [
+      "pending",
+      "confirmed",
+      "checked_in",
+      "checked_out",
+      "cleaning",
+    ];
+
+    if (activeStatuses.includes(booking.status)) {
+      return true;
+    }
+
+    if (booking.status === "completed" && checkOut) {
+      return isSameDay(checkOut, now);
+    }
+
+    if (booking.status === "cancelled" && checkIn) {
+      return isSameDay(checkIn, now);
+    }
+
+    if (checkIn && checkOut) {
+      return checkIn <= todayEnd && checkOut >= todayStart;
+    }
+
+    if (checkIn) {
+      return isSameDay(checkIn, now);
+    }
+
+    return false;
+  };
+
   const filteredBookings = useMemo(() => {
+    const searchActive = filters.search.trim().length > 0;
+
     return bookings.filter((booking) => {
       const searchText = filters.search.toLowerCase();
 
@@ -647,22 +808,28 @@ export default function BookingList() {
         matchesMonth = bookingMonth === filters.month;
       }
 
+      const matchesViewMode =
+        searchActive || viewMode === "all"
+          ? true
+          : isBookingRelevantToday(booking);
+
       return (
         matchesSearch &&
         matchesStatus &&
         matchesBookingType &&
         matchesHotel &&
-        matchesMonth
+        matchesMonth &&
+        matchesViewMode
       );
     });
-  }, [bookings, filters]);
+  }, [bookings, filters, viewMode]);
+
+  const todayVisibleCount = useMemo(() => {
+    return bookings.filter((booking) => isBookingRelevantToday(booking)).length;
+  }, [bookings]);
 
   const inputClass =
     "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100";
-
-  const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
-  const canEditBooking =
-    adminUser?.role === "boss" || adminUser?.role === "super_admin";
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -701,6 +868,44 @@ export default function BookingList() {
                 <Plus size={18} />
                 Manual Booking
               </button>
+            </div>
+
+            <div className="flex flex-wrap gap-3 mb-5">
+              <button
+                type="button"
+                onClick={() => setViewMode("today_active")}
+                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+                  viewMode === "today_active"
+                    ? "bg-red-600 text-white shadow-sm"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Layers3 size={18} />
+                Aktif Hari Ini
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode("all")}
+                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+                  viewMode === "all"
+                    ? "bg-gray-900 text-white shadow-sm"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <History size={18} />
+                Semua Booking
+              </button>
+
+              <div className="inline-flex items-center rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                Booking aktif / relevan hari ini: {todayVisibleCount}
+              </div>
+
+              {filters.search.trim() && (
+                <div className="inline-flex items-center rounded-2xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+                  Search aktif: histori lama juga ikut dicari
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
@@ -814,6 +1019,15 @@ export default function BookingList() {
                       ? "App Customer"
                       : booking.booking_source || null;
 
+                  const discountPercent = Number(booking.discount_percent || 0);
+                  const originalPrice =
+                    discountPercent > 0
+                      ? Math.round(
+                          Number(booking.total_price || 0) /
+                            (1 - discountPercent / 100)
+                        )
+                      : Number(booking.total_price || 0);
+
                   return (
                     <div
                       key={booking.id}
@@ -835,11 +1049,9 @@ export default function BookingList() {
                             </span>
 
                             <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                booking.payment_status === "paid"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-gray-200 text-gray-700"
-                              }`}
+                              className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentStatusClass(
+                                booking.payment_status
+                              )}`}
                             >
                               {booking.payment_status || "unpaid"}
                             </span>
@@ -867,6 +1079,11 @@ export default function BookingList() {
                                 {booking.editor && (
                                   <p className="text-xs text-amber-600 mt-1">
                                     Diedit oleh: {booking.editor.name}
+                                  </p>
+                                )}
+                                {booking.refunder && (
+                                  <p className="text-xs text-purple-600 mt-1">
+                                    Refund oleh: {booking.refunder.name}
                                   </p>
                                 )}
                                 {customerPhone && (
@@ -964,6 +1181,55 @@ export default function BookingList() {
                             )}
                           </div>
 
+                          {discountPercent > 0 && (
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                              <div className="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-amber-700">
+                                <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+                                  Discount
+                                </p>
+                                <p className="font-bold">{discountPercent}%</p>
+                              </div>
+
+                              <div className="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-slate-700">
+                                <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+                                  Harga Awal
+                                </p>
+                                <p className="font-bold">
+                                  {formatCurrency(originalPrice)}
+                                </p>
+                              </div>
+
+                              <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-emerald-700">
+                                <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+                                  Harga Setelah Discount
+                                </p>
+                                <p className="font-bold">
+                                  {formatCurrency(booking.total_price)}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {booking.payment_status === "refunded" && (
+                            <div className="mt-4 rounded-2xl bg-purple-50 border border-purple-100 px-4 py-3 text-sm text-purple-700">
+                              <p>
+                                <strong>Refund:</strong>{" "}
+                                {formatCurrency(booking.refund_amount || 0)}
+                              </p>
+                              {booking.refund_reason && (
+                                <p className="mt-1">
+                                  <strong>Alasan Refund:</strong> {booking.refund_reason}
+                                </p>
+                              )}
+                              {booking.refunded_at && (
+                                <p className="mt-1">
+                                  <strong>Waktu Refund:</strong>{" "}
+                                  {formatDateTime(booking.refunded_at)}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
                           {booking.admin_note && (
                             <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-700">
                               <strong>Catatan Admin:</strong> {booking.admin_note}
@@ -1018,7 +1284,8 @@ export default function BookingList() {
                               </button>
                             </>
                           ) : booking.status === "confirmed" &&
-                            booking.payment_status !== "paid" ? (
+                            booking.payment_status !== "paid" &&
+                            booking.payment_status !== "refunded" ? (
                             <button
                               type="button"
                               onClick={() => handleMarkPaid(booking)}
@@ -1029,14 +1296,27 @@ export default function BookingList() {
                             </button>
                           ) : booking.status === "confirmed" &&
                             booking.payment_status === "paid" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleCheckIn(booking)}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-white font-semibold hover:bg-blue-700 transition"
-                            >
-                              <CheckCircle2 size={18} />
-                              Check In
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleCheckIn(booking)}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-white font-semibold hover:bg-blue-700 transition"
+                              >
+                                <CheckCircle2 size={18} />
+                                Check In
+                              </button>
+
+                              {canEditBooking && (
+                                <button
+                                  type="button"
+                                  onClick={() => openRefundModal(booking)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-600 px-5 py-3 text-white font-semibold hover:bg-purple-700 transition"
+                                >
+                                  <Wallet size={18} />
+                                  Refund
+                                </button>
+                              )}
+                            </>
                           ) : booking.status === "checked_in" ? (
                             <button
                               type="button"
@@ -1330,6 +1610,71 @@ export default function BookingList() {
                   >
                     {editing ? "Menyimpan..." : "Simpan Perubahan"}
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedRefundBooking && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-xl">
+                <h2 className="text-xl font-bold text-gray-800 mb-2">
+                  Refund Booking
+                </h2>
+                <p className="text-sm text-gray-500 mb-5">
+                  Proses refund untuk booking{" "}
+                  <span className="font-semibold text-gray-700">
+                    {selectedRefundBooking.booking_code}
+                  </span>
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Nominal Refund
+                    </label>
+                    <input
+                      type="number"
+                      name="refund_amount"
+                      value={refundForm.refund_amount}
+                      onChange={handleRefundChange}
+                      className={inputClass}
+                      placeholder="Masukkan nominal refund"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Alasan Refund
+                    </label>
+                    <textarea
+                      name="refund_reason"
+                      rows={4}
+                      value={refundForm.refund_reason}
+                      onChange={handleRefundChange}
+                      className={inputClass}
+                      placeholder="Contoh: Pembatalan oleh pihak hotel / tamu komplain / double booking"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      className="flex-1 bg-gray-200 text-gray-700 rounded-2xl py-3 font-semibold hover:bg-gray-300 transition"
+                      onClick={closeRefundModal}
+                    >
+                      Batal
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex-1 bg-purple-600 text-white rounded-2xl py-3 font-semibold hover:bg-purple-700 transition disabled:opacity-70"
+                      onClick={handleRefundBooking}
+                      disabled={refunding}
+                    >
+                      {refunding ? "Memproses..." : "Confirm Refund"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1633,7 +1978,52 @@ export default function BookingList() {
                           />
                         </div>
                       </div>
+
+                      {canEditBooking && (
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Discount (%)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name="manual_discount_percent"
+                              min="0"
+                              max="100"
+                              value={manualForm.manual_discount_percent}
+                              onChange={handleManualChange}
+                              placeholder="Contoh: 20"
+                              className={`${inputClass} pr-12`}
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">
+                              %
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
+
+                    {canEditBooking && manualDiscountPercent > 0 && (
+                      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                          <p className="text-sm text-amber-700 font-medium">
+                            Potongan Discount
+                          </p>
+                          <p className="text-lg font-bold text-amber-800">
+                            - {formatCurrency(manualDiscountAmount)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                          <p className="text-sm text-emerald-700 font-medium">
+                            Total Setelah Discount
+                          </p>
+                          <p className="text-lg font-bold text-emerald-800">
+                            {formatCurrency(finalManualPrice)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6">

@@ -8,16 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('facilities', function (Blueprint $table) {
+        Schema::create('room_images', function (Blueprint $table) {
             $table->id();
-            $table->string('name'); // nama fasilitas (WiFi, AC, dll)
-            $table->string('icon')->nullable(); // icon fasilitas (opsional)
+            $table->foreignId('room_id')->constrained('rooms')->cascadeOnDelete();
+            $table->string('image_path');
+            $table->integer('sort_order')->default(0);
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('facilities');
+        Schema::dropIfExists('room_images');
     }
 };

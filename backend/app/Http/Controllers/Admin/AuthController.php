@@ -23,11 +23,13 @@ class AuthController extends Controller
 
         $user = Auth::user();
 
-        if ($user->role !== 'admin') {
+        $allowedRoles = ['admin', 'super_admin', 'boss', 'receptionist'];
+
+        if (!in_array($user->role, $allowedRoles)) {
             Auth::logout();
 
             return response()->json([
-                'message' => 'Akses ditolak. Hanya admin yang bisa login.'
+                'message' => 'Akses ditolak. Role tidak diizinkan login ke panel admin.'
             ], 403);
         }
 

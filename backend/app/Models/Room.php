@@ -22,13 +22,31 @@ class Room extends Model
         'status',
     ];
 
+    /*
+    |--------------------------------------------------------------------------
+    | RELATIONSHIP
+    |--------------------------------------------------------------------------
+    */
+
+    // Relasi ke hotel
     public function hotel()
     {
         return $this->belongsTo(Hotel::class);
     }
 
+    // Relasi ke booking
     public function bookings()
     {
         return $this->hasMany(Booking::class);
+    }
+
+    // Relasi ke gambar kamar (MULTIPLE IMAGE)
+    public function images()
+    {
+        return $this->hasMany(RoomImage::class);
+    }
+    public function units()
+    {
+    return $this->hasMany(RoomUnit::class);
     }
 }
