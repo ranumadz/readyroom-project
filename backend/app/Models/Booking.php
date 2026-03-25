@@ -34,6 +34,10 @@ class Booking extends Model
         'refunded_by',
         'refunded_at',
 
+        'cancel_reason',
+        'cancelled_by',
+        'cancelled_at',
+
         'status',
         'payment_status',
 
@@ -88,5 +92,11 @@ class Booking extends Model
     public function refunder()
     {
         return $this->belongsTo(User::class, 'refunded_by');
+    }
+
+    // Admin / Boss / Super Admin yang melakukan cancel
+    public function canceller()
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 }

@@ -8,7 +8,9 @@ use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\FacilityController;
 use App\Http\Controllers\Admin\RoomUnitController;
 use App\Http\Controllers\Admin\BookingController as AdminBookingController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Customer\BookingController;
+use App\Http\Controllers\Admin\WebsiteContentController;
 
 // =========================
 // Customer Auth
@@ -22,6 +24,17 @@ Route::post('/resend-otp', [AuthController::class, 'resendOtp']);
 // Customer Booking
 // =========================
 Route::post('/bookings', [BookingController::class, 'store']);
+
+// =========================
+// Public Website Content
+// =========================
+Route::get('/website-content', [WebsiteContentController::class, 'index']);
+
+// =========================
+// Public Hotels
+// =========================
+Route::get('/hotels', [HotelController::class, 'publicIndex']);
+Route::get('/hotels/{id}', [HotelController::class, 'publicShow']);
 
 // =========================
 // Dev Helper
@@ -58,6 +71,8 @@ Route::prefix('admin')->group(function () {
     Route::get('/hotels', [HotelController::class, 'index']);
     Route::get('/hotels/create', [HotelController::class, 'create']);
     Route::post('/hotels', [HotelController::class, 'store']);
+    Route::put('/hotels/{id}', [HotelController::class, 'update']);
+    Route::delete('/hotels/{id}', [HotelController::class, 'destroy']);
 
     // =========================
     // Rooms
@@ -82,13 +97,23 @@ Route::prefix('admin')->group(function () {
     Route::get('/room-units/{roomId}', [RoomUnitController::class, 'indexByRoom']);
 
     // =========================
+    // Users Internal & Customers
+    // =========================
+    Route::get('/users/admin', [UserController::class, 'adminUsers']);
+    Route::post('/users/admin', [UserController::class, 'storeAdminUser']);
+    Route::put('/users/admin/{id}', [UserController::class, 'updateAdminUser']);
+    Route::post('/users/admin/{id}/reset-password', [UserController::class, 'resetAdminPassword']);
+    Route::post('/users/admin/{id}/toggle-status', [UserController::class, 'toggleAdminStatus']);
+
+    Route::get('/users/customers', [UserController::class, 'customers']);
+    Route::post('/users/customers/{id}/reset-password', [UserController::class, 'resetCustomerPassword']);
+    Route::post('/users/customers/{id}/toggle-status', [UserController::class, 'toggleCustomerStatus']);
+
+    // =========================
     // Bookings
     // =========================
     Route::get('/bookings', [AdminBookingController::class, 'index']);
-
-    // 🔥 NEW: Calendar endpoint
     Route::get('/bookings/calendar', [AdminBookingController::class, 'calendar']);
-
     Route::post('/bookings/manual', [AdminBookingController::class, 'storeManual']);
     Route::post('/bookings/{id}/approve', [AdminBookingController::class, 'approve']);
     Route::post('/bookings/{id}/reject', [AdminBookingController::class, 'reject']);
@@ -99,8 +124,15 @@ Route::prefix('admin')->group(function () {
     // =========================
     Route::post('/bookings/{id}/paid', [AdminBookingController::class, 'markPaid']);
     Route::post('/bookings/{id}/refund', [AdminBookingController::class, 'refundBooking']);
+    Route::post('/bookings/{id}/cancel', [AdminBookingController::class, 'cancelBooking']);
     Route::post('/bookings/{id}/check-in', [AdminBookingController::class, 'checkIn']);
     Route::post('/bookings/{id}/check-out', [AdminBookingController::class, 'checkOut']);
     Route::post('/bookings/{id}/start-cleaning', [AdminBookingController::class, 'startCleaning']);
     Route::post('/bookings/{id}/finish-cleaning', [AdminBookingController::class, 'finishCleaning']);
+
+    // =========================
+    // Website Content
+    // =========================
+    Route::get('/website-content', [WebsiteContentController::class, 'index']);
+    Route::post('/website-content', [WebsiteContentController::class, 'update']);
 });

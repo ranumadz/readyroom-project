@@ -39,8 +39,9 @@ class RoomController extends Controller
             'price_transit_12h' => 'nullable|numeric|min:0',
             'total_rooms' => 'required|integer|min:1',
             'description' => 'nullable|string',
-            'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-            'images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'images' => 'nullable|array',
+            'images.*' => 'image|mimes:jpg,jpeg,png,webp|max:4096',
             'status' => 'required|boolean',
         ]);
 

@@ -11,6 +11,8 @@ import {
   Save,
   ChevronDown,
   List,
+  MessageCircle,
+  Image as ImageIcon,
 } from "lucide-react";
 
 export default function AddHotel() {
@@ -25,8 +27,16 @@ export default function AddHotel() {
     name: "",
     area: "",
     address: "",
+    wa_admin: "",
     description: "",
+    thumbnail: null,
+    hero_image: null,
     status: true,
+  });
+
+  const [preview, setPreview] = useState({
+    thumbnail: null,
+    hero_image: null,
   });
 
   useEffect(() => {
@@ -61,7 +71,27 @@ export default function AddHotel() {
   };
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type, checked, files } = e.target;
+
+    if (type === "file") {
+      const file = files?.[0] || null;
+
+      setForm((prev) => ({
+        ...prev,
+        [name]: file,
+      }));
+
+      if (file) {
+        const objectUrl = URL.createObjectURL(file);
+
+        setPreview((prev) => ({
+          ...prev,
+          [name]: objectUrl,
+        }));
+      }
+
+      return;
+    }
 
     setForm((prev) => ({
       ...prev,
@@ -81,15 +111,41 @@ export default function AddHotel() {
       });
     }
 
+    if (form.wa_admin && form.wa_admin.replace(/\D/g, "").length < 10) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Nomor WhatsApp belum valid",
+        text: "Nomor WhatsApp admin cabang minimal 10 digit",
+        confirmButtonColor: "#dc2626",
+      });
+    }
+
     try {
       setSaving(true);
 
-      const res = await api.post("/admin/hotels", form);
+      const payload = new FormData();
+      payload.append("city_id", form.city_id);
+      payload.append("name", form.name);
+      payload.append("area", form.area);
+      payload.append("address", form.address);
+      payload.append("wa_admin", form.wa_admin || "");
+      payload.append("description", form.description || "");
+      payload.append("status", form.status ? 1 : 0);
+
+      if (form.thumbnail) {
+        payload.append("thumbnail", form.thumbnail);
+      }
+
+      if (form.hero_image) {
+        payload.append("hero_image", form.hero_image);
+      }
+
+      await api.post("/admin/hotels", payload);
 
       await Swal.fire({
         icon: "success",
         title: "Berhasil",
-        text: res.data?.message || "Hotel berhasil ditambahkan",
+        text: "Hotel berhasil ditambahkan",
         confirmButtonColor: "#dc2626",
       });
 
@@ -98,8 +154,16 @@ export default function AddHotel() {
         name: "",
         area: "",
         address: "",
+        wa_admin: "",
         description: "",
+        thumbnail: null,
+        hero_image: null,
         status: true,
+      });
+
+      setPreview({
+        thumbnail: null,
+        hero_image: null,
       });
 
       navigate("/admin/hotels");
@@ -146,7 +210,6 @@ export default function AddHotel() {
 
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* KOTA */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Kota
@@ -184,7 +247,6 @@ export default function AddHotel() {
                 </p>
               </div>
 
-              {/* NAMA HOTEL */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Nama Hotel / Cabang
@@ -206,7 +268,6 @@ export default function AddHotel() {
                 </div>
               </div>
 
-              {/* AREA */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Area
@@ -222,7 +283,6 @@ export default function AddHotel() {
                 />
               </div>
 
-              {/* ALAMAT */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Alamat
@@ -238,7 +298,101 @@ export default function AddHotel() {
                 />
               </div>
 
-              {/* DESKRIPSI */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nomor WhatsApp Admin Cabang
+                </label>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="wa_admin"
+                    value={form.wa_admin}
+                    onChange={handleChange}
+                    placeholder="Contoh: 081234567890"
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                  />
+                  <MessageCircle
+                    size={18}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                </div>
+
+                <p className="text-xs text-gray-400 mt-2">
+                  Nomor ini akan dipakai sebagai kontak resmi admin cabang hotel
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Thumbnail Hotel
+                  </label>
+
+                  <label className="flex flex-col items-center justify-center w-full min-h-[170px] rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-red-400 hover:bg-red-50/40 transition overflow-hidden">
+                    {preview.thumbnail ? (
+                      <img
+                        src={preview.thumbnail}
+                        alt="Preview Thumbnail"
+                        className="w-full h-48 object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                        <ImageIcon size={28} className="text-red-500 mb-3" />
+                        <p className="font-semibold text-gray-700">
+                          Upload Thumbnail Hotel
+                        </p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          JPG, PNG, WEBP
+                        </p>
+                      </div>
+                    )}
+
+                    <input
+                      type="file"
+                      name="thumbnail"
+                      accept="image/*"
+                      onChange={handleChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Hero Image Hotel
+                  </label>
+
+                  <label className="flex flex-col items-center justify-center w-full min-h-[170px] rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-red-400 hover:bg-red-50/40 transition overflow-hidden">
+                    {preview.hero_image ? (
+                      <img
+                        src={preview.hero_image}
+                        alt="Preview Hero"
+                        className="w-full h-48 object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                        <ImageIcon size={28} className="text-red-500 mb-3" />
+                        <p className="font-semibold text-gray-700">
+                          Upload Hero Image
+                        </p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          JPG, PNG, WEBP
+                        </p>
+                      </div>
+                    )}
+
+                    <input
+                      type="file"
+                      name="hero_image"
+                      accept="image/*"
+                      onChange={handleChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Deskripsi
@@ -260,7 +414,6 @@ export default function AddHotel() {
                 </div>
               </div>
 
-              {/* STATUS */}
               <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
                 <input
                   type="checkbox"
@@ -275,7 +428,6 @@ export default function AddHotel() {
                 </label>
               </div>
 
-              {/* BUTTONS */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"

@@ -20,6 +20,7 @@ class BookingController extends Controller
             'creator',
             'editor',
             'refunder',
+            'canceller',
             'hotel',
             'room',
             'roomUnit'
@@ -201,7 +202,7 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Booking berhasil di-approve',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
         ]);
     }
 
@@ -229,7 +230,7 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Booking berhasil ditolak',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
         ]);
     }
 
@@ -324,7 +325,7 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Booking berhasil diupdate',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
         ]);
     }
 
@@ -357,7 +358,7 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Pembayaran berhasil dikonfirmasi',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
         ]);
     }
 
@@ -406,7 +407,65 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Refund berhasil diproses',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
+        ]);
+    }
+
+    // ❌ CANCEL BOOKING (KHUSUS BOSS / SUPER ADMIN)
+    public function cancelBooking(Request $request, $id)
+    {
+        $booking = Booking::findOrFail($id);
+
+        $request->validate([
+            'cancelled_by' => 'required|exists:users,id',
+            'cancel_reason' => 'required|string',
+        ]);
+
+        $admin = User::find($request->cancelled_by);
+
+        if (!$admin || !in_array($admin->role, ['super_admin', 'boss'])) {
+            return response()->json([
+                'message' => 'Hanya boss atau super admin yang bisa melakukan cancel booking'
+            ], 403);
+        }
+
+        if (in_array($booking->status, ['cancelled', 'completed'])) {
+            return response()->json([
+                'message' => 'Booking ini tidak bisa dicancel lagi'
+            ], 422);
+        }
+
+        if ($booking->status === 'checked_out') {
+            return response()->json([
+                'message' => 'Booking yang sudah check-out tidak bisa dicancel'
+            ], 422);
+        }
+
+        if ($booking->status === 'cleaning') {
+            return response()->json([
+                'message' => 'Booking yang sedang cleaning tidak bisa dicancel'
+            ], 422);
+        }
+
+        $booking->update([
+            'status' => 'cancelled',
+            'cancel_reason' => $request->cancel_reason,
+            'cancelled_by' => $request->cancelled_by,
+            'cancelled_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Booking berhasil dicancel',
+            'data' => $booking->load([
+                'user',
+                'creator',
+                'editor',
+                'refunder',
+                'canceller',
+                'hotel',
+                'room',
+                'roomUnit'
+            ])
         ]);
     }
 
@@ -433,7 +492,7 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Tamu berhasil check-in',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
         ]);
     }
 
@@ -454,7 +513,7 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Tamu berhasil check-out',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
         ]);
     }
 
@@ -475,7 +534,7 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Kamar masuk proses cleaning',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
         ]);
     }
 
@@ -496,7 +555,7 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Cleaning selesai, kamar siap digunakan kembali',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
         ]);
     }
 
@@ -631,7 +690,7 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Booking manual berhasil dibuat',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'hotel', 'room', 'roomUnit'])
+            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
         ], 201);
     }
 }

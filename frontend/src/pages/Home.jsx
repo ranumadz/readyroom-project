@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import HeroSearchFilter from "../components/HeroSearchFilter";
+import api from "../services/api";
 
 import {
   Clock,
@@ -13,19 +14,67 @@ import {
   Coffee,
   ArrowRight,
   Building2,
-  Hotel
+  Hotel,
 } from "lucide-react";
 
 import AOS from "aos";
 import "aos/dist/aos.css";
 
 export default function Home() {
+  const [popularHotels, setPopularHotels] = useState([]);
+  const [loadingHotels, setLoadingHotels] = useState(true);
+
   useEffect(() => {
     AOS.init({
       duration: 1000,
-      once: true
+      once: true,
     });
   }, []);
+
+  useEffect(() => {
+    fetchPopularHotels();
+  }, []);
+
+  const fetchPopularHotels = async () => {
+    try {
+      setLoadingHotels(true);
+
+      const res = await api.get("/hotels");
+      const hotels = Array.isArray(res.data?.data) ? res.data.data : [];
+
+      setPopularHotels(hotels.slice(0, 6));
+    } catch (error) {
+      console.error("GET POPULAR HOTELS ERROR:", error.response?.data || error);
+      setPopularHotels([]);
+    } finally {
+      setLoadingHotels(false);
+    }
+  };
+
+  const buildImageUrl = (path, fallback = "/images/hotel.jpg") => {
+  if (!path) return fallback;
+
+  const rawPath = String(path).trim();
+
+  if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+    return rawPath;
+  }
+
+  const cleanPath = rawPath.replace(/^\/+/, "");
+
+  // gambar bawaan frontend/public
+  if (cleanPath.startsWith("images/")) {
+    return `/${cleanPath}`;
+  }
+
+  // kalau sudah storage/...
+  if (cleanPath.startsWith("storage/")) {
+    return `http://127.0.0.1:8000/${cleanPath}`;
+  }
+
+  // default: file upload backend
+  return `http://127.0.0.1:8000/storage/${cleanPath}`;
+};
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800">
@@ -127,14 +176,14 @@ export default function Home() {
               "/readyroom.png",
               "/readyroom.png",
               "/readyroom.png",
-              "/readyroom.png"
+              "/readyroom.png",
             ].map((logo, i) => (
               <div
                 key={i}
                 data-aos="zoom-in"
                 className="w-full bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition duration-300 flex items-center justify-center"
               >
-                <img src={logo} className="w-16 h-16 object-contain" />
+                <img src={logo} alt="Partner Logo" className="w-16 h-16 object-contain" />
               </div>
             ))}
           </div>
@@ -154,42 +203,71 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[
-            { img: "/123.jpg", name: "Deluxe Room", city: "Jakarta", price: "Rp450.000" },
-            { img: "/4546.jpg", name: "Luxury Suite", city: "Bandung", price: "Rp850.000" },
-            { img: "/123.jpg", name: "Standard Room", city: "Surabaya", price: "Rp350.000" }
-          ].map((hotel, i) => (
-            <Link
-              to="/rooms"
-              key={i}
-              data-aos="fade-up"
-              className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition duration-300 block"
-            >
-              <img src={hotel.img} className="w-full h-56 object-cover" />
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold">
-                    Transit Available
-                  </span>
-                  <span className="text-xs text-gray-400">ReadyRoom</span>
-                </div>
-
-                <h4 className="font-bold text-xl">{hotel.name}</h4>
-                <p className="text-gray-500 mt-1">{hotel.city}</p>
-
-                <div className="flex items-center justify-between mt-5">
-                  <p className="text-red-600 font-bold text-lg">
-                    {hotel.price} <span className="text-sm text-gray-400">/ night</span>
-                  </p>
-                  <span className="text-sm font-medium text-gray-700">
-                    Lihat Detail
-                  </span>
+        {loadingHotels ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-pulse"
+              >
+                <div className="w-full h-56 bg-gray-200" />
+                <div className="p-5">
+                  <div className="h-4 w-24 bg-gray-200 rounded mb-3" />
+                  <div className="h-6 w-40 bg-gray-200 rounded mb-2" />
+                  <div className="h-4 w-28 bg-gray-200 rounded mb-5" />
+                  <div className="h-5 w-32 bg-gray-200 rounded" />
                 </div>
               </div>
-            </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : popularHotels.length === 0 ? (
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center text-gray-500">
+            Belum ada hotel aktif yang tampil.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {popularHotels.map((hotel, i) => (
+              <Link
+                to={`/hotels/${hotel.id}`}
+                key={hotel.id}
+                data-aos="fade-up"
+                data-aos-delay={i * 100}
+                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition duration-300 block"
+              >
+                <img
+                  src={buildImageUrl(hotel.thumbnail, "/images/hotel.jpg")}
+                  alt={hotel.name}
+                  className="w-full h-56 object-cover"
+                />
+
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold">
+                      {hotel.area || "Hotel"}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      ⭐ {hotel.rating || "0.0"}
+                    </span>
+                  </div>
+
+                  <h4 className="font-bold text-xl line-clamp-1">{hotel.name}</h4>
+                  <p className="text-gray-500 mt-1">
+                    {hotel.city?.name || "-"}{hotel.area ? ` • ${hotel.area}` : ""}
+                  </p>
+
+                  <div className="flex items-center justify-between mt-5">
+                    <p className="text-sm text-gray-500 line-clamp-1">
+                      {hotel.address || "Alamat belum tersedia"}
+                    </p>
+                    <span className="text-sm font-medium text-red-600">
+                      Lihat Detail
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="max-w-7xl mx-auto py-16 px-4 md:px-6">
@@ -208,7 +286,7 @@ export default function Home() {
             { img: "/destinasi_bali.jpg", name: "Bali" },
             { img: "/destinasi aceh.jpg", name: "Aceh" },
             { img: "/tebing-breksi.jpg", name: "Yogyakarta" },
-            { img: "/destinasi_surabaya.jpg", name: "Surabaya" }
+            { img: "/destinasi_surabaya.jpg", name: "Surabaya" },
           ].map((city, i) => (
             <Link
               to="/hotels"
@@ -218,6 +296,7 @@ export default function Home() {
             >
               <img
                 src={city.img}
+                alt={city.name}
                 className="w-full h-48 object-cover group-hover:scale-110 transition duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/20 flex items-end p-4">
@@ -245,7 +324,7 @@ export default function Home() {
           {[
             { img: "/hotel1.jpg", name: "Ocean View Resort", city: "Bali", price: "Rp720.000" },
             { img: "/hotel2.jpg", name: "Jakarta Business Hotel", city: "Jakarta", price: "Rp600.000" },
-            { img: "/hotel3.jpg", name: "Mountain Escape", city: "Bandung", price: "Rp500.000" }
+            { img: "/hotel3.jpg", name: "Mountain Escape", city: "Bandung", price: "Rp500.000" },
           ].map((hotel, i) => (
             <Link
               to="/rooms"
@@ -253,7 +332,7 @@ export default function Home() {
               data-aos="fade-up"
               className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition block"
             >
-              <img src={hotel.img} className="w-full h-56 object-cover" />
+              <img src={hotel.img} alt={hotel.name} className="w-full h-56 object-cover" />
               <div className="p-5">
                 <h4 className="font-bold text-xl">{hotel.name}</h4>
                 <p className="text-gray-500 text-sm mt-1">{hotel.city}</p>
@@ -326,33 +405,33 @@ export default function Home() {
               {
                 icon: <Clock size={26} />,
                 title: "Booking Fleksibel",
-                desc: "Durasi booking mulai dari 3 jam hingga 1 hari penuh"
+                desc: "Durasi booking mulai dari 3 jam hingga 1 hari penuh",
               },
               {
                 icon: <ShieldCheck size={26} />,
                 title: "Aman & Terpercaya",
-                desc: "Keamanan 24/7 dengan sistem booking terpercaya"
+                desc: "Keamanan 24/7 dengan sistem booking terpercaya",
               },
               {
                 icon: <MapPin size={26} />,
                 title: "Lokasi Strategis",
-                desc: "Cabang tersedia di berbagai kota besar Indonesia"
+                desc: "Cabang tersedia di berbagai kota besar Indonesia",
               },
               {
                 icon: <Wifi size={26} />,
                 title: "Wifi High Speed",
-                desc: "Internet cepat dan stabil di setiap kamar"
+                desc: "Internet cepat dan stabil di setiap kamar",
               },
               {
                 icon: <Car size={26} />,
                 title: "Parkir Luas",
-                desc: "Area parkir luas tersedia"
+                desc: "Area parkir luas tersedia",
               },
               {
                 icon: <Coffee size={26} />,
                 title: "Fasilitas Premium",
-                desc: "AC, TV, water heater dan fasilitas lengkap"
-              }
+                desc: "AC, TV, water heater dan fasilitas lengkap",
+              },
             ].map((item, i) => (
               <div
                 key={i}

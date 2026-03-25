@@ -283,10 +283,10 @@ export default function BookingCalendar() {
           <div className="mb-6">
             <p className="text-sm font-semibold text-red-600 mb-2">Admin Panel</p>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-              Booking Calendar
+              Booking Calendar Ready Room
             </h1>
             <p className="text-gray-500 mt-1">
-              Visual booking per kamar fisik dengan tampilan timeline yang lebih modern.
+              Visual Booking per kamar fisik. 
             </p>
           </div>
 

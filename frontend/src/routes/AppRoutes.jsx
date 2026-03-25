@@ -8,8 +8,12 @@ import RoomUnits from "../admin/pages/RoomUnits";
 import BookingList from "../admin/pages/BookingList";
 import ManualBooking from "../admin/pages/ManualBooking";
 import BookingCalendar from "../admin/pages/BookingCalendar";
+import Reports from "../admin/pages/Reports";
+import UsersPage from "../admin/pages/Users";
+import MasterContent from "../admin/pages/MasterContent";
 
 import Home from "../pages/Home";
+import HotelDetail from "../pages/HotelDetail";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import AdminLogin from "../admin/pages/Login";
@@ -21,6 +25,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/hotels/:id" element={<HotelDetail />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify-otp" element={<VerifyOtp />} />
@@ -105,6 +110,33 @@ export default function AppRoutes() {
         element={
           <AdminProtectedRoute>
             <BookingCalendar />
+          </AdminProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/reports"
+        element={
+          <AdminProtectedRoute>
+            <Reports />
+          </AdminProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/users"
+        element={
+          <AdminProtectedRoute>
+            <UsersPage />
+          </AdminProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/master-content"
+        element={
+          <AdminProtectedRoute>
+            <MasterContent />
           </AdminProtectedRoute>
         }
       />

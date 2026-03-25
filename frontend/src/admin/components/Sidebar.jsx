@@ -9,7 +9,7 @@ import {
   ChartColumn,
   Sparkles,
   CalendarDays,
-  Hotel,
+  Layers3,
 } from "lucide-react";
 
 const menuSections = [
@@ -45,7 +45,7 @@ const menuSections = [
       {
         name: "Room Units",
         path: "/admin/room-units",
-       icon: BedDouble,
+        icon: BedDouble,
       },
       {
         name: "Facilities",
@@ -56,20 +56,20 @@ const menuSections = [
   },
 
   {
-  title: "Bookings",
-  items: [
-    {
-      name: "Booking List",
-      path: "/admin/bookings",
-      icon: ClipboardList,
-    },
-    {
-      name: "Booking Calendar",
-      path: "/admin/bookings/calendar",
-      icon: CalendarDays,
-    },
-  ],
-},
+    title: "Bookings",
+    items: [
+      {
+        name: "Booking List",
+        path: "/admin/bookings",
+        icon: ClipboardList,
+      },
+      {
+        name: "Booking Calendar",
+        path: "/admin/bookings/calendar",
+        icon: CalendarDays,
+      },
+    ],
+  },
 
   {
     title: "Analytics",
@@ -91,6 +91,11 @@ const menuSections = [
         icon: Users,
       },
       {
+        name: "Master Content",
+        path: "/admin/master-content",
+        icon: Layers3,
+      },
+      {
         name: "Settings",
         path: "/admin/settings",
         icon: Settings,
@@ -103,39 +108,33 @@ export default function Sidebar() {
   return (
     <aside className="w-72 min-h-screen bg-gradient-to-b from-black via-gray-950 to-black text-white border-r border-white/10 shadow-2xl">
       <div className="p-6">
-
-        {/* Logo */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-4">
-
-            <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-500/30">
-              <Hotel size={22} />
+            <div className="w-12 h-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-lg shadow-red-500/30 border border-white/10 shrink-0">
+              <img
+                src="/readyroom.png"
+                alt="ReadyRoom Logo"
+                className="w-full h-full object-cover"
+              />
             </div>
 
             <div>
-              <h2 className="text-xl font-bold tracking-wide">
-                ReadyRoom
-              </h2>
-              <p className="text-xs text-gray-400">
-                Admin Management Panel
-              </p>
+              <h2 className="text-xl font-bold tracking-wide">ReadyRoom</h2>
+              <p className="text-xs text-gray-400">Admin Management Panel</p>
             </div>
-
           </div>
 
           <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
             <p className="text-sm text-gray-300">
-              Kelola hotel, kamar, booking, fasilitas, dan laporan dalam satu dashboard.
+              Kelola hotel, kamar, booking, fasilitas, laporan, serta user
+              internal dan customer dalam satu dashboard.
             </p>
           </div>
         </div>
 
-        {/* Menu Sections */}
         <div className="space-y-8">
-
           {menuSections.map((section) => (
             <div key={section.title}>
-
               <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-3">
                 {section.title}
               </p>
@@ -156,7 +155,7 @@ export default function Sidebar() {
                         }`
                       }
                     >
-                      <div className="w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 flex items-center justify-center transition">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 flex items-center justify-center transition shrink-0">
                         <Icon size={20} />
                       </div>
 
@@ -165,22 +164,17 @@ export default function Sidebar() {
                   );
                 })}
               </nav>
-
             </div>
           ))}
-
         </div>
 
-        {/* Bottom Card */}
         <div className="mt-10 rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 p-4 shadow-lg">
-          <p className="text-sm font-semibold mb-1">
-            ReadyRoom System
-          </p>
+          <p className="text-sm font-semibold mb-1">ReadyRoom System</p>
           <p className="text-xs text-red-100 leading-relaxed">
-            Sistem manajemen hotel untuk mengelola cabang, kamar, booking, dan laporan dengan lebih mudah.
+            Sistem manajemen hotel untuk mengelola cabang, kamar, booking,
+            laporan, dan pengguna dengan lebih mudah.
           </p>
         </div>
-
       </div>
     </aside>
   );

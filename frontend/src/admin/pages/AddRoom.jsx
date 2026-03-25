@@ -247,11 +247,7 @@ export default function AddRoom() {
         payload.append("images[]", file);
       });
 
-      await api.post("/admin/rooms", payload, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      await api.post("/admin/rooms", payload);
 
       toast.success("Kamar berhasil ditambahkan");
       resetForm();

@@ -27,6 +27,7 @@ import {
   Pencil,
   Layers3,
   History,
+  MessageCircle,
 } from "lucide-react";
 
 export default function BookingList() {
@@ -61,6 +62,12 @@ export default function BookingList() {
   const [refundForm, setRefundForm] = useState({
     refund_amount: "",
     refund_reason: "",
+  });
+
+  const [selectedCancelBooking, setSelectedCancelBooking] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelForm, setCancelForm] = useState({
+    cancel_reason: "",
   });
 
   const [showManualModal, setShowManualModal] = useState(false);
@@ -489,6 +496,56 @@ export default function BookingList() {
     }
   };
 
+  const openCancelModal = (booking) => {
+    setSelectedCancelBooking(booking);
+    setCancelForm({
+      cancel_reason:
+        "Booking dibatalkan karena tidak ada kepastian kedatangan dari tamu.",
+    });
+  };
+
+  const closeCancelModal = () => {
+    setSelectedCancelBooking(null);
+    setCancelForm({
+      cancel_reason: "",
+    });
+  };
+
+  const handleCancelChange = (e) => {
+    const { name, value } = e.target;
+    setCancelForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleCancelBooking = async () => {
+    if (!selectedCancelBooking) return;
+
+    if (!cancelForm.cancel_reason.trim()) {
+      toast.error("Alasan cancel wajib diisi");
+      return;
+    }
+
+    try {
+      setCancelling(true);
+
+      await api.post(`/admin/bookings/${selectedCancelBooking.id}/cancel`, {
+        cancelled_by: adminUser?.id || null,
+        cancel_reason: cancelForm.cancel_reason.trim(),
+      });
+
+      toast.success("Booking berhasil dicancel");
+      closeCancelModal();
+      fetchBookings();
+    } catch (error) {
+      console.error("CANCEL BOOKING ERROR:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal cancel booking");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const openManualModal = () => {
     setShowManualModal(true);
   };
@@ -646,6 +703,49 @@ export default function BookingList() {
       dateStyle: "medium",
       timeStyle: "short",
     });
+  };
+
+  const normalizeWhatsAppNumber = (phone) => {
+    if (!phone) return "";
+
+    let cleaned = String(phone).replace(/\D/g, "");
+
+    if (cleaned.startsWith("620")) {
+      cleaned = "62" + cleaned.slice(3);
+    } else if (cleaned.startsWith("0")) {
+      cleaned = "62" + cleaned.slice(1);
+    } else if (cleaned.startsWith("8")) {
+      cleaned = "62" + cleaned;
+    }
+
+    return cleaned;
+  };
+
+  const buildWhatsAppMessage = (booking) => {
+    const customerName = booking.user?.name || booking.guest_name || "Kak";
+    const bookingCode = booking.booking_code || `#${booking.id}`;
+    const hotelName = booking.hotel?.name || "ReadyRoom";
+    const roomName = booking.room?.type || booking.room?.name || "kamar";
+    const checkInText = booking.check_in
+      ? formatDateTime(booking.check_in)
+      : "-";
+
+    return `Halo Kak ${customerName}, kami dari ${hotelName}. Booking Anda dengan kode ${bookingCode} untuk ${roomName} pada ${checkInText} mohon segera dikonfirmasi. Jika dalam 1 jam belum ada kejelasan, booking dapat dibatalkan oleh pihak hotel. Terima kasih.`;
+  };
+
+  const handleNotifyWhatsApp = (booking) => {
+    const rawPhone = booking.guest_phone || "";
+    const phone = normalizeWhatsAppNumber(rawPhone);
+
+    if (!phone) {
+      toast.error("Nomor WhatsApp tamu tidak tersedia");
+      return;
+    }
+
+    const message = buildWhatsAppMessage(booking);
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+    window.open(url, "_blank");
   };
 
   const getStatusClass = (status) => {
@@ -1028,6 +1128,14 @@ export default function BookingList() {
                         )
                       : Number(booking.total_price || 0);
 
+                  const showCancelButton =
+                    canEditBooking &&
+                    ["confirmed", "checked_in"].includes(booking.status);
+
+                  const showNotifyButton =
+                    !!booking.guest_phone &&
+                    ["pending", "confirmed", "checked_in"].includes(booking.status);
+
                   return (
                     <div
                       key={booking.id}
@@ -1084,6 +1192,11 @@ export default function BookingList() {
                                 {booking.refunder && (
                                   <p className="text-xs text-purple-600 mt-1">
                                     Refund oleh: {booking.refunder.name}
+                                  </p>
+                                )}
+                                {booking.canceller && (
+                                  <p className="text-xs text-red-600 mt-1">
+                                    Cancel oleh: {booking.canceller.name}
                                   </p>
                                 )}
                                 {customerPhone && (
@@ -1230,12 +1343,40 @@ export default function BookingList() {
                             </div>
                           )}
 
+                          {booking.cancel_reason && (
+                            <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
+                              <p>
+                                <strong>Alasan Cancel:</strong> {booking.cancel_reason}
+                              </p>
+                              {booking.cancelled_at && (
+                                <p className="mt-1">
+                                  <strong>Waktu Cancel:</strong>{" "}
+                                  {formatDateTime(booking.cancelled_at)}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
                           {booking.admin_note && (
                             <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-700">
                               <strong>Catatan Admin:</strong> {booking.admin_note}
                             </div>
                           )}
 
+{["pending", "confirmed", "checked_in"].includes(booking.status) && (
+  <div className="mt-4 rounded-2xl bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
+    <strong>Informasi untuk Tamu:</strong>
+    <p className="mt-1">
+      Harap datang sesuai waktu booking yang telah dipilih.
+    </p>
+    <p>
+      Jika dalam 30 menit setelah waktu check-in tidak ada konfirmasi atau kehadiran, booking di batalkan otomatis sistem.
+    </p>
+    <p>
+      Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui kontak resmi hotel.
+    </p>
+  </div>
+)}
                           {booking.rejection_reason_customer && (
                             <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
                               <strong>Alasan ke customer:</strong>{" "}
@@ -1252,6 +1393,17 @@ export default function BookingList() {
                         </div>
 
                         <div className="w-full lg:w-auto flex lg:flex-col gap-3">
+                          {showNotifyButton && (
+                            <button
+                              type="button"
+                              onClick={() => handleNotifyWhatsApp(booking)}
+                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-white font-semibold hover:bg-green-700 transition"
+                            >
+                              <MessageCircle size={18} />
+                              Notify WA
+                            </button>
+                          )}
+
                           {canEditBooking && (
                             <button
                               type="button"
@@ -1286,14 +1438,27 @@ export default function BookingList() {
                           ) : booking.status === "confirmed" &&
                             booking.payment_status !== "paid" &&
                             booking.payment_status !== "refunded" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleMarkPaid(booking)}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-white font-semibold hover:bg-emerald-700 transition"
-                            >
-                              <Wallet size={18} />
-                              Mark Paid
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleMarkPaid(booking)}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-white font-semibold hover:bg-emerald-700 transition"
+                              >
+                                <Wallet size={18} />
+                                Mark Paid
+                              </button>
+
+                              {showCancelButton && (
+                                <button
+                                  type="button"
+                                  onClick={() => openCancelModal(booking)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
+                                >
+                                  <CircleX size={18} />
+                                  Cancel
+                                </button>
+                              )}
+                            </>
                           ) : booking.status === "confirmed" &&
                             booking.payment_status === "paid" ? (
                             <>
@@ -1316,16 +1481,40 @@ export default function BookingList() {
                                   Refund
                                 </button>
                               )}
+
+                              {showCancelButton && (
+                                <button
+                                  type="button"
+                                  onClick={() => openCancelModal(booking)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
+                                >
+                                  <CircleX size={18} />
+                                  Cancel
+                                </button>
+                              )}
                             </>
                           ) : booking.status === "checked_in" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleCheckOut(booking)}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-700 px-5 py-3 text-white font-semibold hover:bg-slate-800 transition"
-                            >
-                              <CircleCheck size={18} />
-                              Check Out
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleCheckOut(booking)}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-700 px-5 py-3 text-white font-semibold hover:bg-slate-800 transition"
+                              >
+                                <CircleCheck size={18} />
+                                Check Out
+                              </button>
+
+                              {showCancelButton && (
+                                <button
+                                  type="button"
+                                  onClick={() => openCancelModal(booking)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
+                                >
+                                  <CircleX size={18} />
+                                  Cancel
+                                </button>
+                              )}
+                            </>
                           ) : booking.status === "checked_out" ? (
                             <button
                               type="button"
@@ -1673,6 +1862,62 @@ export default function BookingList() {
                       disabled={refunding}
                     >
                       {refunding ? "Memproses..." : "Confirm Refund"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedCancelBooking && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-xl">
+                <h2 className="text-xl font-bold text-gray-800 mb-2">
+                  Cancel Booking
+                </h2>
+                <p className="text-sm text-gray-500 mb-5">
+                  Isi alasan pembatalan untuk booking{" "}
+                  <span className="font-semibold text-gray-700">
+                    {selectedCancelBooking.booking_code}
+                  </span>
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Alasan Cancel
+                    </label>
+                    <textarea
+                      name="cancel_reason"
+                      rows={4}
+                      value={cancelForm.cancel_reason}
+                      onChange={handleCancelChange}
+                      className={inputClass}
+                      placeholder="Contoh: Tamu tidak memberikan kepastian kedatangan."
+                    />
+                  </div>
+
+                  <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    Booking yang dicancel akan berubah status menjadi
+                    <strong> cancelled</strong>.
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      className="flex-1 bg-gray-200 text-gray-700 rounded-2xl py-3 font-semibold hover:bg-gray-300 transition"
+                      onClick={closeCancelModal}
+                    >
+                      Batal
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex-1 bg-red-600 text-white rounded-2xl py-3 font-semibold hover:bg-red-700 transition disabled:opacity-70"
+                      onClick={handleCancelBooking}
+                      disabled={cancelling}
+                    >
+                      {cancelling ? "Memproses..." : "Confirm Cancel"}
                     </button>
                   </div>
                 </div>
