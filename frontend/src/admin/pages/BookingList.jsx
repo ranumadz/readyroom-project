@@ -721,17 +721,18 @@ export default function BookingList() {
     return cleaned;
   };
 
-  const buildWhatsAppMessage = (booking) => {
-    const customerName = booking.user?.name || booking.guest_name || "Kak";
-    const bookingCode = booking.booking_code || `#${booking.id}`;
-    const hotelName = booking.hotel?.name || "ReadyRoom";
-    const roomName = booking.room?.type || booking.room?.name || "kamar";
-    const checkInText = booking.check_in
-      ? formatDateTime(booking.check_in)
-      : "-";
+const buildWhatsAppMessage = (booking) => {
+  const customerName = booking.user?.name || booking.guest_name || "Kak";
+  const bookingCode = booking.booking_code || `#${booking.id}`;
+  const hotelName = booking.hotel?.name || "ReadyRoom";
+  const roomName = booking.room?.type || booking.room?.name || "kamar";
+  const checkInText = booking.check_in
+    ? formatDateTime(booking.check_in)
+    : "-";
+  const adminContact = booking.hotel?.wa_admin || "-";
 
-    return `Halo Kak ${customerName}, kami dari ${hotelName}. Booking Anda dengan kode ${bookingCode} untuk ${roomName} pada ${checkInText} mohon segera dikonfirmasi. Jika dalam 1 jam belum ada kejelasan, booking dapat dibatalkan oleh pihak hotel. Terima kasih.`;
-  };
+  return `Halo Kak ${customerName}, kami dari ${hotelName}. Booking Anda dengan kode ${bookingCode} untuk ${roomName} pada ${checkInText} mohon segera dikonfirmasi. Jika dalam 30 menit setelah waktu check-in belum ada kejelasan, booking dapat dibatalkan oleh pihak hotel. Jika ada kendala atau keterlambatan, silakan hubungi admin cabang di nomor ${adminContact}. Terima kasih.`;
+};
 
   const handleNotifyWhatsApp = (booking) => {
     const rawPhone = booking.guest_phone || "";
@@ -1370,11 +1371,17 @@ export default function BookingList() {
       Harap datang sesuai waktu booking yang telah dipilih.
     </p>
     <p>
-      Jika dalam 30 menit setelah waktu check-in tidak ada konfirmasi atau kehadiran, booking di batalkan otomatis sistem.
+      Jika dalam 30 menit setelah waktu check-in tidak ada konfirmasi atau kehadiran, booking dapat dibatalkan oleh pihak hotel.
     </p>
     <p>
       Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui kontak resmi hotel.
     </p>
+
+    {booking.hotel?.wa_admin && (
+      <p className="mt-2 font-semibold text-blue-700">
+        Kontak Admin Cabang: {booking.hotel.wa_admin}
+      </p>
+    )}
   </div>
 )}
                           {booking.rejection_reason_customer && (

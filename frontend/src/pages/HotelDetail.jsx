@@ -10,6 +10,7 @@ import {
   Building2,
   FileText,
   Image as ImageIcon,
+  Navigation,
 } from "lucide-react";
 
 export default function HotelDetail() {
@@ -40,29 +41,31 @@ export default function HotelDetail() {
   };
 
   const buildImageUrl = (path, fallback = "/images/hotel.jpg") => {
-  if (!path) return fallback;
+    if (!path) return fallback;
 
-  const rawPath = String(path).trim();
+    const rawPath = String(path).trim();
 
-  if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
-    return rawPath;
-  }
+    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+      return rawPath;
+    }
 
-  const cleanPath = rawPath.replace(/^\/+/, "");
+    const cleanPath = rawPath.replace(/^\/+/, "");
 
-  // gambar bawaan frontend/public
-  if (cleanPath.startsWith("images/")) {
-    return `/${cleanPath}`;
-  }
+    if (cleanPath.startsWith("images/")) {
+      return `/${cleanPath}`;
+    }
 
-  // kalau sudah storage/...
-  if (cleanPath.startsWith("storage/")) {
-    return `http://127.0.0.1:8000/${cleanPath}`;
-  }
+    if (cleanPath.startsWith("storage/")) {
+      return `http://127.0.0.1:8000/${cleanPath}`;
+    }
 
-  // default: file upload backend
-  return `http://127.0.0.1:8000/storage/${cleanPath}`;
-};
+    return `http://127.0.0.1:8000/storage/${cleanPath}`;
+  };
+
+  const googleMapsUrl =
+    hotel?.latitude && hotel?.longitude
+      ? `https://www.google.com/maps?q=${hotel.latitude},${hotel.longitude}`
+      : null;
 
   if (loading) {
     return (
@@ -124,6 +127,9 @@ export default function HotelDetail() {
             "/images/hero.jpg"
           )}
           alt={hotel.name}
+          onError={(e) => {
+            e.currentTarget.src = "/images/hero.jpg";
+          }}
           className="w-full h-[340px] md:h-[430px] object-cover"
         />
 
@@ -204,6 +210,50 @@ export default function HotelDetail() {
                 {hotel.description || "Deskripsi hotel belum tersedia."}
               </p>
             </div>
+
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <Navigation size={20} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">Lokasi di Map</h2>
+                  <p className="text-sm text-gray-500">
+                    Lihat posisi hotel langsung di peta
+                  </p>
+                </div>
+              </div>
+
+              {hotel.latitude && hotel.longitude ? (
+                <>
+                  <div className="w-full h-[320px] rounded-2xl overflow-hidden border border-gray-100">
+                    <iframe
+                      title={`Map ${hotel.name}`}
+                      width="100%"
+                      height="100%"
+                      loading="lazy"
+                      allowFullScreen
+                      src={`https://www.google.com/maps?q=${hotel.latitude},${hotel.longitude}&z=15&output=embed`}
+                      className="w-full h-full"
+                    />
+                  </div>
+
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 mt-4 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
+                  >
+                    <MapPin size={18} />
+                    Buka di Google Maps
+                  </a>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
+                  Koordinat lokasi hotel belum tersedia.
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-6">
@@ -281,6 +331,9 @@ export default function HotelDetail() {
               <img
                 src={buildImageUrl(hotel.thumbnail, "/images/hotel.jpg")}
                 alt={hotel.name}
+                onError={(e) => {
+                  e.currentTarget.src = "/images/hotel.jpg";
+                }}
                 className="w-full h-56 object-cover rounded-2xl border border-gray-100"
               />
             </div>

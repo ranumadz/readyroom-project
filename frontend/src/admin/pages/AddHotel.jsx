@@ -13,6 +13,8 @@ import {
   List,
   MessageCircle,
   Image as ImageIcon,
+  Navigation,
+  Link as LinkIcon,
 } from "lucide-react";
 
 export default function AddHotel() {
@@ -28,6 +30,7 @@ export default function AddHotel() {
     area: "",
     address: "",
     wa_admin: "",
+    map_link: "",
     description: "",
     thumbnail: null,
     hero_image: null,
@@ -120,6 +123,20 @@ export default function AddHotel() {
       });
     }
 
+    if (
+      form.map_link &&
+      !/^https?:\/\/(www\.)?(google\.[^\/]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.com)/i.test(
+        form.map_link.trim()
+      )
+    ) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Link Google Maps belum valid",
+        text: "Masukkan link Google Maps yang valid",
+        confirmButtonColor: "#dc2626",
+      });
+    }
+
     try {
       setSaving(true);
 
@@ -129,6 +146,7 @@ export default function AddHotel() {
       payload.append("area", form.area);
       payload.append("address", form.address);
       payload.append("wa_admin", form.wa_admin || "");
+      payload.append("map_link", form.map_link || "");
       payload.append("description", form.description || "");
       payload.append("status", form.status ? 1 : 0);
 
@@ -155,6 +173,7 @@ export default function AddHotel() {
         area: "",
         address: "",
         wa_admin: "",
+        map_link: "",
         description: "",
         thumbnail: null,
         hero_image: null,
@@ -320,6 +339,30 @@ export default function AddHotel() {
 
                 <p className="text-xs text-gray-400 mt-2">
                   Nomor ini akan dipakai sebagai kontak resmi admin cabang hotel
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Link Google Maps
+                </label>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="map_link"
+                    value={form.map_link}
+                    onChange={handleChange}
+                    placeholder="Contoh: https://maps.app.goo.gl/xxxxx atau https://www.google.com/maps/..."
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                  />
+                  <LinkIcon
+                    size={18}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                </div>
+
+                <p className="text-xs text-gray-400 mt-2">
+                  Lebih mudah untuk admin. Cukup paste link lokasi dari Google Maps
                 </p>
               </div>
 

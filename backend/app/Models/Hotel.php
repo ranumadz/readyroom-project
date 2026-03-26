@@ -12,6 +12,8 @@ class Hotel extends Model
         'area',
         'address',
         'wa_admin',
+        'latitude',
+        'longitude',
         'description',
         'thumbnail',
         'hero_image',
