@@ -14,6 +14,7 @@ class Hotel extends Model
         'wa_admin',
         'latitude',
         'longitude',
+        'map_link', // ✅ TAMBAH INI
         'description',
         'thumbnail',
         'hero_image',

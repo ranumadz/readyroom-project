@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -11,6 +11,7 @@ import {
   FileText,
   Image as ImageIcon,
   Navigation,
+  MessageCircle,
 } from "lucide-react";
 
 export default function HotelDetail() {
@@ -62,10 +63,50 @@ export default function HotelDetail() {
     return `http://127.0.0.1:8000/storage/${cleanPath}`;
   };
 
-  const googleMapsUrl =
-    hotel?.latitude && hotel?.longitude
-      ? `https://www.google.com/maps?q=${hotel.latitude},${hotel.longitude}`
+  const mapLink =
+    hotel?.map_link && String(hotel.map_link).trim() !== ""
+      ? String(hotel.map_link).trim()
       : null;
+
+  const hotelAddress =
+    hotel?.address && String(hotel.address).trim() !== ""
+      ? String(hotel.address).trim()
+      : null;
+
+  const hasCoordinates = Boolean(hotel?.latitude && hotel?.longitude);
+
+  const googleMapsUrl = mapLink
+    ? mapLink
+    : hasCoordinates
+    ? `https://www.google.com/maps?q=${encodeURIComponent(
+        `${hotel.latitude},${hotel.longitude}`
+      )}`
+    : hotelAddress
+    ? `https://www.google.com/maps?q=${encodeURIComponent(hotelAddress)}`
+    : null;
+
+  const embedMapUrl = hotelAddress
+    ? `https://www.google.com/maps?q=${encodeURIComponent(
+        hotelAddress
+      )}&z=15&output=embed`
+    : hasCoordinates
+    ? `https://www.google.com/maps?q=${encodeURIComponent(
+        `${hotel.latitude},${hotel.longitude}`
+      )}&z=15&output=embed`
+    : null;
+
+  const waAdminLink = useMemo(() => {
+    const rawWa = String(hotel?.wa_admin || "").replace(/\D/g, "");
+    if (!rawWa) return null;
+
+    const normalizedWa = rawWa.startsWith("0")
+      ? `62${rawWa.slice(1)}`
+      : rawWa;
+
+    const text = `Halo Admin ${hotel?.name || "Hotel"}, saya ingin bertanya tentang reservasi kamar di hotel ini. Mohon info lebih lanjut ya.`;
+
+    return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
+  }, [hotel]);
 
   if (loading) {
     return (
@@ -224,7 +265,7 @@ export default function HotelDetail() {
                 </div>
               </div>
 
-              {hotel.latitude && hotel.longitude ? (
+              {embedMapUrl ? (
                 <>
                   <div className="w-full h-[320px] rounded-2xl overflow-hidden border border-gray-100">
                     <iframe
@@ -233,10 +274,30 @@ export default function HotelDetail() {
                       height="100%"
                       loading="lazy"
                       allowFullScreen
-                      src={`https://www.google.com/maps?q=${hotel.latitude},${hotel.longitude}&z=15&output=embed`}
+                      src={embedMapUrl}
+                      referrerPolicy="no-referrer-when-downgrade"
                       className="w-full h-full"
                     />
                   </div>
+
+                  {googleMapsUrl && (
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 mt-4 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
+                    >
+                      <MapPin size={18} />
+                      Buka di Google Maps
+                    </a>
+                  )}
+                </>
+              ) : googleMapsUrl ? (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
+                  <p className="text-gray-600 leading-relaxed">
+                    Peta embed belum tersedia, tapi lokasi hotel sudah bisa dibuka
+                    langsung lewat Google Maps.
+                  </p>
 
                   <a
                     href={googleMapsUrl}
@@ -247,10 +308,10 @@ export default function HotelDetail() {
                     <MapPin size={18} />
                     Buka di Google Maps
                   </a>
-                </>
+                </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
-                  Koordinat lokasi hotel belum tersedia.
+                  Lokasi hotel belum tersedia.
                 </div>
               )}
             </div>
@@ -302,6 +363,7 @@ export default function HotelDetail() {
               <div className="mt-6 pt-6 border-t border-gray-100">
                 <button
                   type="button"
+                  onClick={() => navigate(`/hotels/${hotel.id}/rooms`)}
                   className="w-full rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
                 >
                   Lihat Kamar Hotel
@@ -311,6 +373,46 @@ export default function HotelDetail() {
                   Step berikutnya kita sambungkan ke daftar kamar hotel ini.
                 </p>
               </div>
+            </div>
+
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
+                  <MessageCircle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">
+                    Butuh Bantuan Reservasi?
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Hubungi admin hotel untuk info lebih lanjut
+                  </p>
+                </div>
+              </div>
+
+              {waAdminLink ? (
+                <>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Untuk pertanyaan ketersediaan kamar, reservasi manual, atau
+                    bantuan cepat, kamu bisa langsung menghubungi admin hotel ini
+                    melalui WhatsApp.
+                  </p>
+
+                  <a
+                    href={waAdminLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-white font-semibold hover:bg-green-700 transition"
+                  >
+                    <MessageCircle size={18} />
+                    Chat WhatsApp Admin
+                  </a>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-gray-500">
+                  Kontak admin hotel belum tersedia saat ini.
+                </div>
+              )}
             </div>
 
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">

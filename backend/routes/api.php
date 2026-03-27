@@ -35,6 +35,12 @@ Route::get('/website-content', [WebsiteContentController::class, 'index']);
 // =========================
 Route::get('/hotels', [HotelController::class, 'publicIndex']);
 Route::get('/hotels/{id}', [HotelController::class, 'publicShow']);
+Route::get('/hotels/{hotelId}/rooms', [RoomController::class, 'getByHotel']);
+
+// =========================
+// Public Room Detail
+// =========================
+Route::get('/rooms/{id}', [RoomController::class, 'showPublic']);
 
 // =========================
 // Dev Helper
@@ -72,6 +78,7 @@ Route::prefix('admin')->group(function () {
     Route::get('/hotels/create', [HotelController::class, 'create']);
     Route::post('/hotels', [HotelController::class, 'store']);
     Route::put('/hotels/{id}', [HotelController::class, 'update']);
+    Route::post('/hotels/{id}', [HotelController::class, 'update']);
     Route::delete('/hotels/{id}', [HotelController::class, 'destroy']);
 
     // =========================

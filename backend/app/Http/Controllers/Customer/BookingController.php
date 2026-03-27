@@ -13,7 +13,7 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'user_id' => 'required|exists:users,id',
+            'user_id' => 'required|exists:customers,id',
             'hotel_id' => 'required|exists:hotels,id',
             'room_id' => 'required|exists:rooms,id',
             'booking_type' => 'required|in:transit,overnight',
@@ -21,7 +21,19 @@ class BookingController extends Controller
             'check_in' => 'required|date',
         ]);
 
-        $room = Room::findOrFail($request->room_id);
+        $room = Room::with('hotel')->findOrFail($request->room_id);
+
+        if ((int) $room->hotel_id !== (int) $request->hotel_id) {
+            return response()->json([
+                'message' => 'Kamar tidak sesuai dengan hotel yang dipilih'
+            ], 422);
+        }
+
+        if (!(bool) $room->status) {
+            return response()->json([
+                'message' => 'Kamar sedang tidak aktif atau tidak tersedia untuk booking'
+            ], 422);
+        }
 
         $checkIn = Carbon::parse($request->check_in);
         $checkOut = null;
@@ -59,7 +71,9 @@ class BookingController extends Controller
             'room_id' => $request->room_id,
             'room_unit_id' => null,
             'booking_type' => $request->booking_type,
-            'duration_hours' => $request->booking_type === 'transit' ? $request->duration_hours : null,
+            'duration_hours' => $request->booking_type === 'transit'
+                ? $request->duration_hours
+                : null,
             'check_in' => $checkIn,
             'check_out' => $checkOut,
             'total_price' => $totalPrice,

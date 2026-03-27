@@ -17,6 +17,33 @@ class RoomController extends Controller
         return response()->json($rooms);
     }
 
+    // GET rooms by hotel (PUBLIC - customer)
+    public function getByHotel($hotelId)
+    {
+        $rooms = Room::with(['hotel', 'images'])
+            ->where('hotel_id', $hotelId)
+            ->where('status', true)
+            ->get();
+
+        return response()->json([
+            "message" => "Rooms by hotel fetched successfully",
+            "data" => $rooms
+        ]);
+    }
+
+    // GET single room detail (PUBLIC - customer)
+    public function showPublic($id)
+    {
+        $room = Room::with(['hotel', 'images'])
+            ->where('status', true)
+            ->findOrFail($id);
+
+        return response()->json([
+            "message" => "Room detail fetched successfully",
+            "data" => $room
+        ]);
+    }
+
     // GET form data (optional)
     public function create()
     {
