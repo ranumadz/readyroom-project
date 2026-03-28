@@ -13,6 +13,7 @@ import UsersPage from "../admin/pages/Users";
 import MasterContent from "../admin/pages/MasterContent";
 
 import Home from "../pages/Home";
+import Hotels from "../pages/Hotels";
 import HotelDetail from "../pages/HotelDetail";
 import HotelRooms from "../pages/HotelRooms";
 import RoomDetail from "../pages/RoomDetail";
@@ -28,6 +29,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/hotels" element={<Hotels />} />
       <Route path="/hotels/:id" element={<HotelDetail />} />
       <Route path="/hotels/:id/rooms" element={<HotelRooms />} />
       <Route path="/rooms/:id" element={<RoomDetail />} />
