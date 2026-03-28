@@ -16,6 +16,7 @@ import Home from "../pages/Home";
 import HotelDetail from "../pages/HotelDetail";
 import HotelRooms from "../pages/HotelRooms";
 import RoomDetail from "../pages/RoomDetail";
+import MyBookings from "../pages/MyBookings";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import AdminLogin from "../admin/pages/Login";
@@ -30,6 +31,7 @@ export default function AppRoutes() {
       <Route path="/hotels/:id" element={<HotelDetail />} />
       <Route path="/hotels/:id/rooms" element={<HotelRooms />} />
       <Route path="/rooms/:id" element={<RoomDetail />} />
+      <Route path="/my-bookings" element={<MyBookings />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify-otp" element={<VerifyOtp />} />

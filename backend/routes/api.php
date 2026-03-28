@@ -23,8 +23,8 @@ Route::post('/resend-otp', [AuthController::class, 'resendOtp']);
 // =========================
 // Customer Booking
 // =========================
+Route::get('/my-bookings', [BookingController::class, 'index']);
 Route::post('/bookings', [BookingController::class, 'store']);
-
 // =========================
 // Public Website Content
 // =========================

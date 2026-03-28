@@ -24,7 +24,19 @@ class BookingController extends Controller
             'hotel',
             'room',
             'roomUnit'
-        ])->latest()->get();
+        ])->latest()->get()
+          ->map(function ($booking) {
+              if (empty($booking->guest_name) && $booking->user) {
+                  $booking->guest_name = $booking->user->name;
+              }
+
+              if (empty($booking->guest_phone) && $booking->user) {
+                  $booking->guest_phone = $booking->user->phone;
+              }
+
+              return $booking;
+          })
+          ->values();
 
         return response()->json($bookings);
     }
@@ -66,6 +78,7 @@ class BookingController extends Controller
             ->values();
 
         $bookingsQuery = Booking::with([
+            'user:id,name,phone',
             'hotel:id,name',
             'room:id,hotel_id,name',
             'roomUnit:id,room_id,room_number',
@@ -87,8 +100,8 @@ class BookingController extends Controller
                 return [
                     'id' => $booking->id,
                     'booking_code' => $booking->booking_code,
-                    'guest_name' => $booking->guest_name,
-                    'guest_phone' => $booking->guest_phone,
+                    'guest_name' => $booking->guest_name ?: ($booking->user?->name ?? null),
+                    'guest_phone' => $booking->guest_phone ?: ($booking->user?->phone ?? null),
                     'hotel_id' => $booking->hotel_id,
                     'room_id' => $booking->room_id,
                     'room_unit_id' => $booking->room_unit_id,

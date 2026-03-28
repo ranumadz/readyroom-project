@@ -13,6 +13,7 @@ import {
   X,
   RefreshCw,
   Filter,
+  Layers3,
 } from "lucide-react";
 
 export default function BookingCalendar() {
@@ -260,6 +261,31 @@ export default function BookingCalendar() {
     return hotel?.name || "-";
   };
 
+  const isSameCalendarDay = (dateA, dateB) => {
+    const a = new Date(dateA);
+    const b = new Date(dateB);
+
+    return (
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
+    );
+  };
+
+  const getRelatedBookingsSameDay = (booking) => {
+    if (!booking?.room_unit_id) return [];
+
+    return (calendarData.bookings || [])
+      .filter((item) => item.room_unit_id === booking.room_unit_id)
+      .filter((item) => isSameCalendarDay(item.check_in, booking.check_in))
+      .sort((a, b) => new Date(a.check_in) - new Date(b.check_in));
+  };
+
+  const getBookingSlotCount = (booking) => {
+    const relatedBookings = getRelatedBookingsSameDay(booking);
+    return Math.max(0, relatedBookings.length - 1);
+  };
+
   const totalVisibleBookings = useMemo(() => {
     return (calendarData.bookings || []).filter((booking) => {
       const checkIn = new Date(booking.check_in);
@@ -271,6 +297,11 @@ export default function BookingCalendar() {
       return inMonth && inStatus;
     }).length;
   }, [calendarData.bookings, monthStart, monthEnd, filters.status]);
+
+  const selectedBookingRelated = useMemo(() => {
+    if (!selectedBooking) return [];
+    return getRelatedBookingsSameDay(selectedBooking);
+  }, [selectedBooking, calendarData.bookings]);
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -286,7 +317,7 @@ export default function BookingCalendar() {
               Booking Calendar Ready Room
             </h1>
             <p className="text-gray-500 mt-1">
-              Visual Booking per kamar fisik. 
+              Visual Booking per kamar fisik.
             </p>
           </div>
 
@@ -508,21 +539,38 @@ export default function BookingCalendar() {
 
                           {unitBookings.map((booking) => {
                             const blockStyle = getBookingBlockStyle(booking);
+                            const slotCount = getBookingSlotCount(booking);
+                            const relatedBookings = getRelatedBookingsSameDay(booking);
 
                             return (
                               <button
                                 key={booking.id}
                                 type="button"
-                                onClick={() => setSelectedBooking(booking)}
+                                onClick={() =>
+                                  setSelectedBooking({
+                                    ...booking,
+                                    related_bookings_same_day: relatedBookings,
+                                  })
+                                }
                                 className={`absolute top-4 h-[64px] rounded-2xl border px-3 py-2 overflow-hidden shadow-lg hover:scale-[1.03] hover:z-50 transition-all duration-200 cursor-pointer text-left ${getBlockColor(
                                   booking
                                 )}`}
                                 style={blockStyle}
-                                title={`${booking.guest_name} | ${booking.guest_phone} | ${booking.booking_code}`}
+                                title={`${booking.guest_name || "-"} | ${
+                                  booking.guest_phone || "-"
+                                } | ${booking.booking_code}`}
                               >
                                 <div className="absolute top-0 left-0 w-full h-1 bg-white/30 rounded-t-2xl" />
 
-                                <p className="text-xs font-bold truncate">
+                                {slotCount > 0 && (
+                                  <div className="absolute top-1.5 right-1.5 z-10">
+                                    <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-gray-900 shadow-sm">
+                                      +{slotCount}
+                                    </span>
+                                  </div>
+                                )}
+
+                                <p className="text-xs font-bold truncate pr-8">
                                   {booking.guest_name || booking.booking_code}
                                 </p>
                                 <p className="text-[11px] opacity-95 truncate">
@@ -551,6 +599,7 @@ export default function BookingCalendar() {
       {selectedBooking && (
         <BookingDetailModal
           booking={selectedBooking}
+          relatedBookings={selectedBookingRelated}
           onClose={() => setSelectedBooking(null)}
           formatDateTime={formatDateTime}
           formatTimeRange={formatTimeRange}
@@ -583,6 +632,7 @@ function MiniCounter({ label, value }) {
 
 function BookingDetailModal({
   booking,
+  relatedBookings,
   onClose,
   formatDateTime,
   formatTimeRange,
@@ -636,6 +686,11 @@ function BookingDetailModal({
             <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm font-medium text-gray-700">
               Tipe: {booking.booking_type || "-"}
             </span>
+
+            <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
+              <Layers3 size={14} />
+              Aktivitas kamar hari ini: {relatedBookings?.length || 0}
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
@@ -681,7 +736,7 @@ function BookingDetailModal({
             />
           </div>
 
-          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5 mb-5">
             <p className="text-sm font-semibold text-gray-800 mb-3">
               Ringkasan Operasional
             </p>
@@ -703,6 +758,54 @@ function BookingDetailModal({
                 tone="bg-white text-gray-700"
               />
             </div>
+          </div>
+
+          <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-5">
+            <p className="text-sm font-semibold text-gray-800 mb-3">
+              Aktivitas Kamar di Hari yang Sama
+            </p>
+
+            {relatedBookings && relatedBookings.length > 0 ? (
+              <div className="space-y-3">
+                {relatedBookings.map((item, index) => (
+                  <div
+                    key={`${item.id}-${index}`}
+                    className={`rounded-2xl border px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 ${
+                      item.id === booking.id
+                        ? "border-red-200 bg-white shadow-sm"
+                        : "border-blue-100 bg-white/80"
+                    }`}
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        {item.guest_name || item.booking_code}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {item.guest_phone || "-"}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700">
+                        {formatTimeRange(item)}
+                      </span>
+
+                      <span
+                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
+                          item.status
+                        )}`}
+                      >
+                        {item.status || "-"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-blue-200 bg-white/70 px-4 py-5 text-sm text-gray-500">
+                Belum ada booking lain di kamar ini pada hari yang sama.
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex justify-end">

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import api from "../services/api";
@@ -19,6 +21,12 @@ import {
   ShieldCheck,
   CalendarDays,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  Sparkles,
+  Home,
+  AlertCircle,
 } from "lucide-react";
 
 export default function RoomDetail() {
@@ -39,6 +47,12 @@ export default function RoomDetail() {
     check_in: "",
   });
   const [submittingBooking, setSubmittingBooking] = useState(false);
+
+  const [bookingSuccess, setBookingSuccess] = useState({
+    open: false,
+    bookingCode: "",
+  });
+  const [bookingError, setBookingError] = useState("");
 
   useEffect(() => {
     fetchRoomDetail();
@@ -148,6 +162,90 @@ export default function RoomDetail() {
 
   const galleryImages = useMemo(() => buildGallery(room), [room]);
 
+  const activeImageIndex = useMemo(() => {
+    const idx = galleryImages.findIndex((image) => image === activeImage);
+    return idx >= 0 ? idx : 0;
+  }, [galleryImages, activeImage]);
+
+  const parseDateTimeLocalValue = (value) => {
+    if (!value) return null;
+
+    const [datePart, timePart] = value.split(" ");
+    if (!datePart || !timePart) return null;
+
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute, second] = timePart.split(":").map(Number);
+
+    return new Date(
+      year,
+      (month || 1) - 1,
+      day || 1,
+      hour || 0,
+      minute || 0,
+      second || 0
+    );
+  };
+
+  const formatDateTimeLocalValue = (date) => {
+    if (!date) return "";
+
+    const pad = (num) => String(num).padStart(2, "0");
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+  };
+
+  const selectedCheckInDate = useMemo(() => {
+    return bookingForm.check_in ? parseDateTimeLocalValue(bookingForm.check_in) : null;
+  }, [bookingForm.check_in]);
+
+  useEffect(() => {
+    if (!galleryImages.length) return;
+
+    if (!activeImage || !galleryImages.includes(activeImage)) {
+      setActiveImage(galleryImages[0]);
+    }
+  }, [galleryImages, activeImage]);
+
+  useEffect(() => {
+    if (galleryImages.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setActiveImage((prev) => {
+        const currentIndex = galleryImages.findIndex((image) => image === prev);
+        const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+        const nextIndex = (safeIndex + 1) % galleryImages.length;
+        return galleryImages[nextIndex];
+      });
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [galleryImages]);
+
+  const handlePrevImage = () => {
+    if (!galleryImages.length) return;
+
+    const prevIndex =
+      activeImageIndex === 0 ? galleryImages.length - 1 : activeImageIndex - 1;
+    setActiveImage(galleryImages[prevIndex]);
+  };
+
+  const handleNextImage = () => {
+    if (!galleryImages.length) return;
+
+    const nextIndex = (activeImageIndex + 1) % galleryImages.length;
+    setActiveImage(galleryImages[nextIndex]);
+  };
+
+  const handleCheckInDateChange = (date) => {
+    setBookingForm((prev) => ({
+      ...prev,
+      check_in: date ? formatDateTimeLocalValue(date) : "",
+    }));
+    setBookingError("");
+  };
+
   const formatRupiah = (value) => {
     const amount = Number(value || 0);
     return new Intl.NumberFormat("id-ID", {
@@ -188,19 +286,20 @@ export default function RoomDetail() {
   }, [room, bookingMode, transitDuration, mainPrice]);
 
   const handleBookingClick = () => {
+    setBookingError("");
     setShowBookingModal(true);
   };
 
   const closeBookingModal = () => {
     setShowBookingModal(false);
+    setBookingError("");
   };
 
-  const handleBookingFormChange = (e) => {
-    const { name, value } = e.target;
-    setBookingForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const closeSuccessModal = () => {
+    setBookingSuccess({
+      open: false,
+      bookingCode: "",
+    });
   };
 
   const resolveCustomerUserId = () => {
@@ -221,24 +320,26 @@ export default function RoomDetail() {
     const userId = resolveCustomerUserId();
 
     if (!userId) {
-      alert("User login tidak terdeteksi. Silakan login ulang dulu ya.");
+      setBookingError("User login tidak terdeteksi. Silakan login ulang dulu ya.");
       return;
     }
 
     if (!bookingForm.check_in) {
-      alert("Silakan isi tanggal / jam check-in terlebih dahulu.");
+      setBookingError("Silakan isi tanggal / jam check-in terlebih dahulu.");
       return;
     }
 
     try {
       setSubmittingBooking(true);
+      setBookingError("");
 
       const payload = {
         user_id: userId,
         hotel_id: room.hotel_id || room.hotel?.id,
         room_id: room.id,
         booking_type: bookingMode,
-        duration_hours: bookingMode === "transit" ? Number(transitDuration) : null,
+        duration_hours:
+          bookingMode === "transit" ? Number(transitDuration) : null,
         check_in: bookingForm.check_in,
       };
 
@@ -248,11 +349,14 @@ export default function RoomDetail() {
 
       closeBookingModal();
 
-      alert(
-        `Booking berhasil dibuat dan menunggu persetujuan admin.\nKode Booking: ${bookingCode}`
-      );
+      setBookingForm({
+        check_in: "",
+      });
 
-      navigate("/login");
+      setBookingSuccess({
+        open: true,
+        bookingCode,
+      });
     } catch (error) {
       console.error("SUBMIT BOOKING ERROR:", error.response?.data || error);
 
@@ -262,7 +366,7 @@ export default function RoomDetail() {
         error.response?.data?.errors?.user_id?.[0] ||
         "Booking gagal dibuat. Silakan coba lagi.";
 
-      alert(message);
+      setBookingError(message);
     } finally {
       setSubmittingBooking(false);
     }
@@ -321,6 +425,87 @@ export default function RoomDetail() {
 
   return (
     <>
+      <style>{`
+        .readyroom-datepicker-popper {
+          z-index: 80 !important;
+        }
+
+        .readyroom-datepicker-calendar {
+          border: 1px solid #fecaca !important;
+          border-radius: 24px !important;
+          overflow: hidden !important;
+          box-shadow: 0 20px 50px rgba(239, 68, 68, 0.18) !important;
+          font-family: inherit !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__header {
+          background: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%) !important;
+          border-bottom: none !important;
+          padding-top: 14px !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__current-month,
+        .readyroom-datepicker-calendar .react-datepicker-time__header,
+        .readyroom-datepicker-calendar .react-datepicker-year-header {
+          color: #ffffff !important;
+          font-weight: 800 !important;
+          font-size: 14px !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__day-name {
+          color: rgba(255,255,255,0.92) !important;
+          font-weight: 700 !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__navigation-icon::before {
+          border-color: #ffffff !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__day,
+        .readyroom-datepicker-calendar .react-datepicker__time-name {
+          border-radius: 12px !important;
+          color: #1f2937 !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__day:hover,
+        .readyroom-datepicker-calendar .react-datepicker__time-list-item:hover {
+          background-color: #fee2e2 !important;
+          color: #dc2626 !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__day--selected,
+        .readyroom-datepicker-calendar .react-datepicker__day--keyboard-selected,
+        .readyroom-datepicker-calendar .react-datepicker__time-list-item--selected {
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+          color: #ffffff !important;
+          font-weight: 700 !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__today-button {
+          background: #fff1f2 !important;
+          color: #e11d48 !important;
+          border-top: 1px solid #ffe4e6 !important;
+          font-weight: 700 !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__triangle {
+          display: none !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__time-container {
+          border-left: 1px solid #ffe4e6 !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__time-list-item {
+          border-radius: 10px !important;
+          margin: 2px 8px !important;
+        }
+
+        .readyroom-datepicker-calendar .react-datepicker__input-time-container {
+          margin: 0 !important;
+        }
+      `}</style>
+
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
 
@@ -335,15 +520,54 @@ export default function RoomDetail() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>
-              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="relative bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden group">
                 <img
                   src={activeImage || "/images/hotel.jpg"}
                   alt={room.name}
                   onError={(e) => {
                     e.currentTarget.src = "/images/hotel.jpg";
                   }}
-                  className="w-full h-[380px] object-cover"
+                  className="w-full h-[380px] object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                 />
+
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
+
+                {galleryImages.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePrevImage}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/85 text-gray-800 shadow-lg backdrop-blur hover:bg-white transition"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleNextImage}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/85 text-gray-800 shadow-lg backdrop-blur hover:bg-white transition"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </>
+                )}
+
+                {galleryImages.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                    {galleryImages.map((image, index) => (
+                      <button
+                        key={`dot-${image}-${index}`}
+                        type="button"
+                        onClick={() => setActiveImage(image)}
+                        className={`h-2.5 rounded-full transition-all ${
+                          activeImage === image
+                            ? "w-7 bg-white shadow"
+                            : "w-2.5 bg-white/60 hover:bg-white/80"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-4 gap-3 mt-4">
@@ -352,10 +576,10 @@ export default function RoomDetail() {
                     key={`${image}-${index}`}
                     type="button"
                     onClick={() => setActiveImage(image)}
-                    className={`rounded-2xl overflow-hidden border-2 transition ${
+                    className={`relative rounded-2xl overflow-hidden border-2 transition-all duration-300 ${
                       activeImage === image
-                        ? "border-red-500"
-                        : "border-transparent"
+                        ? "border-red-500 shadow-lg scale-[1.02]"
+                        : "border-transparent hover:border-red-200 hover:shadow-md"
                     }`}
                   >
                     <img
@@ -366,6 +590,10 @@ export default function RoomDetail() {
                       }}
                       className="w-full h-24 object-cover"
                     />
+
+                    {activeImage === image && (
+                      <div className="absolute inset-0 ring-2 ring-red-500 rounded-2xl" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -422,7 +650,9 @@ export default function RoomDetail() {
                     type="button"
                     onClick={() => setBookingMode("overnight")}
                     className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition ${
-                      bookingMode === "overnight" ? "text-white" : "text-gray-600"
+                      bookingMode === "overnight"
+                        ? "text-white"
+                        : "text-gray-600"
                     }`}
                   >
                     Overnight
@@ -537,7 +767,7 @@ export default function RoomDetail() {
               <button
                 type="button"
                 onClick={handleBookingClick}
-                className="mt-6 w-full rounded-2xl bg-red-600 px-5 py-4 text-white font-semibold hover:bg-red-700 transition"
+                className="mt-6 w-full rounded-2xl bg-red-600 px-5 py-4 text-white font-semibold hover:bg-red-700 transition shadow-lg shadow-red-100"
               >
                 Lanjut Booking
               </button>
@@ -593,7 +823,10 @@ export default function RoomDetail() {
                 <div className="space-y-5">
                   <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-4">
                     <div className="flex items-start gap-3">
-                      <ShieldCheck className="text-emerald-600 mt-0.5" size={20} />
+                      <ShieldCheck
+                        className="text-emerald-600 mt-0.5"
+                        size={20}
+                      />
                       <div>
                         <h3 className="font-bold text-gray-800">
                           Akun customer terdeteksi
@@ -613,24 +846,52 @@ export default function RoomDetail() {
                     </label>
 
                     <div className="relative">
-                      <input
-                        type="datetime-local"
-                        name="check_in"
-                        value={bookingForm.check_in}
-                        onChange={handleBookingFormChange}
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                      <DatePicker
+                        selected={selectedCheckInDate}
+                        onChange={handleCheckInDateChange}
+                        showTimeSelect
+                        timeIntervals={60}
+                        timeCaption="Jam"
+                        dateFormat="dd/MM/yyyy HH:mm"
+                        placeholderText="Pilih tanggal dan jam check-in"
+                        minDate={new Date()}
+                        todayButton="Hari ini"
+                        calendarClassName="readyroom-datepicker-calendar"
+                        popperClassName="readyroom-datepicker-popper"
+                        wrapperClassName="w-full"
+                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 text-gray-800 placeholder:text-gray-400"
                       />
                       <CalendarDays
                         size={18}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
                       />
                     </div>
 
                     <p className="text-xs text-gray-400 mt-2">
-                      Pilih waktu mulai booking. Untuk transit, check-out dihitung
-                      otomatis sesuai durasi. Untuk overnight, sistem hitung +1 hari.
+                      Pilih waktu mulai booking. Untuk transit, check-out
+                      dihitung otomatis sesuai durasi. Untuk overnight, sistem
+                      hitung +1 hari.
                     </p>
                   </div>
+
+                  {bookingError && (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle
+                          className="text-red-600 mt-0.5"
+                          size={20}
+                        />
+                        <div>
+                          <p className="font-semibold text-red-700">
+                            Booking belum berhasil
+                          </p>
+                          <p className="text-sm text-red-600 mt-1">
+                            {bookingError}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
@@ -670,8 +931,9 @@ export default function RoomDetail() {
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
                     <p className="text-sm text-gray-600">
                       Kamu belum login. Kamu bisa booking dengan akun supaya
-                      riwayat transaksi tersimpan, atau reservasi manual lewat admin.
-                      Semua booking tetap menunggu approval admin dulu ya.
+                      riwayat transaksi tersimpan, atau reservasi manual lewat
+                      admin. Semua booking tetap menunggu approval admin dulu
+                      ya.
                     </p>
                   </div>
 
@@ -714,6 +976,91 @@ export default function RoomDetail() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bookingSuccess.open && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-[32px] bg-white shadow-2xl border border-red-100">
+            <div className="absolute -top-16 -left-10 h-40 w-40 rounded-full bg-red-100 blur-2xl" />
+            <div className="absolute -bottom-16 -right-10 h-40 w-40 rounded-full bg-rose-100 blur-2xl" />
+
+            <div className="relative p-8">
+              <button
+                type="button"
+                onClick={closeSuccessModal}
+                className="absolute right-5 top-5 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-lg shadow-red-200">
+                <CheckCircle2 size={38} />
+              </div>
+
+              <div className="text-center">
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+                  <Sparkles size={16} />
+                  Booking Berhasil
+                </div>
+
+                <h2 className="text-3xl font-extrabold text-gray-800 leading-tight">
+                  Yeay, pesananmu berhasil masuk
+                </h2>
+
+                <p className="mt-3 text-gray-500 leading-relaxed">
+                  Booking kamu sudah berhasil dibuat dan sekarang sedang
+                  menunggu persetujuan admin ReadyRoom.
+                </p>
+              </div>
+
+              <div className="mt-6 rounded-3xl border border-red-100 bg-gradient-to-br from-red-50 to-rose-50 p-5">
+                <p className="text-sm text-red-600 font-semibold mb-2">
+                  Kode Booking Kamu
+                </p>
+                <p className="text-2xl font-extrabold tracking-wide text-gray-800">
+                  {bookingSuccess.bookingCode || "-"}
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  Simpan kode ini ya brok, nanti bisa dipakai untuk konfirmasi ke
+                  hotel saat booking sudah disetujui.
+                </p>
+              </div>
+
+              <div className="mt-6 rounded-3xl border border-gray-100 bg-gray-50 p-5">
+                <p className="text-sm font-semibold text-gray-800 mb-2">
+                  Sambil menunggu approval admin
+                </p>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Yuk cek beranda ReadyRoom lagi untuk lihat promo menarik,
+                  pilihan kamar lain, atau reservasi hotel favoritmu berikutnya.
+                </p>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeSuccessModal();
+                    navigate("/");
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3.5 text-white font-semibold hover:bg-red-700 transition"
+                >
+                  <Home size={18} />
+                  Kembali ke Beranda
+                </button>
+
+                <button
+                  type="button"
+                  onClick={closeSuccessModal}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-gray-700 font-semibold hover:bg-gray-50 transition"
+                >
+                  <Sparkles size={18} />
+                  Jelajahi Lagi
+                </button>
+              </div>
             </div>
           </div>
         </div>

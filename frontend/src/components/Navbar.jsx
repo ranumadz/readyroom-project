@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X, ReceiptText } from "lucide-react";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -35,15 +35,34 @@ export default function Navbar() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            <Link to="/" className="text-gray-700 hover:text-red-600 font-medium transition">
+            <Link
+              to="/"
+              className="text-gray-700 hover:text-red-600 font-medium transition"
+            >
               Home
             </Link>
-            <Link to="/hotels" className="text-gray-700 hover:text-red-600 font-medium transition">
+            <Link
+              to="/hotels"
+              className="text-gray-700 hover:text-red-600 font-medium transition"
+            >
               Hotels
             </Link>
-            <Link to="/rooms" className="text-gray-700 hover:text-red-600 font-medium transition">
+            <Link
+              to="/rooms"
+              className="text-gray-700 hover:text-red-600 font-medium transition"
+            >
               Rooms
             </Link>
+
+            {customer && (
+              <Link
+                to="/my-bookings"
+                className="inline-flex items-center gap-2 text-gray-700 hover:text-red-600 font-medium transition"
+              >
+                <ReceiptText size={17} />
+                Riwayat Booking
+              </Link>
+            )}
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
@@ -107,6 +126,7 @@ export default function Navbar() {
             >
               Home
             </Link>
+
             <Link
               to="/hotels"
               className="block text-gray-700 hover:text-red-600 font-medium"
@@ -114,6 +134,7 @@ export default function Navbar() {
             >
               Hotels
             </Link>
+
             <Link
               to="/rooms"
               className="block text-gray-700 hover:text-red-600 font-medium"
@@ -121,6 +142,16 @@ export default function Navbar() {
             >
               Rooms
             </Link>
+
+            {customer && (
+              <Link
+                to="/my-bookings"
+                className="block text-gray-700 hover:text-red-600 font-medium"
+                onClick={() => setMobileOpen(false)}
+              >
+                Riwayat Booking
+              </Link>
+            )}
 
             {customer ? (
               <div className="pt-2 space-y-3">

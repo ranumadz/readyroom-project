@@ -10,6 +10,27 @@ use Carbon\Carbon;
 
 class BookingController extends Controller
 {
+    public function index(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:customers,id',
+        ]);
+
+        $bookings = Booking::with([
+            'hotel',
+            'room',
+            'roomUnit',
+        ])
+            ->where('user_id', $request->user_id)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'message' => 'Riwayat booking berhasil diambil',
+            'data' => $bookings,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
