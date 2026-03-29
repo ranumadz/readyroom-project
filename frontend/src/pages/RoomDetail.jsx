@@ -197,8 +197,39 @@ export default function RoomDetail() {
   };
 
   const selectedCheckInDate = useMemo(() => {
-    return bookingForm.check_in ? parseDateTimeLocalValue(bookingForm.check_in) : null;
+    return bookingForm.check_in
+      ? parseDateTimeLocalValue(bookingForm.check_in)
+      : null;
   }, [bookingForm.check_in]);
+
+  const estimatedCheckOutText = useMemo(() => {
+    if (!selectedCheckInDate) return "-";
+
+    const checkIn = new Date(selectedCheckInDate);
+    const checkOut = new Date(checkIn);
+
+    if (bookingMode === "transit") {
+      checkOut.setHours(checkOut.getHours() + Number(transitDuration || 0));
+    } else {
+      const sameDayNoon = new Date(checkIn);
+      sameDayNoon.setHours(12, 0, 0, 0);
+
+      if (checkIn < sameDayNoon) {
+        checkOut.setTime(sameDayNoon.getTime());
+      } else {
+        sameDayNoon.setDate(sameDayNoon.getDate() + 1);
+        checkOut.setTime(sameDayNoon.getTime());
+      }
+    }
+
+    return checkOut.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, [selectedCheckInDate, bookingMode, transitDuration]);
 
   useEffect(() => {
     if (!galleryImages.length) return;
@@ -280,7 +311,11 @@ export default function RoomDetail() {
         ? `Transit ${transitDuration} Jam`
         : "Overnight";
 
-    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi kamar.\n\nHotel: ${room?.hotel?.name || "-"}\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabel}\nHarga: ${formatRupiah(mainPrice)}\n\nMohon info ketersediaannya ya.`;
+    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi kamar.\n\nHotel: ${
+      room?.hotel?.name || "-"
+    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabel}\nHarga: ${formatRupiah(
+      mainPrice
+    )}\n\nMohon info ketersediaannya ya.`;
 
     return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
   }, [room, bookingMode, transitDuration, mainPrice]);
@@ -426,85 +461,122 @@ export default function RoomDetail() {
   return (
     <>
       <style>{`
-        .readyroom-datepicker-popper {
-          z-index: 80 !important;
-        }
+  .readyroom-datepicker-popper {
+    z-index: 9999 !important;
+  }
 
-        .readyroom-datepicker-calendar {
-          border: 1px solid #fecaca !important;
-          border-radius: 24px !important;
-          overflow: hidden !important;
-          box-shadow: 0 20px 50px rgba(239, 68, 68, 0.18) !important;
-          font-family: inherit !important;
-        }
+  .readyroom-datepicker-calendar {
+    border: 1px solid #fecaca !important;
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    box-shadow: 0 20px 50px rgba(239, 68, 68, 0.18) !important;
+    font-family: inherit !important;
+    background: #ffffff !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__header {
-          background: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%) !important;
-          border-bottom: none !important;
-          padding-top: 14px !important;
-        }
+  .readyroom-datepicker-calendar.react-datepicker {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 460px !important;
+    min-width: 460px !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__current-month,
-        .readyroom-datepicker-calendar .react-datepicker-time__header,
-        .readyroom-datepicker-calendar .react-datepicker-year-header {
-          color: #ffffff !important;
-          font-weight: 800 !important;
-          font-size: 14px !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__month-container {
+    float: none !important;
+    width: 320px !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__day-name {
-          color: rgba(255,255,255,0.92) !important;
-          font-weight: 700 !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__header {
+    background: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%) !important;
+    border-bottom: none !important;
+    padding-top: 14px !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__navigation-icon::before {
-          border-color: #ffffff !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__current-month,
+  .readyroom-datepicker-calendar .react-datepicker-time__header,
+  .readyroom-datepicker-calendar .react-datepicker-year-header {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 14px !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__day,
-        .readyroom-datepicker-calendar .react-datepicker__time-name {
-          border-radius: 12px !important;
-          color: #1f2937 !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__day-name {
+    color: rgba(255, 255, 255, 0.92) !important;
+    font-weight: 700 !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__day:hover,
-        .readyroom-datepicker-calendar .react-datepicker__time-list-item:hover {
-          background-color: #fee2e2 !important;
-          color: #dc2626 !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__navigation-icon::before {
+    border-color: #ffffff !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__day--selected,
-        .readyroom-datepicker-calendar .react-datepicker__day--keyboard-selected,
-        .readyroom-datepicker-calendar .react-datepicker__time-list-item--selected {
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-          color: #ffffff !important;
-          font-weight: 700 !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__day {
+    border-radius: 12px !important;
+    color: #1f2937 !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__today-button {
-          background: #fff1f2 !important;
-          color: #e11d48 !important;
-          border-top: 1px solid #ffe4e6 !important;
-          font-weight: 700 !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__day:hover,
+  .readyroom-datepicker-calendar .react-datepicker__time-list-item:hover {
+    background-color: #fee2e2 !important;
+    color: #dc2626 !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__triangle {
-          display: none !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__day--selected,
+  .readyroom-datepicker-calendar .react-datepicker__day--keyboard-selected,
+  .readyroom-datepicker-calendar .react-datepicker__time-list-item--selected {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__time-container {
-          border-left: 1px solid #ffe4e6 !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__today-button {
+    background: #fff1f2 !important;
+    color: #e11d48 !important;
+    border-top: 1px solid #ffe4e6 !important;
+    font-weight: 700 !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__time-list-item {
-          border-radius: 10px !important;
-          margin: 2px 8px !important;
-        }
+  .readyroom-datepicker-calendar .react-datepicker__triangle {
+    display: none !important;
+  }
 
-        .readyroom-datepicker-calendar .react-datepicker__input-time-container {
-          margin: 0 !important;
-        }
-      `}</style>
+  .readyroom-datepicker-calendar .react-datepicker__time-container {
+    float: none !important;
+    width: 140px !important;
+    min-width: 140px !important;
+    border-left: 1px solid #ffe4e6 !important;
+    background: #ffffff !important;
+  }
+
+  .readyroom-datepicker-calendar .react-datepicker__time {
+    background: #ffffff !important;
+  }
+
+  .readyroom-datepicker-calendar .react-datepicker__time-box {
+    width: 100% !important;
+  }
+
+  .readyroom-datepicker-calendar .react-datepicker__time-list {
+    height: 260px !important;
+    padding: 6px 0 !important;
+    overflow-y: auto !important;
+  }
+
+  .readyroom-datepicker-calendar .react-datepicker__time-list-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    border-radius: 10px !important;
+    margin: 2px 8px !important;
+    color: #1f2937 !important;
+    font-weight: 600 !important;
+  }
+
+  .readyroom-datepicker-calendar .react-datepicker__input-time-container {
+    margin: 0 !important;
+  }
+`}</style>
 
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
@@ -685,6 +757,16 @@ export default function RoomDetail() {
                   </div>
                 )}
 
+                {bookingMode === "overnight" && (
+                  <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                    <MoonStar size={16} className="mt-0.5 shrink-0" />
+                    <p>
+                      Untuk booking overnight, checkout mengikuti aturan hotel
+                      dan maksimal pukul 12.00 siang.
+                    </p>
+                  </div>
+                )}
+
                 <div className="mt-5 rounded-2xl bg-red-50 border border-red-100 px-4 py-4">
                   <p className="text-xs font-semibold text-red-600 mb-1">
                     Harga{" "}
@@ -785,7 +867,7 @@ export default function RoomDetail() {
 
       {showBookingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white border border-gray-100 shadow-2xl overflow-hidden">
+          <div className="w-full max-w-2xl rounded-3xl bg-white border border-gray-100 shadow-2xl overflow-visible">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">
@@ -847,20 +929,23 @@ export default function RoomDetail() {
 
                     <div className="relative">
                       <DatePicker
-                        selected={selectedCheckInDate}
-                        onChange={handleCheckInDateChange}
-                        showTimeSelect
-                        timeIntervals={60}
-                        timeCaption="Jam"
-                        dateFormat="dd/MM/yyyy HH:mm"
-                        placeholderText="Pilih tanggal dan jam check-in"
-                        minDate={new Date()}
-                        todayButton="Hari ini"
-                        calendarClassName="readyroom-datepicker-calendar"
-                        popperClassName="readyroom-datepicker-popper"
-                        wrapperClassName="w-full"
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 text-gray-800 placeholder:text-gray-400"
-                      />
+  selected={selectedCheckInDate}
+  onChange={handleCheckInDateChange}
+  showTimeSelect
+  timeFormat="HH:mm"
+  timeIntervals={15}
+  timeCaption="Jam"
+  dateFormat="dd/MM/yyyy HH:mm"
+  placeholderText="Pilih tanggal dan jam check-in"
+  minDate={new Date()}
+  todayButton="Hari ini"
+  isClearable
+  popperPlacement="bottom-start"
+  calendarClassName="readyroom-datepicker-calendar"
+  popperClassName="readyroom-datepicker-popper"
+  wrapperClassName="w-full"
+  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 text-gray-800 placeholder:text-gray-400"
+/>
                       <CalendarDays
                         size={18}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
@@ -869,9 +954,18 @@ export default function RoomDetail() {
 
                     <p className="text-xs text-gray-400 mt-2">
                       Pilih waktu mulai booking. Untuk transit, check-out
-                      dihitung otomatis sesuai durasi. Untuk overnight, sistem
-                      hitung +1 hari.
+                      dihitung otomatis sesuai durasi. Untuk overnight, checkout
+                      mengikuti aturan hotel dan maksimal pukul 12.00 siang.
                     </p>
+
+                    <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                      <p className="text-xs font-semibold text-amber-700 mb-1">
+                        Estimasi Check-out
+                      </p>
+                      <p className="text-sm font-bold text-gray-800">
+                        {estimatedCheckOutText}
+                      </p>
+                    </div>
                   </div>
 
                   {bookingError && (
@@ -923,6 +1017,12 @@ export default function RoomDetail() {
                         <MessageCircle size={18} />
                         Reservasi via Admin
                       </a>
+                    )}
+
+                    {!waAdminLink && (
+                      <div className="sm:col-span-2 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-center text-sm text-gray-500">
+                        Kontak admin hotel belum tersedia untuk reservasi manual.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1006,7 +1106,7 @@ export default function RoomDetail() {
                   Booking Berhasil
                 </div>
 
-                <h2 className="text-3xl font-extrabold text-gray-800 leading-tight">
+                <h2 className="text-3xl font-extrabold text-gray-800 leading-tight mt-5">
                   Yeay, pesananmu berhasil masuk
                 </h2>
 

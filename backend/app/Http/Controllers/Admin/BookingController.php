@@ -161,6 +161,22 @@ class BookingController extends Controller
         return 'RR-' . $date . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Hitung checkout overnight untuk hotel budget:
+     * - check-in sebelum jam 12 siang => checkout hari itu jam 12:00
+     * - check-in jam 12 siang atau setelahnya => checkout besok jam 12:00
+     */
+    private function calculateOvernightCheckOut(Carbon $checkIn): Carbon
+    {
+        $sameDayNoon = (clone $checkIn)->setTime(12, 0, 0);
+
+        if ($checkIn->lt($sameDayNoon)) {
+            return $sameDayNoon;
+        }
+
+        return $sameDayNoon->addDay();
+    }
+
     // ✅ APPROVE BOOKING CUSTOMER
     public function approve(Request $request, $id)
     {
@@ -293,7 +309,7 @@ class BookingController extends Controller
         if ($booking->booking_type === 'transit') {
             $checkOut = (clone $checkIn)->addHours($booking->duration_hours);
         } else {
-            $checkOut = (clone $checkIn)->addDay();
+            $checkOut = $this->calculateOvernightCheckOut($checkIn);
         }
 
         // cek bentrok waktu
@@ -640,7 +656,7 @@ class BookingController extends Controller
                 }
             }
         } else {
-            $checkOut = (clone $checkIn)->addDay();
+            $checkOut = $this->calculateOvernightCheckOut($checkIn);
 
             if ($request->filled('total_price')) {
                 $basePrice = (float) $request->total_price;

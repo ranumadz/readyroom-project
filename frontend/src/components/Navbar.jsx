@@ -48,7 +48,7 @@ export default function Navbar() {
               Hotels
             </Link>
             <Link
-              to="/rooms"
+              to="/hotels"
               className="text-gray-700 hover:text-red-600 font-medium transition"
             >
               Rooms
@@ -136,7 +136,7 @@ export default function Navbar() {
             </Link>
 
             <Link
-              to="/rooms"
+              to="/hotels"
               className="block text-gray-700 hover:text-red-600 font-medium"
               onClick={() => setMobileOpen(false)}
             >

@@ -15,6 +15,10 @@ import {
   ArrowRight,
   Building2,
   Hotel,
+  Sparkles,
+  BadgeCheck,
+  History,
+  Eye,
 } from "lucide-react";
 
 import AOS from "aos";
@@ -23,6 +27,7 @@ import "aos/dist/aos.css";
 export default function Home() {
   const [popularHotels, setPopularHotels] = useState([]);
   const [loadingHotels, setLoadingHotels] = useState(true);
+  const [recentHotels, setRecentHotels] = useState([]);
 
   useEffect(() => {
     AOS.init({
@@ -33,6 +38,19 @@ export default function Home() {
 
   useEffect(() => {
     fetchPopularHotels();
+    loadRecentHotels();
+  }, []);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      loadRecentHotels();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
   }, []);
 
   const fetchPopularHotels = async () => {
@@ -52,43 +70,72 @@ export default function Home() {
   };
 
   const buildImageUrl = (path, fallback = "/images/hotel.jpg") => {
-  if (!path) return fallback;
+    if (!path) return fallback;
 
-  const rawPath = String(path).trim();
+    const rawPath = String(path).trim();
 
-  if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
-    return rawPath;
-  }
+    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+      return rawPath;
+    }
 
-  const cleanPath = rawPath.replace(/^\/+/, "");
+    const cleanPath = rawPath.replace(/^\/+/, "");
 
-  // gambar bawaan frontend/public
-  if (cleanPath.startsWith("images/")) {
-    return `/${cleanPath}`;
-  }
+    if (cleanPath.startsWith("images/")) {
+      return `/${cleanPath}`;
+    }
 
-  // kalau sudah storage/...
-  if (cleanPath.startsWith("storage/")) {
-    return `http://127.0.0.1:8000/${cleanPath}`;
-  }
+    if (cleanPath.startsWith("storage/")) {
+      return `http://127.0.0.1:8000/${cleanPath}`;
+    }
 
-  // default: file upload backend
-  return `http://127.0.0.1:8000/storage/${cleanPath}`;
-};
+    return `http://127.0.0.1:8000/storage/${cleanPath}`;
+  };
+
+  const getCustomerStorageKey = () => {
+    try {
+      const rawCustomer =
+        localStorage.getItem("customer") ||
+        localStorage.getItem("customerUser") ||
+        localStorage.getItem("user");
+
+      if (!rawCustomer) return "readyroom_recent_hotels_guest";
+
+      const parsedCustomer = JSON.parse(rawCustomer);
+      const customerId = parsedCustomer?.id || "guest";
+
+      return `readyroom_recent_hotels_${customerId}`;
+    } catch (error) {
+      console.error("GET CUSTOMER STORAGE KEY ERROR:", error);
+      return "readyroom_recent_hotels_guest";
+    }
+  };
+
+  const loadRecentHotels = () => {
+    try {
+      const storageKey = getCustomerStorageKey();
+      const storedRecent = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+      setRecentHotels(Array.isArray(storedRecent) ? storedRecent : []);
+    } catch (error) {
+      console.error("LOAD RECENT HOTELS ERROR:", error);
+      setRecentHotels([]);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-hidden bg-gradient-to-br from-red-700 via-red-600 to-rose-600 text-white pt-20 pb-24 md:pt-28 md:pb-32">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#6d0000] via-red-700 to-rose-700 text-white pt-20 pb-24 md:pt-28 md:pb-32">
         <div className="absolute inset-0">
-          <div className="absolute -top-10 left-0 w-72 h-72 bg-white/10 blur-3xl rounded-full" />
-          <div className="absolute top-20 right-10 w-80 h-80 bg-black/10 blur-3xl rounded-full" />
-          <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-red-300/10 blur-3xl rounded-full" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,0,0,0.18),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.08),transparent_25%)]" />
+          <div className="absolute -top-16 left-0 w-80 h-80 bg-white/10 blur-3xl rounded-full" />
+          <div className="absolute top-12 right-10 w-96 h-96 bg-black/15 blur-3xl rounded-full" />
+          <div className="absolute bottom-0 left-1/3 w-[28rem] h-[28rem] bg-red-300/10 blur-3xl rounded-full" />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 md:px-6">
-          <div className="max-w-4xl mx-auto text-center">
+          <div className="max-w-5xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-md px-4 py-2 mb-6 shadow-lg">
               <Clock size={16} />
               <span className="text-sm font-medium">
@@ -96,17 +143,50 @@ export default function Home() {
               </span>
             </div>
 
-            <h2 className="text-4xl md:text-6xl font-extrabold leading-tight mb-5">
+            <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-xs md:text-sm text-white/90">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 backdrop-blur-md border border-white/15">
+                <BadgeCheck size={15} />
+                Fast Approval Flow
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 backdrop-blur-md border border-white/15">
+                <Sparkles size={15} />
+                Modern Transit Booking
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 backdrop-blur-md border border-white/15">
+                <ShieldCheck size={15} />
+                Aman & Nyaman
+              </span>
+            </div>
+
+            <h2 className="text-4xl md:text-6xl xl:text-7xl font-extrabold leading-[1.08] mb-5 tracking-tight">
               Find Your Perfect Stay with{" "}
-              <span className="bg-gradient-to-r from-amber-100 via-yellow-50 to-white bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(255,245,200,0.55)]">
+              <span className="text-[#dc2626] [-webkit-text-stroke:1px_rgba(255,255,255,0.65)] [text-shadow:0_0_8px_rgba(255,255,255,0.18),0_3px_0_rgba(127,29,29,0.55),0_10px_24px_rgba(127,29,29,0.35)]">
                 ReadyRoom
               </span>
             </h2>
 
-            <p className="text-red-100 text-lg md:text-xl max-w-3xl mx-auto mb-10">
+            <p className="text-red-100 text-lg md:text-xl max-w-3xl mx-auto mb-10 leading-relaxed">
               Booking hotel lebih cepat, lebih fleksibel, dan cocok untuk transit,
               perjalanan bisnis, atau staycation singkat di kota favoritmu.
             </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+              <Link
+                to="/hotels"
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-red-600 font-semibold shadow-xl hover:bg-gray-100 hover:-translate-y-0.5 transition"
+              >
+                Explore Hotels
+                <ArrowRight size={18} />
+              </Link>
+
+              <Link
+                to="/hotels"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-6 py-3.5 text-white font-semibold backdrop-blur-md hover:bg-white/15 hover:-translate-y-0.5 transition"
+              >
+                Explore Rooms
+                <Hotel size={18} />
+              </Link>
+            </div>
           </div>
 
           <HeroSearchFilter />
@@ -117,7 +197,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <Link
-              to="/rooms"
+              to="/hotels"
               className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:-translate-y-1 hover:shadow-xl transition"
             >
               <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-4">
@@ -183,12 +263,91 @@ export default function Home() {
                 data-aos="zoom-in"
                 className="w-full bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition duration-300 flex items-center justify-center"
               >
-                <img src={logo} alt="Partner Logo" className="w-16 h-16 object-contain" />
+                <img
+                  src={logo}
+                  alt="Partner Logo"
+                  className="w-16 h-16 object-contain"
+                />
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {recentHotels.length > 0 && (
+        <section className="max-w-7xl mx-auto py-16 px-4 md:px-6">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 mb-4">
+                <History size={16} />
+                Recent Viewed
+              </div>
+              <h3 className="text-3xl font-bold">Terakhir Kamu Lihat</h3>
+              <p className="text-gray-500 mt-2">
+                Lanjutkan lihat hotel yang baru saja kamu kunjungi.
+              </p>
+            </div>
+
+            <Link to="/hotels" className="text-red-600 font-semibold hover:underline">
+              Jelajahi Semua
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recentHotels.map((hotel, i) => (
+              <Link
+                to={`/hotels/${hotel.id}`}
+                key={hotel.id}
+                data-aos="fade-up"
+                data-aos-delay={i * 100}
+                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition duration-300 block"
+              >
+                <div className="relative">
+                  <img
+                    src={buildImageUrl(
+                      hotel.thumbnail || hotel.hero_image,
+                      "/images/hotel.jpg"
+                    )}
+                    alt={hotel.name}
+                    className="w-full h-56 object-cover"
+                  />
+
+                  <div className="absolute top-4 left-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-red-600 shadow">
+                    <Eye size={13} />
+                    Baru Dilihat
+                  </div>
+                </div>
+
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold">
+                      {hotel.area || "Hotel"}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      ⭐ {hotel.rating || "0.0"}
+                    </span>
+                  </div>
+
+                  <h4 className="font-bold text-xl line-clamp-1">{hotel.name}</h4>
+                  <p className="text-gray-500 mt-1">
+                    {hotel.city?.name || "-"}
+                    {hotel.area ? ` • ${hotel.area}` : ""}
+                  </p>
+
+                  <div className="flex items-center justify-between mt-5">
+                    <p className="text-sm text-gray-500 line-clamp-1">
+                      {hotel.address || "Alamat belum tersedia"}
+                    </p>
+                    <span className="text-sm font-medium text-red-600">
+                      Lihat Lagi
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="max-w-7xl mx-auto py-16 px-4 md:px-6">
         <div className="flex items-center justify-between mb-8">
@@ -252,7 +411,8 @@ export default function Home() {
 
                   <h4 className="font-bold text-xl line-clamp-1">{hotel.name}</h4>
                   <p className="text-gray-500 mt-1">
-                    {hotel.city?.name || "-"}{hotel.area ? ` • ${hotel.area}` : ""}
+                    {hotel.city?.name || "-"}
+                    {hotel.area ? ` • ${hotel.area}` : ""}
                   </p>
 
                   <div className="flex items-center justify-between mt-5">
@@ -327,12 +487,16 @@ export default function Home() {
             { img: "/hotel3.jpg", name: "Mountain Escape", city: "Bandung", price: "Rp500.000" },
           ].map((hotel, i) => (
             <Link
-              to="/rooms"
+              to="/hotels"
               key={i}
               data-aos="fade-up"
               className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition block"
             >
-              <img src={hotel.img} alt={hotel.name} className="w-full h-56 object-cover" />
+              <img
+                src={hotel.img}
+                alt={hotel.name}
+                className="w-full h-56 object-cover"
+              />
               <div className="p-5">
                 <h4 className="font-bold text-xl">{hotel.name}</h4>
                 <p className="text-gray-500 text-sm mt-1">{hotel.city}</p>
@@ -378,7 +542,7 @@ export default function Home() {
                 Jakarta.
               </p>
               <Link
-                to="/rooms"
+                to="/hotels"
                 className="inline-flex items-center gap-2 bg-red-600 text-white px-5 py-3 rounded-2xl font-semibold hover:bg-red-700 transition"
               >
                 Book Now
@@ -465,9 +629,12 @@ export default function Home() {
               </p>
 
               <div className="flex flex-wrap gap-4">
-                <button className="bg-white text-red-600 px-6 py-3 rounded-2xl font-semibold hover:bg-gray-100 transition">
+                <Link
+                  to="/hotels"
+                  className="bg-white text-red-600 px-6 py-3 rounded-2xl font-semibold hover:bg-gray-100 transition"
+                >
                   Explore Rooms
-                </button>
+                </Link>
                 <button className="bg-black/20 border border-white/20 px-6 py-3 rounded-2xl font-semibold hover:bg-black/30 transition">
                   Download App Soon
                 </button>

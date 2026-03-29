@@ -79,7 +79,7 @@ class BookingController extends Controller
                 $totalPrice = $room->price_transit_12h ?? 0;
             }
         } else {
-            $checkOut = (clone $checkIn)->addDay();
+            $checkOut = $this->calculateOvernightCheckOut($checkIn);
             $totalPrice = $room->price_per_night ?? 0;
         }
 
@@ -109,6 +109,19 @@ class BookingController extends Controller
             'message' => 'Booking berhasil dibuat dan menunggu persetujuan admin',
             'data' => $booking->load(['hotel', 'room'])
         ], 201);
+    }
+
+    private function calculateOvernightCheckOut(Carbon $checkIn): Carbon
+    {
+        $checkOut = (clone $checkIn)->setTime(12, 0, 0);
+
+        // Jika check-in jam 12 siang atau setelahnya,
+        // maka checkout overnight adalah besok jam 12 siang
+        if ($checkIn->greaterThanOrEqualTo((clone $checkIn)->setTime(12, 0, 0))) {
+            $checkOut->addDay();
+        }
+
+        return $checkOut;
     }
 
     private function generateBookingCode()

@@ -25,6 +25,12 @@ export default function HotelDetail() {
     fetchHotelDetail();
   }, [id]);
 
+  useEffect(() => {
+    if (hotel) {
+      saveRecentViewedHotel(hotel);
+    }
+  }, [hotel]);
+
   const fetchHotelDetail = async () => {
     try {
       setLoading(true);
@@ -61,6 +67,57 @@ export default function HotelDetail() {
     }
 
     return `http://127.0.0.1:8000/storage/${cleanPath}`;
+  };
+
+  const getCustomerStorageKey = () => {
+    try {
+      const rawCustomer =
+        localStorage.getItem("customer") ||
+        localStorage.getItem("customerUser") ||
+        localStorage.getItem("user");
+
+      if (!rawCustomer) return "readyroom_recent_hotels_guest";
+
+      const parsedCustomer = JSON.parse(rawCustomer);
+      const customerId = parsedCustomer?.id || "guest";
+
+      return `readyroom_recent_hotels_${customerId}`;
+    } catch (error) {
+      console.error("GET CUSTOMER STORAGE KEY ERROR:", error);
+      return "readyroom_recent_hotels_guest";
+    }
+  };
+
+  const saveRecentViewedHotel = (hotelData) => {
+    try {
+      if (!hotelData?.id) return;
+
+      const storageKey = getCustomerStorageKey();
+
+      const existingRecent = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+      const hotelItem = {
+        id: hotelData.id,
+        name: hotelData.name || "",
+        area: hotelData.area || "",
+        address: hotelData.address || "",
+        rating: hotelData.rating || 0,
+        city: hotelData.city || null,
+        thumbnail: hotelData.thumbnail || "",
+        hero_image: hotelData.hero_image || "",
+        viewed_at: new Date().toISOString(),
+      };
+
+      const filteredRecent = existingRecent.filter(
+        (item) => Number(item.id) !== Number(hotelData.id)
+      );
+
+      const updatedRecent = [hotelItem, ...filteredRecent].slice(0, 6);
+
+      localStorage.setItem(storageKey, JSON.stringify(updatedRecent));
+    } catch (error) {
+      console.error("SAVE RECENT VIEWED HOTEL ERROR:", error);
+    }
   };
 
   const mapLink =
