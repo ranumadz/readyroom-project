@@ -17,6 +17,8 @@ import {
   Phone,
   UserCog,
   LockKeyhole,
+  Building2,
+  Check,
 } from "lucide-react";
 
 export default function UsersPage() {
@@ -33,6 +35,7 @@ export default function UsersPage() {
 
   const [internalUsers, setInternalUsers] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [hotels, setHotels] = useState([]);
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -46,6 +49,7 @@ export default function UsersPage() {
     password: "",
     role: "admin",
     status: true,
+    hotel_ids: [],
   });
 
   const [showEditModal, setShowEditModal] = useState(false);
@@ -57,6 +61,7 @@ export default function UsersPage() {
     phone: "",
     role: "admin",
     status: true,
+    hotel_ids: [],
   });
 
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
@@ -66,6 +71,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsersData();
+    fetchHotels();
   }, []);
 
   const fetchUsersData = async () => {
@@ -99,6 +105,25 @@ export default function UsersPage() {
     }
   };
 
+  const fetchHotels = async () => {
+    try {
+      const res = await api.get("/admin/hotels");
+
+      const hotelData = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data?.hotels)
+        ? res.data.hotels
+        : Array.isArray(res.data)
+        ? res.data
+        : [];
+
+      setHotels(hotelData);
+    } catch (error) {
+      console.error("GET HOTELS ERROR:", error.response?.data || error);
+      toast.error("Gagal mengambil data hotel");
+    }
+  };
+
   const resetFilters = () => {
     setSearch("");
     setRoleFilter("");
@@ -108,12 +133,17 @@ export default function UsersPage() {
     return internalUsers.filter((user) => {
       const keyword = search.toLowerCase();
 
+      const hotelNames = Array.isArray(user.hotels)
+        ? user.hotels.map((hotel) => hotel.name?.toLowerCase() || "").join(" ")
+        : "";
+
       const matchSearch =
         !search ||
         user.name?.toLowerCase().includes(keyword) ||
         user.email?.toLowerCase().includes(keyword) ||
         user.phone?.toLowerCase().includes(keyword) ||
-        user.role?.toLowerCase().includes(keyword);
+        user.role?.toLowerCase().includes(keyword) ||
+        hotelNames.includes(keyword);
 
       const matchRole = !roleFilter || user.role === roleFilter;
 
@@ -172,22 +202,73 @@ export default function UsersPage() {
     return false;
   };
 
+  const roleNeedsHotelAssignment = (role) => {
+    return role === "admin" || role === "receptionist";
+  };
+
+  const normalizeHotelIds = (hotelIds) => {
+    if (!Array.isArray(hotelIds)) return [];
+    return hotelIds.map((id) => Number(id)).filter(Boolean);
+  };
+
   const handleAddChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    setAddForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setAddForm((prev) => {
+      const next = {
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      };
+
+      if (name === "role" && !roleNeedsHotelAssignment(value)) {
+        next.hotel_ids = [];
+      }
+
+      return next;
+    });
   };
 
   const handleEditChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setEditForm((prev) => {
+      const next = {
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      };
+
+      if (name === "role" && !roleNeedsHotelAssignment(value)) {
+        next.hotel_ids = [];
+      }
+
+      return next;
+    });
+  };
+
+  const toggleAddHotel = (hotelId) => {
+    setAddForm((prev) => {
+      const exists = prev.hotel_ids.includes(hotelId);
+
+      return {
+        ...prev,
+        hotel_ids: exists
+          ? prev.hotel_ids.filter((id) => id !== hotelId)
+          : [...prev.hotel_ids, hotelId],
+      };
+    });
+  };
+
+  const toggleEditHotel = (hotelId) => {
+    setEditForm((prev) => {
+      const exists = prev.hotel_ids.includes(hotelId);
+
+      return {
+        ...prev,
+        hotel_ids: exists
+          ? prev.hotel_ids.filter((id) => id !== hotelId)
+          : [...prev.hotel_ids, hotelId],
+      };
+    });
   };
 
   const closeAddModal = () => {
@@ -199,6 +280,7 @@ export default function UsersPage() {
       password: "",
       role: "admin",
       status: true,
+      hotel_ids: [],
     });
   };
 
@@ -210,6 +292,7 @@ export default function UsersPage() {
       phone: user.phone || "",
       role: user.role || "admin",
       status: !!user.status,
+      hotel_ids: normalizeHotelIds(user.hotels?.map((hotel) => hotel.id) || []),
     });
     setShowEditModal(true);
   };
@@ -223,6 +306,7 @@ export default function UsersPage() {
       phone: "",
       role: "admin",
       status: true,
+      hotel_ids: [],
     });
   };
 
@@ -258,6 +342,13 @@ export default function UsersPage() {
     if (!addForm.email.trim()) return toast.error("Email wajib diisi");
     if (!addForm.password.trim()) return toast.error("Password wajib diisi");
 
+    if (
+      roleNeedsHotelAssignment(addForm.role) &&
+      addForm.hotel_ids.length === 0
+    ) {
+      return toast.error("Pilih minimal 1 cabang untuk role ini");
+    }
+
     try {
       setSavingAdd(true);
 
@@ -269,6 +360,9 @@ export default function UsersPage() {
         password: addForm.password,
         role: addForm.role,
         status: addForm.status,
+        hotel_ids: roleNeedsHotelAssignment(addForm.role)
+          ? addForm.hotel_ids
+          : [],
       });
 
       toast.success("User internal berhasil ditambahkan");
@@ -292,6 +386,13 @@ export default function UsersPage() {
     if (!editForm.name.trim()) return toast.error("Nama wajib diisi");
     if (!editForm.email.trim()) return toast.error("Email wajib diisi");
 
+    if (
+      roleNeedsHotelAssignment(editForm.role) &&
+      editForm.hotel_ids.length === 0
+    ) {
+      return toast.error("Pilih minimal 1 cabang untuk role ini");
+    }
+
     try {
       setSavingEdit(true);
 
@@ -302,6 +403,9 @@ export default function UsersPage() {
         phone: editForm.phone.trim() || null,
         role: editForm.role,
         status: editForm.status,
+        hotel_ids: roleNeedsHotelAssignment(editForm.role)
+          ? editForm.hotel_ids
+          : [],
       });
 
       toast.success("User internal berhasil diupdate");
@@ -435,7 +539,7 @@ export default function UsersPage() {
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={
                     activeTab === "internal"
-                      ? "Cari nama, email, telepon, role"
+                      ? "Cari nama, email, telepon, role, cabang"
                       : "Cari nama atau telepon customer"
                   }
                   className="w-full rounded-2xl border border-gray-200 bg-gray-50 pl-12 pr-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
@@ -562,6 +666,37 @@ export default function UsersPage() {
                                   </p>
                                 </div>
                               </div>
+                            </div>
+
+                            <div className="mt-4">
+                              <p className="text-sm text-gray-400 mb-2">
+                                Cabang Akses
+                              </p>
+
+                              {user.role === "boss" || user.role === "super_admin" ? (
+                                <div className="flex flex-wrap gap-2">
+                                  <span className="inline-flex items-center gap-2 rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+                                    <Building2 size={14} />
+                                    Semua Cabang
+                                  </span>
+                                </div>
+                              ) : Array.isArray(user.hotels) && user.hotels.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {user.hotels.map((hotel) => (
+                                    <span
+                                      key={hotel.id}
+                                      className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700"
+                                    >
+                                      <Building2 size={14} className="text-red-500" />
+                                      {hotel.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center gap-2 rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
+                                  Belum ada cabang dipilih
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -724,8 +859,8 @@ export default function UsersPage() {
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-xl">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-3xl shadow-xl my-8">
             <h2 className="text-xl font-bold text-gray-800 mb-2">
               Tambah User Internal
             </h2>
@@ -797,6 +932,21 @@ export default function UsersPage() {
                   </span>
                 </label>
               </div>
+
+              <div className="md:col-span-2">
+                <HotelSelector
+                  title="Pilih Cabang Akses"
+                  subtitle={
+                    roleNeedsHotelAssignment(addForm.role)
+                      ? "Pilih satu atau lebih cabang yang boleh diakses user ini."
+                      : "Role ini otomatis punya akses penuh, jadi tidak perlu pilih cabang."
+                  }
+                  hotels={hotels}
+                  selectedIds={addForm.hotel_ids}
+                  onToggle={toggleAddHotel}
+                  disabled={!roleNeedsHotelAssignment(addForm.role)}
+                />
+              </div>
             </div>
 
             <div className="flex gap-3 pt-5">
@@ -827,8 +977,8 @@ export default function UsersPage() {
       )}
 
       {showEditModal && selectedInternalUser && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-xl">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-3xl shadow-xl my-8">
             <h2 className="text-xl font-bold text-gray-800 mb-2">
               Edit User Internal
             </h2>
@@ -891,6 +1041,21 @@ export default function UsersPage() {
                     User aktif
                   </span>
                 </label>
+              </div>
+
+              <div className="md:col-span-2">
+                <HotelSelector
+                  title="Pilih Cabang Akses"
+                  subtitle={
+                    roleNeedsHotelAssignment(editForm.role)
+                      ? "Pilih satu atau lebih cabang yang boleh diakses user ini."
+                      : "Role ini otomatis punya akses penuh, jadi tidak perlu pilih cabang."
+                  }
+                  hotels={hotels}
+                  selectedIds={editForm.hotel_ids}
+                  onToggle={toggleEditHotel}
+                  disabled={!roleNeedsHotelAssignment(editForm.role)}
+                />
               </div>
             </div>
 
@@ -1010,6 +1175,82 @@ function InputField({
         placeholder={placeholder}
         className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none focus:border-red-500 focus:ring-4 focus:ring-red-100"
       />
+    </div>
+  );
+}
+
+function HotelSelector({
+  title,
+  subtitle,
+  hotels,
+  selectedIds,
+  onToggle,
+  disabled = false,
+}) {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4">
+      <div className="mb-4">
+        <h3 className="text-sm font-bold text-gray-800">{title}</h3>
+        <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+      </div>
+
+      {disabled ? (
+        <div className="rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-700">
+          Role ini tidak perlu dibatasi cabang.
+        </div>
+      ) : hotels.length === 0 ? (
+        <div className="rounded-2xl border border-yellow-100 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+          Data hotel belum tersedia.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {hotels.map((hotel) => {
+            const checked = selectedIds.includes(Number(hotel.id));
+
+            return (
+              <button
+                key={hotel.id}
+                type="button"
+                onClick={() => onToggle(Number(hotel.id))}
+                className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                  checked
+                    ? "border-red-500 bg-red-50 ring-2 ring-red-100"
+                    : "border-gray-200 bg-white hover:border-red-300"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${
+                        checked
+                          ? "bg-red-600 text-white"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      <Building2 size={18} />
+                    </div>
+
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        {hotel.name}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {hotel.area || hotel.address || "Cabang hotel"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {checked && (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white">
+                      <Check size={14} />
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

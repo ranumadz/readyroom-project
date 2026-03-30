@@ -18,6 +18,13 @@ import {
 
 export default function BookingCalendar() {
   const today = new Date();
+  const adminUser =
+    JSON.parse(localStorage.getItem("adminUser") || "null") ||
+    JSON.parse(localStorage.getItem("user") || "null");
+  const canAccessAllHotels =
+    adminUser?.role === "boss" ||
+    adminUser?.role === "super_admin" ||
+    adminUser?.role === "pengawas";
 
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
@@ -41,6 +48,24 @@ export default function BookingCalendar() {
     status: "all",
   });
 
+  const [userAccessHotels, setUserAccessHotels] = useState([]);
+  const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
+
+  const assignedHotelIds = useMemo(() => {
+    if (canAccessAllHotels) return [];
+
+    const sourceHotels =
+      Array.isArray(userAccessHotels) && userAccessHotels.length > 0
+        ? userAccessHotels
+        : Array.isArray(adminUser?.hotels)
+        ? adminUser.hotels
+        : [];
+
+    return sourceHotels
+      .map((hotel) => String(hotel?.id))
+      .filter(Boolean);
+  }, [adminUser, canAccessAllHotels, userAccessHotels]);
+
   const monthNames = [
     "Januari",
     "Februari",
@@ -56,6 +81,35 @@ export default function BookingCalendar() {
     "Desember",
   ];
 
+  const fetchUserAccessHotels = async () => {
+    if (!adminUser?.id || canAccessAllHotels) {
+      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+      return;
+    }
+
+    try {
+      setLoadingUserAccessHotels(true);
+
+      const response = await axios.get("http://127.0.0.1:8000/api/admin/users/admin");
+      const usersData = Array.isArray(response.data?.data)
+        ? response.data.data
+        : Array.isArray(response.data)
+        ? response.data
+        : [];
+
+      const currentUser = usersData.find(
+        (user) => String(user.id) === String(adminUser.id)
+      );
+
+      setUserAccessHotels(Array.isArray(currentUser?.hotels) ? currentUser.hotels : []);
+    } catch (error) {
+      console.error("GAGAL AMBIL HOTEL AKSES USER:", error);
+      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+    } finally {
+      setLoadingUserAccessHotels(false);
+    }
+  };
+
   const fetchCalendar = async (customFilters = filters, showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
@@ -67,6 +121,7 @@ export default function BookingCalendar() {
             hotel_id: customFilters.hotel_id || undefined,
             month: customFilters.month,
             year: customFilters.year,
+            admin_user_id: adminUser?.id || undefined,
           },
         }
       );
@@ -82,6 +137,7 @@ export default function BookingCalendar() {
 
   useEffect(() => {
     fetchCalendar(filters, true);
+    fetchUserAccessHotels();
   }, []);
 
   useEffect(() => {
@@ -106,6 +162,16 @@ export default function BookingCalendar() {
 
   const handleManualRefresh = () => {
     fetchCalendar(filters, true);
+  };
+
+  const handleFolderSelect = (hotelId) => {
+    const nextFilters = {
+      ...filters,
+      hotel_id: hotelId ? String(hotelId) : "",
+    };
+
+    setFilters(nextFilters);
+    fetchCalendar(nextFilters, true);
   };
 
   const daysInMonth = useMemo(() => {
@@ -293,15 +359,55 @@ export default function BookingCalendar() {
 
       const inMonth = checkIn <= monthEnd && checkOut >= monthStart;
       const inStatus = isBookingMatchStatus(booking);
+      const inAccess = canAccessAllHotels
+        ? true
+        : assignedHotelIds.includes(String(booking.hotel_id ?? booking.hotel?.id ?? ""));
 
-      return inMonth && inStatus;
+      return inMonth && inStatus && inAccess;
     }).length;
-  }, [calendarData.bookings, monthStart, monthEnd, filters.status]);
+  }, [calendarData.bookings, monthStart, monthEnd, filters.status, canAccessAllHotels, assignedHotelIds]);
 
   const selectedBookingRelated = useMemo(() => {
     if (!selectedBooking) return [];
     return getRelatedBookingsSameDay(selectedBooking);
   }, [selectedBooking, calendarData.bookings]);
+
+  const needsFolderSelection = !canAccessAllHotels;
+  const hasSelectedFolder = canAccessAllHotels ? true : !!filters.hotel_id;
+
+  const accessibleHotels = useMemo(() => {
+    const sourceHotels = Array.isArray(calendarData.hotels) ? calendarData.hotels : [];
+
+    if (canAccessAllHotels) {
+      return sourceHotels;
+    }
+
+    if (assignedHotelIds.length > 0) {
+      return sourceHotels.filter((hotel) =>
+        assignedHotelIds.includes(String(hotel.id))
+      );
+    }
+
+    return [];
+  }, [calendarData.hotels, assignedHotelIds, canAccessAllHotels]);
+
+  const visibleRoomUnits = useMemo(() => {
+    const units = Array.isArray(calendarData.room_units) ? calendarData.room_units : [];
+
+    if (canAccessAllHotels) {
+      return units;
+    }
+
+    if (assignedHotelIds.length > 0) {
+      return units.filter((unit) =>
+        assignedHotelIds.includes(
+          String(unit.hotel_id ?? unit.room?.hotel_id ?? unit.hotel?.id ?? "")
+        )
+      );
+    }
+
+    return [];
+  }, [calendarData.room_units, assignedHotelIds, canAccessAllHotels]);
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -321,7 +427,7 @@ export default function BookingCalendar() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-3">
               <Legend color="bg-amber-600" label="Approved / Confirmed" />
               <Legend color="bg-green-500" label="Checked In" />
@@ -340,36 +446,85 @@ export default function BookingCalendar() {
             </div>
           </div>
 
-          <div className="rounded-[28px] bg-white border border-gray-100 shadow-sm p-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hotel / Cabang
-                </label>
-                <select
-                  name="hotel_id"
-                  value={filters.hotel_id}
-                  onChange={handleFilterChange}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
-                >
-                  <option value="">Semua Hotel</option>
-                  {calendarData.hotels?.map((hotel) => (
-                    <option key={hotel.id} value={hotel.id}>
-                      {hotel.name}
-                    </option>
-                  ))}
-                </select>
+          <div className="mb-6">
+            <div className="rounded-[30px] border border-white/70 bg-white/95 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Hotel size={18} className="text-red-500" />
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800">Folder Cabang</h2>
+                  <p className="text-sm text-gray-500">
+                    Klik cabang untuk membuka calendar booking sesuai hotel yang dipilih.
+                  </p>
+                </div>
               </div>
 
+              <div className="flex flex-wrap gap-3">
+                {canAccessAllHotels && (
+                  <button
+                    type="button"
+                    onClick={() => handleFolderSelect("")}
+                    className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+                      !filters.hotel_id
+                        ? "bg-red-600 text-white shadow-sm"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Layers3 size={18} />
+                    Semua Cabang
+                  </button>
+                )}
+
+                {accessibleHotels.map((hotel) => (
+                  <button
+                    key={hotel.id}
+                    type="button"
+                    onClick={() => handleFolderSelect(hotel.id)}
+                    className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+                      String(filters.hotel_id) === String(hotel.id)
+                        ? "bg-gray-900 text-white shadow-sm"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Hotel size={17} />
+                    {hotel.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {!hasSelectedFolder && (
+            <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <Hotel size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-amber-900">Pilih cabang dulu</h3>
+                  <p className="mt-1 text-sm text-amber-800">
+                    Klik salah satu folder cabang di atas untuk membuka isi Booking Calendar sesuai akses user ini.
+                  </p>
+                  {loadingUserAccessHotels && (
+                    <p className="mt-2 text-xs font-medium text-amber-700">Sedang memuat akses cabang user...</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hasSelectedFolder && (
+          <>
+          <div className="rounded-[30px] bg-white/95 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.06)] p-6 mb-6 backdrop-blur-sm">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Bulan
                 </label>
                 <select
                   name="month"
                   value={filters.month}
                   onChange={handleFilterChange}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50"
                 >
                   {monthNames.map((monthName, index) => (
                     <option key={index + 1} value={index + 1}>
@@ -380,14 +535,14 @@ export default function BookingCalendar() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Tahun
                 </label>
                 <select
                   name="year"
                   value={filters.year}
                   onChange={handleFilterChange}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50"
                 >
                   {[2025, 2026, 2027, 2028].map((year) => (
                     <option key={year} value={year}>
@@ -398,7 +553,7 @@ export default function BookingCalendar() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Status Booking
                 </label>
                 <div className="relative">
@@ -410,7 +565,7 @@ export default function BookingCalendar() {
                     name="status"
                     value={filters.status}
                     onChange={handleFilterChange}
-                    className="w-full rounded-2xl border border-gray-200 bg-white pl-11 pr-4 py-3 text-sm outline-none focus:border-red-400"
+                    className="w-full rounded-2xl border border-gray-200 bg-white pl-11 pr-4 py-3 text-sm outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50"
                   >
                     <option value="all">Semua Status</option>
                     <option value="confirmed">Approved / Confirmed</option>
@@ -424,14 +579,14 @@ export default function BookingCalendar() {
               <div className="flex items-end gap-3">
                 <button
                   onClick={handleApplyFilter}
-                  className="flex-1 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700"
+                  className="flex-1 rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(239,68,68,0.18)] transition hover:from-red-700 hover:to-rose-600"
                 >
                   Tampilkan
                 </button>
 
                 <button
                   onClick={handleManualRefresh}
-                  className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
                   title="Refresh manual"
                 >
                   <RefreshCw size={18} />
@@ -439,10 +594,14 @@ export default function BookingCalendar() {
               </div>
             </div>
 
+            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm text-blue-800">
+              Cabang aktif: <span className="font-semibold">{getHotelName(Number(filters.hotel_id)) || accessibleHotels.find((hotel) => String(hotel.id) === String(filters.hotel_id))?.name || "-"}</span>
+            </div>
+
             <div className="mt-5 flex flex-wrap gap-3">
               <MiniCounter
                 label="Room Unit"
-                value={calendarData.room_units?.length || 0}
+                value={visibleRoomUnits?.length || 0}
               />
               <MiniCounter
                 label="Booking Tampil"
@@ -465,7 +624,7 @@ export default function BookingCalendar() {
             </div>
           </div>
 
-          <div className="rounded-[32px] bg-white border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-hidden rounded-[32px] border border-white/70 bg-white/95 shadow-[0_20px_55px_rgba(15,23,42,0.08)] backdrop-blur-sm">
             {loading ? (
               <div className="p-6">
                 <p className="text-gray-500">Memuat data calendar...</p>
@@ -494,7 +653,7 @@ export default function BookingCalendar() {
                     </div>
                   ))}
 
-                  {calendarData.room_units?.map((unit) => {
+                  {visibleRoomUnits?.map((unit) => {
                     const unitBookings = getVisibleBookingsForUnit(unit.id);
 
                     return (
@@ -593,6 +752,8 @@ export default function BookingCalendar() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
 
@@ -642,7 +803,7 @@ function BookingDetailModal({
 }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4">
-      <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-2xl border border-white/40 overflow-hidden">
+      <div className="w-full max-w-3xl overflow-hidden rounded-[32px] border border-white/40 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.2)]">
         <div className="bg-gradient-to-r from-red-600 via-rose-500 to-red-500 px-6 py-5 text-white">
           <div className="flex items-start justify-between gap-4">
             <div>

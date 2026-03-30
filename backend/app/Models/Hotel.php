@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
 
 class Hotel extends Model
 {
@@ -14,7 +15,7 @@ class Hotel extends Model
         'wa_admin',
         'latitude',
         'longitude',
-        'map_link', // ✅ TAMBAH INI
+        'map_link',
         'description',
         'thumbnail',
         'hero_image',
@@ -40,5 +41,10 @@ class Hotel extends Model
     public function bookings()
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'user_hotels');
     }
 }

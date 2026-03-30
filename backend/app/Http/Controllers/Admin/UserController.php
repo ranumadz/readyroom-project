@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Customer;
+use App\Models\Hotel;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -16,7 +17,8 @@ class UserController extends Controller
      */
     public function adminUsers()
     {
-        $users = User::whereIn('role', ['admin', 'super_admin', 'boss', 'receptionist'])
+        $users = User::with(['hotels:id,name'])
+            ->whereIn('role', ['admin', 'super_admin', 'boss', 'receptionist'])
             ->latest()
             ->get();
 
@@ -47,6 +49,10 @@ class UserController extends Controller
             'password' => 'required|string|min:6',
             'role' => ['required', Rule::in(['admin', 'super_admin', 'receptionist'])],
             'status' => 'nullable|boolean',
+
+            // cabang hotel
+            'hotel_ids' => 'nullable|array',
+            'hotel_ids.*' => 'exists:hotels,id',
         ]);
 
         $creator = User::find($request->created_by);
@@ -65,6 +71,22 @@ class UserController extends Controller
             'role' => $request->role,
             'status' => $request->has('status') ? (bool) $request->status : true,
         ]);
+
+        $hotelIds = collect($request->hotel_ids ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->toArray();
+
+        // admin & receptionist dibatasi cabang
+        // super_admin tidak dibatasi cabang
+        if (in_array($user->role, ['admin', 'receptionist'])) {
+            $user->hotels()->sync($hotelIds);
+        } else {
+            $user->hotels()->sync([]);
+        }
+
+        $user->load(['hotels:id,name']);
 
         return response()->json([
             'message' => 'User internal berhasil ditambahkan',
@@ -85,6 +107,10 @@ class UserController extends Controller
             'phone' => 'nullable|string|max:50',
             'role' => ['required', Rule::in(['admin', 'super_admin', 'boss', 'receptionist'])],
             'status' => 'required|boolean',
+
+            // cabang hotel
+            'hotel_ids' => 'nullable|array',
+            'hotel_ids.*' => 'exists:hotels,id',
         ]);
 
         $actor = User::find($request->updated_by);
@@ -120,6 +146,22 @@ class UserController extends Controller
             'role' => $request->role,
             'status' => (bool) $request->status,
         ]);
+
+        $hotelIds = collect($request->hotel_ids ?? [])
+            ->map(fn ($idValue) => (int) $idValue)
+            ->unique()
+            ->values()
+            ->toArray();
+
+        // admin & receptionist dibatasi cabang
+        // boss / super_admin tidak dibatasi cabang
+        if (in_array($user->role, ['admin', 'receptionist'])) {
+            $user->hotels()->sync($hotelIds);
+        } else {
+            $user->hotels()->sync([]);
+        }
+
+        $user->load(['hotels:id,name']);
 
         return response()->json([
             'message' => 'User internal berhasil diupdate',

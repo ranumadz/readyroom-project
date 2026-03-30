@@ -13,9 +13,90 @@ use Carbon\Carbon;
 
 class BookingController extends Controller
 {
-    public function index()
+    /**
+     * Resolve user internal dari request.
+     * Dipakai untuk pembatasan cabang per admin / receptionist.
+     */
+    private function resolveActorFromRequest(Request $request): ?User
     {
-        $bookings = Booking::with([
+        $possibleIds = [
+            $request->input('admin_user_id'),
+            $request->input('current_user_id'),
+            $request->input('user_id'),
+            $request->query('admin_user_id'),
+            $request->query('current_user_id'),
+            $request->query('user_id'),
+            $request->input('created_by'),
+            $request->input('edited_by'),
+            $request->input('refunded_by'),
+            $request->input('cancelled_by'),
+            $request->input('changed_by'),
+        ];
+
+        foreach ($possibleIds as $id) {
+            if ($id) {
+                $user = User::with('hotels:id,name')->find($id);
+                if ($user) {
+                    return $user;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Boss / Super Admin / Pengawas bisa akses semua cabang.
+     */
+    private function canAccessAllHotels(?User $user): bool
+    {
+        if (!$user) return true;
+
+        return in_array($user->role, ['boss', 'super_admin', 'pengawas']);
+    }
+
+    /**
+     * Ambil daftar hotel yang boleh diakses user.
+     */
+    private function getAccessibleHotelIds(?User $user): array
+    {
+        if (!$user) return [];
+
+        if ($this->canAccessAllHotels($user)) {
+            return [];
+        }
+
+        return $user->hotels()
+            ->pluck('hotels.id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Cek apakah user boleh akses hotel tertentu.
+     */
+    private function userCanAccessHotel(?User $user, $hotelId): bool
+    {
+        if (!$user) {
+            return true;
+        }
+
+        if ($this->canAccessAllHotels($user)) {
+            return true;
+        }
+
+        $accessibleHotelIds = $this->getAccessibleHotelIds($user);
+
+        return in_array((int) $hotelId, $accessibleHotelIds);
+    }
+
+    public function index(Request $request)
+    {
+        $actor = $this->resolveActorFromRequest($request);
+        $accessibleHotelIds = $this->getAccessibleHotelIds($actor);
+
+        $bookingsQuery = Booking::with([
             'user',
             'creator',
             'editor',
@@ -24,42 +105,87 @@ class BookingController extends Controller
             'hotel',
             'room',
             'roomUnit'
-        ])->latest()->get()
-          ->map(function ($booking) {
-              if (empty($booking->guest_name) && $booking->user) {
-                  $booking->guest_name = $booking->user->name;
-              }
+        ])->latest();
 
-              if (empty($booking->guest_phone) && $booking->user) {
-                  $booking->guest_phone = $booking->user->phone;
-              }
+        if (!$this->canAccessAllHotels($actor) && !empty($accessibleHotelIds)) {
+            $bookingsQuery->whereIn('hotel_id', $accessibleHotelIds);
+        }
 
-              return $booking;
-          })
-          ->values();
+        if (!$this->canAccessAllHotels($actor) && empty($accessibleHotelIds) && $actor) {
+            $bookingsQuery->whereRaw('1 = 0');
+        }
+
+        $bookings = $bookingsQuery->get()
+            ->map(function ($booking) {
+                if (empty($booking->guest_name) && $booking->user) {
+                    $booking->guest_name = $booking->user->name;
+                }
+
+                if (empty($booking->guest_phone) && $booking->user) {
+                    $booking->guest_phone = $booking->user->phone;
+                }
+
+                return $booking;
+            })
+            ->values();
 
         return response()->json($bookings);
     }
 
     public function calendar(Request $request)
     {
-        $hotelId = $request->query('hotel_id');
+        $actor = $this->resolveActorFromRequest($request);
+        $accessibleHotelIds = $this->getAccessibleHotelIds($actor);
+
+        $requestedHotelId = $request->query('hotel_id');
         $month = (int) $request->query('month', now()->month);
         $year = (int) $request->query('year', now()->year);
+
+        $hotelId = $requestedHotelId ? (int) $requestedHotelId : null;
+
+        // kalau user tidak punya akses ke hotel yang diminta, paksa kosong
+        if ($hotelId && !$this->userCanAccessHotel($actor, $hotelId)) {
+            return response()->json([
+                'filters' => [
+                    'hotel_id' => $hotelId,
+                    'month' => $month,
+                    'year' => $year,
+                ],
+                'hotels' => [],
+                'room_units' => [],
+                'bookings' => [],
+            ]);
+        }
 
         $startDate = Carbon::create($year, $month, 1)->startOfMonth();
         $endDate = Carbon::create($year, $month, 1)->endOfMonth();
 
-        $hotels = Hotel::select('id', 'name')
-            ->orderBy('name')
-            ->get();
+        $hotelsQuery = Hotel::select('id', 'name')->orderBy('name');
+
+        if (!$this->canAccessAllHotels($actor) && !empty($accessibleHotelIds)) {
+            $hotelsQuery->whereIn('id', $accessibleHotelIds);
+        }
+
+        if (!$this->canAccessAllHotels($actor) && empty($accessibleHotelIds) && $actor) {
+            $hotelsQuery->whereRaw('1 = 0');
+        }
+
+        $hotels = $hotelsQuery->get();
 
         $roomUnitsQuery = RoomUnit::with([
             'room:id,hotel_id,name',
         ])
-            ->whereHas('room', function ($query) use ($hotelId) {
+            ->whereHas('room', function ($query) use ($hotelId, $actor, $accessibleHotelIds) {
                 if ($hotelId) {
                     $query->where('hotel_id', $hotelId);
+                }
+
+                if (!$this->canAccessAllHotels($actor) && !empty($accessibleHotelIds)) {
+                    $query->whereIn('hotel_id', $accessibleHotelIds);
+                }
+
+                if (!$this->canAccessAllHotels($actor) && empty($accessibleHotelIds) && $actor) {
+                    $query->whereRaw('1 = 0');
                 }
             })
             ->where('status', 1);
@@ -91,6 +217,14 @@ class BookingController extends Controller
 
         if ($hotelId) {
             $bookingsQuery->where('hotel_id', $hotelId);
+        }
+
+        if (!$this->canAccessAllHotels($actor) && !empty($accessibleHotelIds)) {
+            $bookingsQuery->whereIn('hotel_id', $accessibleHotelIds);
+        }
+
+        if (!$this->canAccessAllHotels($actor) && empty($accessibleHotelIds) && $actor) {
+            $bookingsQuery->whereRaw('1 = 0');
         }
 
         $bookings = $bookingsQuery
@@ -609,7 +743,13 @@ class BookingController extends Controller
 
         $room = Room::findOrFail($request->room_id);
         $roomUnit = RoomUnit::findOrFail($request->room_unit_id);
-        $creator = User::findOrFail($request->created_by);
+        $creator = User::with('hotels:id,name')->findOrFail($request->created_by);
+
+        if (!$this->userCanAccessHotel($creator, $request->hotel_id)) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses ke cabang hotel ini'
+            ], 403);
+        }
 
         if ((int) $roomUnit->room_id !== (int) $room->id) {
             return response()->json([

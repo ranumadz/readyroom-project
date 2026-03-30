@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../services/api";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import toast from "react-hot-toast";
+import { QRCodeCanvas } from "qrcode.react";
 import {
   ClipboardList,
   Hotel,
@@ -28,6 +29,10 @@ import {
   Layers3,
   History,
   MessageCircle,
+  ReceiptText,
+  Printer,
+  Download,
+  X,
 } from "lucide-react";
 
 export default function BookingList() {
@@ -103,14 +108,25 @@ export default function BookingList() {
 
   const [viewMode, setViewMode] = useState("today_active");
 
+  const [userAccessHotels, setUserAccessHotels] = useState([]);
+  const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
+
+  const [selectedReceiptBooking, setSelectedReceiptBooking] = useState(null);
+  const receiptPrintRef = useRef(null);
+
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
   const canEditBooking =
     adminUser?.role === "boss" || adminUser?.role === "super_admin";
+  const canAccessAllHotels =
+    adminUser?.role === "boss" ||
+    adminUser?.role === "super_admin" ||
+    adminUser?.role === "pengawas";
 
   useEffect(() => {
     fetchBookings();
     fetchHotels();
     fetchRooms();
+    fetchUserAccessHotels();
   }, []);
 
   useEffect(() => {
@@ -179,6 +195,35 @@ export default function BookingList() {
       console.error("GET ROOMS ERROR:", error.response?.data || error);
     } finally {
       setLoadingRooms(false);
+    }
+  };
+
+  const fetchUserAccessHotels = async () => {
+    if (!adminUser?.id || canAccessAllHotels) {
+      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+      return;
+    }
+
+    try {
+      setLoadingUserAccessHotels(true);
+
+      const res = await api.get("/admin/users/admin");
+      const usersData = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+        ? res.data
+        : [];
+
+      const currentUser = usersData.find(
+        (user) => String(user.id) === String(adminUser.id)
+      );
+
+      setUserAccessHotels(Array.isArray(currentUser?.hotels) ? currentUser.hotels : []);
+    } catch (error) {
+      console.error("GET USER ACCESS HOTELS ERROR:", error.response?.data || error);
+      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+    } finally {
+      setLoadingUserAccessHotels(false);
     }
   };
 
@@ -689,6 +734,227 @@ export default function BookingList() {
     }
   };
 
+
+  const getBookingCustomerName = (booking) => {
+    return booking?.user?.name || booking?.guest_name || "Tamu";
+  };
+
+  const getBookingRoomName = (booking) => {
+    return booking?.room?.type || booking?.room?.name || "-";
+  };
+
+  const getBookingRoomUnit = (booking) => {
+    return booking?.roomUnit?.room_number || "Belum di-assign";
+  };
+
+  const getCreatedByName = (booking) => {
+    return (
+      booking?.creator?.name ||
+      booking?.created_by_user?.name ||
+      booking?.createdBy?.name ||
+      "Admin"
+    );
+  };
+
+  const getReceiptSourceLabel = (booking) => {
+    if (booking?.booking_source === "admin_manual") return "Manual Admin";
+    if (booking?.booking_source === "customer_app") return "App Customer";
+    return booking?.booking_source || "Operasional Hotel";
+  };
+
+  const buildReceiptQrValue = (booking) => {
+    return JSON.stringify({
+      booking_code: booking?.booking_code || `BOOKING-${booking?.id}`,
+      guest_name: getBookingCustomerName(booking),
+      guest_phone: booking?.guest_phone || "-",
+      hotel: booking?.hotel?.name || "-",
+      room: getBookingRoomName(booking),
+      room_unit: getBookingRoomUnit(booking),
+      check_in: booking?.check_in || null,
+      check_out: booking?.check_out || null,
+      payment_status: booking?.payment_status || "unpaid",
+      status: booking?.status || "-",
+      total_price: booking?.total_price || 0,
+    });
+  };
+
+  const handleOpenReceipt = (booking) => {
+    setSelectedReceiptBooking(booking);
+  };
+
+  const closeReceiptModal = () => {
+    setSelectedReceiptBooking(null);
+  };
+
+  const handlePrintReceipt = () => {
+    const receiptEl = receiptPrintRef.current;
+
+    if (!selectedReceiptBooking || !receiptEl) {
+      toast.error("Receipt belum siap dicetak");
+      return;
+    }
+
+    const qrCanvas = receiptEl.querySelector("canvas");
+    const qrDataUrl = qrCanvas ? qrCanvas.toDataURL("image/png") : "";
+
+    const clone = receiptEl.cloneNode(true);
+    const cloneCanvas = clone.querySelector("canvas");
+
+    if (cloneCanvas && qrDataUrl) {
+      const qrImg = document.createElement("img");
+      qrImg.src = qrDataUrl;
+      qrImg.alt = "QR Booking";
+      qrImg.width = cloneCanvas.width || 180;
+      qrImg.height = cloneCanvas.height || 180;
+      qrImg.style.width = "180px";
+      qrImg.style.height = "180px";
+      cloneCanvas.parentNode.replaceChild(qrImg, cloneCanvas);
+    }
+
+    const printWindow = window.open("", "_blank", "width=1200,height=900");
+
+    if (!printWindow) {
+      toast.error("Popup print diblokir browser");
+      return;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Receipt ${selectedReceiptBooking.booking_code || selectedReceiptBooking.id}</title>
+          <meta charset="utf-8" />
+          <style>
+            * { box-sizing: border-box; }
+            html, body {
+              margin: 0;
+              padding: 0;
+              background: #f8fafc;
+              font-family: Arial, Helvetica, sans-serif;
+              color: #0f172a;
+            }
+            body { padding: 24px; }
+            .ticket-shell {
+              max-width: 980px;
+              margin: 0 auto;
+            }
+            .print-ticket {
+              position: relative;
+              overflow: hidden;
+              border-radius: 28px;
+              border: 1px solid #fecaca;
+              background: linear-gradient(180deg, #fff 0%, #fff7f7 100%);
+              box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+            }
+            .print-top {
+              background: linear-gradient(135deg, #991b1b 0%, #dc2626 45%, #fb7185 100%);
+              color: white;
+              padding: 28px 32px;
+            }
+            .print-content {
+              padding: 28px 32px 32px;
+              position: relative;
+            }
+            .print-grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 14px;
+            }
+            .print-card {
+              border-radius: 20px;
+              border: 1px solid #e5e7eb;
+              background: rgba(255,255,255,0.92);
+              padding: 14px 16px;
+            }
+            .print-card p:first-child {
+              margin: 0 0 6px 0;
+              font-size: 12px;
+              color: #64748b;
+            }
+            .print-card p:last-child {
+              margin: 0;
+              font-size: 16px;
+              font-weight: 700;
+              color: #0f172a;
+            }
+            .print-lower {
+              display: grid;
+              grid-template-columns: 1.3fr 0.7fr;
+              gap: 18px;
+              margin-top: 18px;
+              align-items: stretch;
+            }
+            .print-note {
+              border-radius: 24px;
+              border: 1px solid #fde68a;
+              background: linear-gradient(180deg, #fffbeb 0%, #fff7d6 100%);
+              padding: 18px;
+            }
+            .print-note h4 {
+              margin: 0 0 10px 0;
+              color: #92400e;
+              font-size: 18px;
+            }
+            .print-note p {
+              margin: 0 0 8px 0;
+              color: #78350f;
+              font-size: 14px;
+              line-height: 1.6;
+            }
+            .print-qr {
+              border-radius: 24px;
+              border: 1px dashed #cbd5e1;
+              background: #ffffff;
+              padding: 18px;
+              text-align: center;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-direction: column;
+            }
+            .print-qr img {
+              display: block;
+              width: 180px;
+              height: 180px;
+              object-fit: contain;
+            }
+            .print-footer {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              flex-wrap: wrap;
+              margin-top: 20px;
+              padding-top: 14px;
+              border-top: 1px dashed #cbd5e1;
+              color: #64748b;
+              font-size: 12px;
+            }
+            @media print {
+              html, body {
+                background: #fff;
+              }
+              body {
+                padding: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="ticket-shell">${clone.outerHTML}</div>
+          <script>
+            window.onload = function () {
+              window.print();
+              window.onafterprint = function () {
+                window.close();
+              };
+            };
+          </script>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  };
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -809,6 +1075,36 @@ const buildWhatsAppMessage = (booking) => {
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [bookings]);
 
+  const assignedHotelIds = useMemo(() => {
+    if (canAccessAllHotels) return [];
+
+    const sourceHotels =
+      Array.isArray(userAccessHotels) && userAccessHotels.length > 0
+        ? userAccessHotels
+        : Array.isArray(adminUser?.hotels)
+        ? adminUser.hotels
+        : [];
+
+    return sourceHotels.map((hotel) => String(hotel?.id)).filter(Boolean);
+  }, [adminUser, canAccessAllHotels, userAccessHotels]);
+
+  const folderHotels = useMemo(() => {
+    const sourceHotels =
+      Array.isArray(hotels) && hotels.length > 0 ? hotels : uniqueHotels;
+
+    if (canAccessAllHotels) {
+      return sourceHotels;
+    }
+
+    if (assignedHotelIds.length > 0) {
+      return sourceHotels.filter((hotel) =>
+        assignedHotelIds.includes(String(hotel.id))
+      );
+    }
+
+    return [];
+  }, [hotels, uniqueHotels, assignedHotelIds, canAccessAllHotels]);
+
   const isSameDay = (dateA, dateB) => {
     return (
       dateA.getFullYear() === dateB.getFullYear() &&
@@ -900,6 +1196,10 @@ const buildWhatsAppMessage = (booking) => {
         !filters.hotelId ||
         String(booking.hotel?.id) === String(filters.hotelId);
 
+      const matchesAccessHotel = canAccessAllHotels
+        ? true
+        : assignedHotelIds.includes(String(booking.hotel?.id));
+
       let matchesMonth = true;
       if (filters.month && booking.check_in) {
         const bookingDate = new Date(booking.check_in);
@@ -919,6 +1219,7 @@ const buildWhatsAppMessage = (booking) => {
         matchesStatus &&
         matchesBookingType &&
         matchesHotel &&
+        matchesAccessHotel &&
         matchesMonth &&
         matchesViewMode
       );
@@ -926,11 +1227,20 @@ const buildWhatsAppMessage = (booking) => {
   }, [bookings, filters, viewMode]);
 
   const todayVisibleCount = useMemo(() => {
-    return bookings.filter((booking) => isBookingRelevantToday(booking)).length;
-  }, [bookings]);
+    return bookings.filter((booking) => {
+      const matchesAccessHotel = canAccessAllHotels
+        ? true
+        : assignedHotelIds.includes(String(booking.hotel?.id));
+
+      return matchesAccessHotel && isBookingRelevantToday(booking);
+    }).length;
+  }, [bookings, assignedHotelIds, canAccessAllHotels]);
 
   const inputClass =
     "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100";
+
+  const needsFolderSelection = !canAccessAllHotels;
+  const hasSelectedFolder = canAccessAllHotels ? true : !!filters.hotelId;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -952,6 +1262,71 @@ const buildWhatsAppMessage = (booking) => {
             </p>
           </div>
 
+          <div className="mb-6">
+            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Building2 size={18} className="text-red-500" />
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800">Folder Cabang</h2>
+                  <p className="text-sm text-gray-500">
+                    Klik cabang untuk membuka booking sesuai hotel yang dipilih.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {canAccessAllHotels && (
+                  <button
+                    type="button"
+                    onClick={() => handleFilterChange("hotelId", "")}
+                    className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+                      !filters.hotelId
+                        ? "bg-red-600 text-white shadow-sm"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Layers3 size={18} />
+                    Semua Cabang
+                  </button>
+                )}
+
+                {folderHotels.map((hotel) => (
+                  <button
+                    key={hotel.id}
+                    type="button"
+                    onClick={() => handleFilterChange("hotelId", String(hotel.id))}
+                    className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+                      String(filters.hotelId) === String(hotel.id)
+                        ? "bg-gray-900 text-white shadow-sm"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Building2 size={17} />
+                    {hotel.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {!hasSelectedFolder && (
+            <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-amber-900">Pilih cabang dulu</h3>
+                  <p className="mt-1 text-sm text-amber-800">
+                    Klik salah satu folder cabang di atas untuk membuka isi Booking List sesuai akses user ini.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hasSelectedFolder && (
+          <>
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 mb-6">
             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-5">
               <div className="flex items-center gap-2">
@@ -1055,7 +1430,7 @@ const buildWhatsAppMessage = (booking) => {
                 className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
               >
                 <option value="">Semua Hotel</option>
-                {uniqueHotels.map((hotel) => (
+                {folderHotels.map((hotel) => (
                   <option key={hotel.id} value={hotel.id}>
                     {hotel.name}
                   </option>
@@ -1422,6 +1797,15 @@ const buildWhatsAppMessage = (booking) => {
                             </button>
                           )}
 
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReceipt(booking)}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition shadow-sm"
+                          >
+                            <ReceiptText size={18} />
+                            Receipt
+                          </button>
+
                           {booking.status === "pending" ? (
                             <>
                               <button
@@ -1554,6 +1938,9 @@ const buildWhatsAppMessage = (booking) => {
               </div>
             )}
           </div>
+
+          </>
+          )}
 
           {selectedBooking && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -1932,6 +2319,309 @@ const buildWhatsAppMessage = (booking) => {
             </div>
           )}
 
+
+          {selectedReceiptBooking && (
+            <div className="fixed inset-0 z-[70] bg-black/60 p-4 overflow-y-auto backdrop-blur-[2px]">
+              <div className="min-h-full flex items-center justify-center py-8">
+                <div className="w-full max-w-6xl">
+                  <div className="rounded-[32px] border border-red-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.22)] overflow-hidden">
+                    <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-red-100 bg-white/95 px-5 py-4 backdrop-blur md:flex-row md:items-center md:justify-between md:px-8">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.28em] text-red-600">
+                          ReadyRoom Admin Receipt
+                        </p>
+                        <h2 className="mt-1 text-2xl font-black text-gray-900 md:text-3xl">
+                          Tiket Operasional Booking
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Receipt ini bisa diprint atau disimpan PDF untuk tamu dan resepsionis.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handlePrintReceipt}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-200 transition hover:bg-red-700"
+                        >
+                          <Printer size={18} />
+                          Print / Save PDF
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={closeReceiptModal}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-gray-200 px-5 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-300"
+                        >
+                          <X size={18} />
+                          Tutup
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-[radial-gradient(circle_at_top_right,_rgba(254,202,202,0.5),_transparent_26%),linear-gradient(180deg,_#fff_0%,_#fff8f8_100%)] p-4 md:p-8">
+                      <div
+                        ref={receiptPrintRef}
+                        className="print-ticket relative overflow-hidden rounded-[30px] border border-red-100 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.10)]"
+                      >
+                        <div className="print-top relative overflow-hidden bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-6 py-7 text-white md:px-8 md:py-8">
+                          <div className="absolute -right-8 -top-8 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
+                          <div className="absolute right-8 top-6 text-[90px] font-black leading-none text-white/10 md:text-[140px]">
+                            RR
+                          </div>
+
+                          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                            <div className="max-w-3xl">
+                              <p className="text-xs font-black uppercase tracking-[0.35em] text-red-100">
+                                ReadyRoom • Hotel Ops
+                              </p>
+                              <h3 className="mt-3 text-3xl font-black leading-tight md:text-5xl">
+                                PREMIUM ADMIN
+                                <span className="block text-red-100">BOOKING TICKET</span>
+                              </h3>
+                              <p className="mt-3 max-w-2xl text-sm text-red-50 md:text-base">
+                                Tunjukkan tiket ini ke resepsionis. Gunakan kode booking atau scan QR untuk validasi cepat saat tamu datang.
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              <span
+                                className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wide ${
+                                  selectedReceiptBooking.status === "pending"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : selectedReceiptBooking.status === "confirmed"
+                                    ? "bg-green-100 text-green-700"
+                                    : selectedReceiptBooking.status === "checked_in"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : selectedReceiptBooking.status === "checked_out"
+                                    ? "bg-slate-100 text-slate-700"
+                                    : selectedReceiptBooking.status === "cleaning"
+                                    ? "bg-orange-100 text-orange-700"
+                                    : selectedReceiptBooking.status === "completed"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-white text-gray-700"
+                                }`}
+                              >
+                                Status: {selectedReceiptBooking.status || "-"}
+                              </span>
+
+                              <span
+                                className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wide ${
+                                  selectedReceiptBooking.payment_status === "paid"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : selectedReceiptBooking.payment_status === "refunded"
+                                    ? "bg-purple-100 text-purple-700"
+                                    : "bg-white text-gray-700"
+                                }`}
+                              >
+                                Payment: {selectedReceiptBooking.payment_status || "unpaid"}
+                              </span>
+
+                              <span className="rounded-full bg-white/15 px-4 py-2 text-xs font-black uppercase tracking-wide text-white ring-1 ring-white/15">
+                                {getReceiptSourceLabel(selectedReceiptBooking)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="print-content relative px-6 py-6 md:px-8 md:py-8">
+                          <div className="absolute -left-10 top-20 h-28 w-28 rounded-full bg-red-100/60 blur-2xl" />
+                          <div className="absolute -bottom-10 right-10 h-36 w-36 rounded-full bg-rose-100/60 blur-3xl" />
+
+                          <div className="relative z-10">
+                            <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+                              <div>
+                                <p className="text-sm font-black uppercase tracking-[0.22em] text-red-600">
+                                  Booking Code
+                                </p>
+                                <h4 className="mt-2 break-all text-3xl font-black text-gray-950 md:text-5xl">
+                                  {selectedReceiptBooking.booking_code || `BOOKING-${selectedReceiptBooking.id}`}
+                                </h4>
+                                <p className="mt-2 text-sm text-gray-500">
+                                  Dicetak dari admin panel • {new Date().toLocaleString("id-ID", {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  })}
+                                </p>
+                              </div>
+
+                              <div className="rounded-[24px] border border-red-100 bg-gradient-to-br from-red-50 to-white px-5 py-4 shadow-sm">
+                                <p className="text-xs font-black uppercase tracking-[0.18em] text-red-500">
+                                  Total Harga
+                                </p>
+                                <p className="mt-2 text-2xl font-black text-gray-950 md:text-3xl">
+                                  {formatCurrency(selectedReceiptBooking.total_price)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="print-grid grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Nama Tamu
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {getBookingCustomerName(selectedReceiptBooking)}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Nomor HP
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {selectedReceiptBooking.guest_phone || "-"}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Hotel
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {selectedReceiptBooking.hotel?.name || "-"}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Tipe Kamar
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {getBookingRoomName(selectedReceiptBooking)}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Room Unit
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {getBookingRoomUnit(selectedReceiptBooking)}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Dibuat Oleh
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {getCreatedByName(selectedReceiptBooking)}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Check In
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {formatDateTime(selectedReceiptBooking.check_in)}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Check Out
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {formatDateTime(selectedReceiptBooking.check_out)}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Booking Type
+                                </p>
+                                <p className="mt-2 text-lg font-black capitalize text-slate-900">
+                                  {selectedReceiptBooking.booking_type || "-"}
+                                  {selectedReceiptBooking.duration_hours
+                                    ? ` • ${selectedReceiptBooking.duration_hours} jam`
+                                    : ""}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur md:col-span-2 xl:col-span-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Catatan Admin
+                                </p>
+                                <p className="mt-2 text-base font-bold text-slate-900">
+                                  {selectedReceiptBooking.admin_note || "Tidak ada catatan admin."}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="print-lower mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+                              <div className="print-note rounded-[28px] border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-5 shadow-sm">
+                                <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600">
+                                  Important Note
+                                </p>
+                                <h5 className="mt-2 text-2xl font-black text-amber-950">
+                                  Tunjukkan tiket ini ke resepsionis
+                                </h5>
+
+                                <div className="mt-4 space-y-2 text-sm leading-7 text-amber-950">
+                                  <p>• Tiket ini adalah bukti booking operasional hotel.</p>
+                                  <p>• Resepsionis dapat mencocokkan kode booking atau scan QR untuk validasi cepat.</p>
+                                  <p>• Simpan tiket ini hingga proses check-in selesai.</p>
+                                  {selectedReceiptBooking.hotel?.wa_admin && (
+                                    <p className="font-bold text-blue-700">
+                                      • Kontak Admin Cabang: {selectedReceiptBooking.hotel.wa_admin}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="print-qr rounded-[28px] border border-dashed border-slate-300 bg-white p-5 shadow-sm">
+                                <div className="rounded-[22px] bg-gradient-to-br from-slate-50 to-white p-4 ring-1 ring-slate-100">
+                                  <QRCodeCanvas
+                                    value={buildReceiptQrValue(selectedReceiptBooking)}
+                                    size={180}
+                                    level="H"
+                                    includeMargin={true}
+                                  />
+                                </div>
+                                <p className="mt-4 text-sm font-black uppercase tracking-[0.22em] text-slate-500">
+                                  Scan QR Booking
+                                </p>
+                                <p className="mt-2 break-all text-base font-black text-slate-900">
+                                  {selectedReceiptBooking.booking_code || `BOOKING-${selectedReceiptBooking.id}`}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="print-footer mt-6 flex flex-col gap-3 border-t border-dashed border-slate-200 pt-4 text-xs font-medium text-slate-500 md:flex-row md:items-center md:justify-between">
+                              <p>ReadyRoom Admin Ticket • Semi-manual operational flow</p>
+                              <p>Gunakan Print / Save PDF untuk mengirim receipt ke tamu</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handlePrintReceipt}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-gray-950 px-5 py-3 text-sm font-black text-white transition hover:bg-black"
+                        >
+                          <Download size={18} />
+                          Print / Save PDF
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={closeReceiptModal}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-gray-200 px-5 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-300"
+                        >
+                          Tutup Receipt
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {showManualModal && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
               <div className="bg-white rounded-3xl p-6 w-full max-w-5xl shadow-xl my-8">
@@ -2050,7 +2740,7 @@ const buildWhatsAppMessage = (booking) => {
                             <option value="">
                               {loadingHotels ? "Memuat hotel..." : "Pilih hotel"}
                             </option>
-                            {hotels.map((hotel) => (
+                            {folderHotels.map((hotel) => (
                               <option key={hotel.id} value={hotel.id}>
                                 {hotel.name}
                               </option>
