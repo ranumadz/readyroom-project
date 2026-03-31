@@ -50,16 +50,16 @@ export default function RoomsList() {
               <table className="w-full min-w-[900px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr className="text-left text-sm text-gray-600">
-                    <th className="px-6 py-4 font-semibold">Room Name</th>
-                    <th className="px-6 py-4 font-semibold">Hotel</th>
-                    <th className="px-6 py-4 font-semibold">Type</th>
-                    <th className="px-6 py-4 font-semibold">Capacity</th>
-                    <th className="px-6 py-4 font-semibold">Price / Night</th>
-                    <th className="px-6 py-4 font-semibold">Transit 3H</th>
-                    <th className="px-6 py-4 font-semibold">Transit 6H</th>
-                    <th className="px-6 py-4 font-semibold">Transit 12H</th>
-                    <th className="px-6 py-4 font-semibold">Total Rooms</th>
-                    <th className="px-6 py-4 font-semibold">Status</th>
+                      <th className="px-6 py-4 font-semibold">Room Name</th>
+                      <th className="px-6 py-4 font-semibold">Hotel</th>
+                      <th className="px-6 py-4 font-semibold">Type</th>
+                      <th className="px-6 py-4 font-semibold">Capacity</th>
+                      <th className="px-6 py-4 font-semibold">Price / Night</th>
+                      <th className="px-6 py-4 font-semibold">Transit 3H</th>
+                      <th className="px-6 py-4 font-semibold">Transit 6H</th>
+                      <th className="px-6 py-4 font-semibold">Transit 12H</th>
+                      <th className="px-6 py-4 font-semibold">Total Rooms</th>
+                      <th className="px-6 py-4 font-semibold">Status</th>
                   </tr>
                 </thead>
 
