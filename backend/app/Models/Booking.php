@@ -46,6 +46,11 @@ class Booking extends Model
         'status',
         'payment_status',
 
+        // TAMBAHAN PAYMENT BARU
+        'payment_method',
+        'paid_amount',
+        'payment_note',
+
         'admin_note',
         'rejection_reason_internal',
         'rejection_reason_customer',

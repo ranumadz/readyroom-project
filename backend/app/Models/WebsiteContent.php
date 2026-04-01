@@ -13,12 +13,22 @@ class WebsiteContent extends Model
         'hero_title',
         'hero_subtitle',
         'hero_image',
+
         'info_title',
         'info_description',
         'info_image',
+
+        // PROMO 2 (BARU)
+        'promo2_title',
+        'promo2_description',
+        'promo2_image',
+
+        // video masih kita biarin dulu (biar gak ngerusak)
         'video_title',
         'video_description',
         'video_url',
+        'video_path',
+
         'updated_by',
     ];
 

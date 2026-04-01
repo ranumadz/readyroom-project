@@ -143,7 +143,6 @@ class BookingController extends Controller
 
         $hotelId = $requestedHotelId ? (int) $requestedHotelId : null;
 
-        // kalau user tidak punya akses ke hotel yang diminta, paksa kosong
         if ($hotelId && !$this->userCanAccessHotel($actor, $hotelId)) {
             return response()->json([
                 'filters' => [
@@ -246,6 +245,9 @@ class BookingController extends Controller
                     'status' => $booking->status,
                     'payment_status' => $booking->payment_status,
                     'booking_type' => $booking->booking_type,
+                    'payment_method' => $booking->payment_method ?? null,
+                    'paid_amount' => $booking->paid_amount ?? null,
+                    'payment_note' => $booking->payment_note ?? null,
                 ];
             })
             ->values();
@@ -329,21 +331,18 @@ class BookingController extends Controller
 
         $roomUnit = RoomUnit::findOrFail($request->room_unit_id);
 
-        // room unit harus milik room yang sama
         if ((int) $roomUnit->room_id !== (int) $booking->room_id) {
             return response()->json([
                 'message' => 'Kamar fisik tidak sesuai dengan tipe kamar booking ini'
             ], 422);
         }
 
-        // status operasional room unit harus aktif
         if ((int) $roomUnit->status === 0) {
             return response()->json([
                 'message' => 'Kamar fisik sedang tidak aktif / tidak tersedia'
             ], 422);
         }
 
-        // cek bentrok waktu
         if (
             !$this->isRoomUnitAvailable(
                 $roomUnit->id,
@@ -423,14 +422,12 @@ class BookingController extends Controller
 
         $roomUnit = RoomUnit::findOrFail($request->room_unit_id);
 
-        // cek room unit sesuai room booking
         if ((int) $roomUnit->room_id !== (int) $booking->room_id) {
             return response()->json([
                 'message' => 'Kamar tidak sesuai tipe booking'
             ], 422);
         }
 
-        // room unit harus aktif
         if ((int) $roomUnit->status === 0) {
             return response()->json([
                 'message' => 'Kamar fisik sedang tidak aktif / tidak tersedia'
@@ -446,7 +443,6 @@ class BookingController extends Controller
             $checkOut = $this->calculateOvernightCheckOut($checkIn);
         }
 
-        // cek bentrok waktu
         if (
             !$this->isRoomUnitAvailable(
                 $roomUnit->id,
@@ -493,9 +489,15 @@ class BookingController extends Controller
     }
 
     // 💰 MARK AS PAID
-    public function markPaid($id)
+    public function markPaid(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
+
+        $request->validate([
+            'payment_method' => 'nullable|in:cash,transfer,qris',
+            'paid_amount' => 'nullable|numeric|min:0',
+            'payment_note' => 'nullable|string',
+        ]);
 
         if ($booking->status !== 'confirmed') {
             return response()->json([
@@ -515,8 +517,21 @@ class BookingController extends Controller
             ], 422);
         }
 
+        $paidAmount = $request->filled('paid_amount')
+            ? (float) $request->paid_amount
+            : (float) $booking->total_price;
+
+        if ($paidAmount < 0) {
+            return response()->json([
+                'message' => 'Nominal pembayaran tidak valid'
+            ], 422);
+        }
+
         $booking->update([
             'payment_status' => 'paid',
+            'payment_method' => $request->input('payment_method'),
+            'paid_amount' => $paidAmount,
+            'payment_note' => $request->input('payment_note'),
         ]);
 
         return response()->json([

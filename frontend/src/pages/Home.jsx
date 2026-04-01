@@ -19,15 +19,21 @@ import {
   BadgeCheck,
   History,
   Eye,
+  Newspaper,
 } from "lucide-react";
 
 import AOS from "aos";
 import "aos/dist/aos.css";
 
+const BACKEND_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+
 export default function Home() {
   const [popularHotels, setPopularHotels] = useState([]);
   const [loadingHotels, setLoadingHotels] = useState(true);
   const [recentHotels, setRecentHotels] = useState([]);
+  const [websiteContent, setWebsiteContent] = useState(null);
+  const [loadingContent, setLoadingContent] = useState(true);
 
   useEffect(() => {
     AOS.init({
@@ -39,6 +45,7 @@ export default function Home() {
   useEffect(() => {
     fetchPopularHotels();
     loadRecentHotels();
+    fetchWebsiteContent();
   }, []);
 
   useEffect(() => {
@@ -69,6 +76,20 @@ export default function Home() {
     }
   };
 
+  const fetchWebsiteContent = async () => {
+    try {
+      setLoadingContent(true);
+
+      const res = await api.get("/admin/website-content");
+      setWebsiteContent(res.data?.data || null);
+    } catch (error) {
+      console.error("GET WEBSITE CONTENT ERROR:", error.response?.data || error);
+      setWebsiteContent(null);
+    } finally {
+      setLoadingContent(false);
+    }
+  };
+
   const buildImageUrl = (path, fallback = "/images/hotel.jpg") => {
     if (!path) return fallback;
 
@@ -85,10 +106,10 @@ export default function Home() {
     }
 
     if (cleanPath.startsWith("storage/")) {
-      return `http://127.0.0.1:8000/${cleanPath}`;
+      return `${BACKEND_BASE_URL}/${cleanPath}`;
     }
 
-    return `http://127.0.0.1:8000/storage/${cleanPath}`;
+    return `${BACKEND_BASE_URL}/storage/${cleanPath}`;
   };
 
   const getCustomerStorageKey = () => {
@@ -122,58 +143,90 @@ export default function Home() {
     }
   };
 
+  const heroTitle =
+    websiteContent?.hero_title || "Find Your Perfect Stay with ReadyRoom";
+
+  const heroSubtitle =
+    websiteContent?.hero_subtitle ||
+    "Booking hotel lebih cepat, lebih fleksibel, dan cocok untuk transit, perjalanan bisnis, atau staycation singkat di kota favoritmu.";
+
+  const heroImage = buildImageUrl(
+    websiteContent?.hero_image,
+    "/images/hotel.jpg"
+  );
+
+  const infoTitle = websiteContent?.info_title || "Info Terbaru ReadyRoom";
+  const infoDescription =
+    websiteContent?.info_description ||
+    "Nikmati pengalaman booking hotel yang lebih cepat, aman, dan nyaman untuk kebutuhan harian maupun perjalanan bisnis.";
+  const infoImage = buildImageUrl(
+    websiteContent?.info_image,
+    "/images/hotel.jpg"
+  );
+
+  const promo2Title = websiteContent?.promo2_title || "Promo Tambahan ReadyRoom";
+  const promo2Description =
+    websiteContent?.promo2_description ||
+    "Nikmati promo tambahan dan berbagai pilihan kamar yang nyaman untuk kebutuhan transit maupun menginap.";
+  const promo2Image = buildImageUrl(
+    websiteContent?.promo2_image,
+    "/images/hotel.jpg"
+  );
+
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#6d0000] via-red-700 to-rose-700 text-white pt-20 pb-24 md:pt-28 md:pb-32">
+      <section className="relative overflow-hidden pt-20 pb-24 text-white md:pt-28 md:pb-32">
         <div className="absolute inset-0">
+          <img
+            src={heroImage}
+            alt="ReadyRoom Hero"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#4b0000]/90 via-red-800/80 to-rose-700/80" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,0,0,0.18),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.08),transparent_25%)]" />
-          <div className="absolute -top-16 left-0 w-80 h-80 bg-white/10 blur-3xl rounded-full" />
-          <div className="absolute top-12 right-10 w-96 h-96 bg-black/15 blur-3xl rounded-full" />
-          <div className="absolute bottom-0 left-1/3 w-[28rem] h-[28rem] bg-red-300/10 blur-3xl rounded-full" />
+          <div className="absolute -top-16 left-0 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute top-12 right-10 h-96 w-96 rounded-full bg-black/15 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 h-[28rem] w-[28rem] rounded-full bg-red-300/10 blur-3xl" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 md:px-6">
-          <div className="max-w-5xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-md px-4 py-2 mb-6 shadow-lg">
+        <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+          <div className="mx-auto max-w-5xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
               <Clock size={16} />
               <span className="text-sm font-medium">
                 Booking Transit 3 Jam • Stay Harian • Fleksibel
               </span>
             </div>
 
-            <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-xs md:text-sm text-white/90">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 backdrop-blur-md border border-white/15">
+            <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-xs text-white/90 md:text-sm">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-md">
                 <BadgeCheck size={15} />
                 Fast Approval Flow
               </span>
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 backdrop-blur-md border border-white/15">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-md">
                 <Sparkles size={15} />
                 Modern Transit Booking
               </span>
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 backdrop-blur-md border border-white/15">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-md">
                 <ShieldCheck size={15} />
                 Aman & Nyaman
               </span>
             </div>
 
-            <h2 className="text-4xl md:text-6xl xl:text-7xl font-extrabold leading-[1.08] mb-5 tracking-tight">
-              Find Your Perfect Stay with{" "}
-              <span className="text-[#dc2626] [-webkit-text-stroke:1px_rgba(255,255,255,0.65)] [text-shadow:0_0_8px_rgba(255,255,255,0.18),0_3px_0_rgba(127,29,29,0.55),0_10px_24px_rgba(127,29,29,0.35)]">
-                ReadyRoom
-              </span>
+            <h2 className="mb-5 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl xl:text-7xl">
+              {heroTitle}
             </h2>
 
-            <p className="text-red-100 text-lg md:text-xl max-w-3xl mx-auto mb-10 leading-relaxed">
-              Booking hotel lebih cepat, lebih fleksibel, dan cocok untuk transit,
-              perjalanan bisnis, atau staycation singkat di kota favoritmu.
+            <p className="mx-auto mb-10 max-w-3xl text-lg leading-relaxed text-red-100 md:text-xl">
+              {heroSubtitle}
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+            <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
               <Link
                 to="/hotels"
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-red-600 font-semibold shadow-xl hover:bg-gray-100 hover:-translate-y-0.5 transition"
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-100"
               >
                 Explore Hotels
                 <ArrowRight size={18} />
@@ -181,7 +234,7 @@ export default function Home() {
 
               <Link
                 to="/hotels"
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-6 py-3.5 text-white font-semibold backdrop-blur-md hover:bg-white/15 hover:-translate-y-0.5 transition"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-6 py-3.5 font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/15"
               >
                 Explore Rooms
                 <Hotel size={18} />
@@ -193,18 +246,18 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="-mt-10 relative z-10">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <section className="relative z-10 -mt-10">
+        <div className="mx-auto max-w-7xl px-4 md:px-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             <Link
               to="/hotels"
-              className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:-translate-y-1 hover:shadow-xl transition"
+              className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg transition hover:-translate-y-1 hover:shadow-xl"
             >
-              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-4">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                 <Hotel size={22} />
               </div>
-              <h3 className="text-lg font-bold mb-2">Explore Rooms</h3>
-              <p className="text-gray-500 text-sm">
+              <h3 className="mb-2 text-lg font-bold">Explore Rooms</h3>
+              <p className="text-sm text-gray-500">
                 Lihat berbagai tipe kamar yang tersedia untuk transit maupun
                 menginap.
               </p>
@@ -212,26 +265,26 @@ export default function Home() {
 
             <Link
               to="/hotels"
-              className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:-translate-y-1 hover:shadow-xl transition"
+              className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg transition hover:-translate-y-1 hover:shadow-xl"
             >
-              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-4">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                 <Building2 size={22} />
               </div>
-              <h3 className="text-lg font-bold mb-2">Explore Hotels</h3>
-              <p className="text-gray-500 text-sm">
+              <h3 className="mb-2 text-lg font-bold">Explore Hotels</h3>
+              <p className="text-sm text-gray-500">
                 Temukan hotel partner terbaik di kota-kota populer Indonesia.
               </p>
             </Link>
 
             <Link
               to="/login"
-              className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:-translate-y-1 hover:shadow-xl transition"
+              className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg transition hover:-translate-y-1 hover:shadow-xl"
             >
-              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-4">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                 <ShieldCheck size={22} />
               </div>
-              <h3 className="text-lg font-bold mb-2">Fast Booking</h3>
-              <p className="text-gray-500 text-sm">
+              <h3 className="mb-2 text-lg font-bold">Fast Booking</h3>
+              <p className="text-sm text-gray-500">
                 Login dan lanjutkan reservasi dengan proses yang cepat dan aman.
               </p>
             </Link>
@@ -239,15 +292,65 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm">
+            <div className="relative h-72 md:h-80">
+              <img
+                src={infoImage}
+                alt={infoTitle}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <div className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-red-600 shadow">
+                <Newspaper size={16} />
+                Highlight
+              </div>
+              <div className="absolute right-0 bottom-0 left-0 p-6 text-white md:p-8">
+                <h3 className="text-2xl font-bold leading-tight md:text-3xl">
+                  {infoTitle}
+                </h3>
+                <p className="mt-3 leading-relaxed text-white/85">
+                  {infoDescription}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm">
+            <div className="relative h-72 md:h-80">
+              <img
+                src={promo2Image}
+                alt={promo2Title}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <div className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-green-600 shadow">
+                <Sparkles size={16} />
+                Promo Highlight
+              </div>
+              <div className="absolute right-0 bottom-0 left-0 p-6 text-white md:p-8">
+                <h3 className="text-2xl font-bold leading-tight md:text-3xl">
+                  {promo2Title}
+                </h3>
+                <p className="mt-3 leading-relaxed text-white/85">
+                  {promo2Description}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="bg-gray-50 py-20">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-3">Mitra Kami</h2>
-          <p className="text-gray-500 mb-12 max-w-2xl mx-auto">
+        <div className="mx-auto max-w-7xl px-4 text-center md:px-6">
+          <h2 className="mb-3 text-3xl font-bold md:text-4xl">Mitra Kami COOMINGSOON!!! </h2>
+          <p className="mx-auto mb-12 max-w-2xl text-gray-500">
             Hotel partner yang bekerja sama dengan ReadyRoom untuk menghadirkan
-            pengalaman booking yang nyaman dan fleksibel.
+            pengalaman booking yang nyaman dan fleksibel. Ayo segera daftarkan properti mu di ReadyRoom Untuk Informasi lebih lanjut bisa hubungi Kami 
           </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 justify-items-center">
+          <div className="grid grid-cols-2 justify-items-center gap-6 md:grid-cols-4">
             {[
               "/readyroom.png",
               "/readyroom.png",
@@ -261,12 +364,12 @@ export default function Home() {
               <div
                 key={i}
                 data-aos="zoom-in"
-                className="w-full bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition duration-300 flex items-center justify-center"
+                className="flex w-full items-center justify-center rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition duration-300 hover:scale-105 hover:shadow-xl"
               >
                 <img
                   src={logo}
                   alt="Partner Logo"
-                  className="w-16 h-16 object-contain"
+                  className="h-16 w-16 object-contain"
                 />
               </div>
             ))}
@@ -275,32 +378,35 @@ export default function Home() {
       </section>
 
       {recentHotels.length > 0 && (
-        <section className="max-w-7xl mx-auto py-16 px-4 md:px-6">
-          <div className="flex items-center justify-between mb-8">
+        <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
+          <div className="mb-8 flex items-center justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 mb-4">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
                 <History size={16} />
                 Recent Viewed
               </div>
               <h3 className="text-3xl font-bold">Terakhir Kamu Lihat</h3>
-              <p className="text-gray-500 mt-2">
+              <p className="mt-2 text-gray-500">
                 Lanjutkan lihat hotel yang baru saja kamu kunjungi.
               </p>
             </div>
 
-            <Link to="/hotels" className="text-red-600 font-semibold hover:underline">
+            <Link
+              to="/hotels"
+              className="font-semibold text-red-600 hover:underline"
+            >
               Jelajahi Semua
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {recentHotels.map((hotel, i) => (
               <Link
                 to={`/hotels/${hotel.id}`}
                 key={hotel.id}
                 data-aos="fade-up"
                 data-aos-delay={i * 100}
-                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition duration-300 block"
+                className="block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
               >
                 <div className="relative">
                   <img
@@ -309,7 +415,7 @@ export default function Home() {
                       "/images/hotel.jpg"
                     )}
                     alt={hotel.name}
-                    className="w-full h-56 object-cover"
+                    className="h-56 w-full object-cover"
                   />
 
                   <div className="absolute top-4 left-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-red-600 shadow">
@@ -319,8 +425,8 @@ export default function Home() {
                 </div>
 
                 <div className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
                       {hotel.area || "Hotel"}
                     </span>
                     <span className="text-xs text-gray-400">
@@ -328,14 +434,14 @@ export default function Home() {
                     </span>
                   </div>
 
-                  <h4 className="font-bold text-xl line-clamp-1">{hotel.name}</h4>
-                  <p className="text-gray-500 mt-1">
+                  <h4 className="line-clamp-1 text-xl font-bold">{hotel.name}</h4>
+                  <p className="mt-1 text-gray-500">
                     {hotel.city?.name || "-"}
                     {hotel.area ? ` • ${hotel.area}` : ""}
                   </p>
 
-                  <div className="flex items-center justify-between mt-5">
-                    <p className="text-sm text-gray-500 line-clamp-1">
+                  <div className="mt-5 flex items-center justify-between">
+                    <p className="line-clamp-1 text-sm text-gray-500">
                       {hotel.address || "Alamat belum tersedia"}
                     </p>
                     <span className="text-sm font-medium text-red-600">
@@ -349,59 +455,62 @@ export default function Home() {
         </section>
       )}
 
-      <section className="max-w-7xl mx-auto py-16 px-4 md:px-6">
-        <div className="flex items-center justify-between mb-8">
+      <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
+        <div className="mb-8 flex items-center justify-between">
           <div>
             <h3 className="text-3xl font-bold">Popular Hotels</h3>
-            <p className="text-gray-500 mt-2">
+            <p className="mt-2 text-gray-500">
               Pilihan hotel populer untuk transit maupun menginap.
             </p>
           </div>
-          <Link to="/hotels" className="text-red-600 font-semibold hover:underline">
+          <Link
+            to="/hotels"
+            className="font-semibold text-red-600 hover:underline"
+          >
             View All
           </Link>
         </div>
 
         {loadingHotels ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((item) => (
               <div
                 key={item}
-                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-pulse"
+                className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm animate-pulse"
               >
-                <div className="w-full h-56 bg-gray-200" />
+                <div className="h-56 w-full bg-gray-200" />
                 <div className="p-5">
-                  <div className="h-4 w-24 bg-gray-200 rounded mb-3" />
-                  <div className="h-6 w-40 bg-gray-200 rounded mb-2" />
-                  <div className="h-4 w-28 bg-gray-200 rounded mb-5" />
-                  <div className="h-5 w-32 bg-gray-200 rounded" />
+                  <div className="mb-3 h-4 w-24 rounded bg-gray-200" />
+                  <div className="mb-2 h-6 w-40 rounded bg-gray-200" />
+                  <div className="mb-5 h-4 w-28 rounded bg-gray-200" />
+                  <div className="h-5 w-32 rounded bg-gray-200" />
                 </div>
               </div>
             ))}
           </div>
         ) : popularHotels.length === 0 ? (
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center text-gray-500">
+          <div className="rounded-3xl border border-gray-100 bg-white p-10 text-center text-gray-500 shadow-sm">
             Belum ada hotel aktif yang tampil.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {popularHotels.map((hotel, i) => (
               <Link
                 to={`/hotels/${hotel.id}`}
                 key={hotel.id}
                 data-aos="fade-up"
                 data-aos-delay={i * 100}
-                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition duration-300 block"
+                className="block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
               >
                 <img
                   src={buildImageUrl(hotel.thumbnail, "/images/hotel.jpg")}
                   alt={hotel.name}
-                  className="w-full h-56 object-cover"
+                  className="h-56 w-full object-cover"
                 />
 
                 <div className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-semibold">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
                       {hotel.area || "Hotel"}
                     </span>
                     <span className="text-xs text-gray-400">
@@ -409,14 +518,14 @@ export default function Home() {
                     </span>
                   </div>
 
-                  <h4 className="font-bold text-xl line-clamp-1">{hotel.name}</h4>
-                  <p className="text-gray-500 mt-1">
+                  <h4 className="line-clamp-1 text-xl font-bold">{hotel.name}</h4>
+                  <p className="mt-1 text-gray-500">
                     {hotel.city?.name || "-"}
                     {hotel.area ? ` • ${hotel.area}` : ""}
                   </p>
 
-                  <div className="flex items-center justify-between mt-5">
-                    <p className="text-sm text-gray-500 line-clamp-1">
+                  <div className="mt-5 flex items-center justify-between">
+                    <p className="line-clamp-1 text-sm text-gray-500">
                       {hotel.address || "Alamat belum tersedia"}
                     </p>
                     <span className="text-sm font-medium text-red-600">
@@ -430,17 +539,17 @@ export default function Home() {
         )}
       </section>
 
-      <section className="max-w-7xl mx-auto py-16 px-4 md:px-6">
-        <div className="flex items-center justify-between mb-8">
+      <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
+        <div className="mb-8 flex items-center justify-between">
           <div>
             <h3 className="text-3xl font-bold">Explore by City</h3>
-            <p className="text-gray-500 mt-2">
+            <p className="mt-2 text-gray-500">
               Temukan destinasi dan kamar favorit di berbagai kota.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-5">
           {[
             { img: "/photo_jakarta.jpg", name: "Jakarta" },
             { img: "/destinasi_bali.jpg", name: "Bali" },
@@ -452,56 +561,75 @@ export default function Home() {
               to="/hotels"
               key={i}
               data-aos="zoom-in"
-              className="relative rounded-3xl overflow-hidden cursor-pointer group block shadow-md"
+              className="group relative block cursor-pointer overflow-hidden rounded-3xl shadow-md"
             >
               <img
                 src={city.img}
                 alt={city.name}
-                className="w-full h-48 object-cover group-hover:scale-110 transition duration-500"
+                className="h-48 w-full object-cover transition duration-500 group-hover:scale-110"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/20 flex items-end p-4">
-                <h4 className="text-white text-xl font-bold">{city.name}</h4>
+              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 to-black/20 p-4">
+                <h4 className="text-xl font-bold text-white">{city.name}</h4>
               </div>
             </Link>
           ))}
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto py-16 px-4 md:px-6">
-        <div className="flex items-center justify-between mb-8">
+      <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
+        <div className="mb-8 flex items-center justify-between">
           <div>
             <h3 className="text-3xl font-bold">Recommended Hotels</h3>
-            <p className="text-gray-500 mt-2">
+            <p className="mt-2 text-gray-500">
               Rekomendasi hotel dengan fasilitas premium dan lokasi strategis.
             </p>
           </div>
-          <Link to="/hotels" className="text-red-600 font-semibold hover:underline">
+          <Link
+            to="/hotels"
+            className="font-semibold text-red-600 hover:underline"
+          >
             Explore More
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {[
-            { img: "/hotel1.jpg", name: "Ocean View Resort", city: "Bali", price: "Rp720.000" },
-            { img: "/hotel2.jpg", name: "Jakarta Business Hotel", city: "Jakarta", price: "Rp600.000" },
-            { img: "/hotel3.jpg", name: "Mountain Escape", city: "Bandung", price: "Rp500.000" },
+            {
+              img: "/hotel1.jpg",
+              name: "Ocean View Resort",
+              city: "Bali",
+              price: "Rp720.000",
+            },
+            {
+              img: "/hotel2.jpg",
+              name: "Jakarta Business Hotel",
+              city: "Jakarta",
+              price: "Rp600.000",
+            },
+            {
+              img: "/hotel3.jpg",
+              name: "Mountain Escape",
+              city: "Bandung",
+              price: "Rp500.000",
+            },
           ].map((hotel, i) => (
             <Link
               to="/hotels"
               key={i}
               data-aos="fade-up"
-              className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition block"
+              className="block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-2xl"
             >
               <img
                 src={hotel.img}
                 alt={hotel.name}
-                className="w-full h-56 object-cover"
+                className="h-56 w-full object-cover"
               />
               <div className="p-5">
-                <h4 className="font-bold text-xl">{hotel.name}</h4>
-                <p className="text-gray-500 text-sm mt-1">{hotel.city}</p>
-                <p className="text-red-600 font-bold mt-4 text-lg">
-                  {hotel.price} <span className="text-sm text-gray-400">/ night</span>
+                <h4 className="text-xl font-bold">{hotel.name}</h4>
+                <p className="mt-1 text-sm text-gray-500">{hotel.city}</p>
+                <p className="mt-4 text-lg font-bold text-red-600">
+                  {hotel.price}{" "}
+                  <span className="text-sm text-gray-400">/ night</span>
                 </p>
               </div>
             </Link>
@@ -509,62 +637,18 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-16 bg-gray-100">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <h3 className="text-3xl font-bold mb-8">Special Offers</h3>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div
-              data-aos="fade-right"
-              className="rounded-3xl p-8 bg-gradient-to-br from-red-600 to-red-500 text-white shadow-xl"
-            >
-              <h4 className="text-2xl font-bold mb-3">30% OFF Bali Hotels</h4>
-              <p className="text-red-100 mb-5">
-                Book your dream vacation now dan nikmati promo spesial untuk
-                hotel pilihan di Bali.
-              </p>
-              <Link
-                to="/hotels"
-                className="inline-flex items-center gap-2 bg-white text-red-600 px-5 py-3 rounded-2xl font-semibold hover:bg-gray-100 transition"
-              >
-                Explore Deal
-                <ArrowRight size={18} />
-              </Link>
-            </div>
-
-            <div
-              data-aos="fade-left"
-              className="rounded-3xl p-8 bg-gradient-to-br from-gray-900 to-black text-white shadow-xl"
-            >
-              <h4 className="text-2xl font-bold mb-3">Weekend Deals Jakarta</h4>
-              <p className="text-gray-300 mb-5">
-                Special price untuk weekend stay dan transit singkat di area
-                Jakarta.
-              </p>
-              <Link
-                to="/hotels"
-                className="inline-flex items-center gap-2 bg-red-600 text-white px-5 py-3 rounded-2xl font-semibold hover:bg-red-700 transition"
-              >
-                Book Now
-                <ArrowRight size={18} />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 bg-gradient-to-b from-white to-gray-100">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold">
+      <section className="bg-gradient-to-b from-white to-gray-100 py-20">
+        <div className="mx-auto max-w-7xl px-6 text-center">
+          <h2 className="text-3xl font-bold md:text-4xl">
             Mengapa Pilih <span className="text-red-600">ReadyRoom?</span>
           </h2>
 
-          <p className="text-gray-500 mt-3 mb-14 max-w-2xl mx-auto">
+          <p className="mx-auto mt-3 mb-14 max-w-2xl text-gray-500">
             Fasilitas premium, sistem booking fleksibel, dan pengalaman reservasi
             yang cepat untuk kebutuhan transit maupun menginap.
           </p>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid gap-8 md:grid-cols-3">
             {[
               {
                 icon: <Clock size={26} />,
@@ -600,16 +684,16 @@ export default function Home() {
               <div
                 key={i}
                 data-aos="fade-up"
-                className="backdrop-blur-lg bg-white/80 border border-white/40 rounded-3xl p-8 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition duration-300"
+                className="rounded-3xl border border-white/40 bg-white/80 p-8 shadow-sm backdrop-blur-lg transition duration-300 hover:-translate-y-2 hover:shadow-2xl"
               >
-                <div className="flex justify-center mb-4">
-                  <div className="p-3 rounded-2xl bg-red-500 text-white shadow-lg shadow-red-500/20">
+                <div className="mb-4 flex justify-center">
+                  <div className="rounded-2xl bg-red-500 p-3 text-white shadow-lg shadow-red-500/20">
                     {item.icon}
                   </div>
                 </div>
 
-                <h3 className="font-semibold text-lg">{item.title}</h3>
-                <p className="text-gray-500 text-sm mt-2">{item.desc}</p>
+                <h3 className="text-lg font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm text-gray-500">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -617,13 +701,13 @@ export default function Home() {
       </section>
 
       <section className="py-16">
-        <div className="max-w-6xl mx-auto px-4 md:px-6">
-          <div className="rounded-[2rem] bg-gradient-to-r from-red-600 via-red-500 to-rose-500 text-white p-8 md:p-12 shadow-2xl">
+        <div className="mx-auto max-w-6xl px-4 md:px-6">
+          <div className="rounded-[2rem] bg-gradient-to-r from-red-600 via-red-500 to-rose-500 p-8 text-white shadow-2xl md:p-12">
             <div className="max-w-3xl">
-              <h3 className="text-3xl md:text-4xl font-bold mb-4">
+              <h3 className="mb-4 text-3xl font-bold md:text-4xl">
                 Booking lebih cepat dengan ReadyRoom
               </h3>
-              <p className="text-red-100 text-lg mb-6">
+              <p className="mb-6 text-lg text-red-100">
                 Jelajahi hotel, pilih kamar, dan nikmati sistem booking fleksibel
                 untuk transit maupun menginap.
               </p>
@@ -631,11 +715,11 @@ export default function Home() {
               <div className="flex flex-wrap gap-4">
                 <Link
                   to="/hotels"
-                  className="bg-white text-red-600 px-6 py-3 rounded-2xl font-semibold hover:bg-gray-100 transition"
+                  className="rounded-2xl bg-white px-6 py-3 font-semibold text-red-600 transition hover:bg-gray-100"
                 >
                   Explore Rooms
                 </Link>
-                <button className="bg-black/20 border border-white/20 px-6 py-3 rounded-2xl font-semibold hover:bg-black/30 transition">
+                <button className="rounded-2xl border border-white/20 bg-black/20 px-6 py-3 font-semibold transition hover:bg-black/30">
                   Download App Soon
                 </button>
               </div>

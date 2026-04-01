@@ -114,6 +114,12 @@ export default function BookingList() {
   const [selectedReceiptBooking, setSelectedReceiptBooking] = useState(null);
   const receiptPrintRef = useRef(null);
 
+  const [selectedPaidBooking, setSelectedPaidBooking] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paidAmountInput, setPaidAmountInput] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [paying, setPaying] = useState(false);
+
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
   const canEditBooking =
     adminUser?.role === "boss" || adminUser?.role === "super_admin";
@@ -358,16 +364,47 @@ export default function BookingList() {
     }
   };
 
-  const handleMarkPaid = async (booking) => {
+  const handleMarkPaid = (booking) => {
+    setSelectedPaidBooking(booking);
+    setPaymentMethod("cash");
+    setPaidAmountInput(String(Math.round(Number(booking?.total_price || 0))));
+    setPaymentNote(booking?.payment_note || "");
+  };
+
+  const closePaidModal = () => {
+    setSelectedPaidBooking(null);
+    setPaymentMethod("cash");
+    setPaidAmountInput("");
+    setPaymentNote("");
+  };
+
+  const confirmPayment = async () => {
+    if (!selectedPaidBooking) return;
+
+    const parsedPaidAmount = paidAmountInput === "" ? null : Number(paidAmountInput);
+
+    if (paidAmountInput !== "" && (Number.isNaN(parsedPaidAmount) || parsedPaidAmount < 0)) {
+      toast.error("Nominal pembayaran tidak valid");
+      return;
+    }
+
     try {
-      await api.post(`/admin/bookings/${booking.id}/paid`);
+      setPaying(true);
+
+      await api.post(`/admin/bookings/${selectedPaidBooking.id}/paid`, {
+        payment_method: paymentMethod,
+        paid_amount: parsedPaidAmount,
+        payment_note: paymentNote.trim() || null,
+      });
+
       toast.success("Pembayaran berhasil dikonfirmasi");
+      closePaidModal();
       fetchBookings();
     } catch (error) {
-      console.error("MARK PAID ERROR:", error.response?.data || error);
-      toast.error(
-        error.response?.data?.message || "Gagal mengubah status pembayaran"
-      );
+      console.error("PAYMENT ERROR:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal proses pembayaran");
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -1047,6 +1084,32 @@ const buildWhatsAppMessage = (booking) => {
     }
   };
 
+  const getPaymentMethodLabel = (paymentMethod) => {
+    switch (paymentMethod) {
+      case "cash":
+        return "Tunai";
+      case "transfer":
+        return "Transfer";
+      case "qris":
+        return "QRIS";
+      default:
+        return "-";
+    }
+  };
+
+  const getPaymentMethodClass = (paymentMethod) => {
+    switch (paymentMethod) {
+      case "cash":
+        return "bg-amber-100 text-amber-700";
+      case "transfer":
+        return "bg-blue-100 text-blue-700";
+      case "qris":
+        return "bg-fuchsia-100 text-fuchsia-700";
+      default:
+        return "bg-slate-100 text-slate-700";
+    }
+  };
+
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({
       ...prev,
@@ -1540,6 +1603,16 @@ const buildWhatsAppMessage = (booking) => {
                               {booking.payment_status || "unpaid"}
                             </span>
 
+                            {booking.payment_method && (
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentMethodClass(
+                                  booking.payment_method
+                                )}`}
+                              >
+                                {getPaymentMethodLabel(booking.payment_method)}
+                              </span>
+                            )}
+
                             {sourceLabel && (
                               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white border border-gray-200 text-gray-700">
                                 {sourceLabel}
@@ -1669,6 +1742,28 @@ const buildWhatsAppMessage = (booking) => {
                               </span>
                             )}
                           </div>
+
+                          {(booking.payment_method || booking.paid_amount || booking.payment_note) && (
+                            <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                              <div className="flex flex-wrap items-center gap-3">
+                                {booking.payment_method && (
+                                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getPaymentMethodClass(booking.payment_method)}`}>
+                                    Metode: {getPaymentMethodLabel(booking.payment_method)}
+                                  </span>
+                                )}
+                                {booking.paid_amount ? (
+                                  <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-sky-700 border border-sky-200">
+                                    Dibayar: {formatCurrency(booking.paid_amount)}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {booking.payment_note && (
+                                <p className="mt-2 leading-relaxed">
+                                  <strong>Catatan Pembayaran:</strong> {booking.payment_note}
+                                </p>
+                              )}
+                            </div>
+                          )}
 
                           {discountPercent > 0 && (
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
@@ -2417,6 +2512,12 @@ const buildWhatsAppMessage = (booking) => {
                                 Payment: {selectedReceiptBooking.payment_status || "unpaid"}
                               </span>
 
+                              {selectedReceiptBooking.payment_method && (
+                                <span className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wide ${getPaymentMethodClass(selectedReceiptBooking.payment_method)}`}>
+                                  {getPaymentMethodLabel(selectedReceiptBooking.payment_method)}
+                                </span>
+                              )}
+
                               <span className="rounded-full bg-white/15 px-4 py-2 text-xs font-black uppercase tracking-wide text-white ring-1 ring-white/15">
                                 {getReceiptSourceLabel(selectedReceiptBooking)}
                               </span>
@@ -2498,6 +2599,24 @@ const buildWhatsAppMessage = (booking) => {
                                 </p>
                                 <p className="mt-2 text-lg font-black text-slate-900">
                                   {getBookingRoomUnit(selectedReceiptBooking)}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Metode Pembayaran
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {getPaymentMethodLabel(selectedReceiptBooking.payment_method)}
+                                </p>
+                              </div>
+
+                              <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Nominal Dibayar
+                                </p>
+                                <p className="mt-2 text-lg font-black text-slate-900">
+                                  {formatCurrency(selectedReceiptBooking.paid_amount || selectedReceiptBooking.total_price)}
                                 </p>
                               </div>
 
@@ -2617,6 +2736,129 @@ const buildWhatsAppMessage = (booking) => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedPaidBooking && (
+            <div className="fixed inset-0 z-[70] bg-black/50 p-4 backdrop-blur-sm flex items-center justify-center">
+              <div className="w-full max-w-lg rounded-3xl border border-gray-200 bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">Konfirmasi Pembayaran</h3>
+                    <p className="mt-1 text-sm text-gray-500">Pilih metode pembayaran untuk booking ini.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closePaidModal}
+                    className="rounded-full bg-gray-100 p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="space-y-5 px-6 py-6">
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Booking Code</p>
+                        <p className="mt-1 text-sm font-bold text-gray-800">
+                          {selectedPaidBooking.booking_code || `Booking #${selectedPaidBooking.id}`}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nama Tamu</p>
+                        <p className="mt-1 text-sm font-bold text-gray-800">
+                          {selectedPaidBooking.user?.name || selectedPaidBooking.guest_name || "Tamu"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Total Tagihan</p>
+                        <p className="mt-1 text-sm font-bold text-emerald-700">
+                          {formatCurrency(selectedPaidBooking.total_price || 0)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</p>
+                        <p className="mt-1 text-sm font-bold text-gray-800">
+                          {selectedPaidBooking.payment_status || "unpaid"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">Metode Pembayaran</label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      {[
+                        { value: "cash", label: "Tunai" },
+                        { value: "transfer", label: "Transfer" },
+                        { value: "qris", label: "QRIS" },
+                      ].map((method) => {
+                        const active = paymentMethod === method.value;
+                        return (
+                          <button
+                            key={method.value}
+                            type="button"
+                            onClick={() => setPaymentMethod(method.value)}
+                            className={`rounded-2xl border px-4 py-4 text-sm font-semibold transition ${
+                              active
+                                ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm"
+                                : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                            }`}
+                          >
+                            {method.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">Nominal Dibayar</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={paidAmountInput}
+                        onChange={(e) => setPaidAmountInput(e.target.value)}
+                        placeholder="Masukkan nominal"
+                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">Catatan Pembayaran</label>
+                      <input
+                        type="text"
+                        value={paymentNote}
+                        onChange={(e) => setPaymentNote(e.target.value)}
+                        placeholder="Opsional"
+                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-5">
+                  <button
+                    type="button"
+                    onClick={closePaidModal}
+                    className="rounded-2xl bg-gray-200 px-5 py-3 text-gray-700 font-semibold hover:bg-gray-300 transition"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={confirmPayment}
+                    disabled={paying}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 text-white font-semibold hover:bg-emerald-700 transition disabled:opacity-70"
+                  >
+                    <Wallet size={18} />
+                    {paying ? "Menyimpan..." : "Simpan & Tandai Paid"}
+                  </button>
                 </div>
               </div>
             </div>
