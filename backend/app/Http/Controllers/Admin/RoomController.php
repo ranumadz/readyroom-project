@@ -9,20 +9,43 @@ use App\Models\RoomImage;
 
 class RoomController extends Controller
 {
-    // GET rooms
+    // GET rooms (admin)
     public function index()
     {
-        $rooms = Room::with(['hotel', 'images', 'units'])->get();
+        $rooms = Room::with(['hotel.city', 'hotel.facilities', 'images', 'units'])->get();
 
         return response()->json($rooms);
+    }
+
+    /**
+     * GET all active rooms (PUBLIC - customer)
+     * hanya kamar aktif dari hotel aktif
+     */
+    public function publicIndex()
+    {
+        $rooms = Room::with(['hotel.city', 'hotel.facilities', 'images'])
+            ->where('status', true)
+            ->whereHas('hotel', function ($query) {
+                $query->where('status', true);
+            })
+            ->orderByDesc('id')
+            ->get();
+
+        return response()->json([
+            "message" => "All active rooms fetched successfully",
+            "data" => $rooms
+        ]);
     }
 
     // GET rooms by hotel (PUBLIC - customer)
     public function getByHotel($hotelId)
     {
-        $rooms = Room::with(['hotel', 'images'])
+        $rooms = Room::with(['hotel.city', 'hotel.facilities', 'images'])
             ->where('hotel_id', $hotelId)
             ->where('status', true)
+            ->whereHas('hotel', function ($query) {
+                $query->where('status', true);
+            })
             ->get();
 
         return response()->json([
@@ -34,8 +57,11 @@ class RoomController extends Controller
     // GET single room detail (PUBLIC - customer)
     public function showPublic($id)
     {
-        $room = Room::with(['hotel', 'images'])
+        $room = Room::with(['hotel.city', 'hotel.facilities', 'images'])
             ->where('status', true)
+            ->whereHas('hotel', function ($query) {
+                $query->where('status', true);
+            })
             ->findOrFail($id);
 
         return response()->json([
@@ -108,7 +134,7 @@ class RoomController extends Controller
 
         return response()->json([
             "message" => "Kamar berhasil ditambahkan",
-            "data" => $room->load(['hotel', 'images', 'units'])
+            "data" => $room->load(['hotel.city', 'hotel.facilities', 'images', 'units'])
         ], 201);
     }
 }

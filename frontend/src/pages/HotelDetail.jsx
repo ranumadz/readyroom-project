@@ -12,6 +12,18 @@ import {
   Image as ImageIcon,
   Navigation,
   MessageCircle,
+  Wifi,
+  Car,
+  Coffee,
+  Tv,
+  Bath,
+  Dumbbell,
+  Waves,
+  AirVent,
+  UtensilsCrossed,
+  BedDouble,
+  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function HotelDetail() {
@@ -69,6 +81,37 @@ export default function HotelDetail() {
     return `http://127.0.0.1:8000/storage/${cleanPath}`;
   };
 
+  const getFacilityIcon = (iconName) => {
+    switch (iconName) {
+      case "wifi":
+        return Wifi;
+      case "car":
+        return Car;
+      case "coffee":
+        return Coffee;
+      case "tv":
+        return Tv;
+      case "bath":
+        return Bath;
+      case "dumbbell":
+        return Dumbbell;
+      case "waves":
+        return Waves;
+      case "air-vent":
+        return AirVent;
+      case "utensils-crossed":
+        return UtensilsCrossed;
+      case "bed-double":
+        return BedDouble;
+      default:
+        return Sparkles;
+    }
+  };
+
+  const getFacilityLabel = (facility) => {
+    return facility?.name || "Fasilitas";
+  };
+
   const getCustomerStorageKey = () => {
     try {
       const rawCustomer =
@@ -105,6 +148,7 @@ export default function HotelDetail() {
         city: hotelData.city || null,
         thumbnail: hotelData.thumbnail || "",
         hero_image: hotelData.hero_image || "",
+        facilities: Array.isArray(hotelData.facilities) ? hotelData.facilities : [],
         viewed_at: new Date().toISOString(),
       };
 
@@ -312,6 +356,57 @@ export default function HotelDetail() {
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">Fasilitas Hotel</h2>
+                  <p className="text-sm text-gray-500">
+                    Fasilitas utama yang tersedia di hotel ini
+                  </p>
+                </div>
+              </div>
+
+              {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
+                <>
+                  <div className="flex flex-wrap gap-3">
+                    {hotel.facilities.map((facility) => {
+                      const FacilityIcon = getFacilityIcon(facility.icon);
+
+                      return (
+                        <div
+                          key={facility.id}
+                          className="inline-flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3"
+                        >
+                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-red-600 shadow-sm">
+                            <FacilityIcon size={18} />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-red-700">
+                              {getFacilityLabel(facility)}
+                            </p>
+                            <p className="text-xs text-red-500">
+                              {facility.icon || "facility"}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <p className="mt-4 text-sm leading-relaxed text-gray-500">
+                    Fasilitas yang tersedia di ReadyRoom
+                  </p>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
+                  Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
                   <Navigation size={20} />
                 </div>
                 <div>
@@ -413,6 +508,13 @@ export default function HotelDetail() {
                   <span className="text-gray-500">Status</span>
                   <span className="font-semibold text-emerald-600 text-right">
                     {hotel.status ? "Aktif" : "Nonaktif"}
+                  </span>
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-gray-500">Jumlah Fasilitas</span>
+                  <span className="font-semibold text-gray-800 text-right">
+                    {Array.isArray(hotel.facilities) ? hotel.facilities.length : 0} fasilitas
                   </span>
                 </div>
               </div>

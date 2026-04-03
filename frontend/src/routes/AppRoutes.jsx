@@ -16,6 +16,7 @@ import Home from "../pages/Home";
 import Hotels from "../pages/Hotels";
 import HotelDetail from "../pages/HotelDetail";
 import HotelRooms from "../pages/HotelRooms";
+import Rooms from "../pages/Rooms";
 import RoomDetail from "../pages/RoomDetail";
 import MyBookings from "../pages/MyBookings";
 import Login from "../pages/Login";
@@ -32,6 +33,7 @@ export default function AppRoutes() {
       <Route path="/hotels" element={<Hotels />} />
       <Route path="/hotels/:id" element={<HotelDetail />} />
       <Route path="/hotels/:id/rooms" element={<HotelRooms />} />
+      <Route path="/rooms" element={<Rooms />} />
       <Route path="/rooms/:id" element={<RoomDetail />} />
       <Route path="/my-bookings" element={<MyBookings />} />
       <Route path="/login" element={<Login />} />

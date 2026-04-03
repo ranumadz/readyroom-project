@@ -40,8 +40,9 @@ Route::get('/hotels/{id}', [HotelController::class, 'publicShow']);
 Route::get('/hotels/{hotelId}/rooms', [RoomController::class, 'getByHotel']);
 
 // =========================
-// Public Room Detail
+// Public Rooms
 // =========================
+Route::get('/rooms', [RoomController::class, 'publicIndex']);
 Route::get('/rooms/{id}', [RoomController::class, 'showPublic']);
 
 // =========================

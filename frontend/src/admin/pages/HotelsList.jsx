@@ -20,6 +20,7 @@ import {
   Link as LinkIcon,
   Image as ImageIcon,
   FileText,
+  CheckSquare,
 } from "lucide-react";
 
 export default function HotelsList() {
@@ -27,8 +28,10 @@ export default function HotelsList() {
 
   const [hotels, setHotels] = useState([]);
   const [cities, setCities] = useState([]);
+  const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingFacilities, setLoadingFacilities] = useState(false);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -44,6 +47,7 @@ export default function HotelsList() {
     description: "",
     thumbnail: null,
     hero_image: null,
+    facility_ids: [],
     status: true,
   });
 
@@ -81,29 +85,40 @@ export default function HotelsList() {
     }
   };
 
-  const fetchCities = async () => {
+  const fetchFormData = async () => {
     try {
       setLoadingCities(true);
+      setLoadingFacilities(true);
 
       const res = await api.get("/admin/hotels/create");
 
       const cityData = Array.isArray(res.data)
         ? res.data
-        : Array.isArray(res.data?.data)
-        ? res.data.data
+        : Array.isArray(res.data?.cities)
+        ? res.data.cities
+        : Array.isArray(res.data?.data?.cities)
+        ? res.data.data.cities
+        : [];
+
+      const facilityData = Array.isArray(res.data?.facilities)
+        ? res.data.facilities
+        : Array.isArray(res.data?.data?.facilities)
+        ? res.data.data.facilities
         : [];
 
       setCities(cityData);
+      setFacilities(facilityData);
     } catch (err) {
-      console.error("GET CITIES ERROR:", err.response?.data || err);
+      console.error("GET HOTEL FORM DATA ERROR:", err.response?.data || err);
     } finally {
       setLoadingCities(false);
+      setLoadingFacilities(false);
     }
   };
 
   useEffect(() => {
     fetchHotels();
-    fetchCities();
+    fetchFormData();
   }, []);
 
   const buildImageUrl = (path, fallback = "/images/hotel.jpg") => {
@@ -140,6 +155,7 @@ export default function HotelsList() {
       description: "",
       thumbnail: null,
       hero_image: null,
+      facility_ids: [],
       status: true,
     });
     setPreview({
@@ -161,6 +177,9 @@ export default function HotelsList() {
       description: hotel.description || "",
       thumbnail: null,
       hero_image: null,
+      facility_ids: Array.isArray(hotel.facilities)
+        ? hotel.facilities.map((item) => item.id)
+        : [],
       status: Boolean(hotel.status),
     });
 
@@ -205,6 +224,19 @@ export default function HotelsList() {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const handleFacilityToggle = (facilityId) => {
+    setEditForm((prev) => {
+      const exists = prev.facility_ids.includes(facilityId);
+
+      return {
+        ...prev,
+        facility_ids: exists
+          ? prev.facility_ids.filter((id) => id !== facilityId)
+          : [...prev.facility_ids, facilityId],
+      };
+    });
   };
 
   const handleDelete = async (hotel) => {
@@ -256,6 +288,14 @@ export default function HotelsList() {
       payload.append("map_link", hotel.map_link || "");
       payload.append("description", hotel.description || "");
       payload.append("status", hotel.status ? 0 : 1);
+
+      const facilityIds = Array.isArray(hotel.facilities)
+        ? hotel.facilities.map((item) => item.id)
+        : [];
+
+      facilityIds.forEach((facilityId, index) => {
+        payload.append(`facility_ids[${index}]`, facilityId);
+      });
 
       await api.post(`/admin/hotels/${hotel.id}`, payload, {
         headers: {
@@ -327,6 +367,10 @@ export default function HotelsList() {
       payload.append("description", editForm.description || "");
       payload.append("status", editForm.status ? 1 : 0);
 
+      editForm.facility_ids.forEach((facilityId, index) => {
+        payload.append(`facility_ids[${index}]`, facilityId);
+      });
+
       if (editForm.thumbnail) {
         payload.append("thumbnail", editForm.thumbnail);
       }
@@ -381,47 +425,47 @@ export default function HotelsList() {
         <Topbar />
 
         <div className="p-6 md:p-8">
-          <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-semibold text-red-600 mb-2">
+              <p className="mb-2 text-sm font-semibold text-red-600">
                 Admin Panel
               </p>
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
+              <h1 className="text-3xl font-bold text-gray-800 md:text-4xl">
                 Hotels List
               </h1>
-              <p className="text-gray-500 mt-2">
+              <p className="mt-2 text-gray-500">
                 Kelola data hotel dan cabang ReadyRoom.
               </p>
             </div>
 
             <button
               onClick={() => navigate("/admin/hotels/add")}
-              className="inline-flex items-center gap-2 bg-red-600 text-white px-5 py-3 rounded-2xl font-semibold hover:bg-red-700 transition shadow-sm"
+              className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-red-700"
             >
               <Plus size={18} />
               Add Hotel
             </button>
           </div>
 
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
             {loading ? (
               <div className="py-16 text-center text-gray-500">
                 Memuat data hotel...
               </div>
             ) : hotels.length === 0 ? (
               <div className="py-16 text-center">
-                <div className="mx-auto mb-4 w-16 h-16 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                   <Building2 size={28} />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800">
                   Belum ada data hotel
                 </h3>
-                <p className="text-gray-500 mt-2 mb-5">
+                <p className="mb-5 mt-2 text-gray-500">
                   Tambahkan cabang hotel pertama untuk mulai mengelola room dan booking.
                 </p>
                 <button
                   onClick={() => navigate("/admin/hotels/add")}
-                  className="inline-flex items-center gap-2 bg-red-600 text-white px-5 py-3 rounded-2xl font-semibold hover:bg-red-700 transition"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
                 >
                   <Plus size={18} />
                   Add Hotel
@@ -429,7 +473,7 @@ export default function HotelsList() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1100px]">
+                <table className="w-full min-w-[1280px]">
                   <thead>
                     <tr className="border-b border-gray-200 text-left">
                       <th className="py-4 text-sm font-semibold text-gray-600">#</th>
@@ -437,6 +481,7 @@ export default function HotelsList() {
                       <th className="py-4 text-sm font-semibold text-gray-600">Kota</th>
                       <th className="py-4 text-sm font-semibold text-gray-600">Area</th>
                       <th className="py-4 text-sm font-semibold text-gray-600">Alamat</th>
+                      <th className="py-4 text-sm font-semibold text-gray-600">Fasilitas</th>
                       <th className="py-4 text-sm font-semibold text-gray-600">Status</th>
                       <th className="py-4 text-sm font-semibold text-gray-600">Aksi</th>
                     </tr>
@@ -446,13 +491,13 @@ export default function HotelsList() {
                     {hotels.map((hotel, index) => (
                       <tr
                         key={hotel.id}
-                        className="border-b border-gray-100 hover:bg-gray-50 transition"
+                        className="border-b border-gray-100 transition hover:bg-gray-50"
                       >
                         <td className="py-4 text-gray-500">{index + 1}</td>
 
                         <td className="py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                               <Building2 size={18} />
                             </div>
 
@@ -478,8 +523,25 @@ export default function HotelsList() {
                           </div>
                         </td>
 
-                        <td className="py-4 text-gray-600 max-w-[280px]">
+                        <td className="max-w-[280px] py-4 text-gray-600">
                           <p className="truncate">{hotel.address || "-"}</p>
+                        </td>
+
+                        <td className="max-w-[320px] py-4">
+                          {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {hotel.facilities.map((facility) => (
+                                <span
+                                  key={facility.id}
+                                  className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 border border-red-100"
+                                >
+                                  {facility.name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">Belum ada fasilitas</span>
+                          )}
                         </td>
 
                         <td className="py-4">
@@ -509,7 +571,7 @@ export default function HotelsList() {
                           <div className="flex flex-wrap items-center gap-2">
                             <button
                               onClick={() => navigate(`/admin/hotels/${hotel.id}/rooms`)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 text-emerald-600 px-3 py-2 text-sm font-medium hover:bg-emerald-100 transition"
+                              className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-600 transition hover:bg-emerald-100"
                             >
                               <BedDouble size={16} />
                               Manage Room
@@ -517,7 +579,7 @@ export default function HotelsList() {
 
                             <button
                               onClick={() => openEditModal(hotel)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-blue-50 text-blue-600 px-3 py-2 text-sm font-medium hover:bg-blue-100 transition"
+                              className="inline-flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-100"
                             >
                               <Pencil size={16} />
                               Edit
@@ -525,7 +587,7 @@ export default function HotelsList() {
 
                             <button
                               onClick={() => handleDelete(hotel)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-red-50 text-red-600 px-3 py-2 text-sm font-medium hover:bg-red-100 transition"
+                              className="inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
                             >
                               <Trash2 size={16} />
                               Hapus
@@ -544,11 +606,11 @@ export default function HotelsList() {
 
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-5xl max-h-[92vh] overflow-hidden rounded-3xl bg-white shadow-2xl border border-gray-100">
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">{modalTitle}</h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="mt-1 text-sm text-gray-500">
                   Update data hotel tanpa pindah halaman
                 </p>
               </div>
@@ -556,7 +618,7 @@ export default function HotelsList() {
               <button
                 type="button"
                 onClick={closeEditModal}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 transition hover:bg-gray-200"
               >
                 <X size={20} />
               </button>
@@ -564,9 +626,9 @@ export default function HotelsList() {
 
             <div className="max-h-[calc(92vh-88px)] overflow-y-auto px-6 py-6">
               <form onSubmit={handleUpdateHotel} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Kota
                     </label>
 
@@ -575,7 +637,7 @@ export default function HotelsList() {
                         name="city_id"
                         value={editForm.city_id}
                         onChange={handleEditChange}
-                        className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 pl-4 pr-12 py-3.5 text-gray-700 shadow-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                        className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-4 pr-12 text-gray-700 shadow-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                       >
                         <option value="">
                           {loadingCities ? "Memuat kota..." : "Pilih Kota"}
@@ -590,13 +652,13 @@ export default function HotelsList() {
 
                       <ChevronDown
                         size={18}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Nama Hotel / Cabang
                     </label>
                     <input
@@ -610,9 +672,9 @@ export default function HotelsList() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Area
                     </label>
                     <div className="relative">
@@ -632,7 +694,7 @@ export default function HotelsList() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Nomor WhatsApp Admin Cabang
                     </label>
                     <div className="relative">
@@ -653,7 +715,7 @@ export default function HotelsList() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Alamat
                   </label>
                   <textarea
@@ -662,12 +724,12 @@ export default function HotelsList() {
                     onChange={handleEditChange}
                     rows={3}
                     placeholder="Masukkan alamat lengkap hotel"
-                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 resize-none"
+                    className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Link Google Maps
                   </label>
                   <div className="relative">
@@ -687,7 +749,71 @@ export default function HotelsList() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Fasilitas Hotel
+                  </label>
+
+                  <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4 md:p-5">
+                    <div className="mb-4 flex items-center gap-2">
+                      <CheckSquare size={18} className="text-red-500" />
+                      <p className="font-semibold text-gray-800">
+                        Pilih fasilitas yang tersedia di hotel ini
+                      </p>
+                    </div>
+
+                    {loadingFacilities ? (
+                      <p className="text-sm text-gray-500">Memuat fasilitas...</p>
+                    ) : facilities.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        Belum ada fasilitas aktif di sistem
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {facilities.map((facility) => {
+                          const selected = editForm.facility_ids.includes(facility.id);
+
+                          return (
+                            <label
+                              key={facility.id}
+                              className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition ${
+                                selected
+                                  ? "border-red-300 bg-red-50 shadow-sm"
+                                  : "border-gray-200 bg-white hover:border-gray-300"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => handleFacilityToggle(facility.id)}
+                                className="mt-1 h-4 w-4 accent-red-600"
+                              />
+
+                              <div className="min-w-0">
+                                <p
+                                  className={`font-semibold ${
+                                    selected ? "text-red-700" : "text-gray-800"
+                                  }`}
+                                >
+                                  {facility.name}
+                                </p>
+                                <p className="mt-1 text-xs text-gray-500">
+                                  Icon: {facility.icon || "-"}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <p className="mt-4 text-xs text-gray-400">
+                      Fasilitas yang dipilih akan ikut tersimpan saat hotel diupdate.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Deskripsi
                   </label>
                   <div className="relative">
@@ -697,7 +823,7 @@ export default function HotelsList() {
                       onChange={handleEditChange}
                       rows={4}
                       placeholder="Deskripsi singkat hotel"
-                      className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 resize-none"
+                      className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                     />
                     <FileText
                       size={18}
@@ -706,26 +832,26 @@ export default function HotelsList() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Thumbnail Hotel
                     </label>
 
-                    <label className="flex flex-col items-center justify-center w-full min-h-[170px] rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-red-400 hover:bg-red-50/40 transition overflow-hidden">
+                    <label className="flex min-h-[170px] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-red-400 hover:bg-red-50/40">
                       {preview.thumbnail ? (
                         <img
                           src={preview.thumbnail}
                           alt="Preview Thumbnail"
-                          className="w-full h-48 object-cover"
+                          className="h-48 w-full object-cover"
                         />
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                          <ImageIcon size={28} className="text-red-500 mb-3" />
+                        <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+                          <ImageIcon size={28} className="mb-3 text-red-500" />
                           <p className="font-semibold text-gray-700">
                             Upload Thumbnail Hotel
                           </p>
-                          <p className="text-sm text-gray-400 mt-1">
+                          <p className="mt-1 text-sm text-gray-400">
                             JPG, PNG, WEBP
                           </p>
                         </div>
@@ -742,24 +868,24 @@ export default function HotelsList() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Hero Image Hotel
                     </label>
 
-                    <label className="flex flex-col items-center justify-center w-full min-h-[170px] rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-red-400 hover:bg-red-50/40 transition overflow-hidden">
+                    <label className="flex min-h-[170px] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-red-400 hover:bg-red-50/40">
                       {preview.hero_image ? (
                         <img
                           src={preview.hero_image}
                           alt="Preview Hero"
-                          className="w-full h-48 object-cover"
+                          className="h-48 w-full object-cover"
                         />
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                          <ImageIcon size={28} className="text-red-500 mb-3" />
+                        <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+                          <ImageIcon size={28} className="mb-3 text-red-500" />
                           <p className="font-semibold text-gray-700">
                             Upload Hero Image
                           </p>
-                          <p className="text-sm text-gray-400 mt-1">
+                          <p className="mt-1 text-sm text-gray-400">
                             JPG, PNG, WEBP
                           </p>
                         </div>
@@ -783,7 +909,7 @@ export default function HotelsList() {
                     name="status"
                     checked={editForm.status}
                     onChange={handleEditChange}
-                    className="w-4 h-4 accent-red-600"
+                    className="h-4 w-4 accent-red-600"
                   />
                   <label
                     htmlFor="edit_status"
@@ -793,11 +919,11 @@ export default function HotelsList() {
                   </label>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                   <button
                     type="button"
                     onClick={closeEditModal}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 text-gray-700 font-semibold shadow-sm transition hover:bg-gray-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
                   >
                     <X size={18} />
                     Batal
@@ -806,7 +932,7 @@ export default function HotelsList() {
                   <button
                     type="submit"
                     disabled={savingEdit}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-semibold shadow-sm transition hover:bg-red-700 disabled:opacity-70"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-70"
                   >
                     <Save size={18} />
                     {savingEdit ? "Menyimpan..." : "Simpan Perubahan"}

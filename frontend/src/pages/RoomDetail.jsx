@@ -1254,7 +1254,7 @@ export default function RoomDetail() {
                 {bookingSuccess.bookingCode || "-"}
               </p>
               <p className="mt-2 text-xs text-gray-500">
-                Simpan kode ini ya brok, nanti bisa dipakai untuk konfirmasi ke
+                Simpan kode ini ya , nanti bisa dipakai untuk konfirmasi ke
                 hotel saat booking sudah disetujui.
               </p>
             </div>

@@ -11,6 +11,18 @@ use Illuminate\Support\Facades\Storage;
 
 class HotelController extends Controller
 {
+    private function validBookingStatuses(): array
+    {
+        return [
+            'confirmed',
+            'paid',
+            'checked_in',
+            'checked_out',
+            'cleaning',
+            'completed',
+        ];
+    }
+
     public function index()
     {
         $hotels = Hotel::with(['city', 'facilities'])->latest()->get();
@@ -21,12 +33,21 @@ class HotelController extends Controller
     /**
      * Public hotel list untuk customer
      * hanya hotel aktif
+     * urut berdasarkan booking valid terbanyak
      */
     public function publicIndex()
     {
+        $validStatuses = $this->validBookingStatuses();
+
         $hotels = Hotel::with(['city', 'facilities'])
+            ->withCount([
+                'bookings as valid_booking_count' => function ($query) use ($validStatuses) {
+                    $query->whereIn('status', $validStatuses);
+                }
+            ])
             ->where('status', true)
-            ->latest()
+            ->orderByDesc('valid_booking_count')
+            ->orderByDesc('id')
             ->get();
 
         return response()->json([
@@ -40,7 +61,14 @@ class HotelController extends Controller
      */
     public function publicShow($id)
     {
+        $validStatuses = $this->validBookingStatuses();
+
         $hotel = Hotel::with(['city', 'facilities'])
+            ->withCount([
+                'bookings as valid_booking_count' => function ($query) use ($validStatuses) {
+                    $query->whereIn('status', $validStatuses);
+                }
+            ])
             ->where('status', true)
             ->findOrFail($id);
 

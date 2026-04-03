@@ -45,8 +45,10 @@ class Room extends Model
     {
         return $this->hasMany(RoomImage::class);
     }
+
+    // Relasi ke kamar fisik
     public function units()
     {
-    return $this->hasMany(RoomUnit::class);
+        return $this->hasMany(RoomUnit::class);
     }
 }

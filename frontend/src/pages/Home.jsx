@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -20,6 +20,13 @@ import {
   History,
   Eye,
   Newspaper,
+  Tv,
+  Bath,
+  Dumbbell,
+  Waves,
+  AirVent,
+  UtensilsCrossed,
+  BedDouble,
 } from "lucide-react";
 
 import AOS from "aos";
@@ -80,7 +87,7 @@ export default function Home() {
     try {
       setLoadingContent(true);
 
-      const res = await api.get("/admin/website-content");
+      const res = await api.get("/website-content");
       setWebsiteContent(res.data?.data || null);
     } catch (error) {
       console.error("GET WEBSITE CONTENT ERROR:", error.response?.data || error);
@@ -143,6 +150,69 @@ export default function Home() {
     }
   };
 
+  const getFacilityIcon = (iconName) => {
+    switch (iconName) {
+      case "wifi":
+        return Wifi;
+      case "car":
+        return Car;
+      case "coffee":
+        return Coffee;
+      case "tv":
+        return Tv;
+      case "bath":
+        return Bath;
+      case "dumbbell":
+        return Dumbbell;
+      case "waves":
+        return Waves;
+      case "air-vent":
+        return AirVent;
+      case "utensils-crossed":
+        return UtensilsCrossed;
+      case "bed-double":
+        return BedDouble;
+      default:
+        return Sparkles;
+    }
+  };
+
+  const renderFacilityBadges = (hotel, limit = 3) => {
+    const facilities = Array.isArray(hotel?.facilities)
+      ? hotel.facilities.slice(0, limit)
+      : [];
+
+    if (facilities.length === 0) {
+      return (
+        <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+          <Building2 size={13} />
+          Fasilitas menyusul
+        </span>
+      );
+    }
+
+    return (
+      <>
+        {facilities.map((facility) => {
+          const FacilityIcon = getFacilityIcon(facility.icon);
+          return (
+            <span
+              key={facility.id}
+              className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600"
+            >
+              <FacilityIcon size={13} />
+              {facility.name}
+            </span>
+          );
+        })}
+      </>
+    );
+  };
+
+  const recommendedHotels = useMemo(() => {
+    return popularHotels.slice(0, 3);
+  }, [popularHotels]);
+
   const heroTitle =
     websiteContent?.hero_title || "Find Your Perfect Stay with ReadyRoom";
 
@@ -164,7 +234,8 @@ export default function Home() {
     "/images/hotel.jpg"
   );
 
-  const promo2Title = websiteContent?.promo2_title || "Promo Tambahan ReadyRoom";
+  const promo2Title =
+    websiteContent?.promo2_title || "Promo Tambahan ReadyRoom";
   const promo2Description =
     websiteContent?.promo2_description ||
     "Nikmati promo tambahan dan berbagai pilihan kamar yang nyaman untuk kebutuhan transit maupun menginap.";
@@ -344,10 +415,14 @@ export default function Home() {
 
       <section className="bg-gray-50 py-20">
         <div className="mx-auto max-w-7xl px-4 text-center md:px-6">
-          <h2 className="mb-3 text-3xl font-bold md:text-4xl">Mitra Kami COOMINGSOON!!! </h2>
+          <h2 className="mb-3 text-3xl font-bold md:text-4xl">
+            Mitra Kami COOMINGSOON!!!
+          </h2>
           <p className="mx-auto mb-12 max-w-2xl text-gray-500">
             Hotel partner yang bekerja sama dengan ReadyRoom untuk menghadirkan
-            pengalaman booking yang nyaman dan fleksibel. Ayo segera daftarkan properti mu di ReadyRoom Untuk Informasi lebih lanjut bisa hubungi Kami 
+            pengalaman booking yang nyaman dan fleksibel. Ayo segera daftarkan
+            properti mu di ReadyRoom Untuk Informasi lebih lanjut bisa hubungi
+            Kami
           </p>
 
           <div className="grid grid-cols-2 justify-items-center gap-6 md:grid-cols-4">
@@ -429,16 +504,19 @@ export default function Home() {
                     <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
                       {hotel.area || "Hotel"}
                     </span>
-                    <span className="text-xs text-gray-400">
-                      ⭐ {hotel.rating || "0.0"}
-                    </span>
                   </div>
 
-                  <h4 className="line-clamp-1 text-xl font-bold">{hotel.name}</h4>
+                  <h4 className="line-clamp-1 text-xl font-bold">
+                    {hotel.name}
+                  </h4>
                   <p className="mt-1 text-gray-500">
                     {hotel.city?.name || "-"}
                     {hotel.area ? ` • ${hotel.area}` : ""}
                   </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {renderFacilityBadges(hotel)}
+                  </div>
 
                   <div className="mt-5 flex items-center justify-between">
                     <p className="line-clamp-1 text-sm text-gray-500">
@@ -476,7 +554,7 @@ export default function Home() {
             {[1, 2, 3].map((item) => (
               <div
                 key={item}
-                className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm animate-pulse"
+                className="animate-pulse overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
               >
                 <div className="h-56 w-full bg-gray-200" />
                 <div className="p-5">
@@ -513,16 +591,19 @@ export default function Home() {
                     <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
                       {hotel.area || "Hotel"}
                     </span>
-                    <span className="text-xs text-gray-400">
-                      ⭐ {hotel.rating || "0.0"}
-                    </span>
                   </div>
 
-                  <h4 className="line-clamp-1 text-xl font-bold">{hotel.name}</h4>
+                  <h4 className="line-clamp-1 text-xl font-bold">
+                    {hotel.name}
+                  </h4>
                   <p className="mt-1 text-gray-500">
                     {hotel.city?.name || "-"}
                     {hotel.area ? ` • ${hotel.area}` : ""}
                   </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {renderFacilityBadges(hotel)}
+                  </div>
 
                   <div className="mt-5 flex items-center justify-between">
                     <p className="line-clamp-1 text-sm text-gray-500">
@@ -549,16 +630,17 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-6">
           {[
             { img: "/photo_jakarta.jpg", name: "Jakarta" },
             { img: "/destinasi_bali.jpg", name: "Bali" },
             { img: "/destinasi aceh.jpg", name: "Aceh" },
             { img: "/tebing-breksi.jpg", name: "Yogyakarta" },
             { img: "/destinasi_surabaya.jpg", name: "Surabaya" },
+            { img: "/destinasi-semarang.jpg", name: "Semarang" },
           ].map((city, i) => (
             <Link
-              to="/hotels"
+              to={`/hotels?destination=${encodeURIComponent(city.name)}`}
               key={i}
               data-aos="zoom-in"
               className="group relative block cursor-pointer overflow-hidden rounded-3xl shadow-md"
@@ -581,7 +663,7 @@ export default function Home() {
           <div>
             <h3 className="text-3xl font-bold">Recommended Hotels</h3>
             <p className="mt-2 text-gray-500">
-              Rekomendasi hotel dengan fasilitas premium dan lokasi strategis.
+              Rekomendasi hotel real berdasarkan booking valid terbanyak.
             </p>
           </div>
           <Link
@@ -592,49 +674,91 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {[
-            {
-              img: "/hotel1.jpg",
-              name: "Ocean View Resort",
-              city: "Bali",
-              price: "Rp720.000",
-            },
-            {
-              img: "/hotel2.jpg",
-              name: "Jakarta Business Hotel",
-              city: "Jakarta",
-              price: "Rp600.000",
-            },
-            {
-              img: "/hotel3.jpg",
-              name: "Mountain Escape",
-              city: "Bandung",
-              price: "Rp500.000",
-            },
-          ].map((hotel, i) => (
-            <Link
-              to="/hotels"
-              key={i}
-              data-aos="fade-up"
-              className="block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-2xl"
-            >
-              <img
-                src={hotel.img}
-                alt={hotel.name}
-                className="h-56 w-full object-cover"
-              />
-              <div className="p-5">
-                <h4 className="text-xl font-bold">{hotel.name}</h4>
-                <p className="mt-1 text-sm text-gray-500">{hotel.city}</p>
-                <p className="mt-4 text-lg font-bold text-red-600">
-                  {hotel.price}{" "}
-                  <span className="text-sm text-gray-400">/ night</span>
-                </p>
+        {loadingHotels ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="animate-pulse overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
+              >
+                <div className="h-56 w-full bg-gray-200" />
+                <div className="p-5">
+                  <div className="mb-3 h-6 w-32 rounded bg-gray-200" />
+                  <div className="mb-2 h-4 w-24 rounded bg-gray-200" />
+                  <div className="mb-4 h-4 w-full rounded bg-gray-200" />
+                  <div className="flex gap-2">
+                    <div className="h-7 w-20 rounded-full bg-gray-200" />
+                    <div className="h-7 w-20 rounded-full bg-gray-200" />
+                  </div>
+                </div>
               </div>
-            </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : recommendedHotels.length === 0 ? (
+          <div className="rounded-3xl border border-gray-100 bg-white p-10 text-center text-gray-500 shadow-sm">
+            Belum ada hotel rekomendasi yang tampil.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {recommendedHotels.map((hotel, i) => (
+              <Link
+                to={`/hotels/${hotel.id}`}
+                key={hotel.id}
+                data-aos="fade-up"
+                data-aos-delay={i * 100}
+                className="block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
+              >
+                <img
+                  src={buildImageUrl(
+                    hotel.hero_image || hotel.thumbnail,
+                    "/images/hotel.jpg"
+                  )}
+                  alt={hotel.name}
+                  className="h-56 w-full object-cover"
+                />
+
+                <div className="p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+                      {hotel.area || "Hotel"}
+                    </span>
+
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
+                      Top Choice
+                    </span>
+                  </div>
+
+                  <h4 className="line-clamp-1 text-xl font-bold">
+                    {hotel.name}
+                  </h4>
+                  <p className="mt-1 text-gray-500">
+                    {hotel.city?.name || "-"}
+                    {hotel.area ? ` • ${hotel.area}` : ""}
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {renderFacilityBadges(hotel)}
+                  </div>
+
+                  <p className="mt-4 line-clamp-2 min-h-[40px] text-sm text-gray-500">
+                    {hotel.address || "Alamat hotel belum tersedia"}
+                  </p>
+
+                  <div className="mt-5 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-red-600">
+                      Lihat Detail
+                    </span>
+
+                    <span className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+                      Explore
+                      <ArrowRight size={14} />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="bg-gradient-to-b from-white to-gray-100 py-20">

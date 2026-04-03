@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import api from "../services/api";
@@ -10,16 +10,37 @@ import {
   Star,
   ArrowRight,
   Hotel as HotelIcon,
+  Wifi,
+  Car,
+  Coffee,
+  Tv,
+  Bath,
+  Dumbbell,
+  Waves,
+  AirVent,
+  UtensilsCrossed,
+  BedDouble,
+  Sparkles,
+  CalendarDays,
 } from "lucide-react";
 
 export default function Hotels() {
+  const [searchParams] = useSearchParams();
+
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
+  const destinationFromQuery = searchParams.get("destination") || "";
+  const checkInFromQuery = searchParams.get("check_in") || "";
+
   useEffect(() => {
     fetchHotels();
   }, []);
+
+  useEffect(() => {
+    setSearch(destinationFromQuery);
+  }, [destinationFromQuery]);
 
   const fetchHotels = async () => {
     try {
@@ -59,6 +80,33 @@ export default function Hotels() {
     return `http://127.0.0.1:8000/storage/${cleanPath}`;
   };
 
+  const getFacilityIcon = (iconName) => {
+    switch (iconName) {
+      case "wifi":
+        return Wifi;
+      case "car":
+        return Car;
+      case "coffee":
+        return Coffee;
+      case "tv":
+        return Tv;
+      case "bath":
+        return Bath;
+      case "dumbbell":
+        return Dumbbell;
+      case "waves":
+        return Waves;
+      case "air-vent":
+        return AirVent;
+      case "utensils-crossed":
+        return UtensilsCrossed;
+      case "bed-double":
+        return BedDouble;
+      default:
+        return Sparkles;
+    }
+  };
+
   const filteredHotels = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
@@ -83,34 +131,37 @@ export default function Hotels() {
     <div className="min-h-screen bg-gray-100 text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-hidden bg-gradient-to-br from-red-700 via-red-600 to-rose-600 text-white pt-16 pb-20 md:pt-20 md:pb-24">
+      <section className="relative overflow-hidden bg-gradient-to-br from-red-700 via-red-600 to-rose-600 pb-20 pt-16 text-white md:pb-24 md:pt-20">
         <div className="absolute inset-0">
-          <div className="absolute -top-10 left-0 w-72 h-72 bg-white/10 blur-3xl rounded-full" />
-          <div className="absolute top-12 right-10 w-80 h-80 bg-black/10 blur-3xl rounded-full" />
-          <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-red-300/10 blur-3xl rounded-full" />
+          <div className="absolute -top-10 left-0 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute right-10 top-12 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-red-300/10 blur-3xl" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 md:px-6">
+        <div className="relative mx-auto max-w-7xl px-4 md:px-6">
           <div className="max-w-4xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-md px-4 py-2 mb-6 shadow-lg">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
               <HotelIcon size={16} />
               <span className="text-sm font-medium">
                 Jelajahi hotel partner terbaik ReadyRoom
               </span>
             </div>
 
-            <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-5">
+            <h1 className="mb-5 text-4xl font-extrabold leading-tight md:text-6xl">
               Temukan Hotel Terbaik
               <br />
-              di <span className="text-red-100 drop-shadow-[0_4px_14px_rgba(0,0,0,0.35)]">ReadyRoom</span>
+              di{" "}
+              <span className="text-red-100 drop-shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
+                ReadyRoom
+              </span>
             </h1>
 
-            <p className="text-red-100 text-lg md:text-xl max-w-3xl mb-8">
+            <p className="mb-8 max-w-3xl text-lg text-red-100 md:text-xl">
               Cari hotel berdasarkan nama, kota, area, atau alamat. Semua hotel
               yang tampil di sini adalah hotel aktif yang siap kamu jelajahi.
             </p>
 
-            <div className="w-full max-w-2xl rounded-3xl bg-white/95 backdrop-blur-md border border-white/40 shadow-2xl p-3">
+            <div className="w-full max-w-2xl rounded-3xl border border-white/40 bg-white/95 p-3 shadow-2xl backdrop-blur-md">
               <div className="relative">
                 <Search
                   size={20}
@@ -121,43 +172,61 @@ export default function Hotels() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Cari hotel, kota, area, atau alamat..."
-                  className="w-full rounded-2xl bg-transparent pl-12 pr-4 py-4 text-gray-800 outline-none placeholder:text-gray-400"
+                  className="w-full rounded-2xl bg-transparent py-4 pl-12 pr-4 text-gray-800 outline-none placeholder:text-gray-400"
                 />
               </div>
             </div>
+
+            {(destinationFromQuery || checkInFromQuery) && (
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                {destinationFromQuery && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
+                    <MapPin size={15} />
+                    Tujuan: {destinationFromQuery}
+                  </span>
+                )}
+
+                {checkInFromQuery && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
+                    <CalendarDays size={15} />
+                    Check-in: {checkInFromQuery}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
 
       <section className="-mt-8 relative z-10">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-4">
+        <div className="mx-auto max-w-7xl px-4 md:px-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                 <Building2 size={22} />
               </div>
-              <h3 className="text-lg font-bold mb-2">Hotel Aktif</h3>
-              <p className="text-gray-500 text-sm">
+              <h3 className="mb-2 text-lg font-bold">Hotel Aktif</h3>
+              <p className="text-sm text-gray-500">
                 Semua hotel yang tampil di halaman ini berasal dari data hotel aktif.
               </p>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                 <MapPin size={22} />
               </div>
-              <h3 className="text-lg font-bold mb-2">Lokasi Strategis</h3>
-              <p className="text-gray-500 text-sm">
+              <h3 className="mb-2 text-lg font-bold">Lokasi Strategis</h3>
+              <p className="text-sm text-gray-500">
                 Jelajahi pilihan hotel berdasarkan kota, area, dan alamat yang tersedia.
               </p>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                 <Star size={22} />
               </div>
-              <h3 className="text-lg font-bold mb-2">Siap Dieksplor</h3>
-              <p className="text-gray-500 text-sm">
+              <h3 className="mb-2 text-lg font-bold">Siap Dieksplor</h3>
+              <p className="text-sm text-gray-500">
                 Klik detail hotel untuk lihat lokasi, deskripsi, dan kamar yang tersedia.
               </p>
             </div>
@@ -165,11 +234,11 @@ export default function Hotels() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto py-14 px-4 md:px-6">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+      <section className="mx-auto max-w-7xl px-4 py-14 md:px-6">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold">Semua Hotel</h2>
-            <p className="text-gray-500 mt-2">
+            <h2 className="text-3xl font-bold md:text-4xl">Semua Hotel</h2>
+            <p className="mt-2 text-gray-500">
               {filteredHotels.length} hotel ditemukan dari data hotel aktif ReadyRoom.
             </p>
           </div>
@@ -178,7 +247,7 @@ export default function Hotels() {
             <button
               type="button"
               onClick={() => setSearch("")}
-              className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
+              className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
               Bersihkan Pencarian
             </button>
@@ -186,30 +255,30 @@ export default function Hotels() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <div
                 key={item}
-                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-pulse"
+                className="animate-pulse overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
               >
-                <div className="w-full h-60 bg-gray-200" />
+                <div className="h-60 w-full bg-gray-200" />
                 <div className="p-5">
-                  <div className="h-4 w-24 bg-gray-200 rounded mb-3" />
-                  <div className="h-6 w-44 bg-gray-200 rounded mb-2" />
-                  <div className="h-4 w-32 bg-gray-200 rounded mb-3" />
-                  <div className="h-4 w-full bg-gray-200 rounded mb-2" />
-                  <div className="h-4 w-2/3 bg-gray-200 rounded" />
+                  <div className="mb-3 h-4 w-24 rounded bg-gray-200" />
+                  <div className="mb-2 h-6 w-44 rounded bg-gray-200" />
+                  <div className="mb-3 h-4 w-32 rounded bg-gray-200" />
+                  <div className="mb-2 h-4 w-full rounded bg-gray-200" />
+                  <div className="h-4 w-2/3 rounded bg-gray-200" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredHotels.length === 0 ? (
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center">
+          <div className="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-600">
               <Search size={28} />
             </div>
 
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">
+            <h3 className="mb-2 text-2xl font-bold text-gray-800">
               Hotel tidak ditemukan
             </h3>
             <p className="text-gray-500">
@@ -217,12 +286,12 @@ export default function Hotels() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {filteredHotels.map((hotel) => (
               <Link
                 to={`/hotels/${hotel.id}`}
                 key={hotel.id}
-                className="group bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition duration-300 block"
+                className="group block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
               >
                 <div className="relative overflow-hidden">
                   <img
@@ -231,37 +300,56 @@ export default function Hotels() {
                     onError={(e) => {
                       e.currentTarget.src = "/images/hotel.jpg";
                     }}
-                    className="w-full h-60 object-cover group-hover:scale-105 transition duration-500"
+                    className="h-60 w-full object-cover transition duration-500 group-hover:scale-105"
                   />
 
                   <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent" />
 
-                  <div className="absolute top-4 left-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-red-600 shadow">
+                  <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-red-600 shadow">
                     <Building2 size={14} />
                     {hotel.area || "Hotel"}
-                  </div>
-
-                  <div className="absolute top-4 right-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 shadow">
-                    ⭐ {hotel.rating || "0.0"}
                   </div>
                 </div>
 
                 <div className="p-5">
-                  <h3 className="font-bold text-xl line-clamp-1 text-gray-800">
+                  <h3 className="line-clamp-1 text-xl font-bold text-gray-800">
                     {hotel.name}
                   </h3>
 
-                  <p className="text-gray-500 mt-2 flex items-center gap-2">
-                    <MapPin size={16} className="text-red-500 shrink-0" />
+                  <p className="mt-2 flex items-center gap-2 text-gray-500">
+                    <MapPin size={16} className="shrink-0 text-red-500" />
                     <span className="line-clamp-1">
                       {hotel.city?.name || "-"}
                       {hotel.area ? ` • ${hotel.area}` : ""}
                     </span>
                   </p>
 
-                  <p className="text-sm text-gray-500 mt-3 line-clamp-2 min-h-[40px]">
+                  <p className="mt-3 min-h-[40px] line-clamp-2 text-sm text-gray-500">
                     {hotel.address || "Alamat hotel belum tersedia."}
                   </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
+                      hotel.facilities.slice(0, 3).map((facility) => {
+                        const FacilityIcon = getFacilityIcon(facility.icon);
+
+                        return (
+                          <span
+                            key={facility.id}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600"
+                          >
+                            <FacilityIcon size={13} />
+                            {facility.name}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+                        <Building2 size={13} />
+                        Fasilitas menyusul
+                      </span>
+                    )}
+                  </div>
 
                   <div className="mt-5 flex items-center justify-between">
                     <span className="text-sm font-semibold text-red-600">
