@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Hotel;
 use App\Models\Room;
 use App\Models\RoomUnit;
+use App\Models\BookingPenalty;
 
 class Booking extends Model
 {
@@ -108,5 +109,11 @@ class Booking extends Model
     public function canceller()
     {
         return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    // Daftar denda booking
+    public function penalties()
+    {
+        return $this->hasMany(BookingPenalty::class, 'booking_id')->latest();
     }
 }

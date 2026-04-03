@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\FacilityController;
 use App\Http\Controllers\Admin\RoomUnitController;
 use App\Http\Controllers\Admin\BookingController as AdminBookingController;
+use App\Http\Controllers\Admin\BookingPenaltyController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Customer\BookingController;
 use App\Http\Controllers\Admin\WebsiteContentController;
@@ -25,6 +26,7 @@ Route::post('/resend-otp', [AuthController::class, 'resendOtp']);
 // =========================
 Route::get('/my-bookings', [BookingController::class, 'index']);
 Route::post('/bookings', [BookingController::class, 'store']);
+
 // =========================
 // Public Website Content
 // =========================
@@ -136,6 +138,13 @@ Route::prefix('admin')->group(function () {
     Route::post('/bookings/{id}/check-out', [AdminBookingController::class, 'checkOut']);
     Route::post('/bookings/{id}/start-cleaning', [AdminBookingController::class, 'startCleaning']);
     Route::post('/bookings/{id}/finish-cleaning', [AdminBookingController::class, 'finishCleaning']);
+
+    // =========================
+    // Booking Penalties
+    // =========================
+    Route::get('/bookings/{bookingId}/penalties', [BookingPenaltyController::class, 'index']);
+    Route::post('/bookings/{bookingId}/penalties', [BookingPenaltyController::class, 'store']);
+    Route::delete('/bookings/{bookingId}/penalties/{penaltyId}', [BookingPenaltyController::class, 'destroy']);
 
     // =========================
     // Website Content

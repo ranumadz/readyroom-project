@@ -104,7 +104,8 @@ class BookingController extends Controller
             'canceller',
             'hotel',
             'room',
-            'roomUnit'
+            'roomUnit',
+            'penalties.creator',
         ])->latest();
 
         if (!$this->canAccessAllHotels($actor) && !empty($accessibleHotelIds)) {
@@ -124,6 +125,8 @@ class BookingController extends Controller
                 if (empty($booking->guest_phone) && $booking->user) {
                     $booking->guest_phone = $booking->user->phone;
                 }
+
+                $booking->total_penalty = (float) $booking->penalties->sum('amount');
 
                 return $booking;
             })

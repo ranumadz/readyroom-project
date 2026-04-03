@@ -13,16 +13,18 @@ import {
   List,
   MessageCircle,
   Image as ImageIcon,
-  Navigation,
   Link as LinkIcon,
+  CheckSquare,
 } from "lucide-react";
 
 export default function AddHotel() {
   const navigate = useNavigate();
 
   const [cities, setCities] = useState([]);
+  const [facilities, setFacilities] = useState([]);
   const [saving, setSaving] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingFacilities, setLoadingFacilities] = useState(false);
 
   const [form, setForm] = useState({
     city_id: "",
@@ -34,6 +36,7 @@ export default function AddHotel() {
     description: "",
     thumbnail: null,
     hero_image: null,
+    facility_ids: [],
     status: true,
   });
 
@@ -43,33 +46,44 @@ export default function AddHotel() {
   });
 
   useEffect(() => {
-    fetchCities();
+    fetchFormData();
   }, []);
 
-  const fetchCities = async () => {
+  const fetchFormData = async () => {
     try {
       setLoadingCities(true);
+      setLoadingFacilities(true);
 
       const res = await api.get("/admin/hotels/create");
 
       const cityData = Array.isArray(res.data)
         ? res.data
-        : Array.isArray(res.data?.data)
-        ? res.data.data
+        : Array.isArray(res.data?.cities)
+        ? res.data.cities
+        : Array.isArray(res.data?.data?.cities)
+        ? res.data.data.cities
+        : [];
+
+      const facilityData = Array.isArray(res.data?.facilities)
+        ? res.data.facilities
+        : Array.isArray(res.data?.data?.facilities)
+        ? res.data.data.facilities
         : [];
 
       setCities(cityData);
+      setFacilities(facilityData);
     } catch (err) {
-      console.error("GET CITIES ERROR:", err.response?.data || err);
+      console.error("GET HOTEL FORM DATA ERROR:", err.response?.data || err);
 
       Swal.fire({
         icon: "error",
         title: "Gagal",
-        text: "Data kota gagal diambil",
+        text: "Data kota / fasilitas gagal diambil",
         confirmButtonColor: "#dc2626",
       });
     } finally {
       setLoadingCities(false);
+      setLoadingFacilities(false);
     }
   };
 
@@ -100,6 +114,19 @@ export default function AddHotel() {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const handleFacilityToggle = (facilityId) => {
+    setForm((prev) => {
+      const exists = prev.facility_ids.includes(facilityId);
+
+      return {
+        ...prev,
+        facility_ids: exists
+          ? prev.facility_ids.filter((id) => id !== facilityId)
+          : [...prev.facility_ids, facilityId],
+      };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -150,6 +177,10 @@ export default function AddHotel() {
       payload.append("description", form.description || "");
       payload.append("status", form.status ? 1 : 0);
 
+      form.facility_ids.forEach((facilityId, index) => {
+        payload.append(`facility_ids[${index}]`, facilityId);
+      });
+
       if (form.thumbnail) {
         payload.append("thumbnail", form.thumbnail);
       }
@@ -177,6 +208,7 @@ export default function AddHotel() {
         description: "",
         thumbnail: null,
         hero_image: null,
+        facility_ids: [],
         status: true,
       });
 
@@ -208,11 +240,11 @@ export default function AddHotel() {
         <Topbar />
 
         <div className="p-6 md:p-8">
-          <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-semibold text-red-600 mb-2">Admin Panel</p>
+              <p className="mb-2 text-sm font-semibold text-red-600">Admin Panel</p>
               <h1 className="text-3xl font-bold text-gray-800">Add Hotel</h1>
-              <p className="text-gray-500 mt-1">
+              <p className="mt-1 text-gray-500">
                 Tambahkan cabang hotel baru ke sistem ReadyRoom
               </p>
             </div>
@@ -220,22 +252,22 @@ export default function AddHotel() {
             <button
               type="button"
               onClick={() => navigate("/admin/hotels")}
-              className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-gray-700 font-semibold shadow-sm transition hover:bg-gray-50"
+              className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
             >
               <List size={18} />
               Hotels List
             </button>
           </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm md:p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Kota
                 </label>
 
-                <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+                <div className="group relative">
+                  <div className="absolute left-4 top-1/2 z-10 -translate-y-1/2">
                     <MapPin size={18} className="text-red-500" />
                   </div>
 
@@ -243,7 +275,7 @@ export default function AddHotel() {
                     name="city_id"
                     value={form.city_id}
                     onChange={handleChange}
-                    className="w-full appearance-none rounded-2xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 pl-12 pr-12 py-3.5 text-gray-700 shadow-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100 group-hover:border-gray-300"
+                    className="w-full appearance-none rounded-2xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 py-3.5 pl-12 pr-12 text-gray-700 shadow-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100 group-hover:border-gray-300"
                   >
                     <option value="">
                       {loadingCities ? "Memuat kota..." : "Pilih Kota"}
@@ -256,18 +288,18 @@ export default function AddHotel() {
                     ))}
                   </select>
 
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">
                     <ChevronDown size={18} className="text-gray-400" />
                   </div>
                 </div>
 
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="mt-2 text-xs text-gray-400">
                   Pilih kota tempat cabang hotel berada
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Nama Hotel / Cabang
                 </label>
 
@@ -288,7 +320,7 @@ export default function AddHotel() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Area
                 </label>
 
@@ -303,7 +335,7 @@ export default function AddHotel() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Alamat
                 </label>
 
@@ -313,12 +345,12 @@ export default function AddHotel() {
                   onChange={handleChange}
                   rows={3}
                   placeholder="Masukkan alamat lengkap hotel"
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 resize-none"
+                  className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Nomor WhatsApp Admin Cabang
                 </label>
 
@@ -337,12 +369,13 @@ export default function AddHotel() {
                   />
                 </div>
 
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="mt-2 text-xs text-gray-400">
                   Nomor ini akan dipakai sebagai kontak resmi admin cabang hotel
                 </p>
               </div>
+
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Link Google Maps
                 </label>
 
@@ -361,31 +394,95 @@ export default function AddHotel() {
                   />
                 </div>
 
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="mt-2 text-xs text-gray-400">
                   Lebih mudah untuk admin. Cukup paste link lokasi dari Google Maps
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Fasilitas Hotel
+                </label>
+
+                <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4 md:p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <CheckSquare size={18} className="text-red-500" />
+                    <p className="font-semibold text-gray-800">
+                      Pilih fasilitas yang tersedia di hotel ini
+                    </p>
+                  </div>
+
+                  {loadingFacilities ? (
+                    <p className="text-sm text-gray-500">Memuat fasilitas...</p>
+                  ) : facilities.length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                      Belum ada fasilitas aktif di sistem
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {facilities.map((facility) => {
+                        const selected = form.facility_ids.includes(facility.id);
+
+                        return (
+                          <label
+                            key={facility.id}
+                            className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition ${
+                              selected
+                                ? "border-red-300 bg-red-50 shadow-sm"
+                                : "border-gray-200 bg-white hover:border-gray-300"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => handleFacilityToggle(facility.id)}
+                              className="mt-1 h-4 w-4 accent-red-600"
+                            />
+
+                            <div className="min-w-0">
+                              <p
+                                className={`font-semibold ${
+                                  selected ? "text-red-700" : "text-gray-800"
+                                }`}
+                              >
+                                {facility.name}
+                              </p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                Icon: {facility.icon || "-"}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <p className="mt-4 text-xs text-gray-400">
+                    Fasilitas yang dipilih akan tersimpan ke hotel dan nanti bisa ditampilkan di sisi customer.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Thumbnail Hotel
                   </label>
 
-                  <label className="flex flex-col items-center justify-center w-full min-h-[170px] rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-red-400 hover:bg-red-50/40 transition overflow-hidden">
+                  <label className="flex min-h-[170px] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-red-400 hover:bg-red-50/40">
                     {preview.thumbnail ? (
                       <img
                         src={preview.thumbnail}
                         alt="Preview Thumbnail"
-                        className="w-full h-48 object-cover"
+                        className="h-48 w-full object-cover"
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                        <ImageIcon size={28} className="text-red-500 mb-3" />
+                      <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+                        <ImageIcon size={28} className="mb-3 text-red-500" />
                         <p className="font-semibold text-gray-700">
                           Upload Thumbnail Hotel
                         </p>
-                        <p className="text-sm text-gray-400 mt-1">
+                        <p className="mt-1 text-sm text-gray-400">
                           JPG, PNG, WEBP
                         </p>
                       </div>
@@ -402,24 +499,24 @@ export default function AddHotel() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Hero Image Hotel
                   </label>
 
-                  <label className="flex flex-col items-center justify-center w-full min-h-[170px] rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-red-400 hover:bg-red-50/40 transition overflow-hidden">
+                  <label className="flex min-h-[170px] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-red-400 hover:bg-red-50/40">
                     {preview.hero_image ? (
                       <img
                         src={preview.hero_image}
                         alt="Preview Hero"
-                        className="w-full h-48 object-cover"
+                        className="h-48 w-full object-cover"
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                        <ImageIcon size={28} className="text-red-500 mb-3" />
+                      <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+                        <ImageIcon size={28} className="mb-3 text-red-500" />
                         <p className="font-semibold text-gray-700">
                           Upload Hero Image
                         </p>
-                        <p className="text-sm text-gray-400 mt-1">
+                        <p className="mt-1 text-sm text-gray-400">
                           JPG, PNG, WEBP
                         </p>
                       </div>
@@ -437,7 +534,7 @@ export default function AddHotel() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Deskripsi
                 </label>
 
@@ -448,7 +545,7 @@ export default function AddHotel() {
                     onChange={handleChange}
                     rows={4}
                     placeholder="Deskripsi singkat hotel"
-                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 resize-none"
+                    className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                   />
                   <FileText
                     size={18}
@@ -464,18 +561,18 @@ export default function AddHotel() {
                   name="status"
                   checked={form.status}
                   onChange={handleChange}
-                  className="w-4 h-4 accent-red-600"
+                  className="h-4 w-4 accent-red-600"
                 />
                 <label htmlFor="status" className="text-sm font-medium text-gray-700">
                   Hotel Aktif
                 </label>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
                   onClick={() => navigate("/admin/hotels")}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 text-gray-700 font-semibold shadow-sm transition hover:bg-gray-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
                 >
                   <List size={18} />
                   Lihat Hotels List
@@ -484,7 +581,7 @@ export default function AddHotel() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-semibold shadow-sm transition hover:bg-red-700 disabled:opacity-70"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-70"
                 >
                   <Save size={18} />
                   {saving ? "Menyimpan..." : "Simpan Hotel"}

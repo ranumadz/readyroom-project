@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\City;
 use App\Models\Hotel;
+use App\Models\Facility;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -12,7 +13,8 @@ class HotelController extends Controller
 {
     public function index()
     {
-        $hotels = Hotel::with('city')->latest()->get();
+        $hotels = Hotel::with(['city', 'facilities'])->latest()->get();
+
         return response()->json($hotels);
     }
 
@@ -22,7 +24,7 @@ class HotelController extends Controller
      */
     public function publicIndex()
     {
-        $hotels = Hotel::with('city')
+        $hotels = Hotel::with(['city', 'facilities'])
             ->where('status', true)
             ->latest()
             ->get();
@@ -38,7 +40,7 @@ class HotelController extends Controller
      */
     public function publicShow($id)
     {
-        $hotel = Hotel::with('city')
+        $hotel = Hotel::with(['city', 'facilities'])
             ->where('status', true)
             ->findOrFail($id);
 
@@ -51,7 +53,12 @@ class HotelController extends Controller
     public function create()
     {
         $cities = City::where('status', true)->get();
-        return response()->json($cities);
+        $facilities = Facility::where('status', true)->get();
+
+        return response()->json([
+            'cities' => $cities,
+            'facilities' => $facilities,
+        ]);
     }
 
     public function store(Request $request)
@@ -70,6 +77,10 @@ class HotelController extends Controller
             'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
             'rating' => 'nullable|numeric|min:0|max:5',
             'status' => 'nullable|boolean',
+
+            // fasilitas hotel
+            'facility_ids' => 'nullable|array',
+            'facility_ids.*' => 'exists:facilities,id',
         ]);
 
         $thumbnailPath = null;
@@ -99,9 +110,12 @@ class HotelController extends Controller
             'status' => $request->status ?? true,
         ]);
 
+        // simpan fasilitas hotel ke pivot
+        $hotel->facilities()->sync($request->facility_ids ?? []);
+
         return response()->json([
             'message' => 'Hotel berhasil ditambahkan',
-            'data' => $hotel
+            'data' => $hotel->load(['city', 'facilities'])
         ], 201);
     }
 
@@ -123,6 +137,10 @@ class HotelController extends Controller
             'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
             'rating' => 'nullable|numeric|min:0|max:5',
             'status' => 'nullable|boolean',
+
+            // fasilitas hotel
+            'facility_ids' => 'nullable|array',
+            'facility_ids.*' => 'exists:facilities,id',
         ]);
 
         $data = [
@@ -157,9 +175,12 @@ class HotelController extends Controller
 
         $hotel->update($data);
 
+        // update fasilitas hotel ke pivot
+        $hotel->facilities()->sync($request->facility_ids ?? []);
+
         return response()->json([
             'message' => 'Hotel berhasil diupdate',
-            'data' => $hotel->load('city')
+            'data' => $hotel->load(['city', 'facilities'])
         ]);
     }
 

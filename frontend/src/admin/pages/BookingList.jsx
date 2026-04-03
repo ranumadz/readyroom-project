@@ -120,6 +120,15 @@ export default function BookingList() {
   const [paymentNote, setPaymentNote] = useState("");
   const [paying, setPaying] = useState(false);
 
+  const [selectedPenaltyBooking, setSelectedPenaltyBooking] = useState(null);
+  const [savingPenalty, setSavingPenalty] = useState(false);
+  const [penaltyForm, setPenaltyForm] = useState({
+    penalty_type: "smoking",
+    title: "Merokok di kamar",
+    amount: "",
+    note: "",
+  });
+
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
   const canEditBooking =
     adminUser?.role === "boss" || adminUser?.role === "super_admin";
@@ -1000,6 +1009,20 @@ export default function BookingList() {
     }).format(value || 0);
   };
 
+  const getPenaltySummary = (booking) => {
+    const penalties = Array.isArray(booking?.penalties) ? booking.penalties : [];
+    const totalPenalty =
+      booking?.total_penalty !== undefined && booking?.total_penalty !== null
+        ? Number(booking.total_penalty)
+        : penalties.reduce((sum, item) => sum + Number(item?.amount || 0), 0);
+
+    return {
+      penalties,
+      totalPenalty,
+      hasPenalty: penalties.length > 0 || totalPenalty > 0,
+    };
+  };
+
   const formatDateTime = (value) => {
     if (!value) return "-";
     return new Date(value).toLocaleString("id-ID", {
@@ -1107,6 +1130,97 @@ const buildWhatsAppMessage = (booking) => {
         return "bg-fuchsia-100 text-fuchsia-700";
       default:
         return "bg-slate-100 text-slate-700";
+    }
+  };
+
+  const canAddPenaltyToBooking = (booking) => {
+    return ["checked_out", "cleaning", "completed"].includes(booking?.status);
+  };
+
+  const getPenaltyDefaultTitle = (penaltyType) => {
+    switch (penaltyType) {
+      case "smoking":
+        return "Merokok di kamar";
+      case "damage":
+        return "Kerusakan fasilitas";
+      case "lost_item":
+        return "Barang hotel hilang";
+      case "extra_cleaning":
+        return "Extra cleaning";
+      default:
+        return "";
+    }
+  };
+
+  const handleOpenPenaltyModal = (booking) => {
+    setSelectedPenaltyBooking(booking);
+    setPenaltyForm({
+      penalty_type: "smoking",
+      title: "Merokok di kamar",
+      amount: "",
+      note: "",
+    });
+  };
+
+  const closePenaltyModal = () => {
+    setSelectedPenaltyBooking(null);
+    setPenaltyForm({
+      penalty_type: "smoking",
+      title: "Merokok di kamar",
+      amount: "",
+      note: "",
+    });
+  };
+
+  const handlePenaltyChange = (e) => {
+    const { name, value } = e.target;
+
+    setPenaltyForm((prev) => {
+      const next = {
+        ...prev,
+        [name]: value,
+      };
+
+      if (name === "penalty_type") {
+        next.title = getPenaltyDefaultTitle(value);
+      }
+
+      return next;
+    });
+  };
+
+  const handleSavePenalty = async () => {
+    if (!selectedPenaltyBooking) return;
+
+    if (!penaltyForm.title.trim()) {
+      toast.error("Judul denda wajib diisi");
+      return;
+    }
+
+    if (penaltyForm.amount === "" || Number(penaltyForm.amount) < 0) {
+      toast.error("Nominal denda wajib diisi dengan benar");
+      return;
+    }
+
+    try {
+      setSavingPenalty(true);
+
+      await api.post(`/admin/bookings/${selectedPenaltyBooking.id}/penalties`, {
+        penalty_type: penaltyForm.penalty_type || null,
+        title: penaltyForm.title.trim(),
+        amount: Number(penaltyForm.amount),
+        note: penaltyForm.note.trim() || null,
+        created_by: adminUser?.id || null,
+      });
+
+      toast.success("Denda berhasil ditambahkan");
+      closePenaltyModal();
+      fetchBookings();
+    } catch (error) {
+      console.error("SAVE PENALTY ERROR:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal menambahkan denda");
+    } finally {
+      setSavingPenalty(false);
     }
   };
 
@@ -1567,9 +1681,17 @@ const buildWhatsAppMessage = (booking) => {
                         )
                       : Number(booking.total_price || 0);
 
+                  const {
+                    penalties: bookingPenalties,
+                    totalPenalty,
+                    hasPenalty,
+                  } = getPenaltySummary(booking);
+
                   const showCancelButton =
                     canEditBooking &&
                     ["confirmed", "checked_in"].includes(booking.status);
+
+                  const showAddPenaltyButton = canAddPenaltyToBooking(booking);
 
                   const showNotifyButton =
                     !!booking.guest_phone &&
@@ -1814,6 +1936,71 @@ const buildWhatsAppMessage = (booking) => {
                             </div>
                           )}
 
+                          {hasPenalty && (
+                            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-800">
+                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-500">
+                                    Denda Booking
+                                  </p>
+                                  <h4 className="mt-1 text-base font-bold text-rose-700">
+                                    Total Denda: {formatCurrency(totalPenalty)}
+                                  </h4>
+                                  <p className="mt-1 text-xs text-rose-600">
+                                    Denda tambahan setelah check-out / saat proses cleaning.
+                                  </p>
+                                </div>
+
+                                <div className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-rose-700 border border-rose-200">
+                                  {bookingPenalties.length} item denda
+                                </div>
+                              </div>
+
+                              {bookingPenalties.length > 0 && (
+                                <div className="mt-4 space-y-2">
+                                  {bookingPenalties.map((penalty, penaltyIndex) => (
+                                    <div
+                                      key={penalty.id || `${booking.id}-penalty-${penaltyIndex}`}
+                                      className="rounded-2xl border border-rose-100 bg-white/90 px-4 py-3"
+                                    >
+                                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                        <div>
+                                          <p className="font-semibold text-rose-700">
+                                            {penalty.title || "Denda tambahan"}
+                                          </p>
+                                          {penalty.penalty_type && (
+                                            <p className="mt-1 text-xs uppercase tracking-wide text-rose-400">
+                                              Jenis: {penalty.penalty_type}
+                                            </p>
+                                          )}
+                                          {penalty.note && (
+                                            <p className="mt-2 text-sm leading-relaxed text-rose-700">
+                                              {penalty.note}
+                                            </p>
+                                          )}
+                                          {penalty.creator?.name && (
+                                            <p className="mt-2 text-xs text-rose-500">
+                                              Input oleh: {penalty.creator.name}
+                                            </p>
+                                          )}
+                                          {!penalty.creator?.name && penalty.creator_name && (
+                                            <p className="mt-2 text-xs text-rose-500">
+                                              Input oleh: {penalty.creator_name}
+                                            </p>
+                                          )}
+                                        </div>
+
+                                        <div className="shrink-0 rounded-full bg-rose-100 px-3 py-1 text-sm font-bold text-rose-700 border border-rose-200">
+                                          {formatCurrency(Number(penalty.amount || 0))}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {booking.cancel_reason && (
                             <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
                               <p>
@@ -2024,6 +2211,17 @@ const buildWhatsAppMessage = (booking) => {
                               <CheckCircle2 size={18} />
                               Sudah Diproses
                             </div>
+                          )}
+
+                          {showAddPenaltyButton && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPenaltyModal(booking)}
+                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-600 px-5 py-3 text-white font-semibold hover:bg-rose-700 transition"
+                            >
+                              <Plus size={18} />
+                              Tambah Denda
+                            </button>
                           )}
                         </div>
                       </div>
@@ -2736,6 +2934,142 @@ const buildWhatsAppMessage = (booking) => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedPenaltyBooking && (
+            <div className="fixed inset-0 z-[70] bg-black/50 p-4 backdrop-blur-sm flex items-center justify-center">
+              <div className="w-full max-w-2xl rounded-3xl border border-gray-200 bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">Tambah Denda Booking</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Input denda operasional setelah tamu check-out atau saat proses cleaning.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closePenaltyModal}
+                    className="rounded-full bg-gray-100 p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="space-y-6 px-6 py-6">
+                  <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Booking Code</p>
+                        <p className="mt-1 text-sm font-bold text-rose-700">
+                          {selectedPenaltyBooking.booking_code || `Booking #${selectedPenaltyBooking.id}`}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Status Booking</p>
+                        <p className="mt-1 text-sm font-bold text-rose-700">
+                          {selectedPenaltyBooking.status || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Nama Tamu</p>
+                        <p className="mt-1 text-sm font-bold text-gray-800">
+                          {selectedPenaltyBooking.user?.name || selectedPenaltyBooking.guest_name || "Tamu"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Hotel / Kamar</p>
+                        <p className="mt-1 text-sm font-bold text-gray-800">
+                          {selectedPenaltyBooking.hotel?.name || "-"} / {selectedPenaltyBooking.room?.type || selectedPenaltyBooking.room?.name || "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">
+                        Jenis Denda
+                      </label>
+                      <select
+                        name="penalty_type"
+                        value={penaltyForm.penalty_type}
+                        onChange={handlePenaltyChange}
+                        className={inputClass}
+                      >
+                        <option value="smoking">Merokok di kamar</option>
+                        <option value="damage">Kerusakan fasilitas</option>
+                        <option value="lost_item">Barang hotel hilang</option>
+                        <option value="extra_cleaning">Extra cleaning</option>
+                        <option value="other">Lainnya</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">
+                        Nominal Denda
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        name="amount"
+                        value={penaltyForm.amount}
+                        onChange={handlePenaltyChange}
+                        placeholder="Contoh: 150000"
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Judul Denda
+                    </label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={penaltyForm.title}
+                      onChange={handlePenaltyChange}
+                      placeholder="Contoh: Merokok di kamar"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Catatan
+                    </label>
+                    <textarea
+                      name="note"
+                      value={penaltyForm.note}
+                      onChange={handlePenaltyChange}
+                      rows={4}
+                      placeholder="Contoh: Ditemukan bau rokok dan abu rokok saat proses cleaning."
+                      className={`${inputClass} resize-none`}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-5">
+                  <button
+                    type="button"
+                    onClick={closePenaltyModal}
+                    className="rounded-2xl bg-gray-200 px-5 py-3 text-gray-700 font-semibold hover:bg-gray-300 transition"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSavePenalty}
+                    disabled={savingPenalty}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-rose-600 px-6 py-3 text-white font-semibold hover:bg-rose-700 transition disabled:opacity-70"
+                  >
+                    <Save size={18} />
+                    {savingPenalty ? "Menyimpan..." : "Simpan Denda"}
+                  </button>
                 </div>
               </div>
             </div>
