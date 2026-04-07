@@ -10,15 +10,50 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const storedCustomer = localStorage.getItem("customer");
+    const syncCustomer = () => {
+      try {
+        const storedCustomer =
+          localStorage.getItem("customer") ||
+          localStorage.getItem("customerUser") ||
+          localStorage.getItem("user");
 
-    if (storedCustomer) {
-      setCustomer(JSON.parse(storedCustomer));
-    }
+        if (storedCustomer) {
+          setCustomer(JSON.parse(storedCustomer));
+        } else {
+          setCustomer(null);
+        }
+      } catch (error) {
+        console.error("READ CUSTOMER LOCALSTORAGE ERROR:", error);
+        setCustomer(null);
+      }
+    };
+
+    syncCustomer();
+    window.addEventListener("storage", syncCustomer);
+
+    return () => {
+      window.removeEventListener("storage", syncCustomer);
+    };
   }, []);
 
   useEffect(() => {
     setMobileOpen(false);
+
+    try {
+      const storedCustomer =
+        localStorage.getItem("customer") ||
+        localStorage.getItem("customerUser") ||
+        localStorage.getItem("user");
+
+      if (storedCustomer) {
+        setCustomer(JSON.parse(storedCustomer));
+      } else {
+        setCustomer(null);
+      }
+    } catch (error) {
+      console.error("SYNC CUSTOMER ON ROUTE CHANGE ERROR:", error);
+      setCustomer(null);
+    }
   }, [location.pathname]);
 
   const handleLogout = () => {
@@ -38,11 +73,13 @@ export default function Navbar() {
 
   const isActive = (path) => {
     if (path === "/") return location.pathname === "/";
-    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+    return (
+      location.pathname === path || location.pathname.startsWith(`${path}/`)
+    );
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-md">
+    <header className="sticky top-0 z-[999] border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 md:px-6">
         <div className="flex h-20 items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
@@ -91,18 +128,23 @@ export default function Navbar() {
           <div className="hidden items-center gap-3 md:flex">
             {customer ? (
               <>
-                <div className="flex items-center gap-3 rounded-full bg-gray-100 py-2 pl-3 pr-4">
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-3 rounded-full bg-gray-100 py-2 pl-3 pr-4 transition hover:bg-gray-200"
+                >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 font-semibold text-white">
                     {customer.name?.charAt(0).toUpperCase() || "U"}
                   </div>
 
                   <div className="leading-tight">
                     <p className="text-sm font-semibold text-gray-800">
-                      {customer.name}
+                      {customer.name || "User"}
                     </p>
-                    <p className="text-xs text-gray-500">{customer.email}</p>
+                    <p className="text-xs text-gray-500">
+                      {customer.phone || "-"}
+                    </p>
                   </div>
-                </div>
+                </Link>
 
                 <button
                   onClick={handleLogout}
@@ -177,17 +219,23 @@ export default function Navbar() {
 
             {customer ? (
               <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-3 rounded-2xl bg-gray-100 px-3 py-3">
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-3 rounded-2xl bg-gray-100 px-3 py-3 transition hover:bg-gray-200"
+                  onClick={() => setMobileOpen(false)}
+                >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 font-semibold text-white">
                     {customer.name?.charAt(0).toUpperCase() || "U"}
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-800">
-                      {customer.name}
+                      {customer.name || "User"}
                     </p>
-                    <p className="text-xs text-gray-500">{customer.email}</p>
+                    <p className="text-xs text-gray-500">
+                      {customer.phone || "-"}
+                    </p>
                   </div>
-                </div>
+                </Link>
 
                 <button
                   onClick={() => {

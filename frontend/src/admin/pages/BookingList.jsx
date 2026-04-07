@@ -107,12 +107,15 @@ export default function BookingList() {
   });
 
   const [viewMode, setViewMode] = useState("today_active");
-
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportShift, setReportShift] = useState("all");
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
 
   const [selectedReceiptBooking, setSelectedReceiptBooking] = useState(null);
   const receiptPrintRef = useRef(null);
+  const reportPrintRef = useRef(null);
 
   const [selectedPaidBooking, setSelectedPaidBooking] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -748,22 +751,22 @@ export default function BookingList() {
       setSavingManual(true);
 
       const payload = {
-        guest_name: manualForm.guest_name.trim(),
-        guest_phone: manualForm.guest_phone.trim(),
-        guest_email: manualForm.guest_email.trim() || null,
-        created_by: adminUser?.id || null,
-        hotel_id: Number(manualForm.hotel_id),
-        room_id: Number(manualForm.room_id),
-        room_unit_id: Number(manualForm.room_unit_id),
-        booking_type: manualForm.booking_type,
-        duration_hours:
-          manualForm.booking_type === "transit"
-            ? Number(manualForm.duration_hours)
-            : null,
-        check_in: manualForm.check_in.replace("T", " ") + ":00",
-        discount_percent: canEditBooking ? manualDiscountPercent : 0,
-        admin_note: manualForm.admin_note || "",
-      };
+  guest_name: manualForm.guest_name.trim(),
+  guest_phone: manualForm.guest_phone.trim(),
+  guest_email: manualForm.guest_email.trim() || null,
+  created_by: adminUser?.id || null,
+  hotel_id: Number(manualForm.hotel_id),
+  room_id: Number(manualForm.room_id),
+  room_unit_id: Number(manualForm.room_unit_id),
+  booking_type: manualForm.booking_type,
+  duration_hours:
+    manualForm.booking_type === "transit"
+      ? Number(manualForm.duration_hours)
+      : null,
+  check_in: manualForm.check_in.replace("T", " ") + ":00",
+  admin_note: manualForm.admin_note || "",
+  ...(canEditBooking ? { discount_percent: manualDiscountPercent } : {}),
+};
 
       await api.post("/admin/bookings/manual", payload);
 
@@ -780,6 +783,15 @@ export default function BookingList() {
     }
   };
 
+const handlePrintReport = () => {
+  const printContents = reportPrintRef.current.innerHTML;
+  const originalContents = document.body.innerHTML;
+
+  document.body.innerHTML = printContents;
+  window.print();
+  document.body.innerHTML = originalContents;
+  window.location.reload();
+};
 
   const getBookingCustomerName = (booking) => {
     return booking?.user?.name || booking?.guest_name || "Tamu";
@@ -790,8 +802,12 @@ export default function BookingList() {
   };
 
   const getBookingRoomUnit = (booking) => {
-    return booking?.roomUnit?.room_number || "Belum di-assign";
-  };
+  return (
+    booking?.roomUnit?.room_number ||
+    booking?.room_unit?.room_number ||
+    "Belum di-assign"
+  );
+};
 
   const getCreatedByName = (booking) => {
     return (
@@ -1024,6 +1040,23 @@ export default function BookingList() {
   };
 
   const formatDateTime = (value) => {
+    const matchesReportShift = (booking) => {
+  if (reportShift === "all") return true;
+
+  if (!booking?.check_in) return false;
+
+  const hour = new Date(booking.check_in).getHours();
+
+  if (reportShift === "pagi") {
+    return hour >= 0 && hour < 12;
+  }
+
+  if (reportShift === "malam") {
+    return hour >= 12 && hour < 24;
+  }
+
+  return true;
+};
     if (!value) return "-";
     return new Date(value).toLocaleString("id-ID", {
       dateStyle: "medium",
@@ -1291,59 +1324,24 @@ const buildWhatsAppMessage = (booking) => {
   };
 
   const isBookingRelevantToday = (booking) => {
-    const now = new Date();
+  const activeStatuses = [
+    "pending",
+    "confirmed",
+    "checked_in",
+    "checked_out",
+    "cleaning",
+  ];
 
-    const todayStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      0,
-      0,
-      0
-    );
-
-    const todayEnd = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      23,
-      59,
-      59
-    );
-
-    const checkIn = booking.check_in ? new Date(booking.check_in) : null;
-    const checkOut = booking.check_out ? new Date(booking.check_out) : null;
-
-    const activeStatuses = [
-      "pending",
-      "confirmed",
-      "checked_in",
-      "checked_out",
-      "cleaning",
-    ];
-
-    if (activeStatuses.includes(booking.status)) {
-      return true;
-    }
-
-    if (booking.status === "completed" && checkOut) {
-      return isSameDay(checkOut, now);
-    }
-
-    if (booking.status === "cancelled" && checkIn) {
-      return isSameDay(checkIn, now);
-    }
-
-    if (checkIn && checkOut) {
-      return checkIn <= todayEnd && checkOut >= todayStart;
-    }
-
-    if (checkIn) {
-      return isSameDay(checkIn, now);
-    }
-
+  if (!activeStatuses.includes(booking?.status)) {
     return false;
-  };
+  }
+
+  if (booking?.payment_status === "refunded") {
+    return false;
+  }
+
+  return true;
+};
 
   const filteredBookings = useMemo(() => {
     const searchActive = filters.search.trim().length > 0;
@@ -1504,142 +1502,122 @@ const buildWhatsAppMessage = (booking) => {
 
           {hasSelectedFolder && (
           <>
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 mb-6">
-            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-5">
-              <div className="flex items-center gap-2">
-                <Filter size={18} className="text-red-500" />
-                <h2 className="text-lg font-bold text-gray-800">
-                  Filter Booking
-                </h2>
-              </div>
+         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 mb-6">
+  <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-5">
+    <div className="flex items-center gap-2">
+      <Filter size={18} className="text-red-500" />
+      <h2 className="text-lg font-bold text-gray-800">
+        Kontrol Booking
+      </h2>
+    </div>
 
-              <button
-                type="button"
-                onClick={openManualModal}
-                className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
-              >
-                <Plus size={18} />
-                Manual Booking
-              </button>
-            </div>
+    <div className="flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        onClick={() => setShowFilterModal(true)}
+        className="inline-flex items-center gap-2 rounded-2xl bg-white border border-gray-200 px-5 py-3 text-gray-700 font-semibold hover:bg-gray-50 transition"
+      >
+        <Filter size={18} />
+        Filter
+      </button>
 
-            <div className="flex flex-wrap gap-3 mb-5">
-              <button
-                type="button"
-                onClick={() => setViewMode("today_active")}
-                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
-                  viewMode === "today_active"
-                    ? "bg-red-600 text-white shadow-sm"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                <Layers3 size={18} />
-                Aktif Hari Ini
-              </button>
+      <button
+        type="button"
+        onClick={() => setShowReportModal(true)}
+        className="inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
+      >
+        <ReceiptText size={18} />
+        Report
+      </button>
 
-              <button
-                type="button"
-                onClick={() => setViewMode("all")}
-                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
-                  viewMode === "all"
-                    ? "bg-gray-900 text-white shadow-sm"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                <History size={18} />
-                Semua Booking
-              </button>
+      <button
+        type="button"
+        onClick={openManualModal}
+        className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
+      >
+        <Plus size={18} />
+        Manual Booking
+      </button>
+    </div>
+  </div>
 
-              <div className="inline-flex items-center rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                Booking aktif / relevan hari ini: {todayVisibleCount}
-              </div>
+  <div className="flex flex-wrap gap-3 mb-4">
+    <button
+      type="button"
+      onClick={() => setViewMode("today_active")}
+      className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+        viewMode === "today_active"
+          ? "bg-red-600 text-white shadow-sm"
+          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+      }`}
+    >
+      <Layers3 size={18} />
+      Aktif Hari Ini
+    </button>
 
-              {filters.search.trim() && (
-                <div className="inline-flex items-center rounded-2xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
-                  Search aktif: histori lama juga ikut dicari
-                </div>
-              )}
-            </div>
+    <button
+      type="button"
+      onClick={() => setViewMode("all")}
+      className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+        viewMode === "all"
+          ? "bg-gray-900 text-white shadow-sm"
+          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+      }`}
+    >
+      <History size={18} />
+      Semua Booking
+    </button>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-              <div className="relative xl:col-span-2">
-                <Search
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-                />
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange("search", e.target.value)}
-                  placeholder="Cari kode booking, nama tamu, hotel, tipe kamar"
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 pl-12 pr-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                />
-              </div>
+    <div className="inline-flex items-center rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+      Booking aktif / relevan hari ini: {todayVisibleCount}
+    </div>
 
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange("status", e.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-              >
-                <option value="">Semua Status</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="checked_in">Checked In</option>
-                <option value="checked_out">Checked Out</option>
-                <option value="cleaning">Cleaning</option>
-                <option value="completed">Completed</option>
-              </select>
+    {(filters.search || filters.status || filters.bookingType || filters.hotelId || filters.month) && (
+      <div className="inline-flex items-center rounded-2xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+        Filter aktif
+      </div>
+    )}
+  </div>
 
-              <select
-                value={filters.bookingType}
-                onChange={(e) => handleFilterChange("bookingType", e.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-              >
-                <option value="">Semua Jenis</option>
-                <option value="transit">Transit</option>
-                <option value="overnight">Overnight</option>
-              </select>
+  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <div>
+      <p className="text-sm font-semibold text-gray-800">
+        
+      </p>
+      <p className="text-sm text-gray-500 mt-1">
+        Gunakan tombol Filter untuk pencarian lanjutan dan Report untuk ringkasan cetak.
+      </p>
+    </div>
 
-              <select
-                value={filters.hotelId}
-                onChange={(e) => handleFilterChange("hotelId", e.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-              >
-                <option value="">Semua Hotel</option>
-                {folderHotels.map((hotel) => (
-                  <option key={hotel.id} value={hotel.id}>
-                    {hotel.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">
-                  Filter Bulan
-                </label>
-                <input
-                  type="month"
-                  value={filters.month}
-                  onChange={(e) => handleFilterChange("month", e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                />
-              </div>
-
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
-                >
-                  <RotateCcw size={18} />
-                  Reset Filter
-                </button>
-              </div>
-            </div>
-          </div>
+    <div className="flex flex-wrap gap-2">
+      {filters.search && (
+        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
+          Cari: {filters.search}
+        </span>
+      )}
+      {filters.status && (
+        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
+          Status: {filters.status}
+        </span>
+      )}
+      {filters.bookingType && (
+        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
+          Jenis: {filters.bookingType}
+        </span>
+      )}
+      {filters.hotelId && (
+        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
+          Hotel dipilih
+        </span>
+      )}
+      {filters.month && (
+        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
+          Bulan: {filters.month}
+        </span>
+      )}
+    </div>
+  </div>
+</div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
             {loading ? (
@@ -1858,11 +1836,11 @@ const buildWhatsAppMessage = (booking) => {
                               </span>
                             )}
 
-                            {booking.roomUnit && (
-                              <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 font-medium">
-                                Unit Kamar: {booking.roomUnit.room_number}
-                              </span>
-                            )}
+                           {getBookingRoomUnit(booking) !== "Belum di-assign" && (
+  <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 font-medium">
+    Unit Kamar: {getBookingRoomUnit(booking)}
+  </span>
+)}
                           </div>
 
                           {(booking.payment_method || booking.paid_amount || booking.payment_note) && (
@@ -2669,7 +2647,7 @@ const buildWhatsAppMessage = (booking) => {
                                 ReadyRoom • Hotel Ops
                               </p>
                               <h3 className="mt-3 text-3xl font-black leading-tight md:text-5xl">
-                                PREMIUM ADMIN
+                                ReadyRoom Invoice
                                 <span className="block text-red-100">BOOKING TICKET</span>
                               </h3>
                               <p className="mt-3 max-w-2xl text-sm text-red-50 md:text-base">
@@ -2880,6 +2858,10 @@ const buildWhatsAppMessage = (booking) => {
                                   <p>• Tiket ini adalah bukti booking operasional hotel.</p>
                                   <p>• Resepsionis dapat mencocokkan kode booking atau scan QR untuk validasi cepat.</p>
                                   <p>• Simpan tiket ini hingga proses check-in selesai.</p>
+                                  <p>Harap datang sesuai waktu booking yang telah dipilih.
+
+Jika dalam 30 menit setelah waktu check-in tidak ada konfirmasi atau kehadiran, booking dapat dibatalkan oleh pihak hotel.
+Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui kontak resmi hotel.</p>
                                   {selectedReceiptBooking.hotel?.wa_admin && (
                                     <p className="font-bold text-blue-700">
                                       • Kontak Admin Cabang: {selectedReceiptBooking.hotel.wa_admin}
@@ -3197,7 +3179,154 @@ const buildWhatsAppMessage = (booking) => {
               </div>
             </div>
           )}
+{showFilterModal && (
+  <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
+    <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-bold text-gray-800">Filter Booking</h3>
+        <button
+          type="button"
+          onClick={() => setShowFilterModal(false)}
+          className="rounded-full bg-gray-100 p-2 text-gray-500 hover:bg-gray-200"
+        >
+          <X size={18} />
+        </button>
+      </div>
 
+      <div className="space-y-4">
+  <div className="relative">
+    <Search
+      size={18}
+      className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
+    />
+    <input
+      type="text"
+      value={filters.search}
+      onChange={(e) => handleFilterChange("search", e.target.value)}
+      placeholder="Cari kode booking, nama tamu, hotel, tipe kamar"
+      className="w-full rounded-2xl border border-gray-200 bg-gray-50 pl-12 pr-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+    />
+  </div>
+</div>
+
+      <div className="mt-5 flex justify-end gap-3">
+  <button
+    type="button"
+    onClick={resetFilters}
+    className="rounded-2xl bg-gray-100 px-5 py-3 text-gray-700 font-semibold hover:bg-gray-200 transition"
+  >
+    Reset
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setShowFilterModal(false)}
+    className="rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
+  >
+    Terapkan
+  </button>
+</div>
+    </div>
+  </div>
+)}{showReportModal && (
+  <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
+    <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-xl font-bold text-gray-800">Report Booking</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Laporan booking ReadyRoom 
+          </p>
+          <div className="mt-4">
+  <label className="mb-2 block text-sm font-semibold text-gray-700">
+    Filter Shift
+  </label>
+
+  <select
+    value={reportShift}
+    onChange={(e) => setReportShift(e.target.value)}
+    className="w-full max-w-xs rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+  >
+    <option value="all">Semua Shift</option>
+    <option value="pagi">Shift Pagi (00:00 - 11:59)</option>
+    <option value="malam">Shift Malam (12:00 - 23:59)</option>
+  </select>
+</div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowReportModal(false)}
+          className="rounded-full bg-gray-100 p-2 text-gray-500 hover:bg-gray-200"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <div
+  ref={reportPrintRef}
+  className="overflow-x-auto rounded-2xl border border-gray-100"
+>
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr className="text-left text-gray-600">
+              <th className="px-4 py-3 font-semibold">No</th>
+              <th className="px-4 py-3 font-semibold">Nama Customer</th>
+              <th className="px-4 py-3 font-semibold">No Telp</th>
+              <th className="px-4 py-3 font-semibold">Metode Pembayaran</th>
+              <th className="px-4 py-3 font-semibold">Total Harga</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredBookings.length > 0 ? (
+              filteredBookings.slice(0, 10).map((booking, index) => (
+                <tr key={booking.id} className="border-t border-gray-100">
+                  <td className="px-4 py-3">{index + 1}</td>
+                  <td className="px-4 py-3">
+                    {booking.user?.name || booking.guest_name || "Tamu"}
+                  </td>
+                  <td className="px-4 py-3">{booking.guest_phone || "-"}</td>
+                  <td className="px-4 py-3">
+                    {booking.payment_method
+                      ? getPaymentMethodLabel(booking.payment_method)
+                      : "-"}
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-gray-800">
+                    {formatCurrency(booking.total_price || 0)}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="5" className="px-4 py-6 text-center text-gray-500">
+                  Belum ada data booking.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-5 flex justify-end gap-3">
+  <button
+    type="button"
+    onClick={handlePrintReport}
+    className="rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
+  >
+    Print PDF
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setShowReportModal(false)}
+    className="rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
+  >
+    Tutup
+  </button>
+</div>
+    </div>
+  </div>
+)}
           {showManualModal && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
               <div className="bg-white rounded-3xl p-6 w-full max-w-5xl shadow-xl my-8">
@@ -3584,6 +3713,7 @@ const buildWhatsAppMessage = (booking) => {
               </div>
             </div>
           )}
+          
         </div>
       </div>
     </div>

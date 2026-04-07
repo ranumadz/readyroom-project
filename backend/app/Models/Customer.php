@@ -14,6 +14,9 @@ class Customer extends Authenticatable
     protected $fillable = [
         'name',
         'phone',
+        'new_phone',
+        'new_phone_otp',
+        'new_phone_otp_expired_at',
         'password',
         'status',
         'is_verified',
@@ -30,5 +33,6 @@ class Customer extends Authenticatable
         'status' => 'boolean',
         'is_verified' => 'boolean',
         'otp_expired_at' => 'datetime',
+        'new_phone_otp_expired_at' => 'datetime',
     ];
 }

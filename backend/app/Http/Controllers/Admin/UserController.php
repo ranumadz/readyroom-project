@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Customer;
-use App\Models\Hotel;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -18,7 +17,7 @@ class UserController extends Controller
     public function adminUsers()
     {
         $users = User::with(['hotels:id,name'])
-            ->whereIn('role', ['admin', 'super_admin', 'boss', 'receptionist'])
+            ->whereIn('role', ['admin', 'super_admin', 'boss', 'receptionist', 'pengawas', 'it'])
             ->latest()
             ->get();
 
@@ -37,7 +36,7 @@ class UserController extends Controller
 
     /**
      * Tambah user internal
-     * Hanya boss yang boleh
+     * Boss dan IT boleh
      */
     public function storeAdminUser(Request $request)
     {
@@ -47,19 +46,17 @@ class UserController extends Controller
             'email' => 'required|email|max:255|unique:users,email',
             'phone' => 'nullable|string|max:50',
             'password' => 'required|string|min:6',
-            'role' => ['required', Rule::in(['admin', 'super_admin', 'receptionist'])],
+            'role' => ['required', Rule::in(['admin', 'super_admin', 'receptionist', 'pengawas', 'it'])],
             'status' => 'nullable|boolean',
-
-            // cabang hotel
             'hotel_ids' => 'nullable|array',
             'hotel_ids.*' => 'exists:hotels,id',
         ]);
 
         $creator = User::find($request->created_by);
 
-        if (!$creator || $creator->role !== 'boss') {
+        if (!$creator || !in_array($creator->role, ['boss', 'it'])) {
             return response()->json([
-                'message' => 'Hanya boss yang boleh menambah user internal'
+                'message' => 'Hanya boss atau IT yang boleh menambah user internal'
             ], 403);
         }
 
@@ -78,9 +75,7 @@ class UserController extends Controller
             ->values()
             ->toArray();
 
-        // admin & receptionist dibatasi cabang
-        // super_admin tidak dibatasi cabang
-        if (in_array($user->role, ['admin', 'receptionist'])) {
+        if (in_array($user->role, ['admin', 'receptionist', 'pengawas'])) {
             $user->hotels()->sync($hotelIds);
         } else {
             $user->hotels()->sync([]);
@@ -96,7 +91,8 @@ class UserController extends Controller
 
     /**
      * Update role / data user internal
-     * Hanya boss yang boleh
+     * Boss boleh edit semua
+     * IT boleh edit selain boss
      */
     public function updateAdminUser(Request $request, $id)
     {
@@ -105,28 +101,38 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
             'phone' => 'nullable|string|max:50',
-            'role' => ['required', Rule::in(['admin', 'super_admin', 'boss', 'receptionist'])],
+            'role' => ['required', Rule::in(['admin', 'super_admin', 'boss', 'receptionist', 'pengawas', 'it'])],
             'status' => 'required|boolean',
-
-            // cabang hotel
             'hotel_ids' => 'nullable|array',
             'hotel_ids.*' => 'exists:hotels,id',
         ]);
 
         $actor = User::find($request->updated_by);
 
-        if (!$actor || $actor->role !== 'boss') {
+        if (!$actor || !in_array($actor->role, ['boss', 'it'])) {
             return response()->json([
-                'message' => 'Hanya boss yang boleh mengubah data user internal'
+                'message' => 'Hanya boss atau IT yang boleh mengubah data user internal'
             ], 403);
         }
 
         $user = User::findOrFail($id);
 
-        if ($user->id === $actor->id && $request->role !== 'boss') {
+        if ($actor->role === 'it' && $user->role === 'boss') {
+            return response()->json([
+                'message' => 'IT tidak boleh mengubah data boss'
+            ], 403);
+        }
+
+        if ($user->id === $actor->id && $actor->role === 'boss' && $request->role !== 'boss') {
             return response()->json([
                 'message' => 'Boss tidak boleh menurunkan role dirinya sendiri'
             ], 422);
+        }
+
+        if ($actor->role === 'it' && $request->role === 'boss') {
+            return response()->json([
+                'message' => 'IT tidak boleh mengatur role menjadi boss'
+            ], 403);
         }
 
         $emailExists = User::where('email', $request->email)
@@ -153,9 +159,7 @@ class UserController extends Controller
             ->values()
             ->toArray();
 
-        // admin & receptionist dibatasi cabang
-        // boss / super_admin tidak dibatasi cabang
-        if (in_array($user->role, ['admin', 'receptionist'])) {
+        if (in_array($user->role, ['admin', 'receptionist', 'pengawas'])) {
             $user->hotels()->sync($hotelIds);
         } else {
             $user->hotels()->sync([]);
@@ -173,6 +177,7 @@ class UserController extends Controller
      * Reset password user internal
      * Boss bisa reset semua
      * Super admin bisa reset selain boss
+     * IT bisa reset selain boss
      */
     public function resetAdminPassword(Request $request, $id)
     {
@@ -183,17 +188,17 @@ class UserController extends Controller
 
         $actor = User::find($request->changed_by);
 
-        if (!$actor || !in_array($actor->role, ['boss', 'super_admin'])) {
+        if (!$actor || !in_array($actor->role, ['boss', 'super_admin', 'it'])) {
             return response()->json([
-                'message' => 'Hanya boss atau super admin yang boleh reset password user admin'
+                'message' => 'Hanya boss, super admin, atau IT yang boleh reset password user admin'
             ], 403);
         }
 
         $targetUser = User::findOrFail($id);
 
-        if ($actor->role === 'super_admin' && $targetUser->role === 'boss') {
+        if (in_array($actor->role, ['super_admin', 'it']) && $targetUser->role === 'boss') {
             return response()->json([
-                'message' => 'Super admin tidak boleh reset password boss'
+                'message' => 'Akun ini tidak boleh reset password boss'
             ], 403);
         }
 
@@ -208,7 +213,8 @@ class UserController extends Controller
 
     /**
      * Aktif / nonaktif user internal
-     * Hanya boss
+     * Boss bisa ubah semua selain dirinya sendiri
+     * IT bisa ubah selain boss
      */
     public function toggleAdminStatus(Request $request, $id)
     {
@@ -218,18 +224,24 @@ class UserController extends Controller
 
         $actor = User::find($request->changed_by);
 
-        if (!$actor || $actor->role !== 'boss') {
+        if (!$actor || !in_array($actor->role, ['boss', 'it'])) {
             return response()->json([
-                'message' => 'Hanya boss yang boleh mengubah status user internal'
+                'message' => 'Hanya boss atau IT yang boleh mengubah status user internal'
             ], 403);
         }
 
         $user = User::findOrFail($id);
 
-        if ($user->id === $actor->id) {
+        if ($user->id === $actor->id && $actor->role === 'boss') {
             return response()->json([
                 'message' => 'Boss tidak boleh menonaktifkan akunnya sendiri'
             ], 422);
+        }
+
+        if ($actor->role === 'it' && $user->role === 'boss') {
+            return response()->json([
+                'message' => 'IT tidak boleh mengubah status boss'
+            ], 403);
         }
 
         $user->update([

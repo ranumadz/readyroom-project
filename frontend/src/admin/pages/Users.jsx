@@ -6,7 +6,6 @@ import toast from "react-hot-toast";
 import {
   Users as UsersIcon,
   ShieldCheck,
-  UserRound,
   Search,
   KeyRound,
   Plus,
@@ -16,9 +15,7 @@ import {
   Mail,
   Phone,
   UserCog,
-  LockKeyhole,
   Building2,
-  Check,
 } from "lucide-react";
 
 export default function UsersPage() {
@@ -26,9 +23,13 @@ export default function UsersPage() {
     JSON.parse(localStorage.getItem("adminUser") || "null") ||
     JSON.parse(localStorage.getItem("user") || "null");
 
-  const isBoss = adminUser?.role === "boss";
+  const currentRole = (adminUser?.role || "").toLowerCase();
+
+  const isBoss = currentRole === "boss";
+  const isIT = currentRole === "it";
+  const isBossOrIT = isBoss || isIT;
   const isBossOrSuperAdmin =
-    adminUser?.role === "boss" || adminUser?.role === "super_admin";
+    currentRole === "boss" || currentRole === "super_admin";
 
   const [activeTab, setActiveTab] = useState("internal");
   const [loading, setLoading] = useState(true);
@@ -173,6 +174,10 @@ export default function UsersPage() {
         return "bg-blue-100 text-blue-700";
       case "receptionist":
         return "bg-emerald-100 text-emerald-700";
+      case "pengawas":
+        return "bg-amber-100 text-amber-700";
+      case "it":
+        return "bg-cyan-100 text-cyan-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
@@ -184,16 +189,57 @@ export default function UsersPage() {
       : "bg-gray-200 text-gray-700";
   };
 
+  const getRoleLabel = (role) => {
+    switch (role) {
+      case "super_admin":
+        return "Super Admin";
+      case "receptionist":
+        return "Receptionist";
+      case "pengawas":
+        return "Pengawas";
+      case "it":
+        return "IT";
+      case "boss":
+        return "Boss";
+      case "admin":
+        return "Admin";
+      default:
+        return role || "-";
+    }
+  };
+
+  const canCreateInternalUser = () => {
+    return isBossOrIT;
+  };
+
+  const canEditInternalUser = (target) => {
+    if (!adminUser || !target) return false;
+
+    if (isBoss) return true;
+
+    if (isIT) {
+      return target.role !== "boss";
+    }
+
+    return false;
+  };
+
   const canResetPassword = (target, type) => {
     if (!adminUser) return false;
 
-    if (adminUser.role === "boss") {
+    if (isBoss) {
       return true;
     }
 
-    if (adminUser.role === "super_admin") {
+    if (currentRole === "super_admin") {
       if (type === "customer") return true;
+      if (type === "internal") {
+        return target.role !== "boss";
+      }
+    }
 
+    if (isIT) {
+      if (type === "customer") return false;
       if (type === "internal") {
         return target.role !== "boss";
       }
@@ -202,8 +248,24 @@ export default function UsersPage() {
     return false;
   };
 
+  const canToggleInternalStatus = (target) => {
+    if (!adminUser || !target) return false;
+
+    if (isBoss) return true;
+
+    if (isIT) {
+      return target.role !== "boss";
+    }
+
+    return false;
+  };
+
   const roleNeedsHotelAssignment = (role) => {
-    return role === "admin" || role === "receptionist";
+    return role === "admin" || role === "receptionist" || role === "pengawas";
+  };
+
+  const roleHasAllBranchAccess = (role) => {
+    return role === "boss" || role === "super_admin" || role === "it";
   };
 
   const normalizeHotelIds = (hotelIds) => {
@@ -333,8 +395,8 @@ export default function UsersPage() {
   };
 
   const handleCreateInternalUser = async () => {
-    if (!isBoss) {
-      toast.error("Hanya boss yang boleh menambah user internal");
+    if (!canCreateInternalUser()) {
+      toast.error("Hanya boss atau IT yang boleh menambah user internal");
       return;
     }
 
@@ -377,12 +439,13 @@ export default function UsersPage() {
   };
 
   const handleUpdateInternalUser = async () => {
-    if (!isBoss) {
-      toast.error("Hanya boss yang boleh edit user internal");
+    if (!selectedInternalUser) return;
+
+    if (!canEditInternalUser(selectedInternalUser)) {
+      toast.error("Kamu tidak punya akses untuk edit user ini");
       return;
     }
 
-    if (!selectedInternalUser) return;
     if (!editForm.name.trim()) return toast.error("Nama wajib diisi");
     if (!editForm.email.trim()) return toast.error("Email wajib diisi");
 
@@ -451,6 +514,21 @@ export default function UsersPage() {
   };
 
   const handleToggleStatus = async (id, type) => {
+    const target =
+      type === "internal"
+        ? internalUsers.find((user) => user.id === id)
+        : customers.find((customer) => customer.id === id);
+
+    if (type === "internal" && !canToggleInternalStatus(target)) {
+      toast.error("Kamu tidak punya akses untuk mengubah status user ini");
+      return;
+    }
+
+    if (type === "customer" && !isBossOrSuperAdmin) {
+      toast.error("Kamu tidak punya akses untuk mengubah status customer");
+      return;
+    }
+
     try {
       const endpoint =
         type === "internal"
@@ -478,17 +556,17 @@ export default function UsersPage() {
 
         <div className="p-6 md:p-8">
           <div className="mb-8">
-            <p className="text-sm font-semibold text-red-600 mb-2">
+            <p className="mb-2 text-sm font-semibold text-red-600">
               Panel Admin
             </p>
             <h1 className="text-3xl font-bold text-gray-800">Kelola Users</h1>
-            <p className="text-gray-500 mt-1">
+            <p className="mt-1 text-gray-500">
               Kelola user internal panel admin dan customer web dalam satu halaman.
             </p>
           </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
-            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-5">
+          <div className="mb-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => setActiveTab("internal")}
@@ -515,11 +593,11 @@ export default function UsersPage() {
                 </button>
               </div>
 
-              {activeTab === "internal" && isBoss && (
+              {activeTab === "internal" && canCreateInternalUser() && (
                 <button
                   type="button"
                   onClick={() => setShowAddModal(true)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
                 >
                   <Plus size={18} />
                   Tambah User Internal
@@ -527,7 +605,7 @@ export default function UsersPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="relative md:col-span-2">
                 <Search
                   size={18}
@@ -542,7 +620,7 @@ export default function UsersPage() {
                       ? "Cari nama, email, telepon, role, cabang"
                       : "Cari nama atau telepon customer"
                   }
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 pl-12 pr-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-12 pr-4 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                 />
               </div>
 
@@ -557,12 +635,14 @@ export default function UsersPage() {
                   <option value="super_admin">Super Admin</option>
                   <option value="admin">Admin</option>
                   <option value="receptionist">Receptionist</option>
+                  <option value="pengawas">Pengawas</option>
+                  <option value="it">IT</option>
                 </select>
               ) : (
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 font-semibold text-white transition hover:bg-black"
                 >
                   <RotateCcw size={18} />
                   Reset Filter
@@ -575,7 +655,7 @@ export default function UsersPage() {
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-gray-200 px-4 py-2.5 text-gray-700 font-semibold hover:bg-gray-300 transition"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-gray-200 px-4 py-2.5 font-semibold text-gray-700 transition hover:bg-gray-300"
                 >
                   <RotateCcw size={16} />
                   Reset Filter
@@ -584,14 +664,14 @@ export default function UsersPage() {
             )}
           </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
             {loading ? (
               <div className="py-16 text-center text-gray-500">
                 Memuat data users...
               </div>
             ) : activeTab === "internal" ? (
               <>
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-6 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-800">
                     Daftar User Internal
                   </h2>
@@ -612,23 +692,23 @@ export default function UsersPage() {
                         key={user.id}
                         className="rounded-3xl border border-gray-200 bg-gray-50 p-5"
                       >
-                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+                        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                           <div className="flex-1">
-                            <div className="flex flex-wrap items-center gap-3 mb-4">
+                            <div className="mb-4 flex flex-wrap items-center gap-3">
                               <h3 className="text-lg font-bold text-gray-800">
                                 {user.name}
                               </h3>
 
                               <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold ${getRoleBadgeClass(
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${getRoleBadgeClass(
                                   user.role
                                 )}`}
                               >
-                                {user.role}
+                                {getRoleLabel(user.role)}
                               </span>
 
                               <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClass(
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(
                                   user.status
                                 )}`}
                               >
@@ -636,19 +716,19 @@ export default function UsersPage() {
                               </span>
                             </div>
 
-                            <div className="grid md:grid-cols-3 gap-4 text-sm">
+                            <div className="grid gap-4 text-sm md:grid-cols-3">
                               <div className="flex items-start gap-3">
-                                <Mail size={16} className="text-red-500 mt-0.5" />
+                                <Mail size={16} className="mt-0.5 text-red-500" />
                                 <div>
                                   <p className="text-gray-400">Email</p>
-                                  <p className="font-semibold text-gray-800 break-all">
+                                  <p className="break-all font-semibold text-gray-800">
                                     {user.email || "-"}
                                   </p>
                                 </div>
                               </div>
 
                               <div className="flex items-start gap-3">
-                                <Phone size={16} className="text-red-500 mt-0.5" />
+                                <Phone size={16} className="mt-0.5 text-red-500" />
                                 <div>
                                   <p className="text-gray-400">Nomor HP</p>
                                   <p className="font-semibold text-gray-800">
@@ -658,7 +738,7 @@ export default function UsersPage() {
                               </div>
 
                               <div className="flex items-start gap-3">
-                                <UserCog size={16} className="text-red-500 mt-0.5" />
+                                <UserCog size={16} className="mt-0.5 text-red-500" />
                                 <div>
                                   <p className="text-gray-400">ID User</p>
                                   <p className="font-semibold text-gray-800">
@@ -669,13 +749,19 @@ export default function UsersPage() {
                             </div>
 
                             <div className="mt-4">
-                              <p className="text-sm text-gray-400 mb-2">
+                              <p className="mb-2 text-sm text-gray-400">
                                 Cabang Akses
                               </p>
 
-                              {user.role === "boss" || user.role === "super_admin" ? (
+                              {roleHasAllBranchAccess(user.role) ? (
                                 <div className="flex flex-wrap gap-2">
-                                  <span className="inline-flex items-center gap-2 rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+                                  <span
+                                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
+                                      user.role === "it"
+                                        ? "bg-cyan-100 text-cyan-700"
+                                        : "bg-purple-100 text-purple-700"
+                                    }`}
+                                  >
                                     <Building2 size={14} />
                                     Semua Cabang
                                   </span>
@@ -685,9 +771,12 @@ export default function UsersPage() {
                                   {user.hotels.map((hotel) => (
                                     <span
                                       key={hotel.id}
-                                      className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700"
+                                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700"
                                     >
-                                      <Building2 size={14} className="text-red-500" />
+                                      <Building2
+                                        size={14}
+                                        className="text-red-500"
+                                      />
                                       {hotel.name}
                                     </span>
                                   ))}
@@ -700,12 +789,12 @@ export default function UsersPage() {
                             </div>
                           </div>
 
-                          <div className="w-full lg:w-auto flex flex-wrap lg:flex-col gap-3">
-                            {isBoss && (
+                          <div className="flex w-full flex-wrap gap-3 lg:w-auto lg:flex-col">
+                            {canEditInternalUser(user) && (
                               <button
                                 type="button"
                                 onClick={() => openEditModal(user)}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-yellow-500 px-5 py-3 text-white font-semibold hover:bg-yellow-600 transition"
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-yellow-500 px-5 py-3 font-semibold text-white transition hover:bg-yellow-600"
                               >
                                 <Pencil size={18} />
                                 Edit
@@ -715,19 +804,23 @@ export default function UsersPage() {
                             {canResetPassword(user, "internal") && (
                               <button
                                 type="button"
-                                onClick={() => openResetPasswordModal(user, "internal")}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-600 px-5 py-3 text-white font-semibold hover:bg-purple-700 transition"
+                                onClick={() =>
+                                  openResetPasswordModal(user, "internal")
+                                }
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700"
                               >
                                 <KeyRound size={18} />
                                 Reset Password
                               </button>
                             )}
 
-                            {isBoss && (
+                            {canToggleInternalStatus(user) && (
                               <button
                                 type="button"
-                                onClick={() => handleToggleStatus(user.id, "internal")}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
+                                onClick={() =>
+                                  handleToggleStatus(user.id, "internal")
+                                }
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 font-semibold text-white transition hover:bg-black"
                               >
                                 <Power size={18} />
                                 {user.status ? "Nonaktifkan" : "Aktifkan"}
@@ -742,7 +835,7 @@ export default function UsersPage() {
               </>
             ) : (
               <>
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-6 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-800">
                     Daftar Customer Web
                   </h2>
@@ -763,47 +856,25 @@ export default function UsersPage() {
                         key={customer.id}
                         className="rounded-3xl border border-gray-200 bg-gray-50 p-5"
                       >
-                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+                        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                           <div className="flex-1">
-                            <div className="flex flex-wrap items-center gap-3 mb-4">
+                            <div className="mb-4 flex flex-wrap items-center gap-3">
                               <h3 className="text-lg font-bold text-gray-800">
                                 {customer.name}
                               </h3>
 
                               <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClass(
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(
                                   customer.status
                                 )}`}
                               >
                                 {customer.status ? "Aktif" : "Nonaktif"}
                               </span>
-
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  customer.is_verified
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-yellow-100 text-yellow-700"
-                                }`}
-                              >
-                                {customer.is_verified
-                                  ? "Terverifikasi"
-                                  : "Belum Verifikasi"}
-                              </span>
                             </div>
 
-                            <div className="grid md:grid-cols-3 gap-4 text-sm">
+                            <div className="grid gap-4 text-sm md:grid-cols-3">
                               <div className="flex items-start gap-3">
-                                <UserRound size={16} className="text-red-500 mt-0.5" />
-                                <div>
-                                  <p className="text-gray-400">Nama Customer</p>
-                                  <p className="font-semibold text-gray-800">
-                                    {customer.name || "-"}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-start gap-3">
-                                <Phone size={16} className="text-red-500 mt-0.5" />
+                                <Phone size={16} className="mt-0.5 text-red-500" />
                                 <div>
                                   <p className="text-gray-400">Nomor HP</p>
                                   <p className="font-semibold text-gray-800">
@@ -813,7 +884,20 @@ export default function UsersPage() {
                               </div>
 
                               <div className="flex items-start gap-3">
-                                <UsersIcon size={16} className="text-red-500 mt-0.5" />
+                                <ShieldCheck
+                                  size={16}
+                                  className="mt-0.5 text-red-500"
+                                />
+                                <div>
+                                  <p className="text-gray-400">Verifikasi</p>
+                                  <p className="font-semibold text-gray-800">
+                                    {customer.is_verified ? "Terverifikasi" : "Belum Verifikasi"}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-start gap-3">
+                                <UserCog size={16} className="mt-0.5 text-red-500" />
                                 <div>
                                   <p className="text-gray-400">ID Customer</p>
                                   <p className="font-semibold text-gray-800">
@@ -824,12 +908,14 @@ export default function UsersPage() {
                             </div>
                           </div>
 
-                          <div className="w-full lg:w-auto flex flex-wrap lg:flex-col gap-3">
+                          <div className="flex w-full flex-wrap gap-3 lg:w-auto lg:flex-col">
                             {canResetPassword(customer, "customer") && (
                               <button
                                 type="button"
-                                onClick={() => openResetPasswordModal(customer, "customer")}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-600 px-5 py-3 text-white font-semibold hover:bg-purple-700 transition"
+                                onClick={() =>
+                                  openResetPasswordModal(customer, "customer")
+                                }
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700"
                               >
                                 <KeyRound size={18} />
                                 Reset Password
@@ -839,8 +925,10 @@ export default function UsersPage() {
                             {isBossOrSuperAdmin && (
                               <button
                                 type="button"
-                                onClick={() => handleToggleStatus(customer.id, "customer")}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
+                                onClick={() =>
+                                  handleToggleStatus(customer.id, "customer")
+                                }
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 font-semibold text-white transition hover:bg-black"
                               >
                                 <Power size={18} />
                                 {customer.status ? "Nonaktifkan" : "Aktifkan"}
@@ -859,101 +947,126 @@ export default function UsersPage() {
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-3xl shadow-xl my-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-2">
-              Tambah User Internal
-            </h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Hanya boss yang boleh menambah user internal baru.
-            </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">
+                Tambah User Internal
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Tambahkan user internal baru sesuai role dan cabang akses.
+              </p>
+            </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <InputField
                 label="Nama"
-                name="name"
                 value={addForm.name}
-                onChange={handleAddChange}
-                placeholder="Nama user"
+                onChange={(e) =>
+                  setAddForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="Masukkan nama"
               />
-
               <InputField
                 label="Email"
-                name="email"
-                value={addForm.email}
-                onChange={handleAddChange}
-                placeholder="Email user"
                 type="email"
+                value={addForm.email}
+                onChange={(e) =>
+                  setAddForm((prev) => ({ ...prev, email: e.target.value }))
+                }
+                placeholder="Masukkan email"
               />
-
               <InputField
                 label="Nomor HP"
-                name="phone"
                 value={addForm.phone}
-                onChange={handleAddChange}
-                placeholder="Nomor HP"
+                onChange={(e) =>
+                  setAddForm((prev) => ({ ...prev, phone: e.target.value }))
+                }
+                placeholder="Masukkan nomor HP"
               />
-
               <InputField
                 label="Password"
-                name="password"
-                value={addForm.password}
-                onChange={handleAddChange}
-                placeholder="Password"
                 type="password"
+                value={addForm.password}
+                onChange={(e) =>
+                  setAddForm((prev) => ({ ...prev, password: e.target.value }))
+                }
+                placeholder="Masukkan password"
               />
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Role
                 </label>
                 <select
                   name="role"
                   value={addForm.role}
                   onChange={handleAddChange}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                 >
                   <option value="admin">Admin</option>
                   <option value="super_admin">Super Admin</option>
                   <option value="receptionist">Receptionist</option>
+                  <option value="pengawas">Pengawas</option>
+                  <option value="it">IT</option>
                 </select>
               </div>
 
-              <div className="flex items-end">
-                <label className="inline-flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3 border border-gray-200 w-full">
-                  <input
-                    type="checkbox"
-                    name="status"
-                    checked={addForm.status}
-                    onChange={handleAddChange}
-                  />
-                  <span className="text-sm font-medium text-gray-700">
-                    User aktif
-                  </span>
-                </label>
-              </div>
-
-              <div className="md:col-span-2">
-                <HotelSelector
-                  title="Pilih Cabang Akses"
-                  subtitle={
-                    roleNeedsHotelAssignment(addForm.role)
-                      ? "Pilih satu atau lebih cabang yang boleh diakses user ini."
-                      : "Role ini otomatis punya akses penuh, jadi tidak perlu pilih cabang."
-                  }
-                  hotels={hotels}
-                  selectedIds={addForm.hotel_ids}
-                  onToggle={toggleAddHotel}
-                  disabled={!roleNeedsHotelAssignment(addForm.role)}
+              <div className="flex items-center gap-3 pt-8">
+                <input
+                  id="add-status"
+                  name="status"
+                  type="checkbox"
+                  checked={addForm.status}
+                  onChange={handleAddChange}
+                  className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
                 />
+                <label htmlFor="add-status" className="text-sm font-semibold text-gray-700">
+                  Aktifkan user
+                </label>
               </div>
             </div>
 
-            <div className="flex gap-3 pt-5">
+            {roleNeedsHotelAssignment(addForm.role) && (
+              <div className="mt-6">
+                <p className="mb-3 text-sm font-semibold text-gray-700">
+                  Pilih Cabang Akses
+                </p>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {hotels.map((hotel) => {
+                    const checked = addForm.hotel_ids.includes(Number(hotel.id));
+
+                    return (
+                      <label
+                        key={hotel.id}
+                        className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+                          checked
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleAddHotel(Number(hotel.id))}
+                          className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                        />
+                        <span className="font-medium text-gray-800">
+                          {hotel.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-8 flex flex-wrap justify-end gap-3">
               <button
                 type="button"
                 onClick={closeAddModal}
-                className="flex-1 bg-gray-200 text-gray-700 rounded-2xl py-3 font-semibold hover:bg-gray-300 transition"
+                className="rounded-2xl bg-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:bg-gray-300"
               >
                 Batal
               </button>
@@ -961,13 +1074,8 @@ export default function UsersPage() {
               <button
                 type="button"
                 onClick={handleCreateInternalUser}
-                disabled={
-                  savingAdd ||
-                  !addForm.name.trim() ||
-                  !addForm.email.trim() ||
-                  !addForm.password.trim()
-                }
-                className="flex-1 bg-red-600 text-white rounded-2xl py-3 font-semibold hover:bg-red-700 transition disabled:opacity-50"
+                disabled={savingAdd}
+                className="rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {savingAdd ? "Menyimpan..." : "Simpan User"}
               </button>
@@ -977,93 +1085,118 @@ export default function UsersPage() {
       )}
 
       {showEditModal && selectedInternalUser && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-3xl shadow-xl my-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-2">
-              Edit User Internal
-            </h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Ubah data user internal dan role sesuai kebutuhan operasional.
-            </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">
+                Edit User Internal
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Perbarui data user internal tanpa merusak akses yang sudah ada.
+              </p>
+            </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <InputField
                 label="Nama"
-                name="name"
                 value={editForm.name}
-                onChange={handleEditChange}
-                placeholder="Nama user"
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="Masukkan nama"
               />
-
               <InputField
                 label="Email"
-                name="email"
-                value={editForm.email}
-                onChange={handleEditChange}
-                placeholder="Email user"
                 type="email"
+                value={editForm.email}
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, email: e.target.value }))
+                }
+                placeholder="Masukkan email"
               />
-
               <InputField
                 label="Nomor HP"
-                name="phone"
                 value={editForm.phone}
-                onChange={handleEditChange}
-                placeholder="Nomor HP"
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, phone: e.target.value }))
+                }
+                placeholder="Masukkan nomor HP"
               />
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Role
                 </label>
                 <select
                   name="role"
                   value={editForm.role}
                   onChange={handleEditChange}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                 >
                   <option value="boss">Boss</option>
                   <option value="super_admin">Super Admin</option>
                   <option value="admin">Admin</option>
                   <option value="receptionist">Receptionist</option>
+                  <option value="pengawas">Pengawas</option>
+                  <option value="it">IT</option>
                 </select>
               </div>
 
-              <div className="md:col-span-2">
-                <label className="inline-flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3 border border-gray-200 w-full">
-                  <input
-                    type="checkbox"
-                    name="status"
-                    checked={editForm.status}
-                    onChange={handleEditChange}
-                  />
-                  <span className="text-sm font-medium text-gray-700">
-                    User aktif
-                  </span>
-                </label>
-              </div>
-
-              <div className="md:col-span-2">
-                <HotelSelector
-                  title="Pilih Cabang Akses"
-                  subtitle={
-                    roleNeedsHotelAssignment(editForm.role)
-                      ? "Pilih satu atau lebih cabang yang boleh diakses user ini."
-                      : "Role ini otomatis punya akses penuh, jadi tidak perlu pilih cabang."
-                  }
-                  hotels={hotels}
-                  selectedIds={editForm.hotel_ids}
-                  onToggle={toggleEditHotel}
-                  disabled={!roleNeedsHotelAssignment(editForm.role)}
+              <div className="flex items-center gap-3 pt-2 md:col-span-2">
+                <input
+                  id="edit-status"
+                  name="status"
+                  type="checkbox"
+                  checked={editForm.status}
+                  onChange={handleEditChange}
+                  className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
                 />
+                <label htmlFor="edit-status" className="text-sm font-semibold text-gray-700">
+                  User aktif
+                </label>
               </div>
             </div>
 
-            <div className="flex gap-3 pt-5">
+            {roleNeedsHotelAssignment(editForm.role) && (
+              <div className="mt-6">
+                <p className="mb-3 text-sm font-semibold text-gray-700">
+                  Pilih Cabang Akses
+                </p>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {hotels.map((hotel) => {
+                    const checked = editForm.hotel_ids.includes(Number(hotel.id));
+
+                    return (
+                      <label
+                        key={hotel.id}
+                        className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+                          checked
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleEditHotel(Number(hotel.id))}
+                          className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                        />
+                        <span className="font-medium text-gray-800">
+                          {hotel.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-8 flex flex-wrap justify-end gap-3">
               <button
                 type="button"
                 onClick={closeEditModal}
-                className="flex-1 bg-gray-200 text-gray-700 rounded-2xl py-3 font-semibold hover:bg-gray-300 transition"
+                className="rounded-2xl bg-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:bg-gray-300"
               >
                 Batal
               </button>
@@ -1071,14 +1204,10 @@ export default function UsersPage() {
               <button
                 type="button"
                 onClick={handleUpdateInternalUser}
-                disabled={
-                  savingEdit ||
-                  !editForm.name.trim() ||
-                  !editForm.email.trim()
-                }
-                className="flex-1 bg-yellow-500 text-white rounded-2xl py-3 font-semibold hover:bg-yellow-600 transition disabled:opacity-50"
+                disabled={savingEdit}
+                className="rounded-2xl bg-yellow-500 px-5 py-3 font-semibold text-white transition hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {savingEdit ? "Menyimpan..." : "Simpan Perubahan"}
+                {savingEdit ? "Menyimpan..." : "Update User"}
               </button>
             </div>
           </div>
@@ -1086,169 +1215,47 @@ export default function UsersPage() {
       )}
 
       {showResetPasswordModal && resetPasswordTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-600 to-fuchsia-500 px-6 py-5 text-white">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-                  <LockKeyhole size={22} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">Reset Password</h2>
-                  <p className="text-sm text-purple-100">
-                    Ubah password user dengan aman
-                  </p>
-                </div>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">
+                Reset Password
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Reset password untuk{" "}
+                <span className="font-semibold text-gray-800">
+                  {resetPasswordTarget.name}
+                </span>
+              </p>
             </div>
 
-            <div className="p-6">
-              <div className="mb-5 rounded-2xl bg-purple-50 border border-purple-100 p-4">
-                <p className="text-sm text-gray-600 mb-1">Target user</p>
-                <p className="font-semibold text-gray-800">
-                  {resetPasswordTarget.name}
-                </p>
-                {resetPasswordTarget.role && (
-                  <p className="text-xs text-purple-700 mt-1">
-                    Role: {resetPasswordTarget.role}
-                  </p>
-                )}
-              </div>
+            <InputField
+              label="Password Baru"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Masukkan password baru"
+            />
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Password Baru
-                </label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Masukkan password baru"
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100"
-                />
-              </div>
+            <div className="mt-8 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeResetPasswordModal}
+                className="rounded-2xl bg-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:bg-gray-300"
+              >
+                Batal
+              </button>
 
-              <div className="flex gap-3 pt-6">
-                <button
-                  type="button"
-                  onClick={closeResetPasswordModal}
-                  className="flex-1 rounded-2xl bg-gray-200 py-3 font-semibold text-gray-700 hover:bg-gray-300 transition"
-                >
-                  Batal
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSubmitResetPassword}
-                  disabled={savingResetPassword || !newPassword.trim()}
-                  className="flex-1 rounded-2xl bg-purple-600 py-3 font-semibold text-white hover:bg-purple-700 transition disabled:opacity-50"
-                >
-                  {savingResetPassword ? "Menyimpan..." : "Simpan Password"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleSubmitResetPassword}
+                disabled={savingResetPassword}
+                className="rounded-2xl bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {savingResetPassword ? "Menyimpan..." : "Reset Password"}
+              </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InputField({
-  label,
-  name,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
-        {label}
-      </label>
-      <input
-        type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none focus:border-red-500 focus:ring-4 focus:ring-red-100"
-      />
-    </div>
-  );
-}
-
-function HotelSelector({
-  title,
-  subtitle,
-  hotels,
-  selectedIds,
-  onToggle,
-  disabled = false,
-}) {
-  return (
-    <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4">
-      <div className="mb-4">
-        <h3 className="text-sm font-bold text-gray-800">{title}</h3>
-        <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
-      </div>
-
-      {disabled ? (
-        <div className="rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-700">
-          Role ini tidak perlu dibatasi cabang.
-        </div>
-      ) : hotels.length === 0 ? (
-        <div className="rounded-2xl border border-yellow-100 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
-          Data hotel belum tersedia.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {hotels.map((hotel) => {
-            const checked = selectedIds.includes(Number(hotel.id));
-
-            return (
-              <button
-                key={hotel.id}
-                type="button"
-                onClick={() => onToggle(Number(hotel.id))}
-                className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                  checked
-                    ? "border-red-500 bg-red-50 ring-2 ring-red-100"
-                    : "border-gray-200 bg-white hover:border-red-300"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${
-                        checked
-                          ? "bg-red-600 text-white"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      <Building2 size={18} />
-                    </div>
-
-                    <div>
-                      <p className="font-semibold text-gray-800">
-                        {hotel.name}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {hotel.area || hotel.address || "Cabang hotel"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {checked && (
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white">
-                      <Check size={14} />
-                    </div>
-                  )}
-                </div>
-              </button>
-            );
-          })}
         </div>
       )}
     </div>
@@ -1257,12 +1264,32 @@ function HotelSelector({
 
 function EmptyState({ title, desc }) {
   return (
-    <div className="py-16 text-center">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-        <UsersIcon size={28} />
-      </div>
-      <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-      <p className="mt-2 text-gray-500">{desc}</p>
+    <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 px-6 py-14 text-center">
+      <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+      <p className="mt-2 text-sm text-gray-500">{desc}</p>
+    </div>
+  );
+}
+
+function InputField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-gray-700">
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+      />
     </div>
   );
 }

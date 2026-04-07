@@ -11,6 +11,7 @@ import BookingCalendar from "../admin/pages/BookingCalendar";
 import Reports from "../admin/pages/Reports";
 import UsersPage from "../admin/pages/Users";
 import MasterContent from "../admin/pages/MasterContent";
+import InternalBroadcasts from "../admin/pages/InternalBroadcasts";
 
 import Home from "../pages/Home";
 import Hotels from "../pages/Hotels";
@@ -19,6 +20,9 @@ import HotelRooms from "../pages/HotelRooms";
 import Rooms from "../pages/Rooms";
 import RoomDetail from "../pages/RoomDetail";
 import MyBookings from "../pages/MyBookings";
+import Profile from "../pages/Profile";
+import ChangePhone from "../pages/ChangePhone";
+import VerifyChangePhoneOtp from "../pages/VerifyChangePhoneOtp";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import AdminLogin from "../admin/pages/Login";
@@ -36,6 +40,12 @@ export default function AppRoutes() {
       <Route path="/rooms" element={<Rooms />} />
       <Route path="/rooms/:id" element={<RoomDetail />} />
       <Route path="/my-bookings" element={<MyBookings />} />
+      <Route path="/profile" element={<Profile />} />
+      <Route path="/change-phone" element={<ChangePhone />} />
+      <Route
+        path="/verify-change-phone-otp"
+        element={<VerifyChangePhoneOtp />}
+      />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify-otp" element={<VerifyOtp />} />
@@ -147,6 +157,15 @@ export default function AppRoutes() {
         element={
           <AdminProtectedRoute>
             <MasterContent />
+          </AdminProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/internal-broadcasts"
+        element={
+          <AdminProtectedRoute>
+            <InternalBroadcasts />
           </AdminProtectedRoute>
         }
       />

@@ -162,6 +162,154 @@ class AuthController extends Controller
         ], 200);
     }
 
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|integer|exists:customers,id',
+            'name' => 'required|string|max:255',
+        ]);
+
+        $customer = Customer::find($request->id);
+
+        if (!$customer) {
+            return response()->json([
+                'message' => 'Customer tidak ditemukan',
+            ], 404);
+        }
+
+        if (!$customer->status) {
+            return response()->json([
+                'message' => 'Akun tidak aktif',
+            ], 403);
+        }
+
+        $customer->update([
+            'name' => $request->name,
+        ]);
+
+        return response()->json([
+            'message' => 'Profil berhasil diperbarui',
+            'customer' => $customer,
+        ], 200);
+    }
+
+    public function requestChangePhone(Request $request)
+    {
+        $request->validate([
+            'customer_id' => 'required|integer|exists:customers,id',
+            'new_phone' => 'required|string|max:20',
+        ]);
+
+        $customer = Customer::find($request->customer_id);
+
+        if (!$customer) {
+            return response()->json([
+                'message' => 'Customer tidak ditemukan',
+            ], 404);
+        }
+
+        if (!$customer->status) {
+            return response()->json([
+                'message' => 'Akun tidak aktif',
+            ], 403);
+        }
+
+        if ($customer->phone === $request->new_phone) {
+            return response()->json([
+                'message' => 'Nomor WhatsApp baru tidak boleh sama dengan nomor saat ini',
+            ], 400);
+        }
+
+        $phoneUsed = Customer::where('phone', $request->new_phone)
+            ->where('id', '!=', $customer->id)
+            ->exists();
+
+        if ($phoneUsed) {
+            return response()->json([
+                'message' => 'Nomor WhatsApp sudah digunakan oleh akun lain',
+            ], 400);
+        }
+
+        $otpCode = (string) rand(100000, 999999);
+
+        $customer->update([
+            'new_phone' => $request->new_phone,
+            'new_phone_otp' => $otpCode,
+            'new_phone_otp_expired_at' => now()->addMinutes(5),
+        ]);
+
+        $this->sendWhatsappOtp($request->new_phone, $otpCode);
+
+        return response()->json([
+            'message' => 'Kode OTP untuk ubah nomor berhasil dikirim ke WhatsApp baru',
+            'customer' => $customer,
+        ], 200);
+    }
+
+    public function verifyChangePhoneOtp(Request $request)
+    {
+        $request->validate([
+            'customer_id' => 'required|integer|exists:customers,id',
+            'otp_code' => 'required|string',
+        ]);
+
+        $customer = Customer::find($request->customer_id);
+
+        if (!$customer) {
+            return response()->json([
+                'message' => 'Customer tidak ditemukan',
+            ], 404);
+        }
+
+        if (!$customer->status) {
+            return response()->json([
+                'message' => 'Akun tidak aktif',
+            ], 403);
+        }
+
+        if (!$customer->new_phone || !$customer->new_phone_otp || !$customer->new_phone_otp_expired_at) {
+            return response()->json([
+                'message' => 'Permintaan ubah nomor tidak ditemukan',
+            ], 400);
+        }
+
+        if (now()->gt($customer->new_phone_otp_expired_at)) {
+            return response()->json([
+                'message' => 'OTP ubah nomor sudah kadaluarsa',
+            ], 400);
+        }
+
+        if ($customer->new_phone_otp !== $request->otp_code) {
+            return response()->json([
+                'message' => 'OTP ubah nomor salah',
+            ], 400);
+        }
+
+        $newPhone = $customer->new_phone;
+
+        $phoneUsed = Customer::where('phone', $newPhone)
+            ->where('id', '!=', $customer->id)
+            ->exists();
+
+        if ($phoneUsed) {
+            return response()->json([
+                'message' => 'Nomor WhatsApp baru sudah digunakan oleh akun lain',
+            ], 400);
+        }
+
+        $customer->update([
+            'phone' => $newPhone,
+            'new_phone' => null,
+            'new_phone_otp' => null,
+            'new_phone_otp_expired_at' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Nomor WhatsApp berhasil diperbarui',
+            'customer' => $customer,
+        ], 200);
+    }
+
     private function sendWhatsappOtp(string $phone, string $otpCode): array
     {
         $target = preg_replace('/^0/', '62', $phone);

@@ -23,7 +23,14 @@ class AuthController extends Controller
 
         $user = Auth::user();
 
-        $allowedRoles = ['admin', 'super_admin', 'boss', 'receptionist'];
+        $allowedRoles = [
+            'admin',
+            'super_admin',
+            'boss',
+            'receptionist',
+            'pengawas',
+            'it',
+        ];
 
         if (!in_array($user->role, $allowedRoles)) {
             Auth::logout();
@@ -36,7 +43,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Login admin berhasil',
             'user' => $user
-        ]);
+        ], 200);
     }
 
     public function logout()
@@ -45,6 +52,6 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Logout berhasil'
-        ]);
+        ], 200);
     }
 }

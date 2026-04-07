@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Models\Booking;
 use App\Models\Hotel;
+use App\Models\InternalBroadcastDismissal;
 
 class User extends Authenticatable
 {
@@ -60,5 +61,10 @@ class User extends Authenticatable
     public function hotels()
     {
         return $this->belongsToMany(Hotel::class, 'user_hotels');
+    }
+
+    public function dismissedBroadcasts()
+    {
+        return $this->hasMany(InternalBroadcastDismissal::class, 'user_id');
     }
 }

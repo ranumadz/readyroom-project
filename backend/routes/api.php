@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\BookingPenaltyController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Customer\BookingController;
 use App\Http\Controllers\Admin\WebsiteContentController;
+use App\Http\Controllers\Admin\InternalBroadcastController;
 
 // =========================
 // Customer Auth
@@ -20,6 +21,9 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/resend-otp', [AuthController::class, 'resendOtp']);
+Route::post('/update-profile', [AuthController::class, 'updateProfile']);
+Route::post('/request-change-phone', [AuthController::class, 'requestChangePhone']);
+Route::post('/verify-change-phone-otp', [AuthController::class, 'verifyChangePhoneOtp']);
 
 // =========================
 // Customer Booking
@@ -118,6 +122,20 @@ Route::prefix('admin')->group(function () {
     Route::get('/users/customers', [UserController::class, 'customers']);
     Route::post('/users/customers/{id}/reset-password', [UserController::class, 'resetCustomerPassword']);
     Route::post('/users/customers/{id}/toggle-status', [UserController::class, 'toggleCustomerStatus']);
+
+    // =========================
+    // Internal Broadcast
+    // =========================
+    Route::get('/internal-broadcasts', [InternalBroadcastController::class, 'index']);
+    Route::get('/internal-broadcasts/active', [InternalBroadcastController::class, 'active']);
+    Route::post('/internal-broadcasts', [InternalBroadcastController::class, 'store']);
+    Route::put('/internal-broadcasts/{id}', [InternalBroadcastController::class, 'update']);
+
+    // 🔥 INI YANG BARU (PENTING)
+    Route::post('/internal-broadcasts/{id}/dismiss', [InternalBroadcastController::class, 'dismiss']);
+
+    Route::post('/internal-broadcasts/{id}/toggle-status', [InternalBroadcastController::class, 'toggleStatus']);
+    Route::delete('/internal-broadcasts/{id}', [InternalBroadcastController::class, 'destroy']);
 
     // =========================
     // Bookings
