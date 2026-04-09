@@ -112,6 +112,7 @@ export default function BookingList() {
   const [reportShift, setReportShift] = useState("all");
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
+  const [branchSeenMap, setBranchSeenMap] = useState({});
 
   const [selectedReceiptBooking, setSelectedReceiptBooking] = useState(null);
   const receiptPrintRef = useRef(null);
@@ -145,7 +146,25 @@ export default function BookingList() {
     fetchHotels();
     fetchRooms();
     fetchUserAccessHotels();
+
+    const intervalId = window.setInterval(() => {
+      fetchBookings(false);
+    }, 15000);
+
+    return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    const storageKey = `readyroom_booking_seen_map_${adminUser?.id || "guest"}`;
+
+    try {
+      const saved = localStorage.getItem(storageKey);
+      setBranchSeenMap(saved ? JSON.parse(saved) : {});
+    } catch (error) {
+      console.error("READ BOOKING SEEN MAP ERROR:", error);
+      setBranchSeenMap({});
+    }
+  }, [adminUser?.id]);
 
   useEffect(() => {
     if (manualForm.room_id) {
@@ -159,9 +178,17 @@ export default function BookingList() {
     }
   }, [manualForm.room_id]);
 
-  const fetchBookings = async () => {
+  useEffect(() => {
+    if (filters.hotelId) {
+      markHotelAsSeen(filters.hotelId);
+    }
+  }, [filters.hotelId]);
+
+  const fetchBookings = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) {
+        setLoading(true);
+      }
 
       const res = await api.get("/admin/bookings");
 
@@ -176,7 +203,9 @@ export default function BookingList() {
       console.error("GET BOOKINGS ERROR:", error.response?.data || error);
       toast.error("Gagal mengambil data booking");
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
     }
   };
 
@@ -784,13 +813,220 @@ export default function BookingList() {
   };
 
 const handlePrintReport = () => {
-  const printContents = reportPrintRef.current.innerHTML;
-  const originalContents = document.body.innerHTML;
+  const printEl = reportPrintRef.current;
 
-  document.body.innerHTML = printContents;
-  window.print();
-  document.body.innerHTML = originalContents;
-  window.location.reload();
+  if (!printEl) {
+    toast.error("Report belum siap dicetak");
+    return;
+  }
+
+  const selectedHotel =
+    folderHotels.find((hotel) => String(hotel.id) === String(filters.hotelId)) || null;
+
+  const branchName = selectedHotel?.name || "Semua Cabang";
+  const printedAt = new Date().toLocaleString("id-ID");
+  const shiftLabel =
+    reportShift === "all"
+      ? "Semua Shift"
+      : reportShift === "pagi"
+      ? "Shift Pagi"
+      : "Shift Malam";
+
+  const printWindow = window.open("", "_blank", "width=1280,height=900");
+
+  if (!printWindow) {
+    toast.error("Popup print diblokir browser");
+    return;
+  }
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Report Booking ReadyRoom</title>
+        <meta charset="utf-8" />
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            padding: 28px;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #1f2937;
+            background:
+              radial-gradient(circle at top right, rgba(239,68,68,0.08), transparent 24%),
+              radial-gradient(circle at bottom left, rgba(16,185,129,0.08), transparent 26%),
+              linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+          }
+          .sheet {
+            max-width: 1180px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(15, 23, 42, 0.10);
+          }
+          .sheet-top {
+            position: relative;
+            overflow: hidden;
+            padding: 28px 32px;
+            background: linear-gradient(135deg, #991b1b 0%, #dc2626 55%, #fb7185 100%);
+            color: white;
+          }
+          .sheet-top::after {
+            content: "READYROOM";
+            position: absolute;
+            right: 20px;
+            top: 10px;
+            font-size: 34px;
+            font-weight: 900;
+            letter-spacing: 0.18em;
+            color: rgba(255,255,255,0.08);
+          }
+          .sheet-top h1 {
+            margin: 0;
+            font-size: 30px;
+            font-weight: 800;
+          }
+          .sheet-top p {
+            margin: 8px 0 0;
+            font-size: 14px;
+            color: rgba(255,255,255,0.92);
+          }
+          .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            padding: 20px 24px 0;
+          }
+          .meta-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            padding: 12px 14px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+          }
+          .meta-label {
+            margin: 0 0 6px 0;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #6b7280;
+          }
+          .meta-value {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 800;
+            color: #111827;
+          }
+          .content {
+            padding: 20px 24px 26px;
+          }
+          .note {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            border: 1px solid #fee2e2;
+            background: linear-gradient(180deg, #fff5f5 0%, #fff1f2 100%);
+            color: #b91c1c;
+            font-size: 13px;
+            font-weight: 700;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+          }
+          thead th {
+            background: #f8fafc;
+            color: #475569;
+            text-align: left;
+            padding: 12px 14px;
+            border: 1px solid #e5e7eb;
+            font-weight: 800;
+          }
+          tbody td {
+            padding: 11px 14px;
+            border: 1px solid #e5e7eb;
+            color: #111827;
+            vertical-align: top;
+          }
+          tbody tr:nth-child(even) {
+            background: #fcfcfd;
+          }
+          .text-right { text-align: right; }
+          .footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 0 24px 24px;
+            color: #6b7280;
+            font-size: 12px;
+          }
+          @media print {
+            body {
+              padding: 0;
+              background: #fff;
+            }
+            .sheet {
+              border: none;
+              border-radius: 0;
+              box-shadow: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="sheet">
+          <div class="sheet-top">
+            <h1>Report Booking ReadyRoom</h1>
+            <p>Laporan operasional resepsionis per cabang yang siap dicetak</p>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-card">
+              <p class="meta-label">Cabang</p>
+              <p class="meta-value">${branchName}</p>
+            </div>
+            <div class="meta-card">
+              <p class="meta-label">Shift</p>
+              <p class="meta-value">${shiftLabel}</p>
+            </div>
+            <div class="meta-card">
+              <p class="meta-label">Total Data</p>
+              <p class="meta-value">${reportBookings.length}</p>
+            </div>
+            <div class="meta-card">
+              <p class="meta-label">Dicetak</p>
+              <p class="meta-value">${printedAt}</p>
+            </div>
+          </div>
+
+          <div class="content">
+            <div class="note">
+              Filter aktif: Report khusus booking operasional ReadyRoom
+            </div>
+            ${printEl.innerHTML}
+          </div>
+
+          <div class="footer">
+            <div>ReadyRoom Admin Report</div>
+            <div>Dokumen internal cabang</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function () {
+            window.print();
+            window.onafterprint = function () {
+              window.close();
+            };
+          };
+        </script>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
 };
 
   const getBookingCustomerName = (booking) => {
@@ -1040,28 +1276,41 @@ const handlePrintReport = () => {
   };
 
   const formatDateTime = (value) => {
-    const matchesReportShift = (booking) => {
-  if (reportShift === "all") return true;
-
-  if (!booking?.check_in) return false;
-
-  const hour = new Date(booking.check_in).getHours();
-
-  if (reportShift === "pagi") {
-    return hour >= 0 && hour < 12;
-  }
-
-  if (reportShift === "malam") {
-    return hour >= 12 && hour < 24;
-  }
-
-  return true;
-};
     if (!value) return "-";
     return new Date(value).toLocaleString("id-ID", {
       dateStyle: "medium",
       timeStyle: "short",
     });
+  };
+
+  const getReportTransactionDate = (booking) => {
+    return (
+      booking?.paid_at ||
+      booking?.completed_at ||
+      booking?.updated_at ||
+      booking?.created_at ||
+      booking?.check_in ||
+      null
+    );
+  };
+
+  const matchesReportShift = (booking) => {
+    if (reportShift === "all") return true;
+
+    const transactionDate = getReportTransactionDate(booking);
+    if (!transactionDate) return false;
+
+    const hour = new Date(transactionDate).getHours();
+
+    if (reportShift === "pagi") {
+      return hour >= 0 && hour < 12;
+    }
+
+    if (reportShift === "malam") {
+      return hour >= 12 && hour < 24;
+    }
+
+    return true;
   };
 
   const normalizeWhatsAppNumber = (phone) => {
@@ -1275,6 +1524,47 @@ const buildWhatsAppMessage = (booking) => {
     setViewMode("today_active");
   };
 
+  const getSeenStorageKey = () => {
+    return `readyroom_booking_seen_map_${adminUser?.id || "guest"}`;
+  };
+
+  const persistBranchSeenMap = (nextMap) => {
+    setBranchSeenMap(nextMap);
+    localStorage.setItem(getSeenStorageKey(), JSON.stringify(nextMap));
+  };
+
+  const markHotelAsSeen = (hotelId) => {
+    if (!hotelId) return;
+
+    const nextMap = {
+      ...branchSeenMap,
+      [String(hotelId)]: new Date().toISOString(),
+    };
+
+    persistBranchSeenMap(nextMap);
+  };
+
+  const getBookingNotificationTime = (booking) => {
+    return booking?.created_at || booking?.updated_at || booking?.check_in || null;
+  };
+
+  const isBookingUnreadForHotel = (booking, hotelId) => {
+    const status = String(booking?.status || "").toLowerCase();
+    const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+
+    if (String(booking?.hotel?.id) !== String(hotelId)) return false;
+    if (["cancelled", "rejected", "completed"].includes(status)) return false;
+    if (paymentStatus === "refunded") return false;
+
+    const notificationTime = getBookingNotificationTime(booking);
+    if (!notificationTime) return false;
+
+    const seenAt = branchSeenMap[String(hotelId)];
+    if (!seenAt) return true;
+
+    return new Date(notificationTime).getTime() > new Date(seenAt).getTime();
+  };
+
   const uniqueHotels = useMemo(() => {
     const map = new Map();
     bookings.forEach((booking) => {
@@ -1399,7 +1689,43 @@ const buildWhatsAppMessage = (booking) => {
         matchesViewMode
       );
     });
-  }, [bookings, filters, viewMode]);
+  }, [bookings, filters, viewMode, assignedHotelIds, canAccessAllHotels]);
+
+  const reportBookings = useMemo(() => {
+    return filteredBookings.filter((booking) => {
+      const status = String(booking?.status || "").toLowerCase();
+      const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+
+      if (["cancelled", "rejected", "completed"].includes(status)) {
+        return false;
+      }
+
+      if (paymentStatus === "refunded") {
+        return false;
+      }
+
+      return matchesReportShift(booking);
+    });
+  }, [filteredBookings, reportShift]);
+
+  const branchUnreadCounts = useMemo(() => {
+    const counts = {};
+
+    folderHotels.forEach((hotel) => {
+      counts[String(hotel.id)] = bookings.filter((booking) =>
+        isBookingUnreadForHotel(booking, hotel.id)
+      ).length;
+    });
+
+    return counts;
+  }, [bookings, folderHotels, branchSeenMap]);
+
+  const totalUnreadBranchCount = useMemo(() => {
+    return Object.values(branchUnreadCounts).reduce(
+      (sum, count) => sum + Number(count || 0),
+      0
+    );
+  }, [branchUnreadCounts]);
 
   const todayVisibleCount = useMemo(() => {
     return bookings.filter((booking) => {
@@ -1454,7 +1780,7 @@ const buildWhatsAppMessage = (booking) => {
                   <button
                     type="button"
                     onClick={() => handleFilterChange("hotelId", "")}
-                    className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+                    className={`relative inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
                       !filters.hotelId
                         ? "bg-red-600 text-white shadow-sm"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -1462,24 +1788,48 @@ const buildWhatsAppMessage = (booking) => {
                   >
                     <Layers3 size={18} />
                     Semua Cabang
+                    {totalUnreadBranchCount > 0 && (
+                      <span className={`ml-1 inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-1 text-[11px] font-bold ${
+                        !filters.hotelId
+                          ? "bg-white text-red-600"
+                          : "bg-red-500 text-white"
+                      }`}>
+                        {totalUnreadBranchCount}
+                      </span>
+                    )}
                   </button>
                 )}
 
-                {folderHotels.map((hotel) => (
-                  <button
-                    key={hotel.id}
-                    type="button"
-                    onClick={() => handleFilterChange("hotelId", String(hotel.id))}
-                    className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
-                      String(filters.hotelId) === String(hotel.id)
-                        ? "bg-gray-900 text-white shadow-sm"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    <Building2 size={17} />
-                    {hotel.name}
-                  </button>
-                ))}
+                {folderHotels.map((hotel) => {
+                  const unreadCount = branchUnreadCounts[String(hotel.id)] || 0;
+                  const isActive = String(filters.hotelId) === String(hotel.id);
+
+                  return (
+                    <button
+                      key={hotel.id}
+                      type="button"
+                      onClick={() => {
+                        handleFilterChange("hotelId", String(hotel.id));
+                        markHotelAsSeen(hotel.id);
+                      }}
+                      className={`relative inline-flex items-center gap-2 rounded-2xl px-4 py-3 pr-4 font-semibold transition ${
+                        isActive
+                          ? "bg-gray-900 text-white shadow-sm"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      <Building2 size={17} />
+                      <span>{hotel.name}</span>
+                      {unreadCount > 0 && (
+                        <span className={`ml-1 inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-1 text-[11px] font-bold ${
+                          isActive ? "bg-red-500 text-white" : "bg-red-500 text-white"
+                        }`}>
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -2715,7 +3065,7 @@ const buildWhatsAppMessage = (booking) => {
                                   {selectedReceiptBooking.booking_code || `BOOKING-${selectedReceiptBooking.id}`}
                                 </h4>
                                 <p className="mt-2 text-sm text-gray-500">
-                                  Dicetak dari admin panel • {new Date().toLocaleString("id-ID", {
+                                  Dicetak dari Apps ReadyRoom  • {new Date().toLocaleString("id-ID", {
                                     dateStyle: "medium",
                                     timeStyle: "short",
                                   })}
@@ -3228,30 +3578,16 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 </div>
     </div>
   </div>
+
 )}{showReportModal && (
   <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
-    <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl border border-gray-100 p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="w-full max-w-6xl rounded-3xl bg-white shadow-2xl border border-gray-100 p-6">
+      <div className="flex items-start justify-between gap-4 mb-5">
         <div>
-          <h3 className="text-xl font-bold text-gray-800">Report Booking</h3>
+          <h3 className="text-2xl font-bold text-gray-800">Report Booking</h3>
           <p className="text-sm text-gray-500 mt-1">
-            Laporan booking ReadyRoom 
+            Laporan booking operasional resepsionis tanpa data cancel, reject, refund, dan tanpa kolom status.
           </p>
-          <div className="mt-4">
-  <label className="mb-2 block text-sm font-semibold text-gray-700">
-    Filter Shift
-  </label>
-
-  <select
-    value={reportShift}
-    onChange={(e) => setReportShift(e.target.value)}
-    className="w-full max-w-xs rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-  >
-    <option value="all">Semua Shift</option>
-    <option value="pagi">Shift Pagi (00:00 - 11:59)</option>
-    <option value="malam">Shift Malam (12:00 - 23:59)</option>
-  </select>
-</div>
         </div>
 
         <button
@@ -3263,67 +3599,145 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </button>
       </div>
 
-      <div
-  ref={reportPrintRef}
-  className="overflow-x-auto rounded-2xl border border-gray-100"
->
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-gray-600">
-              <th className="px-4 py-3 font-semibold">No</th>
-              <th className="px-4 py-3 font-semibold">Nama Customer</th>
-              <th className="px-4 py-3 font-semibold">No Telp</th>
-              <th className="px-4 py-3 font-semibold">Metode Pembayaran</th>
-              <th className="px-4 py-3 font-semibold">Total Harga</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredBookings.length > 0 ? (
-              filteredBookings.slice(0, 10).map((booking, index) => (
-                <tr key={booking.id} className="border-t border-gray-100">
-                  <td className="px-4 py-3">{index + 1}</td>
-                  <td className="px-4 py-3">
-                    {booking.user?.name || booking.guest_name || "Tamu"}
-                  </td>
-                  <td className="px-4 py-3">{booking.guest_phone || "-"}</td>
-                  <td className="px-4 py-3">
-                    {booking.payment_method
-                      ? getPaymentMethodLabel(booking.payment_method)
-                      : "-"}
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-gray-800">
-                    {formatCurrency(booking.total_price || 0)}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="5" className="px-4 py-6 text-center text-gray-500">
-                  Belum ada data booking.
-                </td>
-              </tr>
+      <div className="mb-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Filter Shift
+          </label>
+
+          <select
+            value={reportShift}
+            onChange={(e) => setReportShift(e.target.value)}
+            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+          >
+            <option value="all">Semua Shift</option>
+            <option value="pagi">Shift Pagi (00:00 - 11:59)</option>
+            <option value="malam">Shift Malam (12:00 - 23:59)</option>
+          </select>
+        </div>
+
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
+          <p className="text-sm font-semibold text-red-600">Total Booking</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">{reportBookings.length}</p>
+          <p className="mt-1 text-xs text-gray-500">Data aktif setelah filter shift report</p>
+        </div>
+
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+          <p className="text-sm font-semibold text-emerald-700">Total Nilai</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">
+            {formatCurrency(
+              reportBookings.reduce((sum, booking) => sum + Number(booking?.total_price || 0), 0)
             )}
-          </tbody>
-        </table>
+          </p>
+          <p className="mt-1 text-xs text-gray-500">Akumulasi total harga booking report</p>
+        </div>
+      </div>
+
+      <div
+        ref={reportPrintRef}
+        className="rounded-[28px] border border-gray-200 overflow-hidden bg-white"
+      >
+        <div className="bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-6 py-5 text-white">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h4 className="text-3xl font-extrabold tracking-tight">Report Booking ReadyRoom</h4>
+              <p className="mt-1 text-sm text-white/90">Dicetak dari Apps Powered by ReadyRoom Technology</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
+                Shift: {reportShift === "all" ? "Semua Shift" : reportShift === "pagi" ? "Pagi" : "Malam"}
+              </span>
+        
+              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
+                Dicetak: {new Date().toLocaleString("id-ID")}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-5">
+          <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Cabang Report</p>
+              <p className="mt-1 text-lg font-bold text-gray-800">
+                {folderHotels.find((hotel) => String(hotel.id) === String(filters.hotelId))?.name || "Semua Cabang"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Keterangan</p>
+              <p className="mt-1 text-sm font-semibold text-gray-700">Silahkan Pilih Filter shift untuk melihat laporan shift</p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr className="text-left text-gray-600">
+                  <th className="px-4 py-3 font-semibold">No</th>
+                  <th className="px-4 py-3 font-semibold">Tanggal Transaksi</th>
+                  <th className="px-4 py-3 font-semibold">Kode Booking</th>
+                  <th className="px-4 py-3 font-semibold">Nama Customer</th>
+                  <th className="px-4 py-3 font-semibold">No Telp</th>
+                  <th className="px-4 py-3 font-semibold">Metode Pembayaran</th>
+                  <th className="px-4 py-3 font-semibold text-right">Total Harga</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportBookings.length > 0 ? (
+                  reportBookings.map((booking, index) => (
+                    <tr key={booking.id} className="border-t border-gray-100">
+                      <td className="px-4 py-3">{index + 1}</td>
+                      <td className="px-4 py-3">
+                        {formatDateTime(getReportTransactionDate(booking))}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-gray-700">
+                        {booking.booking_code || "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {booking.user?.name || booking.guest_name || "Tamu"}
+                      </td>
+                      <td className="px-4 py-3">{booking.guest_phone || "-"}</td>
+                      <td className="px-4 py-3">
+                        {booking.payment_method
+                          ? getPaymentMethodLabel(booking.payment_method)
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                        {formatCurrency(booking.total_price || 0)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                      Belum ada data booking untuk report ini.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div className="mt-5 flex justify-end gap-3">
-  <button
-    type="button"
-    onClick={handlePrintReport}
-    className="rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
-  >
-    Print PDF
-  </button>
+        <button
+          type="button"
+          onClick={() => setShowReportModal(false)}
+          className="rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
+        >
+          Tutup
+        </button>
 
-  <button
-    type="button"
-    onClick={() => setShowReportModal(false)}
-    className="rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
-  >
-    Tutup
-  </button>
-</div>
+        <button
+          type="button"
+          onClick={handlePrintReport}
+          className="rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
+        >
+          Print PDF
+        </button>
+      </div>
     </div>
   </div>
 )}
