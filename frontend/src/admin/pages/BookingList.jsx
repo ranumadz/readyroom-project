@@ -110,6 +110,7 @@ export default function BookingList() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportShift, setReportShift] = useState("all");
+  const [reportPaymentMethod, setReportPaymentMethod] = useState("all");
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
   const [branchSeenMap, setBranchSeenMap] = useState({});
@@ -136,6 +137,9 @@ export default function BookingList() {
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
   const canEditBooking =
     adminUser?.role === "boss" || adminUser?.role === "super_admin";
+  const canCancelBooking = ["boss", "super_admin", "pengawas", "admin"].includes(
+    adminUser?.role
+  );
   const canAccessAllHotels =
     adminUser?.role === "boss" ||
     adminUser?.role === "super_admin" ||
@@ -831,6 +835,7 @@ const handlePrintReport = () => {
       : reportShift === "pagi"
       ? "Shift Pagi"
       : "Shift Malam";
+  const paymentMethodLabel = getReportPaymentMethodLabel(reportPaymentMethod);
 
   const printWindow = window.open("", "_blank", "width=1280,height=900");
 
@@ -894,7 +899,7 @@ const handlePrintReport = () => {
           }
           .meta-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 12px;
             padding: 20px 24px 0;
           }
@@ -992,6 +997,10 @@ const handlePrintReport = () => {
               <p class="meta-value">${shiftLabel}</p>
             </div>
             <div class="meta-card">
+              <p class="meta-label">Metode Bayar</p>
+              <p class="meta-value">${paymentMethodLabel}</p>
+            </div>
+            <div class="meta-card">
               <p class="meta-label">Total Data</p>
               <p class="meta-value">${reportBookings.length}</p>
             </div>
@@ -1003,7 +1012,7 @@ const handlePrintReport = () => {
 
           <div class="content">
             <div class="note">
-              Filter aktif: Report khusus booking operasional ReadyRoom
+              Filter aktif: ${branchName} • ${shiftLabel} • ${paymentMethodLabel}
             </div>
             ${printEl.innerHTML}
           </div>
@@ -1402,6 +1411,33 @@ const buildWhatsAppMessage = (booking) => {
     }
   };
 
+  const getReportPaymentMethodLabel = (paymentMethod) => {
+    switch (paymentMethod) {
+      case "cash":
+        return "Tunai";
+      case "digital":
+        return "Transfer / QRIS";
+      default:
+        return "Semua Metode";
+    }
+  };
+
+  const matchesReportPaymentMethod = (booking) => {
+    if (reportPaymentMethod === "all") return true;
+
+    const method = String(booking?.payment_method || "").toLowerCase();
+
+    if (reportPaymentMethod === "cash") {
+      return method === "cash";
+    }
+
+    if (reportPaymentMethod === "digital") {
+      return ["transfer", "qris"].includes(method);
+    }
+
+    return true;
+  };
+
   const getPaymentMethodClass = (paymentMethod) => {
     switch (paymentMethod) {
       case "cash":
@@ -1704,9 +1740,13 @@ const buildWhatsAppMessage = (booking) => {
         return false;
       }
 
-      return matchesReportShift(booking);
+      return matchesReportShift(booking) && matchesReportPaymentMethod(booking);
     });
-  }, [filteredBookings, reportShift]);
+  }, [filteredBookings, reportShift, reportPaymentMethod]);
+
+  const reportTotalValue = useMemo(() => {
+    return reportBookings.reduce((sum, booking) => sum + Number(booking?.total_price || 0), 0);
+  }, [reportBookings]);
 
   const branchUnreadCounts = useMemo(() => {
     const counts = {};
@@ -2016,7 +2056,7 @@ const buildWhatsAppMessage = (booking) => {
                   } = getPenaltySummary(booking);
 
                   const showCancelButton =
-                    canEditBooking &&
+                    canCancelBooking &&
                     ["confirmed", "checked_in"].includes(booking.status);
 
                   const showAddPenaltyButton = canAddPenaltyToBooking(booking);
@@ -3599,7 +3639,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </button>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="mb-5 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
           <label className="mb-2 block text-sm font-semibold text-gray-700">
             Filter Shift
@@ -3616,6 +3656,22 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           </select>
         </div>
 
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Filter Metode Pembayaran
+          </label>
+
+          <select
+            value={reportPaymentMethod}
+            onChange={(e) => setReportPaymentMethod(e.target.value)}
+            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+          >
+            <option value="all">Semua Metode</option>
+            <option value="cash">Tunai</option>
+            <option value="digital">Transfer / QRIS</option>
+          </select>
+        </div>
+
         <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
           <p className="text-sm font-semibold text-red-600">Total Booking</p>
           <p className="mt-2 text-3xl font-bold text-gray-900">{reportBookings.length}</p>
@@ -3625,9 +3681,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
           <p className="text-sm font-semibold text-emerald-700">Total Nilai</p>
           <p className="mt-2 text-3xl font-bold text-gray-900">
-            {formatCurrency(
-              reportBookings.reduce((sum, booking) => sum + Number(booking?.total_price || 0), 0)
-            )}
+            {formatCurrency(reportTotalValue)}
           </p>
           <p className="mt-1 text-xs text-gray-500">Akumulasi total harga booking report</p>
         </div>
@@ -3648,7 +3702,11 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
               <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
                 Shift: {reportShift === "all" ? "Semua Shift" : reportShift === "pagi" ? "Pagi" : "Malam"}
               </span>
-        
+
+              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
+                Pembayaran: {getReportPaymentMethodLabel(reportPaymentMethod)}
+              </span>
+
               <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
                 Dicetak: {new Date().toLocaleString("id-ID")}
               </span>
@@ -3666,7 +3724,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             </div>
             <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Keterangan</p>
-              <p className="mt-1 text-sm font-semibold text-gray-700">Silahkan Pilih Filter shift untuk melihat laporan shift</p>
+              <p className="mt-1 text-sm font-semibold text-gray-700">Filter aktif: {reportShift === "all" ? "Semua Shift" : reportShift === "pagi" ? "Shift Pagi" : "Shift Malam"} • {getReportPaymentMethodLabel(reportPaymentMethod)}</p>
             </div>
           </div>
 
@@ -3717,6 +3775,19 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                 )}
               </tbody>
             </table>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <div className="w-full max-w-md rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm font-semibold text-emerald-700">Total Booking</span>
+                <span className="text-lg font-extrabold text-gray-900">{reportBookings.length}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <span className="text-sm font-semibold text-emerald-700">Total Nilai</span>
+                <span className="text-xl font-extrabold text-gray-900">{formatCurrency(reportTotalValue)}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

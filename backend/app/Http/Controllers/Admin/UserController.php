@@ -255,6 +255,47 @@ class UserController extends Controller
     }
 
     /**
+     * Hapus user internal
+     * Boss bisa hapus semua selain dirinya sendiri dan selain boss lain
+     * IT bisa hapus selain boss
+     */
+    public function deleteAdminUser(Request $request, $id)
+    {
+        $request->validate([
+            'deleted_by' => 'required|exists:users,id',
+        ]);
+
+        $actor = User::find($request->deleted_by);
+
+        if (!$actor || !in_array($actor->role, ['boss', 'it'])) {
+            return response()->json([
+                'message' => 'Hanya boss atau IT yang boleh menghapus user internal'
+            ], 403);
+        }
+
+        $user = User::findOrFail($id);
+
+        if ($user->role === 'boss') {
+            return response()->json([
+                'message' => 'User boss tidak boleh dihapus'
+            ], 403);
+        }
+
+        if ($user->id === $actor->id) {
+            return response()->json([
+                'message' => 'Tidak bisa menghapus akun diri sendiri'
+            ], 422);
+        }
+
+        $user->hotels()->detach();
+        $user->delete();
+
+        return response()->json([
+            'message' => 'User internal berhasil dihapus'
+        ]);
+    }
+
+    /**
      * Reset password customer
      * Hanya boss / super_admin
      */

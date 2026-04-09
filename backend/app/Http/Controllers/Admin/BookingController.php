@@ -592,7 +592,7 @@ class BookingController extends Controller
         ]);
     }
 
-    // ❌ CANCEL BOOKING (KHUSUS BOSS / SUPER ADMIN)
+    // ❌ CANCEL BOOKING (BOSS / SUPER ADMIN / PENGAWAS / ADMIN, RECEPTIONIST TIDAK BISA)
     public function cancelBooking(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
@@ -604,9 +604,9 @@ class BookingController extends Controller
 
         $admin = User::find($request->cancelled_by);
 
-        if (!$admin || !in_array($admin->role, ['super_admin', 'boss'])) {
+        if (!$admin || !in_array($admin->role, ['boss', 'super_admin', 'pengawas', 'admin'])) {
             return response()->json([
-                'message' => 'Hanya boss atau super admin yang bisa melakukan cancel booking'
+                'message' => 'Hanya boss, super admin, pengawas, atau admin yang bisa melakukan cancel booking'
             ], 403);
         }
 

@@ -40,11 +40,17 @@ export default function AdminLogin() {
 
     try {
       const response = await api.post("/admin/login", form);
+      const loggedInUser = response?.data?.user || null;
 
-      localStorage.setItem("adminUser", JSON.stringify(response.data.user));
+      localStorage.setItem("adminUser", JSON.stringify(loggedInUser));
 
       toast.success("Login admin berhasil");
-      navigate("/admin/dashboard");
+
+      if (loggedInUser?.role === "receptionist") {
+        navigate("/admin/bookings");
+      } else {
+        navigate("/admin/dashboard");
+      }
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || "Login gagal");

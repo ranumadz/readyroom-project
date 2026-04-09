@@ -116,6 +116,7 @@ Route::prefix('admin')->group(function () {
     Route::get('/users/admin', [UserController::class, 'adminUsers']);
     Route::post('/users/admin', [UserController::class, 'storeAdminUser']);
     Route::put('/users/admin/{id}', [UserController::class, 'updateAdminUser']);
+    Route::delete('/users/admin/{id}', [UserController::class, 'deleteAdminUser']);
     Route::post('/users/admin/{id}/reset-password', [UserController::class, 'resetAdminPassword']);
     Route::post('/users/admin/{id}/toggle-status', [UserController::class, 'toggleAdminStatus']);
 

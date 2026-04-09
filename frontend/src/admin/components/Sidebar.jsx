@@ -14,6 +14,10 @@ import {
   Cpu,
   ShieldCheck,
   Wrench,
+  Crown,
+  BriefcaseBusiness,
+  UserCog,
+  BellRing,
 } from "lucide-react";
 
 const allMenuSections = [
@@ -127,6 +131,207 @@ const roleAllowedPaths = {
   boss: "all",
 };
 
+const roleThemes = {
+  receptionist: {
+    label: "Receptionist",
+    panelSubtitle: "Front Office Panel",
+    description:
+      "Akses fokus untuk operasional booking harian, check-in, check-out, dan kalender reservasi.",
+    icon: BellRing,
+    aside:
+      "w-72 min-h-screen text-white border-r shadow-2xl bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.16),_transparent_22%),linear-gradient(180deg,#03130f_0%,#061d17_42%,#02110d_100%)] border-emerald-400/10",
+    logoWrap:
+      "w-12 h-12 rounded-2xl overflow-hidden bg-white/95 flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-white/10 shrink-0",
+    infoBox:
+      "rounded-3xl border border-emerald-400/10 bg-white/[0.04] p-4 backdrop-blur-sm",
+    badge:
+      "mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-200",
+    sectionTitle:
+      "mb-3 text-xs uppercase tracking-[0.22em] text-emerald-300/55",
+    activeNav:
+      "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20",
+    inactiveNav: "text-emerald-50/80 hover:bg-white/8 hover:text-white",
+    activeIcon: "bg-white/15",
+    inactiveIcon: "bg-white/5 group-hover:bg-white/10",
+    bottomCard:
+      "mt-10 rounded-3xl bg-gradient-to-r from-emerald-500 to-teal-600 p-4 shadow-lg shadow-emerald-500/20",
+    bottomTitle: "Front Office Control",
+    bottomDesc:
+      "Area operasional reservasi untuk menangani alur tamu dan aktivitas booking dengan lebih rapi.",
+    bottomText: "text-emerald-50/90",
+  },
+
+  admin: {
+    label: "Admin",
+    panelSubtitle: "Operations Panel",
+    description:
+      "Akses utama untuk booking, kalender, dan laporan operasional cabang yang berjalan setiap hari.",
+    icon: UserCog,
+    aside:
+      "w-72 min-h-screen text-white border-r shadow-2xl bg-gradient-to-b from-black via-gray-950 to-black border-white/10",
+    logoWrap:
+      "w-12 h-12 rounded-2xl overflow-hidden bg-white flex items-center justify-center shadow-lg shadow-red-500/25 border border-white/10 shrink-0",
+    infoBox: "rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm",
+    badge:
+      "mt-3 inline-flex rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-red-200",
+    sectionTitle: "mb-3 text-xs uppercase tracking-[0.22em] text-gray-500",
+    activeNav:
+      "bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-lg shadow-red-500/20",
+    inactiveNav: "text-gray-300 hover:bg-white/10 hover:text-white",
+    activeIcon: "bg-white/15",
+    inactiveIcon: "bg-white/5 group-hover:bg-white/10",
+    bottomCard:
+      "mt-10 rounded-3xl bg-gradient-to-r from-red-600 to-rose-500 p-4 shadow-lg shadow-red-500/20",
+    bottomTitle: "ReadyRoom Operations",
+    bottomDesc:
+      "Pusat kerja utama untuk pengelolaan booking, laporan, dan aktivitas operasional hotel.",
+    bottomText: "text-red-50/90",
+  },
+
+  pengawas: {
+    label: "Pengawas",
+    panelSubtitle: "Monitoring Panel",
+    description:
+      "Akses monitoring booking, kalender, dan laporan cabang untuk kebutuhan pengawasan operasional.",
+    icon: ShieldCheck,
+    aside:
+      "w-72 min-h-screen text-white border-r shadow-2xl bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.16),_transparent_24%),linear-gradient(180deg,#161006_0%,#241807_45%,#120c03_100%)] border-amber-400/10",
+    logoWrap:
+      "w-12 h-12 rounded-2xl overflow-hidden bg-white/95 flex items-center justify-center shadow-lg shadow-amber-500/20 border border-white/10 shrink-0",
+    infoBox:
+      "rounded-3xl border border-amber-400/10 bg-white/[0.04] p-4 backdrop-blur-sm",
+    badge:
+      "mt-3 inline-flex rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-amber-200",
+    sectionTitle:
+      "mb-3 text-xs uppercase tracking-[0.22em] text-amber-300/55",
+    activeNav:
+      "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20",
+    inactiveNav: "text-amber-50/85 hover:bg-white/8 hover:text-white",
+    activeIcon: "bg-white/15",
+    inactiveIcon: "bg-white/5 group-hover:bg-white/10",
+    bottomCard:
+      "mt-10 rounded-3xl bg-gradient-to-r from-amber-500 to-orange-500 p-4 shadow-lg shadow-amber-500/20",
+    bottomTitle: "Branch Monitoring",
+    bottomDesc:
+      "Panel pengawasan untuk memantau performa booking dan alur operasional cabang secara lebih jelas.",
+    bottomText: "text-amber-50/90",
+  },
+
+  super_admin: {
+    label: "Super Admin",
+    panelSubtitle: "Core Management Panel",
+    description:
+      "Akses luas untuk mengelola operasional, struktur sistem, konten, user, dan kontrol manajemen internal.",
+    icon: BriefcaseBusiness,
+    aside:
+      "w-72 min-h-screen text-white border-r shadow-2xl bg-[radial-gradient(circle_at_top_left,_rgba(168,85,247,0.18),_transparent_22%),linear-gradient(180deg,#0f0820_0%,#170b2d_42%,#0a0614_100%)] border-violet-400/10",
+    logoWrap:
+      "w-12 h-12 rounded-2xl overflow-hidden bg-white/95 flex items-center justify-center shadow-lg shadow-violet-500/20 border border-white/10 shrink-0",
+    infoBox:
+      "rounded-3xl border border-violet-400/10 bg-white/[0.04] p-4 backdrop-blur-sm",
+    badge:
+      "mt-3 inline-flex rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-200",
+    sectionTitle:
+      "mb-3 text-xs uppercase tracking-[0.22em] text-violet-300/55",
+    activeNav:
+      "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-500/20",
+    inactiveNav: "text-violet-50/85 hover:bg-white/8 hover:text-white",
+    activeIcon: "bg-white/15",
+    inactiveIcon: "bg-white/5 group-hover:bg-white/10",
+    bottomCard:
+      "mt-10 rounded-3xl bg-gradient-to-r from-violet-500 to-fuchsia-500 p-4 shadow-lg shadow-violet-500/20",
+    bottomTitle: "System Management",
+    bottomDesc:
+      "Kontrol tingkat tinggi untuk operasional, user, konten, dan pengaturan sistem ReadyRoom.",
+    bottomText: "text-violet-50/90",
+  },
+
+  boss: {
+    label: "Boss",
+    panelSubtitle: "Executive Panel",
+    description:
+      "Akses penuh untuk kebutuhan manajemen, evaluasi performa, keputusan operasional, dan kontrol bisnis.",
+    icon: Crown,
+    aside:
+      "w-72 min-h-screen text-white border-r shadow-2xl bg-[radial-gradient(circle_at_top_left,_rgba(250,204,21,0.16),_transparent_22%),linear-gradient(180deg,#171717_0%,#111827_42%,#0a0a0a_100%)] border-yellow-300/10",
+    logoWrap:
+      "w-12 h-12 rounded-2xl overflow-hidden bg-white/95 flex items-center justify-center shadow-lg shadow-yellow-500/20 border border-white/10 shrink-0",
+    infoBox:
+      "rounded-3xl border border-yellow-300/10 bg-white/[0.04] p-4 backdrop-blur-sm",
+    badge:
+      "mt-3 inline-flex rounded-full border border-yellow-300/20 bg-yellow-400/10 px-3 py-1 text-xs font-semibold tracking-wide text-yellow-100",
+    sectionTitle:
+      "mb-3 text-xs uppercase tracking-[0.22em] text-yellow-200/45",
+    activeNav:
+      "bg-gradient-to-r from-yellow-500 to-amber-500 text-slate-900 shadow-lg shadow-yellow-500/20",
+    inactiveNav: "text-slate-200 hover:bg-white/8 hover:text-white",
+    activeIcon: "bg-white/20",
+    inactiveIcon: "bg-white/5 group-hover:bg-white/10",
+    bottomCard:
+      "mt-10 rounded-3xl bg-gradient-to-r from-yellow-400 to-amber-500 p-4 shadow-lg shadow-yellow-500/20",
+    bottomTitle: "Executive Overview",
+    bottomDesc:
+      "Panel eksekutif untuk melihat performa bisnis, operasional, dan arah pengembangan sistem ReadyRoom.",
+    bottomText: "text-slate-900",
+  },
+
+  it: {
+    label: "IT",
+    panelSubtitle: "System Control Panel",
+    description:
+      "Akses khusus sistem, konfigurasi, konten, user, dan kontrol teknis ReadyRoom.",
+    icon: Cpu,
+    aside:
+      "w-72 min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_22%),linear-gradient(180deg,#03111f_0%,#071827_45%,#020817_100%)] text-white border-r border-cyan-400/10 shadow-2xl",
+    logoWrap:
+      "w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-cyan-400/20 to-blue-500/20 flex items-center justify-center shadow-lg shadow-cyan-500/20 border border-cyan-300/20 shrink-0",
+    infoBox:
+      "rounded-3xl border border-cyan-300/10 bg-cyan-400/5 p-4 backdrop-blur-sm",
+    badge:
+      "mt-3 inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-300",
+    sectionTitle:
+      "mb-3 text-xs uppercase tracking-[0.22em] text-cyan-500/70",
+    activeNav:
+      "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/20",
+    inactiveNav: "text-slate-200 hover:bg-white/10 hover:text-white",
+    activeIcon: "bg-white/15",
+    inactiveIcon: "bg-white/5 group-hover:bg-white/10",
+    bottomCard:
+      "mt-10 rounded-3xl bg-gradient-to-r from-cyan-500 to-blue-600 p-4 shadow-lg shadow-cyan-500/20",
+    bottomTitle: "IT Control Center",
+    bottomDesc:
+      "Area khusus IT untuk mengelola konfigurasi, hak akses, konten, dan kontrol teknis sistem ReadyRoom.",
+    bottomText: "text-cyan-50/90",
+  },
+
+  default: {
+    label: "Admin",
+    panelSubtitle: "Management Panel",
+    description:
+      "Kelola operasional hotel sesuai hak akses akun yang sedang login.",
+    icon: ShieldCheck,
+    aside:
+      "w-72 min-h-screen text-white border-r shadow-2xl bg-gradient-to-b from-black via-gray-950 to-black border-white/10",
+    logoWrap:
+      "w-12 h-12 rounded-2xl overflow-hidden bg-white flex items-center justify-center shadow-lg shadow-red-500/25 border border-white/10 shrink-0",
+    infoBox: "rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm",
+    badge:
+      "mt-3 inline-flex rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-red-200",
+    sectionTitle: "mb-3 text-xs uppercase tracking-[0.22em] text-gray-500",
+    activeNav:
+      "bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-lg shadow-red-500/20",
+    inactiveNav: "text-gray-300 hover:bg-white/10 hover:text-white",
+    activeIcon: "bg-white/15",
+    inactiveIcon: "bg-white/5 group-hover:bg-white/10",
+    bottomCard:
+      "mt-10 rounded-3xl bg-gradient-to-r from-red-600 to-rose-500 p-4 shadow-lg shadow-red-500/20",
+    bottomTitle: "ReadyRoom System",
+    bottomDesc:
+      "Sistem manajemen hotel untuk mengelola cabang, kamar, booking, laporan, dan pengguna dengan lebih mudah.",
+    bottomText: "text-red-50/90",
+  },
+};
+
 export default function Sidebar() {
   const [adminUser, setAdminUser] = useState(null);
 
@@ -160,7 +365,6 @@ export default function Sidebar() {
   }, []);
 
   const currentRole = (adminUser?.role || "").toLowerCase();
-  const isIT = currentRole === "it";
 
   const filteredMenuSections = useMemo(() => {
     const allowed = roleAllowedPaths[currentRole];
@@ -170,7 +374,6 @@ export default function Sidebar() {
     }
 
     const fallbackAllowed = ["/admin/bookings", "/admin/bookings/calendar"];
-
     const allowedPaths = Array.isArray(allowed) ? allowed : fallbackAllowed;
 
     return allMenuSections
@@ -181,146 +384,68 @@ export default function Sidebar() {
       .filter((section) => section.items.length > 0);
   }, [currentRole]);
 
-  const getRoleDescription = () => {
-    switch (currentRole) {
-      case "receptionist":
-        return "Akses fokus ke operasional booking harian dan kalender reservasi.";
-      case "admin":
-        return "Akses fokus ke booking, kalender, dan laporan operasional.";
-      case "pengawas":
-        return "Akses monitoring operasional booking, kalender, dan laporan cabang.";
-      case "super_admin":
-        return "Akses luas untuk mengelola operasional dan sistem internal.";
-      case "boss":
-        return "Akses penuh untuk seluruh kebutuhan manajemen ReadyRoom.";
-      case "it":
-        return "Akses khusus sistem, konfigurasi, konten, user, dan kontrol teknis ReadyRoom.";
-      default:
-        return "Kelola operasional hotel sesuai hak akses akun yang sedang login.";
-    }
-  };
-
-  const getRoleLabel = () => {
-    switch (currentRole) {
-      case "super_admin":
-        return "SUPER ADMIN";
-      case "receptionist":
-        return "RECEPTIONIST";
-      case "pengawas":
-        return "PENGAWAS";
-      case "it":
-        return "IT READYROOM";
-      case "boss":
-        return "BOSS";
-      case "admin":
-        return "ADMIN";
-      default:
-        return adminUser?.role || "UNKNOWN ROLE";
-    }
-  };
-
-  const asideClassName = isIT
-    ? "w-72 min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_22%),linear-gradient(180deg,#03111f_0%,#071827_45%,#020817_100%)] text-white border-r border-cyan-400/10 shadow-2xl"
-    : "w-72 min-h-screen bg-gradient-to-b from-black via-gray-950 to-black text-white border-r border-white/10 shadow-2xl";
-
-  const logoWrapClassName = isIT
-    ? "w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-cyan-400/20 to-blue-500/20 flex items-center justify-center shadow-lg shadow-cyan-500/20 border border-cyan-300/20 shrink-0"
-    : "w-12 h-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-lg shadow-red-500/30 border border-white/10 shrink-0";
-
-  const infoBoxClassName = isIT
-    ? "rounded-2xl bg-cyan-400/5 border border-cyan-300/10 p-4"
-    : "rounded-2xl bg-white/5 border border-white/10 p-4";
-
-  const roleBadgeClassName = isIT
-    ? "mt-3 inline-flex rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-300 border border-cyan-400/20"
-    : "mt-3 inline-flex rounded-full bg-red-600/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-300 border border-red-500/20";
-
-  const sectionTitleClassName = isIT
-    ? "text-xs uppercase tracking-[0.2em] text-cyan-500/70 mb-3"
-    : "text-xs uppercase tracking-[0.2em] text-gray-500 mb-3";
+  const theme = roleThemes[currentRole] || roleThemes.default;
+  const HeaderIcon = theme.icon;
 
   const getNavClassName = (isActive) => {
-    if (isIT) {
-      return `group flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${
-        isActive
-          ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/20"
-          : "text-slate-200 hover:bg-white/10 hover:text-white"
-      }`;
-    }
-
     return `group flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${
-      isActive
-        ? "bg-red-600 text-white shadow-lg shadow-red-500/25"
-        : "text-gray-300 hover:bg-white/10 hover:text-white"
+      isActive ? theme.activeNav : theme.inactiveNav
     }`;
   };
 
   const getIconWrapClassName = (isActive) => {
-    if (isIT) {
-      return `w-10 h-10 rounded-xl flex items-center justify-center transition shrink-0 ${
-        isActive
-          ? "bg-white/15"
-          : "bg-white/5 group-hover:bg-white/10"
-      }`;
-    }
-
-    return "w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 flex items-center justify-center transition shrink-0";
+    return `w-10 h-10 rounded-xl flex items-center justify-center transition shrink-0 ${
+      isActive ? theme.activeIcon : theme.inactiveIcon
+    }`;
   };
 
-  const bottomCardClassName = isIT
-    ? "mt-10 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 p-4 shadow-lg shadow-cyan-500/20"
-    : "mt-10 rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 p-4 shadow-lg";
-
-  const bottomTitle = isIT ? "IT Control Center" : "ReadyRoom System";
-  const bottomDesc = isIT
-    ? "Area khusus IT untuk mengelola konfigurasi, hak akses, konten, dan kontrol teknis sistem ReadyRoom."
-    : "Sistem manajemen hotel untuk mengelola cabang, kamar, booking, laporan, dan pengguna dengan lebih mudah.";
-
   return (
-    <aside className={asideClassName}>
+    <aside className={theme.aside}>
       <div className="p-6">
         <div className="mb-10">
           <div className="mb-4 flex items-center gap-3">
-            <div className={logoWrapClassName}>
+            <div className={theme.logoWrap}>
               <img
                 src="/readyroom.png"
                 alt="ReadyRoom Logo"
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             </div>
 
             <div>
               <h2 className="text-xl font-bold tracking-wide">ReadyRoom</h2>
-              <p className={isIT ? "text-xs text-cyan-200/70" : "text-xs text-gray-400"}>
-                {isIT ? "System Control Panel" : "Admin Management Panel"}
-              </p>
+              <p className="text-xs text-white/55">{theme.panelSubtitle}</p>
             </div>
           </div>
 
-          <div className={infoBoxClassName}>
-            <p className={isIT ? "text-sm text-cyan-50/90" : "text-sm text-gray-300"}>
-              {getRoleDescription()}
-            </p>
-
-            {adminUser?.role && (
-              <div className={roleBadgeClassName}>
-                Role: {getRoleLabel()}
+          <div className={theme.infoBox}>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/8 shrink-0">
+                <HeaderIcon size={18} />
               </div>
-            )}
 
-            {isIT && (
-              <div className="mt-4 flex items-center gap-2 rounded-xl border border-cyan-300/10 bg-white/5 px-3 py-2 text-xs text-cyan-100/80">
-                <Cpu size={14} className="text-cyan-300" />
-                <span>Mode khusus sistem aktif</span>
+              <div className="min-w-0">
+                <p className="text-sm leading-relaxed text-white/88">
+                  {theme.description}
+                </p>
+
+                <div className={theme.badge}>{theme.label}</div>
+
+                {currentRole === "it" && (
+                  <div className="mt-4 flex items-center gap-2 rounded-2xl border border-cyan-300/10 bg-white/5 px-3 py-2 text-xs text-cyan-100/80">
+                    <Cpu size={14} className="text-cyan-300" />
+                    <span>Mode khusus sistem aktif</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
         <div className="space-y-8">
           {filteredMenuSections.map((section) => (
             <div key={section.title}>
-              <p className={sectionTitleClassName}>{section.title}</p>
+              <p className={theme.sectionTitle}>{section.title}</p>
 
               <nav className="space-y-2">
                 {section.items.map((item) => {
@@ -349,14 +474,20 @@ export default function Sidebar() {
           ))}
         </div>
 
-        <div className={bottomCardClassName}>
+        <div className={theme.bottomCard}>
           <div className="mb-2 flex items-center gap-2">
-            {isIT ? <Wrench size={16} /> : <ShieldCheck size={16} />}
-            <p className="text-sm font-semibold">{bottomTitle}</p>
+            {currentRole === "boss" ? (
+              <Crown size={16} />
+            ) : currentRole === "it" ? (
+              <Wrench size={16} />
+            ) : (
+              <ShieldCheck size={16} />
+            )}
+            <p className="text-sm font-semibold">{theme.bottomTitle}</p>
           </div>
 
-          <p className={isIT ? "text-xs text-cyan-50/90 leading-relaxed" : "text-xs text-red-100 leading-relaxed"}>
-            {bottomDesc}
+          <p className={`text-xs leading-relaxed ${theme.bottomText}`}>
+            {theme.bottomDesc}
           </p>
         </div>
       </div>
