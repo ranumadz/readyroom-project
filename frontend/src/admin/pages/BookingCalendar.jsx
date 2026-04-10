@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
+import api from "../../services/api";
 import {
-  CalendarDays,
   Phone,
   BedDouble,
   BadgeInfo,
@@ -19,6 +18,7 @@ import {
 export default function BookingCalendar() {
   const today = new Date();
   const FOLDER_SEEN_STORAGE_KEY = "readyroom_calendar_seen_hotels";
+  const AUTO_REFRESH_INTERVAL = 60000;
 
   const adminUser =
     JSON.parse(localStorage.getItem("adminUser") || "null") ||
@@ -51,6 +51,8 @@ export default function BookingCalendar() {
     status: "all",
   });
 
+  const filtersRef = useRef(filters);
+
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
   const [folderBadgeBookings, setFolderBadgeBookings] = useState([]);
@@ -62,6 +64,10 @@ export default function BookingCalendar() {
       return {};
     }
   });
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   const assignedHotelIds = useMemo(() => {
     if (canAccessAllHotels) return [];
@@ -171,18 +177,16 @@ export default function BookingCalendar() {
     persistFolderSeenMap(nextMap);
   };
 
-  const fetchFolderBadgeData = async () => {
+  const fetchFolderBadgeData = async (customFilters = filtersRef.current) => {
     try {
-      const response = await axios.get(
-        "http://127.0.0.1:8000/api/admin/bookings/calendar",
-        {
-          params: {
-            month: filters.month,
-            year: filters.year,
-            admin_user_id: adminUser?.id || undefined,
-          },
-        }
-      );
+      const response = await api.get("/admin/bookings/calendar", {
+        params: {
+          hotel_id: customFilters.hotel_id || undefined,
+          month: customFilters.month,
+          year: customFilters.year,
+          admin_user_id: adminUser?.id || undefined,
+        },
+      });
 
       setFolderBadgeBookings(
         Array.isArray(response.data?.bookings) ? response.data.bookings : []
@@ -201,9 +205,7 @@ export default function BookingCalendar() {
     try {
       setLoadingUserAccessHotels(true);
 
-      const response = await axios.get(
-        "http://127.0.0.1:8000/api/admin/users/admin"
-      );
+      const response = await api.get("/admin/users/admin");
 
       const usersData = Array.isArray(response.data?.data)
         ? response.data.data
@@ -224,21 +226,19 @@ export default function BookingCalendar() {
     }
   };
 
-  const fetchCalendar = async (customFilters = filters, showLoading = true) => {
+  const fetchCalendar = async (customFilters = filtersRef.current, showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
 
-      const response = await axios.get(
-        "http://127.0.0.1:8000/api/admin/bookings/calendar",
-        {
-          params: {
-            hotel_id: customFilters.hotel_id || undefined,
-            month: customFilters.month,
-            year: customFilters.year,
-            admin_user_id: adminUser?.id || undefined,
-          },
-        }
-      );
+      const response = await api.get("/admin/bookings/calendar", {
+        params: {
+          hotel_id: customFilters.hotel_id || undefined,
+          month: customFilters.month,
+          year: customFilters.year,
+          status: customFilters.status || undefined,
+          admin_user_id: adminUser?.id || undefined,
+        },
+      });
 
       setCalendarData(response.data);
       setLastUpdated(new Date());
@@ -250,23 +250,23 @@ export default function BookingCalendar() {
   };
 
   useEffect(() => {
-    fetchCalendar(filters, true);
+    fetchCalendar(filtersRef.current, true);
     fetchUserAccessHotels();
-    fetchFolderBadgeData();
+    fetchFolderBadgeData(filtersRef.current);
   }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchCalendar(filters, false);
-      fetchFolderBadgeData();
-    }, 15000);
+      fetchCalendar(filtersRef.current, false);
+      fetchFolderBadgeData(filtersRef.current);
+    }, AUTO_REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [filters.month, filters.year, adminUser?.id]);
+  }, [adminUser?.id]);
 
   useEffect(() => {
-    fetchFolderBadgeData();
-  }, [filters.month, filters.year]);
+    fetchFolderBadgeData(filters);
+  }, [filters.month, filters.year, filters.hotel_id, filters.status]);
 
   useEffect(() => {
     if (filters.hotel_id) {
@@ -284,10 +284,12 @@ export default function BookingCalendar() {
 
   const handleApplyFilter = () => {
     fetchCalendar(filters, true);
+    fetchFolderBadgeData(filters);
   };
 
   const handleManualRefresh = () => {
     fetchCalendar(filters, true);
+    fetchFolderBadgeData(filters);
   };
 
   const handleFolderSelect = (hotelId) => {
@@ -298,12 +300,14 @@ export default function BookingCalendar() {
     }
 
     const nextFilters = {
-      ...filters,
+      ...filtersRef.current,
       hotel_id: nextHotelId,
     };
 
     setFilters(nextFilters);
+    filtersRef.current = nextFilters;
     fetchCalendar(nextFilters, true);
+    fetchFolderBadgeData(nextFilters);
   };
 
   const daysInMonth = useMemo(() => {
@@ -864,7 +868,7 @@ export default function BookingCalendar() {
                           <div key={unit.id} className="contents">
                             <div className="sticky left-0 z-[60] min-w-[360px] max-w-[360px] border-r border-b border-gray-200 bg-white/95 px-5 py-4 backdrop-blur-sm shadow-[12px_0_26px_rgba(15,23,42,0.12)]">
                               <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 font-bold text-sm shadow-inner">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-sm font-bold text-red-600 shadow-inner">
                                   {unit.room_number}
                                 </div>
 
@@ -982,23 +986,25 @@ function Legend({ color, label }) {
   return (
     <div className="flex items-center gap-2 rounded-full border border-gray-100 bg-white px-4 py-2 shadow-sm">
       <div className={`h-3.5 w-3.5 rounded-full ${color}`} />
-      <span className="text-sm text-gray-700">{label}</span>
+      <span className="text-sm font-medium text-gray-700">{label}</span>
     </div>
   );
 }
 
 function MiniCounter({ label, value }) {
   return (
-    <div className="min-w-[140px] rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-      <p className="mb-1 text-[11px] text-gray-500">{label}</p>
-      <p className="text-sm font-bold text-gray-800">{value}</p>
+    <div className="min-w-[118px] rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+        {label}
+      </p>
+      <p className="mt-1 text-base font-bold text-gray-800">{value}</p>
     </div>
   );
 }
 
 function BookingDetailModal({
   booking,
-  relatedBookings,
+  relatedBookings = [],
   onClose,
   formatDateTime,
   formatTimeRange,
@@ -1007,34 +1013,32 @@ function BookingDetailModal({
   getPaymentBadgeClass,
 }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]">
-      <div className="w-full max-w-3xl overflow-hidden rounded-[32px] border border-white/40 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.2)]">
-        <div className="bg-gradient-to-r from-red-600 via-rose-500 to-red-500 px-6 py-5 text-white">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="mb-1 text-sm font-medium text-white/80">
-                Detail Booking
-              </p>
-              <h2 className="text-2xl font-bold">{booking.booking_code}</h2>
-              <p className="mt-1 text-sm text-white/85">
-                Klik block calendar untuk lihat detail operasional booking.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 transition hover:bg-white/25"
-            >
-              <X size={20} />
-            </button>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
+      <div className="relative max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[30px] bg-white shadow-[0_20px_80px_rgba(15,23,42,0.28)]">
+        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+          <div>
+            <p className="text-sm font-semibold text-red-600">Detail Booking</p>
+            <h3 className="mt-1 text-2xl font-bold text-gray-800">
+              {booking.booking_code || "-"}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Klik close untuk kembali ke kalender.
+            </p>
           </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <div className="p-6 md:p-7">
-          <div className="mb-6 flex flex-wrap gap-3">
+        <div className="max-h-[calc(92vh-92px)] overflow-y-auto px-6 py-6">
+          <div className="mb-5 flex flex-wrap gap-2">
             <span
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${getStatusBadgeClass(
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(
                 booking.status
               )}`}
             >
@@ -1042,24 +1046,27 @@ function BookingDetailModal({
             </span>
 
             <span
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${getPaymentBadgeClass(
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getPaymentBadgeClass(
                 booking.payment_status
               )}`}
             >
-              Payment: {booking.payment_status || "-"}
+              Pembayaran: {booking.payment_status || "-"}
             </span>
 
-            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm font-medium text-gray-700">
-              Tipe: {booking.booking_type || "-"}
-            </span>
+            {booking.booking_type && (
+              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                Tipe: {booking.booking_type}
+              </span>
+            )}
 
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
-              <Layers3 size={14} />
-              Aktivitas kamar hari ini: {relatedBookings?.length || 0}
-            </span>
+            {booking.duration_hours && (
+              <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700">
+                Durasi: {booking.duration_hours} jam
+              </span>
+            )}
           </div>
 
-          <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <InfoCard
               icon={<BadgeInfo size={18} className="text-red-500" />}
               label="Nama Tamu"
@@ -1072,117 +1079,94 @@ function BookingDetailModal({
             />
             <InfoCard
               icon={<Hotel size={18} className="text-red-500" />}
-              label="Hotel / Cabang"
-              value={getHotelName(booking.hotel_id)}
+              label="Hotel"
+              value={
+                booking.hotel?.name ||
+                getHotelName(booking.hotel_id) ||
+                "-"
+              }
             />
             <InfoCard
               icon={<BedDouble size={18} className="text-red-500" />}
-              label="Kamar"
-              value={`${booking.room_number || "-"} • ${booking.room_name || "-"}`}
+              label="Kamar / Unit"
+              value={`${booking.room?.type || "-"} / ${booking.room_unit?.room_number || booking.room_number || "-"}`}
             />
             <InfoCard
-              icon={<CalendarDays size={18} className="text-red-500" />}
+              icon={<Clock3 size={18} className="text-red-500" />}
               label="Check In"
               value={formatDateTime(booking.check_in)}
             />
             <InfoCard
-              icon={<CalendarDays size={18} className="text-red-500" />}
+              icon={<Clock3 size={18} className="text-red-500" />}
               label="Check Out"
               value={formatDateTime(booking.check_out)}
             />
             <InfoCard
               icon={<Clock3 size={18} className="text-red-500" />}
-              label="Rentang Jam"
+              label="Jam Booking"
               value={formatTimeRange(booking)}
             />
             <InfoCard
               icon={<CreditCard size={18} className="text-red-500" />}
-              label="Kode Booking"
-              value={booking.booking_code || "-"}
+              label="Total Harga"
+              value={
+                booking.total_price
+                  ? `Rp ${Number(booking.total_price).toLocaleString("id-ID")}`
+                  : "-"
+              }
             />
           </div>
 
-          <div className="mb-5 rounded-3xl border border-gray-100 bg-gray-50 p-5">
-            <p className="mb-3 text-sm font-semibold text-gray-800">
-              Ringkasan Operasional
-            </p>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <MiniStat
-                title="Status"
-                value={booking.status || "-"}
-                tone="bg-white text-gray-700"
-              />
-              <MiniStat
-                title="Payment"
-                value={booking.payment_status || "-"}
-                tone="bg-white text-gray-700"
-              />
-              <MiniStat
-                title="Booking Type"
-                value={booking.booking_type || "-"}
-                tone="bg-white text-gray-700"
-              />
+          {booking.admin_note && (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-900">Catatan Admin</p>
+              <p className="mt-1 text-sm text-amber-800">{booking.admin_note}</p>
             </div>
-          </div>
+          )}
 
-          <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-5">
-            <p className="mb-3 text-sm font-semibold text-gray-800">
-              Aktivitas Kamar di Hari yang Sama
-            </p>
+          {relatedBookings.length > 1 && (
+            <div className="mt-6 rounded-3xl border border-gray-100 bg-gray-50/70 p-5">
+              <h4 className="text-base font-bold text-gray-800">
+                Booking Lain di Hari yang Sama
+              </h4>
+              <p className="mt-1 text-sm text-gray-500">
+                Ini membantu admin melihat slot booking lain pada kamar fisik yang sama.
+              </p>
 
-            {relatedBookings && relatedBookings.length > 0 ? (
-              <div className="space-y-3">
-                {relatedBookings.map((item, index) => (
+              <div className="mt-4 space-y-3">
+                {relatedBookings.map((item) => (
                   <div
-                    key={`${item.id}-${index}`}
-                    className={`flex flex-col gap-3 rounded-2xl border px-4 py-3 md:flex-row md:items-center md:justify-between ${
-                      item.id === booking.id
-                        ? "border-red-200 bg-white shadow-sm"
-                        : "border-blue-100 bg-white/80"
+                    key={item.id}
+                    className={`rounded-2xl border px-4 py-3 ${
+                      String(item.id) === String(booking.id)
+                        ? "border-red-200 bg-red-50"
+                        : "border-gray-200 bg-white"
                     }`}
                   >
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">
-                        {item.guest_name || item.booking_code}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {item.guest_phone || "-"}
-                      </p>
-                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-gray-800">
+                          {item.guest_name || item.booking_code}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {item.guest_phone || "-"}
+                        </p>
+                      </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700">
-                        {formatTimeRange(item)}
-                      </span>
-
-                      <span
-                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
-                          item.status
-                        )}`}
-                      >
-                        {item.status || "-"}
-                      </span>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-gray-700">
+                          {formatTimeRange(item)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {item.booking_code}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-blue-200 bg-white/70 px-4 py-5 text-sm text-gray-500">
-                Belum ada booking lain di kamar ini pada hari yang sama.
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-black"
-            >
-              Tutup Detail
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1191,28 +1175,14 @@ function BookingDetailModal({
 
 function InfoCard({ icon, label, value }) {
   return (
-    <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50">
+    <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-sm">
           {icon}
         </div>
-
-        <div className="min-w-0">
-          <p className="mb-1 text-xs font-medium text-gray-500">{label}</p>
-          <p className="break-words text-sm font-semibold text-gray-800">
-            {value}
-          </p>
-        </div>
+        <p className="text-sm font-semibold text-gray-700">{label}</p>
       </div>
-    </div>
-  );
-}
-
-function MiniStat({ title, value, tone }) {
-  return (
-    <div className={`rounded-2xl border border-gray-100 p-4 ${tone}`}>
-      <p className="mb-1 text-xs text-gray-500">{title}</p>
-      <p className="text-sm font-semibold">{value}</p>
+      <p className="text-sm font-medium text-gray-900">{value || "-"}</p>
     </div>
   );
 }
