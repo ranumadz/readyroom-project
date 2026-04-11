@@ -78,7 +78,7 @@ export default function HotelDetail() {
       return `http://127.0.0.1:8000/${cleanPath}`;
     }
 
-    return `http://127.0.0.1:8000/storage/${cleanPath}`;
+    return `/storage/${cleanPath}`;
   };
 
   const getFacilityIcon = (iconName) => {
