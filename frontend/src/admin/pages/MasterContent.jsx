@@ -17,8 +17,8 @@ import {
   Info,
 } from "lucide-react";
 
-const BACKEND_BASE_URL =
-  import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+const STORAGE_BASE_URL =
+  import.meta.env.VITE_STORAGE_URL || "/storage";
 
 export default function MasterContent() {
   const adminUser =
@@ -133,11 +133,11 @@ export default function MasterContent() {
     }
   };
 
-  const buildStorageUrl = (path) => {
-    if (!path) return "";
-    if (path.startsWith("http://") || path.startsWith("https://")) return path;
-    return `${BACKEND_BASE_URL}/storage/${path}`;
-  };
+const buildStorageUrl = (path) => {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return `${STORAGE_BASE_URL}/${String(path).replace(/^\/+/, "")}`;
+};
 
   const handleChange = (e) => {
     const { name, value } = e.target;
