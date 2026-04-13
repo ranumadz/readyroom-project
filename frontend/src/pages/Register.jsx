@@ -34,13 +34,37 @@ export default function Register() {
     setError("");
   };
 
+  const goToVerifyOtp = async (phone, message) => {
+    localStorage.setItem("otp_phone", phone);
+
+    await Swal.fire({
+      title: "Lanjut Verifikasi OTP",
+      html: `
+        <p style="margin-bottom:10px;">
+          ${message || "Nomor ini siap lanjut ke verifikasi OTP."}
+        </p>
+        <p style="font-size:14px; color:#666;">
+          Silakan lanjut ke halaman verifikasi OTP WhatsApp.
+        </p>
+      `,
+      confirmButtonText: "Lanjut Verifikasi",
+      confirmButtonColor: "#dc2626",
+      background: "#ffffff",
+      color: "#1f2937",
+    });
+
+    navigate("/verify-otp", {
+      state: { phone },
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      await api.post("/register", form);
+      const res = await api.post("/register", form);
 
       localStorage.setItem("otp_phone", form.phone);
 
@@ -48,7 +72,7 @@ export default function Register() {
         title: "Yeay! Pendaftaran Berhasil 🎉",
         html: `
           <p style="margin-bottom:10px;">
-            Akun kamu berhasil dibuat.
+            ${res.data?.message || "Akun kamu berhasil dibuat."}
           </p>
           <p style="font-size:14px; color:#666;">
             Kode OTP sudah dikirim ke nomor WhatsApp kamu.
@@ -73,6 +97,17 @@ export default function Register() {
 
       setError(message);
 
+      const lowerMessage = String(message).toLowerCase();
+
+      if (
+        lowerMessage.includes("lanjut verifikasi otp") ||
+        lowerMessage.includes("belum diverifikasi") ||
+        lowerMessage.includes("belum terverifikasi")
+      ) {
+        await goToVerifyOtp(form.phone, message);
+        return;
+      }
+
       await Swal.fire({
         icon: "error",
         title: "Pendaftaran Gagal",
@@ -84,6 +119,28 @@ export default function Register() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleContinueVerification = async () => {
+    const phone = form.phone?.trim() || localStorage.getItem("otp_phone");
+
+    if (!phone) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Nomor WhatsApp belum diisi",
+        text: "Masukkan nomor WhatsApp yang sudah pernah didaftarkan tapi belum diverifikasi.",
+        confirmButtonColor: "#dc2626",
+        background: "#ffffff",
+        color: "#1f2937",
+      });
+      return;
+    }
+
+    localStorage.setItem("otp_phone", phone);
+
+    navigate("/verify-otp", {
+      state: { phone },
+    });
   };
 
   return (
@@ -283,6 +340,14 @@ export default function Register() {
                 </button>
               </form>
 
+              <button
+                type="button"
+                onClick={handleContinueVerification}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 font-semibold text-red-600 transition hover:bg-red-50"
+              >
+                Lanjut Verifikasi OTP
+              </button>
+
               <div className="mt-6 rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50">
@@ -293,8 +358,8 @@ export default function Register() {
                       Lanjut verifikasi OTP
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                      Setelah daftar, kode OTP akan dikirim ke WhatsApp untuk
-                      aktivasi akun customer kamu.
+                      Kalau nomor kamu sudah pernah daftar tapi belum aktif,
+                      masukkan nomor lalu tekan tombol lanjut verifikasi OTP.
                     </p>
                   </div>
                 </div>
