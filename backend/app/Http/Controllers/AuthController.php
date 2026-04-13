@@ -30,7 +30,20 @@ class AuthController extends Controller
             'otp_expired_at' => now()->addMinutes(5),
         ]);
 
-        $this->sendWhatsappOtp($request->phone, $otpCode);
+        $otpResult = $this->sendWhatsappOtp($request->phone, $otpCode);
+
+        Log::info('REGISTER OTP RESULT', [
+            'phone' => $request->phone,
+            'result' => $otpResult,
+        ]);
+
+        if (!$otpResult['success']) {
+            return response()->json([
+                'message' => 'Register berhasil, tetapi OTP gagal dikirim ke WhatsApp',
+                'customer' => $customer,
+                'otp_status' => $otpResult,
+            ], 500);
+        }
 
         return response()->json([
             'message' => 'Register berhasil, kode OTP sudah dikirim ke WhatsApp',
@@ -155,7 +168,20 @@ class AuthController extends Controller
             'otp_expired_at' => now()->addMinutes(5),
         ]);
 
-        $this->sendWhatsappOtp($customer->phone, $otpCode);
+        $otpResult = $this->sendWhatsappOtp($customer->phone, $otpCode);
+
+        Log::info('RESEND OTP RESULT', [
+            'phone' => $customer->phone,
+            'result' => $otpResult,
+        ]);
+
+        if (!$otpResult['success']) {
+            return response()->json([
+                'message' => 'OTP baru gagal dikirim ke WhatsApp',
+                'customer' => $customer,
+                'otp_status' => $otpResult,
+            ], 500);
+        }
 
         return response()->json([
             'message' => 'Kode OTP baru berhasil dikirim ke WhatsApp',
@@ -239,7 +265,20 @@ class AuthController extends Controller
             'new_phone_otp_expired_at' => now()->addMinutes(5),
         ]);
 
-        $this->sendWhatsappOtp($request->new_phone, $otpCode);
+        $otpResult = $this->sendWhatsappOtp($request->new_phone, $otpCode);
+
+        Log::info('CHANGE PHONE OTP RESULT', [
+            'phone' => $request->new_phone,
+            'result' => $otpResult,
+        ]);
+
+        if (!$otpResult['success']) {
+            return response()->json([
+                'message' => 'OTP ubah nomor gagal dikirim ke WhatsApp baru',
+                'customer' => $customer,
+                'otp_status' => $otpResult,
+            ], 500);
+        }
 
         return response()->json([
             'message' => 'Kode OTP untuk ubah nomor berhasil dikirim ke WhatsApp baru',
@@ -321,11 +360,12 @@ class AuthController extends Controller
     private function sendWhatsappOtp(string $phone, string $otpCode): array
     {
         try {
-            $token = config('services.fonnte.token') ?: env('FONNTE_TOKEN');
-            $url = config('services.fonnte.url') ?: env('FONNTE_URL', 'https://api.fonnte.com/send');
+            $token = config('services.fonnte.token');
+            $url = config('services.fonnte.url', 'https://api.fonnte.com/send');
 
             if (!$token || !$url) {
-                Log::error('Fonnte config tidak lengkap', [
+                Log::error('FONNTE CONFIG ERROR', [
+                    'message' => 'Fonnte config tidak lengkap',
                     'token_exists' => !empty($token),
                     'url' => $url,
                 ]);
@@ -337,36 +377,59 @@ class AuthController extends Controller
                 ];
             }
 
-            $target = preg_replace('/\D/', '', $phone);
+            $target = $this->normalizePhoneNumber($phone);
 
-            if (substr($target, 0, 1) === '0') {
-                $target = '62' . substr($target, 1);
+            if (!$target) {
+                Log::error('FONNTE OTP ERROR', [
+                    'message' => 'Nomor target tidak valid setelah normalisasi',
+                    'phone' => $phone,
+                ]);
+
+                return [
+                    'success' => false,
+                    'status' => 422,
+                    'body' => 'Nomor target tidak valid',
+                ];
             }
 
-            $message = "Kode OTP ReadyRoom kamu: {$otpCode}\n\nJangan bagikan kode ini ke siapa pun.\nBerlaku selama 5 menit.";
+            $message = "Kode OTP ReadyRoom kamu: {$otpCode}\n\n"
+                . "Jangan bagikan kode ini ke siapa pun.\n"
+                . "Berlaku selama 5 menit.";
 
-            $response = Http::withHeaders([
-                'Authorization' => $token,
-            ])->asForm()->post($url, [
-                'target' => $target,
-                'message' => $message,
-            ]);
+            $response = Http::timeout(30)
+                ->withHeaders([
+                    'Authorization' => $token,
+                ])
+                ->asForm()
+                ->post($url, [
+                    'target' => (string) $target,
+                    'message' => $message,
+                ]);
+
+            $responseBody = $response->json();
+            if (!$responseBody) {
+                $responseBody = $response->body();
+            }
 
             Log::info('FONNTE OTP RESPONSE', [
+                'url' => $url,
+                'raw_phone' => $phone,
                 'target' => $target,
                 'status' => $response->status(),
-                'body' => $response->json() ?? $response->body(),
+                'successful' => $response->successful(),
+                'body' => $responseBody,
             ]);
 
             return [
                 'success' => $response->successful(),
                 'status' => $response->status(),
-                'body' => $response->json() ?? $response->body(),
+                'body' => $responseBody,
             ];
         } catch (\Throwable $e) {
             Log::error('FONNTE OTP ERROR', [
                 'message' => $e->getMessage(),
                 'phone' => $phone,
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
@@ -375,5 +438,29 @@ class AuthController extends Controller
                 'body' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Normalisasi nomor ke format 62xxxxxxxxxx
+     */
+    private function normalizePhoneNumber(string $phone): ?string
+    {
+        $target = preg_replace('/\D/', '', $phone);
+
+        if (!$target) {
+            return null;
+        }
+
+        if (substr($target, 0, 1) === '0') {
+            $target = '62' . substr($target, 1);
+        } elseif (substr($target, 0, 2) !== '62') {
+            $target = '62' . ltrim($target, '0');
+        }
+
+        if (strlen($target) < 10) {
+            return null;
+        }
+
+        return (string) $target;
     }
 }
