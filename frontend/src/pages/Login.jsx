@@ -60,10 +60,27 @@ export default function Login() {
 
       localStorage.setItem("customer", JSON.stringify(res.data.customer));
 
+      localStorage.removeItem("otp_phone");
+
       setLoginSuccess(true);
     } catch (err) {
       console.error("LOGIN ERROR:", err);
-      setError(err.response?.data?.message || "Login gagal");
+
+      const message = err.response?.data?.message || "Login gagal";
+
+      if (message === "Akun belum diverifikasi OTP") {
+        localStorage.setItem("otp_phone", form.phone);
+
+        setError("Akun kamu belum diverifikasi. Kami arahkan ke halaman OTP.");
+
+        setTimeout(() => {
+          navigate("/verify-otp");
+        }, 1200);
+
+        return;
+      }
+
+      setError(message);
     } finally {
       setLoading(false);
     }

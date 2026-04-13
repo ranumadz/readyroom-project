@@ -6,6 +6,7 @@ use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -320,23 +321,41 @@ class AuthController extends Controller
     private function sendWhatsappOtp(string $phone, string $otpCode): array
     {
         try {
-            // Normalisasi nomor ke format internasional
+            $token = config('services.fonnte.token') ?: env('FONNTE_TOKEN');
+            $url = config('services.fonnte.url') ?: env('FONNTE_URL', 'https://api.fonnte.com/send');
+
+            if (!$token || !$url) {
+                Log::error('Fonnte config tidak lengkap', [
+                    'token_exists' => !empty($token),
+                    'url' => $url,
+                ]);
+
+                return [
+                    'success' => false,
+                    'status' => 500,
+                    'body' => 'Fonnte config tidak lengkap',
+                ];
+            }
+
             $target = preg_replace('/\D/', '', $phone);
 
             if (substr($target, 0, 1) === '0') {
                 $target = '62' . substr($target, 1);
             }
 
-            $message = "Kode OTP ReadyRoom kamu: {$otpCode}\n\n"
-                . "Jangan bagikan kode ini ke siapa pun.\n"
-                . "Berlaku selama 5 menit.";
+            $message = "Kode OTP ReadyRoom kamu: {$otpCode}\n\nJangan bagikan kode ini ke siapa pun.\nBerlaku selama 5 menit.";
 
             $response = Http::withHeaders([
-                'Authorization' => config('services.fonnte.token'),
-            ])->asForm()->post(config('services.fonnte.url'), [
+                'Authorization' => $token,
+            ])->asForm()->post($url, [
                 'target' => $target,
                 'message' => $message,
-                'countryCode' => '62',
+            ]);
+
+            Log::info('FONNTE OTP RESPONSE', [
+                'target' => $target,
+                'status' => $response->status(),
+                'body' => $response->json() ?? $response->body(),
             ]);
 
             return [
@@ -344,8 +363,11 @@ class AuthController extends Controller
                 'status' => $response->status(),
                 'body' => $response->json() ?? $response->body(),
             ];
-        } catch (\Exception $e) {
-            \Log::error('Fonnte OTP Error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('FONNTE OTP ERROR', [
+                'message' => $e->getMessage(),
+                'phone' => $phone,
+            ]);
 
             return [
                 'success' => false,
