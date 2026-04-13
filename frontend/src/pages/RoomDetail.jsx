@@ -14,7 +14,6 @@ import {
   MoonStar,
   Users,
   FileText,
-  X,
   LogIn,
   UserPlus,
   MessageCircle,
@@ -24,7 +23,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
-  Sparkles,
   Home,
   AlertCircle,
 } from "lucide-react";
@@ -39,7 +37,6 @@ export default function RoomDetail() {
   const [bookingMode, setBookingMode] = useState("transit");
   const [transitDuration, setTransitDuration] = useState("3");
 
-  const [showBookingModal, setShowBookingModal] = useState(false);
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
   const [customerUser, setCustomerUser] = useState(null);
 
@@ -222,31 +219,31 @@ export default function RoomDetail() {
     return String(selectedCheckInDate.getMinutes()).padStart(2, "0");
   }, [selectedCheckInDate]);
 
-const updateCheckInTimePart = (type, value) => {
-  if (!selectedCheckInDate) {
-    setBookingError("Pilih tanggal terlebih dahulu.");
-    return;
-  }
+  const updateCheckInTimePart = (type, value) => {
+    if (!selectedCheckInDate) {
+      setBookingError("Pilih tanggal terlebih dahulu.");
+      return;
+    }
 
-  const nextDate = new Date(selectedCheckInDate);
+    const nextDate = new Date(selectedCheckInDate);
 
-  if (type === "hour") {
-    nextDate.setHours(Number(value));
-  }
+    if (type === "hour") {
+      nextDate.setHours(Number(value));
+    }
 
-  if (type === "minute") {
-    nextDate.setMinutes(Number(value));
-  }
+    if (type === "minute") {
+      nextDate.setMinutes(Number(value));
+    }
 
-  nextDate.setSeconds(0, 0);
+    nextDate.setSeconds(0, 0);
 
-  setBookingForm((prev) => ({
-    ...prev,
-    check_in: formatDateTimeLocalValue(nextDate),
-  }));
+    setBookingForm((prev) => ({
+      ...prev,
+      check_in: formatDateTimeLocalValue(nextDate),
+    }));
 
-  setBookingError("");
-};
+    setBookingError("");
+  };
 
   const estimatedCheckOutText = useMemo(() => {
     if (!selectedCheckInDate) return "-";
@@ -388,16 +385,6 @@ const updateCheckInTimePart = (type, value) => {
     return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
   }, [room, bookingMode, transitDuration, mainPrice]);
 
-  const handleBookingClick = () => {
-    setBookingError("");
-    setShowBookingModal(true);
-  };
-
-  const closeBookingModal = () => {
-    setShowBookingModal(false);
-    setBookingError("");
-  };
-
   const closeSuccessModal = () => {
     setBookingSuccess({
       open: false,
@@ -447,10 +434,7 @@ const updateCheckInTimePart = (type, value) => {
       };
 
       const res = await api.post("/bookings", payload);
-
       const bookingCode = res.data?.data?.booking_code || "-";
-
-      closeBookingModal();
 
       setBookingForm({
         check_in: "",
@@ -529,49 +513,44 @@ const updateCheckInTimePart = (type, value) => {
   return (
     <>
       <style>{`
-        .readyroom-datepicker-popper {
-          z-index: 9999 !important;
+        .readyroom-datepicker-inline {
+          width: 100% !important;
         }
 
-        .readyroom-datepicker-calendar {
+        .readyroom-datepicker-inline .react-datepicker {
+          width: 100% !important;
           border: 1px solid #fecaca !important;
           border-radius: 24px !important;
           overflow: hidden !important;
-          box-shadow: 0 24px 60px rgba(239, 68, 68, 0.16) !important;
+          box-shadow: 0 24px 60px rgba(239, 68, 68, 0.12) !important;
           font-family: inherit !important;
           background: #ffffff !important;
         }
 
-        .readyroom-datepicker-calendar.react-datepicker {
-          width: 100% !important;
-          min-width: 100% !important;
-          border: none !important;
-        }
-
-        .readyroom-datepicker-calendar .react-datepicker__month-container {
+        .readyroom-datepicker-inline .react-datepicker__month-container {
           float: none !important;
           width: 100% !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__header {
+        .readyroom-datepicker-inline .react-datepicker__header {
           background: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%) !important;
           border-bottom: none !important;
           padding-top: 16px !important;
           padding-bottom: 14px !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__current-month,
-        .readyroom-datepicker-calendar .react-datepicker-year-header {
+        .readyroom-datepicker-inline .react-datepicker__current-month,
+        .readyroom-datepicker-inline .react-datepicker-year-header {
           color: #ffffff !important;
           font-weight: 800 !important;
           font-size: 15px !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__day-names {
+        .readyroom-datepicker-inline .react-datepicker__day-names {
           margin-top: 8px !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__day-name {
+        .readyroom-datepicker-inline .react-datepicker__day-name {
           color: rgba(255, 255, 255, 0.92) !important;
           font-weight: 700 !important;
           width: 2.2rem !important;
@@ -579,71 +558,60 @@ const updateCheckInTimePart = (type, value) => {
           margin: 0.2rem !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__navigation {
+        .readyroom-datepicker-inline .react-datepicker__navigation {
           top: 14px !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__navigation-icon::before {
+        .readyroom-datepicker-inline .react-datepicker__navigation-icon::before {
           border-color: #ffffff !important;
           border-width: 2px 2px 0 0 !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__month {
+        .readyroom-datepicker-inline .react-datepicker__month {
           margin: 0 !important;
           padding: 16px 14px 18px !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__week {
+        .readyroom-datepicker-inline .react-datepicker__week {
           display: flex !important;
           justify-content: space-between !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__day {
-          width: 2.45rem !important;
-          line-height: 2.45rem !important;
-          margin: 0.18rem !important;
+        .readyroom-datepicker-inline .react-datepicker__day {
+          width: 2.35rem !important;
+          line-height: 2.35rem !important;
+          margin: 0.16rem !important;
           border-radius: 14px !important;
           color: #1f2937 !important;
           font-weight: 600 !important;
           transition: all 0.2s ease !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__day:hover {
+        .readyroom-datepicker-inline .react-datepicker__day:hover {
           background-color: #fee2e2 !important;
           color: #dc2626 !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__day--today {
+        .readyroom-datepicker-inline .react-datepicker__day--today {
           background: #fff1f2 !important;
           color: #dc2626 !important;
           font-weight: 800 !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__day--selected,
-        .readyroom-datepicker-calendar .react-datepicker__day--keyboard-selected {
+        .readyroom-datepicker-inline .react-datepicker__day--selected,
+        .readyroom-datepicker-inline .react-datepicker__day--keyboard-selected {
           background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
           color: #ffffff !important;
           font-weight: 800 !important;
         }
 
-        .readyroom-datepicker-calendar .react-datepicker__day--outside-month {
+        .readyroom-datepicker-inline .react-datepicker__day--outside-month {
           color: #cbd5e1 !important;
-        }
-
-        .readyroom-datepicker-calendar .react-datepicker__triangle {
-          display: none !important;
-        }
-
-        .readyroom-datepicker-calendar .react-datepicker__today-button {
-          background: #fff1f2 !important;
-          color: #dc2626 !important;
-          border-top: 1px solid #ffe4e6 !important;
-          font-weight: 700 !important;
-          padding: 12px !important;
         }
 
         .readyroom-time-scroll::-webkit-scrollbar {
           width: 8px;
+          height: 8px;
         }
 
         .readyroom-time-scroll::-webkit-scrollbar-thumb {
@@ -859,6 +827,255 @@ const updateCheckInTimePart = (type, value) => {
               </div>
 
               <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                    <CalendarDays size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-800">
+                      Pilih Tanggal & Jam Booking
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      Tanggal ada di bawah harga dan booking langsung tanpa modal
+                    </p>
+                  </div>
+                </div>
+
+                {isCustomerLoggedIn ? (
+                  <div className="space-y-5">
+                    <div className="rounded-2xl bg-red-50 border border-red-100 p-4">
+                      <p className="text-sm text-red-600 font-semibold mb-1">
+                        Ringkasan Pilihan
+                      </p>
+                      <p className="font-bold text-gray-800">{room.name}</p>
+                      <p className="text-sm text-gray-600">
+                        {bookingMode === "transit"
+                          ? `Transit ${transitDuration} Jam`
+                          : "Overnight"}{" "}
+                        • {formatRupiah(mainPrice)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
+                      <div className="flex gap-3">
+                        <ShieldCheck
+                          className="text-emerald-600 mt-0.5 shrink-0"
+                          size={18}
+                        />
+                        <p className="text-sm text-gray-700">
+                          Booking akan masuk sebagai <b>pending</b> dan menunggu
+                          admin.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-5">
+                      <div className="rounded-[24px] border border-red-100 bg-white overflow-hidden">
+                        <div className="px-4 py-3 border-b border-red-50 bg-gradient-to-r from-red-50 to-rose-50">
+                          <h3 className="font-semibold text-gray-800">
+                            Tanggal Check-in
+                          </h3>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Pilih tanggal booking yang kamu inginkan
+                          </p>
+                        </div>
+
+                        <div className="p-3 sm:p-4">
+                          <div className="readyroom-datepicker-inline">
+                            <DatePicker
+                              selected={selectedCheckInDate}
+                              onChange={handleCheckInDateChange}
+                              minDate={new Date()}
+                              inline
+                              calendarClassName="readyroom-datepicker-inline"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-[24px] border border-red-100 bg-white p-4">
+                          <h3 className="font-semibold text-gray-800 mb-1">
+                            Waktu Check-in
+                          </h3>
+                          <p className="text-xs text-gray-500 mb-4">
+                            Pilih jam tanpa popup tambahan
+                          </p>
+
+                          {!selectedCheckInDate && (
+                            <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                              Silakan pilih tanggal terlebih dahulu sebelum pilih jam.
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                                Pilih Jam
+                              </label>
+                              <div className="readyroom-time-scroll h-48 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                  {hourOptions.map((hour) => (
+                                    <button
+                                      key={hour}
+                                      type="button"
+                                      onClick={() =>
+                                        updateCheckInTimePart("hour", hour)
+                                      }
+                                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                                        selectedHour === hour
+                                          ? "bg-red-600 text-white shadow"
+                                          : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                                      }`}
+                                    >
+                                      {hour}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                                Pilih Menit
+                              </label>
+                              <div className="readyroom-time-scroll h-48 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                  {minuteOptions.map((minute) => (
+                                    <button
+                                      key={minute}
+                                      type="button"
+                                      onClick={() =>
+                                        updateCheckInTimePart("minute", minute)
+                                      }
+                                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                                        selectedMinute === minute
+                                          ? "bg-red-600 text-white shadow"
+                                          : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                                      }`}
+                                    >
+                                      {minute}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                            <p className="text-xs font-semibold text-gray-500 mb-1">
+                              Check-in Dipilih
+                            </p>
+                            <p className="text-sm font-semibold text-gray-800">
+                              {selectedCheckInDate
+                                ? selectedCheckInDate.toLocaleString("id-ID", {
+                                    day: "2-digit",
+                                    month: "long",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "-"}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                            <p className="text-sm font-medium text-amber-800">
+                              Estimasi checkout:{" "}
+                              <span className="font-bold">
+                                {estimatedCheckOutText}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {bookingError && (
+                      <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle
+                            size={18}
+                            className="mt-0.5 shrink-0 text-red-600"
+                          />
+                          <p className="text-sm text-red-700">{bookingError}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={handleSubmitBooking}
+                        disabled={submittingBooking}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-4 text-white font-semibold hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {submittingBooking ? (
+                          <>
+                            <Loader2 size={18} className="animate-spin" />
+                            Memproses Booking...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 size={18} />
+                            Konfirmasi Booking
+                          </>
+                        )}
+                      </button>
+
+                      {waAdminLink ? (
+                        <a
+                          href={waAdminLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-700 font-semibold hover:bg-green-100 transition"
+                        >
+                          <MessageCircle size={18} />
+                          Chat WhatsApp Admin
+                        </a>
+                      ) : (
+                        <div className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-gray-400 font-semibold">
+                          <MessageCircle size={18} />
+                          WhatsApp Admin Belum Tersedia
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-red-200 bg-red-50/60 p-5">
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">
+                      Login dulu untuk lanjut booking
+                    </h3>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      Supaya kamu bisa memilih tanggal, jam check-in, dan
+                      mengirim booking ke admin hotel, silakan login atau buat
+                      akun terlebih dahulu.
+                    </p>
+
+                    <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => navigate("/login")}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3.5 text-white font-semibold hover:bg-red-700 transition"
+                      >
+                        <LogIn size={18} />
+                        Login Sekarang
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => navigate("/register")}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-red-600 font-semibold hover:bg-red-50 transition"
+                      >
+                        <UserPlus size={18} />
+                        Buat Akun
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
                     <FileText size={20} />
@@ -924,15 +1141,7 @@ const updateCheckInTimePart = (type, value) => {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleBookingClick}
-                className="mt-6 w-full rounded-2xl bg-red-600 px-5 py-4 text-white font-semibold hover:bg-red-700 transition shadow-lg shadow-red-100"
-              >
-                Lanjut Booking
-              </button>
-
-              <p className="text-xs text-gray-400 mt-3 text-center">
+              <p className="text-xs text-gray-400 mt-4 text-center">
                 Booking tetap akan masuk ke admin terlebih dahulu untuk proses
                 approval.
               </p>
@@ -943,202 +1152,19 @@ const updateCheckInTimePart = (type, value) => {
         <Footer />
       </div>
 
-      {showBookingModal && (
-  <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4">
-    
-    <div className="w-full sm:max-w-2xl bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl border border-gray-100 max-h-[92vh] flex flex-col overflow-hidden">
-
-      {/* HEADER */}
-      <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-gray-100 bg-white">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
-              Lanjut Booking
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Pilih cara booking yang paling nyaman untuk kamu
-            </p>
-          </div>
-
-          <button
-            onClick={closeBookingModal}
-            className="h-10 w-10 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-          >
-            <X size={18} />
-          </button>
-        </div>
-      </div>
-
-      {/* BODY (SCROLLABLE) */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-5">
-
-        {/* SUMMARY */}
-        <div className="rounded-2xl bg-red-50 border border-red-100 p-4">
-          <p className="text-sm text-red-600 font-semibold mb-1">
-            Ringkasan Pilihan
-          </p>
-          <p className="font-bold text-gray-800">{room.name}</p>
-          <p className="text-sm text-gray-600">
-            {bookingMode === "transit"
-              ? `Transit ${transitDuration} Jam`
-              : "Overnight"}{" "}
-            • {formatRupiah(mainPrice)}
-          </p>
-        </div>
-
-        {isCustomerLoggedIn ? (
-          <>
-            {/* INFO */}
-            <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
-              <div className="flex gap-3">
-                <ShieldCheck className="text-emerald-600 mt-1" size={18} />
-                <p className="text-sm text-gray-700">
-                  Booking akan masuk sebagai <b>pending</b> dan menunggu admin.
-                </p>
-              </div>
-            </div>
-
-            {/* DATE */}
-            <div>
-             <label className="text-sm font-semibold text-gray-700 mb-2 block">
-  Tanggal Check-in
-</label>
-
-<DatePicker
-  selected={selectedCheckInDate}
-  onChange={handleCheckInDateChange}
-  className="w-full border rounded-xl px-4 py-3"
-  minDate={new Date()}
-/>
-
-{!selectedCheckInDate && (
-  <p className="mt-2 text-xs font-medium text-amber-600">
-    Silakan pilih tanggal terlebih dahulu.
-  </p>
-)}
-            </div>
-
-            {/* TIME */}
-          <div className="grid grid-cols-2 gap-3">
-
-  {/* JAM */}
-  <div>
-    <p className="text-xs font-semibold text-red-500 mb-2">
-  Pilih Jam
-</p>
-
-    <div className="max-h-32 overflow-y-auto border rounded-xl p-2">
-      {hourOptions.map((h) => (
-        <button
-          key={h}
-          onClick={() => updateCheckInTimePart("hour", h)}
-          className={`w-full py-2 rounded-lg text-sm ${
-            selectedHour === h
-              ? "bg-red-600 text-white"
-              : "hover:bg-gray-100"
-          }`}
-        >
-          {h}
-        </button>
-      ))}
-    </div>
-  </div>
-
-  {/* MENIT */}
-  <div>
-    <p className="text-xs font-semibold text-red-500 mb-2">
-      Pilih Menit
-    </p>
-
-    <div className="max-h-32 overflow-y-auto border rounded-xl p-2">
-      {minuteOptions.map((m) => (
-        <button
-          key={m}
-          onClick={() => updateCheckInTimePart("minute", m)}
-          className={`w-full py-2 rounded-lg text-sm ${
-            selectedMinute === m
-              ? "bg-red-600 text-white"
-              : "hover:bg-gray-100"
-          }`}
-        >
-          {m}
-        </button>
-      ))}
-    </div>
-  </div>
-
-</div>
-
-            {/* CHECKOUT */}
-            <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 text-sm">
-              Estimasi checkout: <b>{estimatedCheckOutText}</b>
-            </div>
-
-            {/* ERROR */}
-            {bookingError && (
-  <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-    {bookingError}
-  </div>
-)}
-          </>
-        ) : (
-          <>
-            <div className="bg-yellow-50 border border-yellow-100 p-4 rounded-xl text-sm">
-              Silakan login dulu untuk booking
-            </div>
-
-            <button
-              onClick={() => navigate("/login")}
-              className="w-full bg-red-600 text-white py-3 rounded-xl"
-            >
-              Login
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* FOOTER (ANTI KETUTUP) */}
-      <div className="shrink-0 border-t bg-white p-4 flex gap-3 flex-col sm:flex-row">
-        <button
-          onClick={handleSubmitBooking}
-          className="flex-1 bg-red-600 text-white py-3 rounded-xl"
-        >
-          Konfirmasi Booking
-        </button>
-
-        <button
-          onClick={closeBookingModal}
-          className="flex-1 border py-3 rounded-xl"
-        >
-          Batal
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
       {bookingSuccess.open && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="relative w-full max-w-xl rounded-[2rem] bg-white p-6 md:p-8 shadow-2xl border border-gray-100">
-            <button
-              type="button"
-              onClick={closeSuccessModal}
-              className="absolute right-5 top-5 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-lg shadow-red-200">
-              <CheckCircle2 size={38} />
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-[28px] bg-white p-6 sm:p-8 shadow-2xl">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-lg">
+              <CheckCircle2 size={36} />
             </div>
 
-            <div className="text-center">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
-                <Sparkles size={16} />
-                Booking Berhasil
-              </div>
+            <div className="mt-6 text-center">
+              <p className="inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+                Booking Berhasil Dibuat
+              </p>
 
-              <h2 className="text-3xl font-extrabold text-gray-800 leading-tight mt-5">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 leading-tight mt-5">
                 Yeay, pesananmu berhasil masuk
               </h2>
 
@@ -1156,8 +1182,8 @@ const updateCheckInTimePart = (type, value) => {
                 {bookingSuccess.bookingCode || "-"}
               </p>
               <p className="mt-2 text-xs text-gray-500">
-                Simpan kode ini ya , nanti bisa dipakai untuk konfirmasi ke
-                hotel saat booking sudah disetujui.
+                Simpan kode ini ya, nanti bisa dipakai untuk konfirmasi ke hotel
+                saat booking sudah disetujui.
               </p>
             </div>
 
@@ -1166,8 +1192,7 @@ const updateCheckInTimePart = (type, value) => {
                 Sambil menunggu approval admin
               </p>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Yuk cek beranda ReadyRoom lagi untuk lihat promo menarik,
-                pilihan kamar lain, atau reservasi hotel favoritmu berikutnya.
+                Yuk cek booking kamu di halaman daftar booking customer.
               </p>
             </div>
 
@@ -1188,12 +1213,12 @@ const updateCheckInTimePart = (type, value) => {
                 type="button"
                 onClick={() => {
                   closeSuccessModal();
-                  navigate("/riwayat-booking");
+                  navigate("/my-bookings");
                 }}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-gray-700 font-semibold hover:bg-gray-50 transition"
               >
                 <FileText size={18} />
-                Lihat Riwayat Booking
+                Lihat My Bookings
               </button>
             </div>
           </div>

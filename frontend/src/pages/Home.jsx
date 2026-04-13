@@ -249,74 +249,50 @@ export default function Home() {
       <Navbar />
 
       <section className="relative overflow-hidden pt-20 pb-24 text-white md:pt-28 md:pb-32">
-        <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="ReadyRoom Hero"
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-[#4b0000]/90 via-red-800/80 to-rose-700/80" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,0,0,0.18),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.08),transparent_25%)]" />
-          <div className="absolute -top-16 left-0 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute top-12 right-10 h-96 w-96 rounded-full bg-black/15 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 h-[28rem] w-[28rem] rounded-full bg-red-300/10 blur-3xl" />
-        </div>
+  <div className="absolute inset-0">
+    <img
+      src={heroImage}
+      alt="ReadyRoom Hero"
+      className="h-full w-full object-cover"
+    />
+    <div className="absolute inset-0 bg-gradient-to-br from-[#4b0000]/90 via-red-800/80 to-rose-700/80" />
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,0,0,0.18),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.08),transparent_25%)]" />
+    <div className="absolute top-12 right-10 h-96 w-96 rounded-full bg-black/15 blur-3xl" />
+    <div className="absolute bottom-0 left-1/3 h-[28rem] w-[28rem] rounded-full bg-red-300/10 blur-3xl" />
+  </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-          <div className="mx-auto max-w-5xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
-              <Clock size={16} />
-              <span className="text-sm font-medium">
-                Booking Transit 3 Jam • Stay Harian • Fleksibel
-              </span>
-            </div>
+  <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+    <div className="mx-auto max-w-5xl text-center">
+      <h2 className="mb-5 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl xl:text-7xl">
+        {heroTitle}
+      </h2>
 
-            <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-xs text-white/90 md:text-sm">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-md">
-                <BadgeCheck size={15} />
-                Fast Approval Flow
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-md">
-                <Sparkles size={15} />
-                Modern Transit Booking
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-md">
-                <ShieldCheck size={15} />
-                Aman & Nyaman
-              </span>
-            </div>
+      <p className="mx-auto mb-10 max-w-3xl text-lg leading-relaxed text-red-100 md:text-xl">
+        {heroSubtitle}
+      </p>
 
-            <h2 className="mb-5 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl xl:text-7xl">
-              {heroTitle}
-            </h2>
+      <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
+        <Link
+          to="/hotels"
+          className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-100"
+        >
+          Explore Hotels
+          <ArrowRight size={18} />
+        </Link>
 
-            <p className="mx-auto mb-10 max-w-3xl text-lg leading-relaxed text-red-100 md:text-xl">
-              {heroSubtitle}
-            </p>
+        <Link
+          to="/hotels"
+          className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-6 py-3.5 font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/15"
+        >
+          Explore Rooms
+          <Hotel size={18} />
+        </Link>
+      </div>
+    </div>
 
-            <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
-              <Link
-                to="/hotels"
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-100"
-              >
-                Explore Hotels
-                <ArrowRight size={18} />
-              </Link>
-
-              <Link
-                to="/hotels"
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-6 py-3.5 font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/15"
-              >
-                Explore Rooms
-                <Hotel size={18} />
-              </Link>
-            </div>
-          </div>
-
-          <HeroSearchFilter />
-        </div>
-      </section>
-
+    <HeroSearchFilter />
+  </div>
+</section>
       <section className="relative z-10 -mt-10">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">

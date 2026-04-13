@@ -85,7 +85,7 @@ export default function VerifyOtp() {
       localStorage.removeItem("otp_phone");
 
       await Swal.fire({
-        title: "OTP Berhasil Diverifikasi 🎉",
+        title: "OTP Berhasil Diverifikasi ",
         text: res.data.message || "Akun kamu sudah aktif.",
         icon: "success",
         confirmButtonText: "Login Sekarang",

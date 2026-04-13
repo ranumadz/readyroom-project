@@ -267,7 +267,11 @@ class AuthController extends Controller
             ], 403);
         }
 
-        if (!$customer->new_phone || !$customer->new_phone_otp || !$customer->new_phone_otp_expired_at) {
+        if (
+            !$customer->new_phone ||
+            !$customer->new_phone_otp ||
+            !$customer->new_phone_otp_expired_at
+        ) {
             return response()->json([
                 'message' => 'Permintaan ubah nomor tidak ditemukan',
             ], 400);
@@ -310,24 +314,44 @@ class AuthController extends Controller
         ], 200);
     }
 
+    /**
+     * Kirim OTP melalui WhatsApp menggunakan Fonnte
+     */
     private function sendWhatsappOtp(string $phone, string $otpCode): array
     {
-        $target = preg_replace('/^0/', '62', $phone);
+        try {
+            // Normalisasi nomor ke format internasional
+            $target = preg_replace('/\D/', '', $phone);
 
-        $message = "Kode OTP ReadyRoom kamu: {$otpCode}\n\nJangan bagikan kode ini ke siapa pun.\nBerlaku 5 menit.";
+            if (substr($target, 0, 1) === '0') {
+                $target = '62' . substr($target, 1);
+            }
 
-        $response = Http::withHeaders([
-            'Authorization' => config('services.fonnte.token'),
-        ])->asForm()->post(config('services.fonnte.url'), [
-            'target' => $target,
-            'message' => $message,
-            'countryCode' => '62',
-        ]);
+            $message = "Kode OTP ReadyRoom kamu: {$otpCode}\n\n"
+                . "Jangan bagikan kode ini ke siapa pun.\n"
+                . "Berlaku selama 5 menit.";
 
-        return [
-            'success' => $response->successful(),
-            'status' => $response->status(),
-            'body' => $response->json() ?? $response->body(),
-        ];
+            $response = Http::withHeaders([
+                'Authorization' => config('services.fonnte.token'),
+            ])->asForm()->post(config('services.fonnte.url'), [
+                'target' => $target,
+                'message' => $message,
+                'countryCode' => '62',
+            ]);
+
+            return [
+                'success' => $response->successful(),
+                'status' => $response->status(),
+                'body' => $response->json() ?? $response->body(),
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Fonnte OTP Error: ' . $e->getMessage());
+
+            return [
+                'success' => false,
+                'status' => 500,
+                'body' => $e->getMessage(),
+            ];
+        }
     }
 }
