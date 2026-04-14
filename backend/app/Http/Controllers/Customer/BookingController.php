@@ -34,13 +34,33 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'user_id' => 'required|exists:customers,id',
+            'user_id' => 'nullable|exists:customers,id',
+            'guest_name' => 'nullable|string|max:255',
+            'guest_phone' => 'nullable|string|max:20',
+
             'hotel_id' => 'required|exists:hotels,id',
             'room_id' => 'required|exists:rooms,id',
             'booking_type' => 'required|in:transit,overnight',
             'duration_hours' => 'nullable|integer|min:1',
             'check_in' => 'required|date',
         ]);
+
+        $isLoggedInBooking = !empty($request->user_id);
+        $isGuestManualBooking = !$isLoggedInBooking;
+
+        if ($isGuestManualBooking) {
+            if (!$request->guest_name) {
+                return response()->json([
+                    'message' => 'Nama tamu wajib diisi untuk reservasi manual'
+                ], 422);
+            }
+
+            if (!$request->guest_phone) {
+                return response()->json([
+                    'message' => 'Nomor WhatsApp wajib diisi untuk reservasi manual'
+                ], 422);
+            }
+        }
 
         $room = Room::with('hotel')->findOrFail($request->room_id);
 
@@ -85,28 +105,46 @@ class BookingController extends Controller
 
         $bookingCode = $this->generateBookingCode();
 
+        $normalizedGuestPhone = $request->guest_phone
+            ? $this->normalizePhoneNumber($request->guest_phone)
+            : null;
+
         $booking = Booking::create([
             'booking_code' => $bookingCode,
-            'user_id' => $request->user_id,
+
+            'user_id' => $isLoggedInBooking ? $request->user_id : null,
+
+            'guest_name' => $isGuestManualBooking ? $request->guest_name : null,
+            'guest_phone' => $isGuestManualBooking ? $normalizedGuestPhone : null,
+            'guest_email' => null,
+
+            'booking_source' => $isLoggedInBooking ? 'customer_login' : 'guest_manual',
+
             'hotel_id' => $request->hotel_id,
             'room_id' => $request->room_id,
             'room_unit_id' => null,
+
             'booking_type' => $request->booking_type,
             'duration_hours' => $request->booking_type === 'transit'
                 ? $request->duration_hours
                 : null,
+
             'check_in' => $checkIn,
             'check_out' => $checkOut,
             'total_price' => $totalPrice,
+
             'status' => 'pending',
             'payment_status' => 'unpaid',
+
             'admin_note' => null,
             'rejection_reason_internal' => null,
             'rejection_reason_customer' => null,
         ]);
 
         return response()->json([
-            'message' => 'Booking berhasil dibuat dan menunggu persetujuan admin',
+            'message' => $isLoggedInBooking
+                ? 'Booking berhasil dibuat dan menunggu persetujuan admin'
+                : 'Reservasi manual berhasil dibuat dan menunggu tindak lanjut admin',
             'data' => $booking->load(['hotel', 'room'])
         ], 201);
     }
@@ -115,8 +153,6 @@ class BookingController extends Controller
     {
         $checkOut = (clone $checkIn)->setTime(12, 0, 0);
 
-        // Jika check-in jam 12 siang atau setelahnya,
-        // maka checkout overnight adalah besok jam 12 siang
         if ($checkIn->greaterThanOrEqualTo((clone $checkIn)->setTime(12, 0, 0))) {
             $checkOut->addDay();
         }
@@ -132,5 +168,28 @@ class BookingController extends Controller
         $nextNumber = $lastBooking ? $lastBooking->id + 1 : 1;
 
         return 'RR-' . $date . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+    }
+
+    private function normalizePhoneNumber(?string $phone): ?string
+    {
+        if (!$phone) {
+            return null;
+        }
+
+        $cleaned = preg_replace('/\D/', '', $phone);
+
+        if (!$cleaned) {
+            return null;
+        }
+
+        if (substr($cleaned, 0, 1) === '0') {
+            return '62' . substr($cleaned, 1);
+        }
+
+        if (substr($cleaned, 0, 2) === '62') {
+            return $cleaned;
+        }
+
+        return '62' . $cleaned;
     }
 }
