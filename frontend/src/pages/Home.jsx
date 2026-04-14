@@ -333,7 +333,11 @@ export default function Home() {
               <div className="mx-auto mb-10 h-6 w-2/3 animate-pulse rounded-xl bg-white/10" />
             )}
 
-            <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
+            <div className="mx-auto max-w-6xl">
+              <HeroSearchFilter />
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <Link
                 to="/hotels"
                 className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-100"
@@ -341,10 +345,6 @@ export default function Home() {
                 Explore Hotels
                 <ArrowRight size={18} />
               </Link>
-            </div>
-
-            <div className="mx-auto max-w-6xl">
-              <HeroSearchFilter />
             </div>
           </div>
         </div>

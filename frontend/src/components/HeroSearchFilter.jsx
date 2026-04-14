@@ -11,6 +11,8 @@ export default function HeroSearchFilter() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [hotels, setHotels] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [destinationError, setDestinationError] = useState("");
+  const [checkInError, setCheckInError] = useState("");
 
   const dropdownRef = useRef(null);
 
@@ -52,7 +54,10 @@ export default function HeroSearchFilter() {
 
       setHotels(hotelData);
     } catch (error) {
-      console.error("GET HERO HOTEL SUGGESTIONS ERROR:", error.response?.data || error);
+      console.error(
+        "GET HERO HOTEL SUGGESTIONS ERROR:",
+        error.response?.data || error
+      );
       setHotels([]);
     } finally {
       setLoadingSuggestions(false);
@@ -98,19 +103,36 @@ export default function HeroSearchFilter() {
 
   const handleSelectSuggestion = (item) => {
     setDestination(item.value);
+    setDestinationError("");
     setShowDropdown(false);
   };
 
+  const validateForm = () => {
+    let valid = true;
+
+    if (!destination.trim()) {
+      setDestinationError("Destination wajib diisi dulu.");
+      valid = false;
+    } else {
+      setDestinationError("");
+    }
+
+    if (!checkIn) {
+      setCheckInError("Tanggal check-in wajib diisi.");
+      valid = false;
+    } else {
+      setCheckInError("");
+    }
+
+    return valid;
+  };
+
   const handleSearch = () => {
+    if (!validateForm()) return;
+
     const params = new URLSearchParams();
-
-    if (destination.trim()) {
-      params.set("destination", destination.trim());
-    }
-
-    if (checkIn) {
-      params.set("check_in", checkIn);
-    }
+    params.set("destination", destination.trim());
+    params.set("check_in", checkIn);
 
     navigate(`/hotels?${params.toString()}`);
   };
@@ -121,6 +143,28 @@ export default function HeroSearchFilter() {
       handleSearch();
     }
   };
+
+  const handleDestinationChange = (e) => {
+    setDestination(e.target.value);
+    setDestinationError("");
+
+    if (!e.target.value.trim()) {
+      setCheckIn("");
+    }
+  };
+
+  const handleCheckInFocus = () => {
+    if (!destination.trim()) {
+      setDestinationError("Isi destination dulu sebelum pilih check-in.");
+    }
+  };
+
+  const handleCheckInChange = (e) => {
+    setCheckIn(e.target.value);
+    setCheckInError("");
+  };
+
+  const isFormComplete = destination.trim() && checkIn;
 
   return (
     <div
@@ -135,7 +179,11 @@ export default function HeroSearchFilter() {
 
           <div
             onClick={() => setShowDropdown(true)}
-            className="group flex items-center gap-3 rounded-2xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 px-4 py-4 shadow-sm transition hover:border-red-300 focus-within:border-red-500 focus-within:ring-4 focus-within:ring-red-100"
+            className={`group flex items-center gap-3 rounded-2xl border px-4 py-4 shadow-sm transition focus-within:ring-4 ${
+              destinationError
+                ? "border-red-300 bg-red-50/60 focus-within:border-red-400 focus-within:ring-red-100"
+                : "border-gray-200 bg-gradient-to-b from-white to-gray-50 hover:border-red-300 focus-within:border-red-500 focus-within:ring-red-100"
+            }`}
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-500">
               <MapPin size={18} />
@@ -145,13 +193,23 @@ export default function HeroSearchFilter() {
               <input
                 value={destination}
                 onFocus={() => setShowDropdown(true)}
-                onChange={(e) => setDestination(e.target.value)}
+                onChange={handleDestinationChange}
                 onKeyDown={handleKeyDown}
                 className="w-full bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400 md:text-base"
                 placeholder="Cari kota atau hotel..."
               />
             </div>
           </div>
+
+          {destinationError ? (
+            <p className="mt-2 text-xs font-medium text-red-500">
+              {destinationError}
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-gray-400">
+              Pilih kota atau hotel tujuan terlebih dahulu.
+            </p>
+          )}
 
           {showDropdown && (
             <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
@@ -207,25 +265,52 @@ export default function HeroSearchFilter() {
           <label className="mb-2 block text-sm font-semibold text-red-600">
             Check In
           </label>
-          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+
+          <div
+            className={`flex items-center gap-3 rounded-2xl border px-4 py-4 transition ${
+              checkInError
+                ? "border-red-300 bg-red-50/60"
+                : destination.trim()
+                ? "border-gray-200 bg-gray-50"
+                : "border-gray-200 bg-gray-100 opacity-80"
+            }`}
+          >
             <CalendarDays size={18} className="text-gray-400" />
             <input
               type="date"
               min={minDate}
               value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-              className="w-full bg-transparent text-gray-800 outline-none"
+              onFocus={handleCheckInFocus}
+              onChange={handleCheckInChange}
+              onKeyDown={handleKeyDown}
+              disabled={!destination.trim()}
+              className="w-full bg-transparent text-gray-800 outline-none disabled:cursor-not-allowed disabled:text-gray-400"
             />
           </div>
+
+          {checkInError ? (
+            <p className="mt-2 text-xs font-medium text-red-500">
+              {checkInError}
+            </p>
+          ) : !destination.trim() ? (
+            <p className="mt-2 text-xs text-gray-400">
+              Isi destination dulu untuk membuka check-in.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-gray-400">
+              Pilih tanggal check-in kamu.
+            </p>
+          )}
         </div>
 
         <button
           type="button"
           onClick={handleSearch}
-          className="flex h-[62px] items-center justify-center gap-2 rounded-2xl bg-red-600 px-7 font-semibold text-white shadow-lg transition hover:bg-red-700"
+          disabled={!isFormComplete}
+          className="flex h-[62px] items-center justify-center gap-2 rounded-2xl bg-red-600 px-7 font-semibold text-white shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300 disabled:shadow-none"
         >
           <Search size={18} />
-          Search Room
+          Explore Hotels
         </button>
       </div>
     </div>
