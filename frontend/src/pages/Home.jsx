@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -12,6 +12,8 @@ import {
   Car,
   Coffee,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Building2,
   Hotel,
   Sparkles,
@@ -39,6 +41,8 @@ export default function Home() {
   const [recentHotels, setRecentHotels] = useState([]);
   const [websiteContent, setWebsiteContent] = useState(null);
   const [loadingContent, setLoadingContent] = useState(true);
+
+  const partnerScrollRef = useRef(null);
 
   useEffect(() => {
     AOS.init({
@@ -207,6 +211,16 @@ export default function Home() {
     );
   };
 
+  const scrollPartners = (direction) => {
+    if (!partnerScrollRef.current) return;
+
+    const scrollAmount = 340;
+    partnerScrollRef.current.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
+
   const recommendedHotels = useMemo(() => {
     return popularHotels.slice(0, 3);
   }, [popularHotels]);
@@ -241,6 +255,45 @@ export default function Home() {
     websiteContent?.promo2_image,
     "/images/hotel.jpg"
   );
+
+  const partnerBrands = [
+    {
+      name: "ReadyRoom Prime",
+      image: "/readyroom.png",
+      description: "Brand premium untuk pengalaman menginap yang lebih eksklusif.",
+      accent: "from-slate-900 via-slate-800 to-slate-700",
+    },
+    {
+      name: "ReadyRoom Transit",
+      image: "/readyroom.png",
+      description: "Pilihan fleksibel untuk tamu transit yang butuh cepat dan nyaman.",
+      accent: "from-red-600 via-rose-600 to-orange-500",
+    },
+    {
+      name: "ReadyRoom Business",
+      image: "/readyroom.png",
+      description: "Dirancang untuk perjalanan bisnis dengan kenyamanan efisien.",
+      accent: "from-emerald-700 via-emerald-600 to-teal-500",
+    },
+    {
+      name: "ReadyRoom Suites",
+      image: "/readyroom.png",
+      description: "Kelas suite dengan suasana modern dan fasilitas lengkap.",
+      accent: "from-amber-500 via-yellow-500 to-orange-400",
+    },
+    {
+      name: "ReadyRoom Residence",
+      image: "/readyroom.png",
+      description: "Pilihan menginap lebih panjang dengan rasa nyaman seperti rumah.",
+      accent: "from-indigo-700 via-violet-700 to-purple-600",
+    },
+    {
+      name: "ReadyRoom Urban",
+      image: "/readyroom.png",
+      description: "Gaya urban modern di lokasi strategis kota besar Indonesia.",
+      accent: "from-cyan-700 via-sky-700 to-blue-600",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800">
@@ -374,45 +427,6 @@ export default function Home() {
                 </p>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-gray-50 py-20">
-        <div className="mx-auto max-w-7xl px-4 text-center md:px-6">
-          <h2 className="mb-3 text-3xl font-bold md:text-4xl">
-            Mitra Kami COOMINGSOON!!!
-          </h2>
-          <p className="mx-auto mb-12 max-w-2xl text-gray-500">
-            Hotel partner yang bekerja sama dengan ReadyRoom untuk menghadirkan
-            pengalaman booking yang nyaman dan fleksibel. Ayo segera daftarkan
-            properti mu di ReadyRoom Untuk Informasi lebih lanjut bisa hubungi
-            Kami
-          </p>
-
-          <div className="grid grid-cols-2 justify-items-center gap-6 md:grid-cols-4">
-            {[
-              "/readyroom.png",
-              "/readyroom.png",
-              "/readyroom.png",
-              "/readyroom.png",
-              "/readyroom.png",
-              "/readyroom.png",
-              "/readyroom.png",
-              "/readyroom.png",
-            ].map((logo, i) => (
-              <div
-                key={i}
-                data-aos="zoom-in"
-                className="flex w-full items-center justify-center rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition duration-300 hover:scale-105 hover:shadow-xl"
-              >
-                <img
-                  src={logo}
-                  alt="Partner Logo"
-                  className="h-16 w-16 object-contain"
-                />
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -747,6 +761,99 @@ export default function Home() {
                 <p className="mt-2 text-sm text-gray-500">{item.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white py-20">
+        <div className="mx-auto max-w-7xl px-4 md:px-6">
+          <div className="grid items-center gap-10 lg:grid-cols-[0.95fr_1.45fr]">
+            <div data-aos="fade-right">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+                <Building2 size={16} />
+                Discover Our Partners
+              </div>
+
+              <h2 className="text-3xl font-bold leading-tight md:text-4xl">
+                Mitra Kami, tumbuh bersama ReadyRoom
+              </h2>
+
+              <p className="mt-4 max-w-xl text-gray-500 leading-relaxed">
+                ReadyRoom membuka kolaborasi dengan hotel, residence, transit stay,
+                dan berbagai properti penginapan untuk menghadirkan pengalaman booking
+                yang modern, cepat, dan terpercaya.
+              </p>
+
+              <p className="mt-4 max-w-xl text-gray-500 leading-relaxed">
+                Tampilkan brand properti kamu dengan tampilan profesional, dukungan
+                promosi, dan sistem reservasi yang siap bersaing dengan hotel-hotel besar.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => scrollPartners("left")}
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:border-red-200 hover:text-red-600"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => scrollPartners("right")}
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-red-600 text-white shadow-lg shadow-red-500/20 transition hover:bg-red-700"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div data-aos="fade-left" className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-white to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-white to-transparent" />
+
+              <div
+                ref={partnerScrollRef}
+                className="flex gap-5 overflow-x-auto scroll-smooth pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {partnerBrands.map((brand, i) => (
+                  <div
+                    key={brand.name}
+                    data-aos="zoom-in"
+                    data-aos-delay={i * 80}
+                    className="group min-w-[280px] max-w-[280px] overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-2xl"
+                  >
+                    <div className={`h-40 bg-gradient-to-br ${brand.accent}`} />
+
+                    <div className="relative px-6 pb-6">
+                      <div className="-mt-14 mb-5 flex h-24 w-24 items-center justify-center rounded-[1.7rem] border-4 border-white bg-white shadow-lg">
+                        <img
+                          src={brand.image}
+                          alt={brand.name}
+                          className="h-14 w-14 object-contain"
+                        />
+                      </div>
+
+                      <h3 className="text-xl font-bold text-gray-800">
+                        {brand.name}
+                      </h3>
+
+                      <p className="mt-3 min-h-[72px] text-sm leading-relaxed text-gray-500">
+                        {brand.description}
+                      </p>
+
+                      <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-red-600">
+                        Join as Partner
+                        <ArrowRight
+                          size={15}
+                          className="transition group-hover:translate-x-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
