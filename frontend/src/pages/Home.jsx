@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import HeroSearchFilter from "../components/HeroSearchFilter";
 import api from "../services/api";
 
 import {
@@ -16,7 +15,6 @@ import {
   Building2,
   Hotel,
   Sparkles,
-  BadgeCheck,
   History,
   Eye,
   Newspaper,
@@ -249,93 +247,84 @@ export default function Home() {
       <Navbar />
 
       <section className="relative overflow-hidden pt-20 pb-24 text-white md:pt-28 md:pb-32">
-  <div className="absolute inset-0">
-    <img
-      src={heroImage}
-      alt="ReadyRoom Hero"
-      className="h-full w-full object-cover"
-    />
-    <div className="absolute inset-0 bg-gradient-to-br from-[#4b0000]/90 via-red-800/80 to-rose-700/80" />
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,0,0,0.18),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.08),transparent_25%)]" />
-    <div className="absolute top-12 right-10 h-96 w-96 rounded-full bg-black/15 blur-3xl" />
-    <div className="absolute bottom-0 left-1/3 h-[28rem] w-[28rem] rounded-full bg-red-300/10 blur-3xl" />
-  </div>
+        <div className="absolute inset-0">
+          <img
+            src={heroImage}
+            alt="ReadyRoom Hero"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#4b0000]/90 via-red-800/80 to-rose-700/80" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,0,0,0.18),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.08),transparent_25%)]" />
+          <div className="absolute top-12 right-10 h-96 w-96 rounded-full bg-black/15 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 h-[28rem] w-[28rem] rounded-full bg-red-300/10 blur-3xl" />
+        </div>
 
-  <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-    <div className="mx-auto max-w-5xl text-center">
-      <h2 className="mb-5 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl xl:text-7xl">
-        {heroTitle}
-      </h2>
+        <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+          <div className="mx-auto max-w-5xl text-center">
+            <h2 className="mb-5 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl xl:text-7xl">
+              {heroTitle}
+            </h2>
 
-      <p className="mx-auto mb-10 max-w-3xl text-lg leading-relaxed text-red-100 md:text-xl">
-        {heroSubtitle}
-      </p>
+            <p className="mx-auto mb-10 max-w-3xl text-lg leading-relaxed text-red-100 md:text-xl">
+              {heroSubtitle}
+            </p>
 
-      <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
-        <Link
-          to="/hotels"
-          className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-100"
-        >
-          Explore Hotels
-          <ArrowRight size={18} />
-        </Link>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <Link
+                to="/hotels"
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-100"
+              >
+                Explore Hotels
+                <ArrowRight size={18} />
+              </Link>
 
-        <Link
-          to="/hotels"
-          className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-6 py-3.5 font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/15"
-        >
-          Explore Rooms
-          <Hotel size={18} />
-        </Link>
-      </div>
-    </div>
-
-    <HeroSearchFilter />
-  </div>
-</section>
-      <section className="relative z-10 -mt-10">
-        <div className="mx-auto max-w-7xl px-4 md:px-6">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            <Link
-              to="/hotels"
-              className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg transition hover:-translate-y-1 hover:shadow-xl"
-            >
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
-                <Hotel size={22} />
-              </div>
-              <h3 className="mb-2 text-lg font-bold">Explore Rooms</h3>
-              <p className="text-sm text-gray-500">
-                Lihat berbagai tipe kamar yang tersedia untuk transit maupun
-                menginap.
-              </p>
-            </Link>
-
-            <Link
-              to="/hotels"
-              className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg transition hover:-translate-y-1 hover:shadow-xl"
-            >
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
-                <Building2 size={22} />
-              </div>
-              <h3 className="mb-2 text-lg font-bold">Explore Hotels</h3>
-              <p className="text-sm text-gray-500">
-                Temukan hotel partner terbaik di kota-kota populer Indonesia.
-              </p>
-            </Link>
-
-            <Link
-              to="/login"
-              className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg transition hover:-translate-y-1 hover:shadow-xl"
-            >
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
-                <ShieldCheck size={22} />
-              </div>
-              <h3 className="mb-2 text-lg font-bold">Fast Booking</h3>
-              <p className="text-sm text-gray-500">
-                Login dan lanjutkan reservasi dengan proses yang cepat dan aman.
-              </p>
-            </Link>
+              <Link
+                to="/hotels"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-6 py-3.5 font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/15"
+              >
+                Explore Rooms
+                <Hotel size={18} />
+              </Link>
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h3 className="text-3xl font-bold">Explore by City</h3>
+            <p className="mt-2 text-gray-500">
+              Temukan destinasi dan kamar favorit di berbagai kota.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-6">
+          {[
+            { img: "/photo_jakarta.jpg", name: "Jakarta" },
+            { img: "/destinasi_bali.jpg", name: "Bali" },
+            { img: "/destinasi aceh.jpg", name: "Aceh" },
+            { img: "/tebing-breksi.jpg", name: "Yogyakarta" },
+            { img: "/destinasi_surabaya.jpg", name: "Surabaya" },
+            { img: "/destinasi-semarang.jpg", name: "Semarang" },
+          ].map((city, i) => (
+            <Link
+              to={`/hotels?destination=${encodeURIComponent(city.name)}`}
+              key={i}
+              data-aos="zoom-in"
+              className="group relative block cursor-pointer overflow-hidden rounded-3xl shadow-md"
+            >
+              <img
+                src={city.img}
+                alt={city.name}
+                className="h-48 w-full object-cover transition duration-500 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 to-black/20 p-4">
+                <h4 className="text-xl font-bold text-white">{city.name}</h4>
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -594,44 +583,6 @@ export default function Home() {
             ))}
           </div>
         )}
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h3 className="text-3xl font-bold">Explore by City</h3>
-            <p className="mt-2 text-gray-500">
-              Temukan destinasi dan kamar favorit di berbagai kota.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-6">
-          {[
-            { img: "/photo_jakarta.jpg", name: "Jakarta" },
-            { img: "/destinasi_bali.jpg", name: "Bali" },
-            { img: "/destinasi aceh.jpg", name: "Aceh" },
-            { img: "/tebing-breksi.jpg", name: "Yogyakarta" },
-            { img: "/destinasi_surabaya.jpg", name: "Surabaya" },
-            { img: "/destinasi-semarang.jpg", name: "Semarang" },
-          ].map((city, i) => (
-            <Link
-              to={`/hotels?destination=${encodeURIComponent(city.name)}`}
-              key={i}
-              data-aos="zoom-in"
-              className="group relative block cursor-pointer overflow-hidden rounded-3xl shadow-md"
-            >
-              <img
-                src={city.img}
-                alt={city.name}
-                className="h-48 w-full object-cover transition duration-500 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 to-black/20 p-4">
-                <h4 className="text-xl font-bold text-white">{city.name}</h4>
-              </div>
-            </Link>
-          ))}
-        </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
