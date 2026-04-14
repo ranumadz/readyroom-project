@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import HeroSearchFilter from "../components/HeroSearchFilter";
 import api from "../services/api";
 
 import {
@@ -214,7 +215,8 @@ export default function Home() {
   const scrollPartners = (direction) => {
     if (!partnerScrollRef.current) return;
 
-    const scrollAmount = 340;
+    const scrollAmount = window.innerWidth < 640 ? 280 : 340;
+
     partnerScrollRef.current.scrollBy({
       left: direction === "left" ? -scrollAmount : scrollAmount,
       behavior: "smooth",
@@ -225,12 +227,13 @@ export default function Home() {
     return popularHotels.slice(0, 3);
   }, [popularHotels]);
 
-  const heroTitle =
-    websiteContent?.hero_title || "Find Your Perfect Stay with ReadyRoom";
+  const heroTitle = loadingContent
+    ? ""
+    : websiteContent?.hero_title || "";
 
-  const heroSubtitle =
-    websiteContent?.hero_subtitle ||
-    "Booking hotel lebih cepat, lebih fleksibel, dan cocok untuk transit, perjalanan bisnis, atau staycation singkat di kota favoritmu.";
+  const heroSubtitle = loadingContent
+    ? ""
+    : websiteContent?.hero_subtitle || "";
 
   const heroImage = buildImageUrl(
     websiteContent?.hero_image,
@@ -296,10 +299,10 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-800">
+    <div className="min-h-screen overflow-x-hidden bg-gray-100 text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-hidden pt-20 pb-24 text-white md:pt-28 md:pb-32">
+      <section className="relative overflow-hidden pt-20 pb-20 text-white md:pt-28 md:pb-28">
         <div className="absolute inset-0">
           <img
             src={heroImage}
@@ -314,15 +317,23 @@ export default function Home() {
 
         <div className="relative mx-auto max-w-7xl px-4 md:px-6">
           <div className="mx-auto max-w-5xl text-center">
-            <h2 className="mb-5 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl xl:text-7xl">
-              {heroTitle}
-            </h2>
+            {heroTitle ? (
+              <h2 className="mb-5 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl xl:text-7xl">
+                {heroTitle}
+              </h2>
+            ) : (
+              <div className="mx-auto mb-5 h-12 w-3/4 animate-pulse rounded-2xl bg-white/15 md:h-16" />
+            )}
 
-            <p className="mx-auto mb-10 max-w-3xl text-lg leading-relaxed text-red-100 md:text-xl">
-              {heroSubtitle}
-            </p>
+            {heroSubtitle ? (
+              <p className="mx-auto mb-10 max-w-3xl text-lg leading-relaxed text-red-100 md:text-xl">
+                {heroSubtitle}
+              </p>
+            ) : (
+              <div className="mx-auto mb-10 h-6 w-2/3 animate-pulse rounded-xl bg-white/10" />
+            )}
 
-            <div className="flex flex-wrap items-center justify-center gap-4">
+            <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
               <Link
                 to="/hotels"
                 className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-100"
@@ -338,6 +349,10 @@ export default function Home() {
                 Explore Rooms
                 <Hotel size={18} />
               </Link>
+            </div>
+
+            <div className="mx-auto max-w-6xl">
+              <HeroSearchFilter />
             </div>
           </div>
         </div>
@@ -765,9 +780,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-white py-20">
+      <section className="overflow-hidden bg-white py-20">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
-          <div className="grid items-center gap-10 lg:grid-cols-[0.95fr_1.45fr]">
+          <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.45fr]">
             <div data-aos="fade-right">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
                 <Building2 size={16} />
@@ -778,13 +793,13 @@ export default function Home() {
                 Mitra Kami, tumbuh bersama ReadyRoom
               </h2>
 
-              <p className="mt-4 max-w-xl text-gray-500 leading-relaxed">
+              <p className="mt-4 max-w-xl leading-relaxed text-gray-500">
                 ReadyRoom membuka kolaborasi dengan hotel, residence, transit stay,
                 dan berbagai properti penginapan untuk menghadirkan pengalaman booking
                 yang modern, cepat, dan terpercaya.
               </p>
 
-              <p className="mt-4 max-w-xl text-gray-500 leading-relaxed">
+              <p className="mt-4 max-w-xl leading-relaxed text-gray-500">
                 Tampilkan brand properti kamu dengan tampilan profesional, dukungan
                 promosi, dan sistem reservasi yang siap bersaing dengan hotel-hotel besar.
               </p>
@@ -808,29 +823,29 @@ export default function Home() {
               </div>
             </div>
 
-            <div data-aos="fade-left" className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-white to-transparent" />
-              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-white to-transparent" />
+            <div data-aos="fade-left" className="relative overflow-hidden">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-14 bg-gradient-to-r from-white to-transparent md:block" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-14 bg-gradient-to-l from-white to-transparent md:block" />
 
               <div
                 ref={partnerScrollRef}
-                className="flex gap-5 overflow-x-auto scroll-smooth pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:gap-5 md:px-0"
               >
                 {partnerBrands.map((brand, i) => (
                   <div
                     key={brand.name}
                     data-aos="zoom-in"
                     data-aos-delay={i * 80}
-                    className="group min-w-[280px] max-w-[280px] overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-2xl"
+                    className="group min-w-[78vw] max-w-[78vw] overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-2xl sm:min-w-[320px] sm:max-w-[320px]"
                   >
-                    <div className={`h-40 bg-gradient-to-br ${brand.accent}`} />
+                    <div className={`h-36 bg-gradient-to-br ${brand.accent} md:h-40`} />
 
-                    <div className="relative px-6 pb-6">
-                      <div className="-mt-14 mb-5 flex h-24 w-24 items-center justify-center rounded-[1.7rem] border-4 border-white bg-white shadow-lg">
+                    <div className="relative px-5 pb-6 md:px-6">
+                      <div className="-mt-12 mb-5 flex h-20 w-20 items-center justify-center rounded-[1.5rem] border-4 border-white bg-white shadow-lg md:-mt-14 md:h-24 md:w-24 md:rounded-[1.7rem]">
                         <img
                           src={brand.image}
                           alt={brand.name}
-                          className="h-14 w-14 object-contain"
+                          className="h-12 w-12 object-contain md:h-14 md:w-14"
                         />
                       </div>
 
