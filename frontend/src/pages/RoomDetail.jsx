@@ -25,7 +25,12 @@ import {
   CheckCircle2,
   Home,
   AlertCircle,
+  User,
+  Phone,
 } from "lucide-react";
+
+const BACKEND_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
 
 export default function RoomDetail() {
   const { id } = useParams();
@@ -43,13 +48,21 @@ export default function RoomDetail() {
   const [bookingForm, setBookingForm] = useState({
     check_in: "",
   });
+
+  const [guestForm, setGuestForm] = useState({
+    guest_name: "",
+    guest_phone: "",
+  });
+
   const [submittingBooking, setSubmittingBooking] = useState(false);
 
   const [bookingSuccess, setBookingSuccess] = useState({
     open: false,
     bookingCode: "",
   });
+
   const [bookingError, setBookingError] = useState("");
+  const [guestError, setGuestError] = useState("");
 
   useEffect(() => {
     fetchRoomDetail();
@@ -121,10 +134,10 @@ export default function RoomDetail() {
     }
 
     if (cleanPath.startsWith("storage/")) {
-      return `http://127.0.0.1:8000/${cleanPath}`;
+      return `${BACKEND_BASE_URL}/${cleanPath}`;
     }
 
-    return `/storage/${cleanPath}`;
+    return `${BACKEND_BASE_URL}/storage/${cleanPath}`;
   };
 
   const buildGallery = (roomData) => {
@@ -221,7 +234,11 @@ export default function RoomDetail() {
 
   const updateCheckInTimePart = (type, value) => {
     if (!selectedCheckInDate) {
-      setBookingError("Pilih tanggal terlebih dahulu.");
+      if (isCustomerLoggedIn) {
+        setBookingError("Pilih tanggal terlebih dahulu.");
+      } else {
+        setGuestError("Pilih tanggal terlebih dahulu.");
+      }
       return;
     }
 
@@ -243,6 +260,7 @@ export default function RoomDetail() {
     }));
 
     setBookingError("");
+    setGuestError("");
   };
 
   const estimatedCheckOutText = useMemo(() => {
@@ -319,6 +337,7 @@ export default function RoomDetail() {
         check_in: "",
       }));
       setBookingError("");
+      setGuestError("");
       return;
     }
 
@@ -340,6 +359,7 @@ export default function RoomDetail() {
       check_in: formatDateTimeLocalValue(nextDate),
     }));
     setBookingError("");
+    setGuestError("");
   };
 
   const formatRupiah = (value) => {
@@ -349,6 +369,21 @@ export default function RoomDetail() {
       currency: "IDR",
       maximumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const normalizePhone = (phone) => {
+    const cleaned = String(phone || "").replace(/\D/g, "");
+    if (!cleaned) return "";
+
+    if (cleaned.startsWith("0")) {
+      return `62${cleaned.slice(1)}`;
+    }
+
+    if (cleaned.startsWith("62")) {
+      return cleaned;
+    }
+
+    return `62${cleaned}`;
   };
 
   const transitPrice =
@@ -385,6 +420,51 @@ export default function RoomDetail() {
     return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
   }, [room, bookingMode, transitDuration, mainPrice]);
 
+  const guestWaLink = useMemo(() => {
+    const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
+    if (!rawWa) return null;
+
+    const normalizedAdminWa = rawWa.startsWith("0")
+      ? `62${rawWa.slice(1)}`
+      : rawWa;
+
+    const bookingLabel =
+      bookingMode === "transit"
+        ? `Transit ${transitDuration} Jam`
+        : "Overnight";
+
+    const normalizedGuestPhone = normalizePhone(guestForm.guest_phone);
+
+    const checkInText = selectedCheckInDate
+      ? selectedCheckInDate.toLocaleString("id-ID", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "-";
+
+    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi manual.\n\nNama: ${
+      guestForm.guest_name || "-"
+    }\nNo. WhatsApp: ${normalizedGuestPhone || guestForm.guest_phone || "-"}\nHotel: ${
+      room?.hotel?.name || "-"
+    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabel}\nCheck-in: ${checkInText}\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
+      mainPrice
+    )}\n\nMohon dibantu cek ketersediaan dan konfirmasi reservasinya ya.`;
+
+    return `https://wa.me/${normalizedAdminWa}?text=${encodeURIComponent(text)}`;
+  }, [
+    room,
+    bookingMode,
+    transitDuration,
+    mainPrice,
+    guestForm.guest_name,
+    guestForm.guest_phone,
+    selectedCheckInDate,
+    estimatedCheckOutText,
+  ]);
+
   const closeSuccessModal = () => {
     setBookingSuccess({
       open: false,
@@ -406,11 +486,54 @@ export default function RoomDetail() {
     }
   };
 
+  const handleGuestInputChange = (e) => {
+    const { name, value } = e.target;
+
+    setGuestForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setGuestError("");
+  };
+
+  const validateGuestManualBooking = () => {
+    if (!guestForm.guest_name.trim()) {
+      setGuestError("Nama tamu wajib diisi.");
+      return false;
+    }
+
+    if (!guestForm.guest_phone.trim()) {
+      setGuestError("Nomor WhatsApp wajib diisi.");
+      return false;
+    }
+
+    if (!bookingForm.check_in) {
+      setGuestError("Silakan pilih tanggal / jam check-in terlebih dahulu.");
+      return false;
+    }
+
+    if (!room?.hotel?.wa_admin) {
+      setGuestError("WhatsApp admin hotel belum tersedia.");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleManualGuestBooking = () => {
+    if (!validateGuestManualBooking()) return;
+
+    window.open(guestWaLink, "_blank", "noopener,noreferrer");
+  };
+
   const handleSubmitBooking = async () => {
     const userId = resolveCustomerUserId();
 
     if (!userId) {
-      setBookingError("User login tidak terdeteksi. Silakan login ulang dulu ya.");
+      setBookingError(
+        "User login tidak terdeteksi. Silakan login ulang dulu ya."
+      );
       return;
     }
 
@@ -836,13 +959,135 @@ export default function RoomDetail() {
                       Pilih Tanggal & Jam Booking
                     </h2>
                     <p className="text-sm text-gray-500">
-                      Tanggal ada di bawah harga dan booking langsung tanpa modal
+                      Pilih jadwal booking sebelum lanjut ke reservasi
                     </p>
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-5">
+                  <div className="rounded-[24px] border border-red-100 bg-white overflow-hidden">
+                    <div className="px-4 py-3 border-b border-red-50 bg-gradient-to-r from-red-50 to-rose-50">
+                      <h3 className="font-semibold text-gray-800">
+                        Tanggal Check-in
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Pilih tanggal booking yang kamu inginkan
+                      </p>
+                    </div>
+
+                    <div className="p-3 sm:p-4">
+                      <div className="readyroom-datepicker-inline">
+                        <DatePicker
+                          selected={selectedCheckInDate}
+                          onChange={handleCheckInDateChange}
+                          minDate={new Date()}
+                          inline
+                          calendarClassName="readyroom-datepicker-inline"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-[24px] border border-red-100 bg-white p-4">
+                      <h3 className="font-semibold text-gray-800 mb-1">
+                        Waktu Check-in
+                      </h3>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Pilih jam tanpa popup tambahan
+                      </p>
+
+                      {!selectedCheckInDate && (
+                        <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                          Silakan pilih tanggal terlebih dahulu sebelum pilih jam.
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                            Pilih Jam
+                          </label>
+                          <div className="readyroom-time-scroll h-48 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              {hourOptions.map((hour) => (
+                                <button
+                                  key={hour}
+                                  type="button"
+                                  onClick={() =>
+                                    updateCheckInTimePart("hour", hour)
+                                  }
+                                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                                    selectedHour === hour
+                                      ? "bg-red-600 text-white shadow"
+                                      : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                                  }`}
+                                >
+                                  {hour}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                            Pilih Menit
+                          </label>
+                          <div className="readyroom-time-scroll h-48 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              {minuteOptions.map((minute) => (
+                                <button
+                                  key={minute}
+                                  type="button"
+                                  onClick={() =>
+                                    updateCheckInTimePart("minute", minute)
+                                  }
+                                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                                    selectedMinute === minute
+                                      ? "bg-red-600 text-white shadow"
+                                      : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                                  }`}
+                                >
+                                  {minute}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                        <p className="text-xs font-semibold text-gray-500 mb-1">
+                          Check-in Dipilih
+                        </p>
+                        <p className="text-sm font-semibold text-gray-800">
+                          {selectedCheckInDate
+                            ? selectedCheckInDate.toLocaleString("id-ID", {
+                                day: "2-digit",
+                                month: "long",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "-"}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                        <p className="text-sm font-medium text-amber-800">
+                          Estimasi checkout:{" "}
+                          <span className="font-bold">
+                            {estimatedCheckOutText}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {isCustomerLoggedIn ? (
-                  <div className="space-y-5">
+                  <div className="mt-5 space-y-5">
                     <div className="rounded-2xl bg-red-50 border border-red-100 p-4">
                       <p className="text-sm text-red-600 font-semibold mb-1">
                         Ringkasan Pilihan
@@ -866,128 +1111,6 @@ export default function RoomDetail() {
                           Booking akan masuk sebagai <b>pending</b> dan menunggu
                           admin.
                         </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-5">
-                      <div className="rounded-[24px] border border-red-100 bg-white overflow-hidden">
-                        <div className="px-4 py-3 border-b border-red-50 bg-gradient-to-r from-red-50 to-rose-50">
-                          <h3 className="font-semibold text-gray-800">
-                            Tanggal Check-in
-                          </h3>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Pilih tanggal booking yang kamu inginkan
-                          </p>
-                        </div>
-
-                        <div className="p-3 sm:p-4">
-                          <div className="readyroom-datepicker-inline">
-                            <DatePicker
-                              selected={selectedCheckInDate}
-                              onChange={handleCheckInDateChange}
-                              minDate={new Date()}
-                              inline
-                              calendarClassName="readyroom-datepicker-inline"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="rounded-[24px] border border-red-100 bg-white p-4">
-                          <h3 className="font-semibold text-gray-800 mb-1">
-                            Waktu Check-in
-                          </h3>
-                          <p className="text-xs text-gray-500 mb-4">
-                            Pilih jam tanpa popup tambahan
-                          </p>
-
-                          {!selectedCheckInDate && (
-                            <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                              Silakan pilih tanggal terlebih dahulu sebelum pilih jam.
-                            </div>
-                          )}
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
-                                Pilih Jam
-                              </label>
-                              <div className="readyroom-time-scroll h-48 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
-                                <div className="grid grid-cols-2 gap-2">
-                                  {hourOptions.map((hour) => (
-                                    <button
-                                      key={hour}
-                                      type="button"
-                                      onClick={() =>
-                                        updateCheckInTimePart("hour", hour)
-                                      }
-                                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                                        selectedHour === hour
-                                          ? "bg-red-600 text-white shadow"
-                                          : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
-                                      }`}
-                                    >
-                                      {hour}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
-                                Pilih Menit
-                              </label>
-                              <div className="readyroom-time-scroll h-48 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
-                                <div className="grid grid-cols-2 gap-2">
-                                  {minuteOptions.map((minute) => (
-                                    <button
-                                      key={minute}
-                                      type="button"
-                                      onClick={() =>
-                                        updateCheckInTimePart("minute", minute)
-                                      }
-                                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                                        selectedMinute === minute
-                                          ? "bg-red-600 text-white shadow"
-                                          : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
-                                      }`}
-                                    >
-                                      {minute}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                            <p className="text-xs font-semibold text-gray-500 mb-1">
-                              Check-in Dipilih
-                            </p>
-                            <p className="text-sm font-semibold text-gray-800">
-                              {selectedCheckInDate
-                                ? selectedCheckInDate.toLocaleString("id-ID", {
-                                    day: "2-digit",
-                                    month: "long",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
-                                : "-"}
-                            </p>
-                          </div>
-
-                          <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-                            <p className="text-sm font-medium text-amber-800">
-                              Estimasi checkout:{" "}
-                              <span className="font-bold">
-                                {estimatedCheckOutText}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
                       </div>
                     </div>
 
@@ -1042,34 +1165,126 @@ export default function RoomDetail() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-3xl border border-dashed border-red-200 bg-red-50/60 p-5">
-                    <h3 className="text-lg font-bold text-gray-800 mb-2">
-                      Login dulu untuk lanjut booking
-                    </h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      Supaya kamu bisa memilih tanggal, jam check-in, dan
-                      mengirim booking ke admin hotel, silakan login atau buat
-                      akun terlebih dahulu.
-                    </p>
+                  <div className="mt-5 space-y-5">
+                    <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4">
+                      <p className="text-sm text-blue-700 font-semibold mb-1">
+                        Dua cara reservasi tersedia
+                      </p>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        Kamu bisa <b>login / buat akun</b> agar booking masuk ke
+                        sistem customer, atau <b>reservasi manual via WhatsApp</b>
+                        jika tidak ingin login.
+                      </p>
+                    </div>
 
-                    <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => navigate("/login")}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3.5 text-white font-semibold hover:bg-red-700 transition"
-                      >
-                        <LogIn size={18} />
-                        Login Sekarang
-                      </button>
+                    <div className="rounded-3xl border border-dashed border-red-200 bg-red-50/60 p-5">
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">
+                        Reservasi manual tanpa login
+                      </h3>
+                      <p className="text-sm text-gray-600 leading-relaxed mb-5">
+                        Isi nama dan nomor WhatsApp, lalu kirim reservasi manual ke
+                        admin hotel. Admin akan follow up semua konfirmasi lewat
+                        WhatsApp.
+                      </p>
 
-                      <button
-                        type="button"
-                        onClick={() => navigate("/register")}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-red-600 font-semibold hover:bg-red-50 transition"
-                      >
-                        <UserPlus size={18} />
-                        Buat Akun
-                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-red-600">
+                            Nama Tamu
+                          </label>
+                          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
+                            <User size={18} className="text-gray-400" />
+                            <input
+                              type="text"
+                              name="guest_name"
+                              value={guestForm.guest_name}
+                              onChange={handleGuestInputChange}
+                              placeholder="Masukkan nama tamu"
+                              className="w-full bg-transparent text-gray-800 outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-red-600">
+                            No. WhatsApp
+                          </label>
+                          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
+                            <Phone size={18} className="text-gray-400" />
+                            <input
+                              type="text"
+                              name="guest_phone"
+                              value={guestForm.guest_phone}
+                              onChange={handleGuestInputChange}
+                              placeholder="08xxxx / 628xxxx"
+                              className="w-full bg-transparent text-gray-800 outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {guestError && (
+                        <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle
+                              size={18}
+                              className="mt-0.5 shrink-0 text-red-600"
+                            />
+                            <p className="text-sm text-red-700">{guestError}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={handleManualGuestBooking}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3.5 text-white font-semibold hover:bg-green-700 transition"
+                        >
+                          <MessageCircle size={18} />
+                          Reservasi Manual via WhatsApp
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => navigate("/login")}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-red-600 font-semibold hover:bg-red-50 transition"
+                        >
+                          <LogIn size={18} />
+                          Login Jika Mau
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-dashed border-gray-200 bg-white p-5">
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">
+                        Mau booking lewat akun?
+                      </h3>
+                      <p className="text-sm text-gray-600 leading-relaxed">
+                        Kalau kamu login atau buat akun, booking tetap masuk ke
+                        admin dan menunggu approval, tapi nanti lebih rapi karena
+                        muncul di riwayat booking customer.
+                      </p>
+
+                      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => navigate("/login")}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3.5 text-white font-semibold hover:bg-red-700 transition"
+                        >
+                          <LogIn size={18} />
+                          Login Sekarang
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => navigate("/register")}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-red-600 font-semibold hover:bg-red-50 transition"
+                        >
+                          <UserPlus size={18} />
+                          Buat Akun
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1142,8 +1357,7 @@ export default function RoomDetail() {
               </div>
 
               <p className="text-xs text-gray-400 mt-4 text-center">
-                Booking tetap akan masuk ke admin terlebih dahulu untuk proses
-                approval.
+                Semua reservasi tetap akan ditindaklanjuti admin terlebih dahulu.
               </p>
             </div>
           </div>
