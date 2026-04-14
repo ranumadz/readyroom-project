@@ -16,7 +16,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
-  Hotel,
   Sparkles,
   History,
   Eye,
@@ -227,13 +226,9 @@ export default function Home() {
     return popularHotels.slice(0, 3);
   }, [popularHotels]);
 
-  const heroTitle = loadingContent
-    ? ""
-    : websiteContent?.hero_title || "";
-
-  const heroSubtitle = loadingContent
-    ? ""
-    : websiteContent?.hero_subtitle || "";
+  const heroTitle = loadingContent ? "" : websiteContent?.hero_title || "";
+  const heroSubtitle =
+    loadingContent ? "" : websiteContent?.hero_subtitle || "";
 
   const heroImage = buildImageUrl(
     websiteContent?.hero_image,
@@ -263,19 +258,22 @@ export default function Home() {
     {
       name: "ReadyRoom Prime",
       image: "/readyroom.png",
-      description: "Brand premium untuk pengalaman menginap yang lebih eksklusif.",
+      description:
+        "Brand premium untuk pengalaman menginap yang lebih eksklusif.",
       accent: "from-slate-900 via-slate-800 to-slate-700",
     },
     {
       name: "ReadyRoom Transit",
       image: "/readyroom.png",
-      description: "Pilihan fleksibel untuk tamu transit yang butuh cepat dan nyaman.",
+      description:
+        "Pilihan fleksibel untuk tamu transit yang butuh cepat dan nyaman.",
       accent: "from-red-600 via-rose-600 to-orange-500",
     },
     {
       name: "ReadyRoom Business",
       image: "/readyroom.png",
-      description: "Dirancang untuk perjalanan bisnis dengan kenyamanan efisien.",
+      description:
+        "Dirancang untuk perjalanan bisnis dengan kenyamanan efisien.",
       accent: "from-emerald-700 via-emerald-600 to-teal-500",
     },
     {
@@ -287,13 +285,15 @@ export default function Home() {
     {
       name: "ReadyRoom Residence",
       image: "/readyroom.png",
-      description: "Pilihan menginap lebih panjang dengan rasa nyaman seperti rumah.",
+      description:
+        "Pilihan menginap lebih panjang dengan rasa nyaman seperti rumah.",
       accent: "from-indigo-700 via-violet-700 to-purple-600",
     },
     {
       name: "ReadyRoom Urban",
       image: "/readyroom.png",
-      description: "Gaya urban modern di lokasi strategis kota besar Indonesia.",
+      description:
+        "Gaya urban modern di lokasi strategis kota besar Indonesia.",
       accent: "from-cyan-700 via-sky-700 to-blue-600",
     },
   ];
@@ -340,14 +340,6 @@ export default function Home() {
               >
                 Explore Hotels
                 <ArrowRight size={18} />
-              </Link>
-
-              <Link
-                to="/hotels"
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-6 py-3.5 font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/15"
-              >
-                Explore Rooms
-                <Hotel size={18} />
               </Link>
             </div>
 
@@ -717,6 +709,101 @@ export default function Home() {
         )}
       </section>
 
+      <section className="overflow-hidden bg-white py-20">
+        <div className="mx-auto max-w-7xl px-4 md:px-6">
+          <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.45fr]">
+            <div data-aos="fade-right">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+                <Building2 size={16} />
+                Discover Our Partners
+              </div>
+
+              <h2 className="text-3xl font-bold leading-tight md:text-4xl">
+                Mitra Kami, tumbuh bersama ReadyRoom
+              </h2>
+
+              <p className="mt-4 max-w-xl leading-relaxed text-gray-500">
+                ReadyRoom membuka kolaborasi dengan hotel, residence, transit stay,
+                dan berbagai properti penginapan untuk menghadirkan pengalaman booking
+                yang modern, cepat, dan terpercaya.
+              </p>
+
+              <p className="mt-4 max-w-xl leading-relaxed text-gray-500">
+                Tampilkan brand properti kamu dengan tampilan profesional, dukungan
+                promosi, dan sistem reservasi yang siap bersaing dengan hotel-hotel besar.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => scrollPartners("left")}
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:border-red-200 hover:text-red-600"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => scrollPartners("right")}
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-red-600 text-white shadow-lg shadow-red-500/20 transition hover:bg-red-700"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div data-aos="fade-left" className="relative overflow-hidden">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-14 bg-gradient-to-r from-white to-transparent md:block" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-14 bg-gradient-to-l from-white to-transparent md:block" />
+
+              <div
+                ref={partnerScrollRef}
+                className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:gap-5 md:px-0"
+              >
+                {partnerBrands.map((brand, i) => (
+                  <div
+                    key={brand.name}
+                    data-aos="zoom-in"
+                    data-aos-delay={i * 80}
+                    className="group min-w-[78vw] max-w-[78vw] overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-2xl sm:min-w-[320px] sm:max-w-[320px]"
+                  >
+                    <div
+                      className={`h-36 bg-gradient-to-br ${brand.accent} md:h-40`}
+                    />
+
+                    <div className="relative px-5 pb-6 md:px-6">
+                      <div className="-mt-12 mb-5 flex h-20 w-20 items-center justify-center rounded-[1.5rem] border-4 border-white bg-white shadow-lg md:-mt-14 md:h-24 md:w-24 md:rounded-[1.7rem]">
+                        <img
+                          src={brand.image}
+                          alt={brand.name}
+                          className="h-12 w-12 object-contain md:h-14 md:w-14"
+                        />
+                      </div>
+
+                      <h3 className="text-xl font-bold text-gray-800">
+                        {brand.name}
+                      </h3>
+
+                      <p className="mt-3 min-h-[72px] text-sm leading-relaxed text-gray-500">
+                        {brand.description}
+                      </p>
+
+                      <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-red-600">
+                        Join as Partner
+                        <ArrowRight
+                          size={15}
+                          className="transition group-hover:translate-x-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="bg-gradient-to-b from-white to-gray-100 py-20">
         <div className="mx-auto max-w-7xl px-6 text-center">
           <h2 className="text-3xl font-bold md:text-4xl">
@@ -776,99 +863,6 @@ export default function Home() {
                 <p className="mt-2 text-sm text-gray-500">{item.desc}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="overflow-hidden bg-white py-20">
-        <div className="mx-auto max-w-7xl px-4 md:px-6">
-          <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.45fr]">
-            <div data-aos="fade-right">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
-                <Building2 size={16} />
-                Discover Our Partners
-              </div>
-
-              <h2 className="text-3xl font-bold leading-tight md:text-4xl">
-                Mitra Kami, tumbuh bersama ReadyRoom
-              </h2>
-
-              <p className="mt-4 max-w-xl leading-relaxed text-gray-500">
-                ReadyRoom membuka kolaborasi dengan hotel, residence, transit stay,
-                dan berbagai properti penginapan untuk menghadirkan pengalaman booking
-                yang modern, cepat, dan terpercaya.
-              </p>
-
-              <p className="mt-4 max-w-xl leading-relaxed text-gray-500">
-                Tampilkan brand properti kamu dengan tampilan profesional, dukungan
-                promosi, dan sistem reservasi yang siap bersaing dengan hotel-hotel besar.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => scrollPartners("left")}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:border-red-200 hover:text-red-600"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => scrollPartners("right")}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-red-600 text-white shadow-lg shadow-red-500/20 transition hover:bg-red-700"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-            </div>
-
-            <div data-aos="fade-left" className="relative overflow-hidden">
-              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-14 bg-gradient-to-r from-white to-transparent md:block" />
-              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-14 bg-gradient-to-l from-white to-transparent md:block" />
-
-              <div
-                ref={partnerScrollRef}
-                className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:gap-5 md:px-0"
-              >
-                {partnerBrands.map((brand, i) => (
-                  <div
-                    key={brand.name}
-                    data-aos="zoom-in"
-                    data-aos-delay={i * 80}
-                    className="group min-w-[78vw] max-w-[78vw] overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-2xl sm:min-w-[320px] sm:max-w-[320px]"
-                  >
-                    <div className={`h-36 bg-gradient-to-br ${brand.accent} md:h-40`} />
-
-                    <div className="relative px-5 pb-6 md:px-6">
-                      <div className="-mt-12 mb-5 flex h-20 w-20 items-center justify-center rounded-[1.5rem] border-4 border-white bg-white shadow-lg md:-mt-14 md:h-24 md:w-24 md:rounded-[1.7rem]">
-                        <img
-                          src={brand.image}
-                          alt={brand.name}
-                          className="h-12 w-12 object-contain md:h-14 md:w-14"
-                        />
-                      </div>
-
-                      <h3 className="text-xl font-bold text-gray-800">
-                        {brand.name}
-                      </h3>
-
-                      <p className="mt-3 min-h-[72px] text-sm leading-relaxed text-gray-500">
-                        {brand.description}
-                      </p>
-
-                      <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-red-600">
-                        Join as Partner
-                        <ArrowRight
-                          size={15}
-                          className="transition group-hover:translate-x-1"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </section>
