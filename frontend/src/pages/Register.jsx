@@ -26,16 +26,35 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const normalizePhone = (phone) => {
+    let cleaned = String(phone || "").replace(/\D/g, "").trim();
+
+    if (!cleaned) return "";
+
+    if (cleaned.startsWith("0")) {
+      cleaned = "62" + cleaned.slice(1);
+    } else if (!cleaned.startsWith("62")) {
+      cleaned = "62" + cleaned;
+    }
+
+    return cleaned;
+  };
+
   const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
     setError("");
   };
 
   const goToVerifyOtp = async (phone, message) => {
-    localStorage.setItem("otp_phone", phone);
+    const normalizedPhone = normalizePhone(phone);
+
+    localStorage.setItem("otp_phone", normalizedPhone);
 
     await Swal.fire({
       title: "Lanjut Verifikasi OTP",
@@ -54,7 +73,7 @@ export default function Register() {
     });
 
     navigate("/verify-otp", {
-      state: { phone },
+      state: { phone: normalizedPhone },
     });
   };
 
@@ -63,10 +82,32 @@ export default function Register() {
     setError("");
     setLoading(true);
 
-    try {
-      const res = await api.post("/register", form);
+    const normalizedPhone = normalizePhone(form.phone);
 
-      localStorage.setItem("otp_phone", form.phone);
+    if (!normalizedPhone) {
+      setLoading(false);
+      setError("Nomor WhatsApp wajib diisi");
+
+      await Swal.fire({
+        icon: "warning",
+        title: "Nomor tidak valid",
+        text: "Masukkan nomor WhatsApp yang valid.",
+        confirmButtonColor: "#dc2626",
+        background: "#ffffff",
+        color: "#1f2937",
+      });
+      return;
+    }
+
+    const payload = {
+      ...form,
+      phone: normalizedPhone,
+    };
+
+    try {
+      const res = await api.post("/register", payload);
+
+      localStorage.setItem("otp_phone", normalizedPhone);
 
       await Swal.fire({
         title: "Yeay! Pendaftaran Berhasil 🎉",
@@ -85,15 +126,27 @@ export default function Register() {
       });
 
       navigate("/verify-otp", {
-        state: { phone: form.phone },
+        state: { phone: normalizedPhone },
       });
     } catch (err) {
-      console.error("REGISTER ERROR:", err.response?.data || err);
+      console.error("REGISTER ERROR FULL:", err);
+      console.error("REGISTER ERROR RESPONSE:", err.response?.data);
 
-      const message =
-        err.response?.data?.message ||
-        JSON.stringify(err.response?.data?.errors) ||
-        "Register gagal, cek data yang dimasukkan";
+      const backendMessage = err.response?.data?.message;
+      const backendErrors = err.response?.data?.errors;
+
+      let message = "Register gagal, cek data yang dimasukkan";
+
+      if (backendMessage) {
+        message = backendMessage;
+      }
+
+      if (backendErrors) {
+        const firstErrorKey = Object.keys(backendErrors)[0];
+        if (firstErrorKey && backendErrors[firstErrorKey]?.length) {
+          message = backendErrors[firstErrorKey][0];
+        }
+      }
 
       setError(message);
 
@@ -104,7 +157,7 @@ export default function Register() {
         lowerMessage.includes("belum diverifikasi") ||
         lowerMessage.includes("belum terverifikasi")
       ) {
-        await goToVerifyOtp(form.phone, message);
+        await goToVerifyOtp(normalizedPhone, message);
         return;
       }
 
@@ -122,9 +175,10 @@ export default function Register() {
   };
 
   const handleContinueVerification = async () => {
-    const phone = form.phone?.trim() || localStorage.getItem("otp_phone");
+    const rawPhone = form.phone?.trim() || localStorage.getItem("otp_phone");
+    const normalizedPhone = normalizePhone(rawPhone);
 
-    if (!phone) {
+    if (!normalizedPhone) {
       await Swal.fire({
         icon: "warning",
         title: "Nomor WhatsApp belum diisi",
@@ -136,10 +190,10 @@ export default function Register() {
       return;
     }
 
-    localStorage.setItem("otp_phone", phone);
+    localStorage.setItem("otp_phone", normalizedPhone);
 
     navigate("/verify-otp", {
-      state: { phone },
+      state: { phone: normalizedPhone },
     });
   };
 
@@ -302,7 +356,7 @@ export default function Register() {
                       name="phone"
                       value={form.phone}
                       onChange={handleChange}
-                      placeholder="Masukkan nomor WhatsApp"
+                      placeholder="Contoh: 0812xxxx atau 62812xxxx"
                       className="w-full bg-transparent text-gray-700 outline-none placeholder:text-gray-400"
                       required
                     />
