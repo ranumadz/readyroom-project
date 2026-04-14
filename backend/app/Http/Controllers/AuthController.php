@@ -7,11 +7,25 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        $rawPhone = $request->phone ?? '';
+        $normalizedPhone = $this->normalizePhoneNumber($rawPhone);
+
+        if (!$normalizedPhone) {
+            throw ValidationException::withMessages([
+                'phone' => ['Nomor WhatsApp tidak valid. Gunakan format 08xxxx atau 628xxxx.'],
+            ]);
+        }
+
+        $request->merge([
+            'phone' => $normalizedPhone,
+        ]);
+
         $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20|unique:customers,phone',
@@ -22,7 +36,7 @@ class AuthController extends Controller
 
         $customer = Customer::create([
             'name' => $request->name,
-            'phone' => $request->phone,
+            'phone' => $normalizedPhone,
             'password' => Hash::make($request->password),
             'status' => true,
             'is_verified' => false,
@@ -30,10 +44,11 @@ class AuthController extends Controller
             'otp_expired_at' => now()->addMinutes(5),
         ]);
 
-        $otpResult = $this->sendWhatsappOtp($request->phone, $otpCode);
+        $otpResult = $this->sendWhatsappOtp($normalizedPhone, $otpCode);
 
         Log::info('REGISTER OTP RESULT', [
-            'phone' => $request->phone,
+            'raw_phone' => $rawPhone,
+            'normalized_phone' => $normalizedPhone,
             'result' => $otpResult,
         ]);
 
@@ -53,12 +68,24 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        $normalizedPhone = $this->normalizePhoneNumber($request->phone ?? '');
+
+        if (!$normalizedPhone) {
+            throw ValidationException::withMessages([
+                'phone' => ['Nomor WhatsApp tidak valid.'],
+            ]);
+        }
+
+        $request->merge([
+            'phone' => $normalizedPhone,
+        ]);
+
         $request->validate([
             'phone' => 'required|string',
             'password' => 'required|string',
         ]);
 
-        $customer = Customer::where('phone', $request->phone)->first();
+        $customer = Customer::where('phone', $normalizedPhone)->first();
 
         if (!$customer) {
             return response()->json([
@@ -92,12 +119,24 @@ class AuthController extends Controller
 
     public function verifyOtp(Request $request)
     {
+        $normalizedPhone = $this->normalizePhoneNumber($request->phone ?? '');
+
+        if (!$normalizedPhone) {
+            throw ValidationException::withMessages([
+                'phone' => ['Nomor WhatsApp tidak valid.'],
+            ]);
+        }
+
+        $request->merge([
+            'phone' => $normalizedPhone,
+        ]);
+
         $request->validate([
             'phone' => 'required|string',
             'otp_code' => 'required|string',
         ]);
 
-        $customer = Customer::where('phone', $request->phone)->first();
+        $customer = Customer::where('phone', $normalizedPhone)->first();
 
         if (!$customer) {
             return response()->json([
@@ -143,11 +182,23 @@ class AuthController extends Controller
 
     public function resendOtp(Request $request)
     {
+        $normalizedPhone = $this->normalizePhoneNumber($request->phone ?? '');
+
+        if (!$normalizedPhone) {
+            throw ValidationException::withMessages([
+                'phone' => ['Nomor WhatsApp tidak valid.'],
+            ]);
+        }
+
+        $request->merge([
+            'phone' => $normalizedPhone,
+        ]);
+
         $request->validate([
             'phone' => 'required|string',
         ]);
 
-        $customer = Customer::where('phone', $request->phone)->first();
+        $customer = Customer::where('phone', $normalizedPhone)->first();
 
         if (!$customer) {
             return response()->json([
@@ -222,6 +273,18 @@ class AuthController extends Controller
 
     public function requestChangePhone(Request $request)
     {
+        $normalizedNewPhone = $this->normalizePhoneNumber($request->new_phone ?? '');
+
+        if (!$normalizedNewPhone) {
+            throw ValidationException::withMessages([
+                'new_phone' => ['Nomor WhatsApp baru tidak valid. Gunakan format 08xxxx atau 628xxxx.'],
+            ]);
+        }
+
+        $request->merge([
+            'new_phone' => $normalizedNewPhone,
+        ]);
+
         $request->validate([
             'customer_id' => 'required|integer|exists:customers,id',
             'new_phone' => 'required|string|max:20',
@@ -241,13 +304,13 @@ class AuthController extends Controller
             ], 403);
         }
 
-        if ($customer->phone === $request->new_phone) {
+        if ($customer->phone === $normalizedNewPhone) {
             return response()->json([
                 'message' => 'Nomor WhatsApp baru tidak boleh sama dengan nomor saat ini',
             ], 400);
         }
 
-        $phoneUsed = Customer::where('phone', $request->new_phone)
+        $phoneUsed = Customer::where('phone', $normalizedNewPhone)
             ->where('id', '!=', $customer->id)
             ->exists();
 
@@ -260,15 +323,15 @@ class AuthController extends Controller
         $otpCode = (string) rand(100000, 999999);
 
         $customer->update([
-            'new_phone' => $request->new_phone,
+            'new_phone' => $normalizedNewPhone,
             'new_phone_otp' => $otpCode,
             'new_phone_otp_expired_at' => now()->addMinutes(5),
         ]);
 
-        $otpResult = $this->sendWhatsappOtp($request->new_phone, $otpCode);
+        $otpResult = $this->sendWhatsappOtp($normalizedNewPhone, $otpCode);
 
         Log::info('CHANGE PHONE OTP RESULT', [
-            'phone' => $request->new_phone,
+            'phone' => $normalizedNewPhone,
             'result' => $otpResult,
         ]);
 
@@ -407,21 +470,31 @@ class AuthController extends Controller
                 ]);
 
             $responseBody = $response->json();
+
             if (!$responseBody) {
                 $responseBody = $response->body();
             }
+
+            $fonnteStatus = false;
+
+            if (is_array($responseBody) && array_key_exists('status', $responseBody)) {
+                $fonnteStatus = (bool) $responseBody['status'];
+            }
+
+            $isSuccess = $response->successful() && $fonnteStatus;
 
             Log::info('FONNTE OTP RESPONSE', [
                 'url' => $url,
                 'raw_phone' => $phone,
                 'target' => $target,
-                'status' => $response->status(),
-                'successful' => $response->successful(),
+                'http_status' => $response->status(),
+                'http_successful' => $response->successful(),
+                'fonnte_status' => $fonnteStatus,
                 'body' => $responseBody,
             ]);
 
             return [
-                'success' => $response->successful(),
+                'success' => $isSuccess,
                 'status' => $response->status(),
                 'body' => $responseBody,
             ];
@@ -457,7 +530,7 @@ class AuthController extends Controller
             $target = '62' . ltrim($target, '0');
         }
 
-        if (strlen($target) < 10) {
+        if (strlen($target) < 10 || strlen($target) > 15) {
             return null;
         }
 

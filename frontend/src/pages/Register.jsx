@@ -10,6 +10,8 @@ import {
   Tag,
   BadgeCheck,
   Hotel,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import api from "../services/api";
@@ -25,6 +27,7 @@ export default function Register() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const normalizePhone = (phone) => {
     let cleaned = String(phone || "").replace(/\D/g, "").trim();
@@ -373,7 +376,7 @@ export default function Register() {
                       className="mr-3 text-gray-400 transition group-focus-within:text-red-500"
                     />
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       name="password"
                       value={form.password}
                       onChange={handleChange}
@@ -381,6 +384,17 @@ export default function Register() {
                       className="w-full bg-transparent text-gray-700 outline-none placeholder:text-gray-400"
                       required
                     />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="ml-3 text-gray-400 transition hover:text-red-500"
+                      aria-label={
+                        showPassword ? "Sembunyikan password" : "Lihat password"
+                      }
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
                 </div>
 
