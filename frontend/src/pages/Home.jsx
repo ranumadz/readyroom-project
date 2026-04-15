@@ -25,15 +25,7 @@ import {
   AirVent,
   UtensilsCrossed,
   BedDouble,
-  Hotel as HotelIcon,
-  BriefcaseBusiness,
-  House,
-  TimerReset,
-  Megaphone,
-  LayoutGrid,
-  Headset,
   BadgeCheck,
-  MapPinned,
   WalletCards,
 } from "lucide-react";
 
@@ -249,47 +241,15 @@ export default function Home() {
     "/images/hotel.jpg"
   );
 
-  const partnerFeatures = [
-    {
-      title: "Hotel Partner",
-      desc: "Kolaborasi properti hotel aktif",
-      icon: HotelIcon,
-    },
-    {
-      title: "Transit Stay",
-      desc: "Booking fleksibel untuk transit",
-      icon: TimerReset,
-    },
-    {
-      title: "Business Room",
-      desc: "Pilihan untuk tamu bisnis",
-      icon: BriefcaseBusiness,
-    },
-    {
-      title: "Residence",
-      desc: "Akomodasi rasa seperti rumah",
-      icon: House,
-    },
-    {
-      title: "Promo Support",
-      desc: "Dorongan kampanye dan promosi",
-      icon: Megaphone,
-    },
-    {
-      title: "Booking System",
-      desc: "Reservasi modern dan efisien",
-      icon: LayoutGrid,
-    },
-    {
-      title: "Branch Ready",
-      desc: "Mudah dikembangkan per cabang",
-      icon: MapPinned,
-    },
-    {
-      title: "Customer Care",
-      desc: "Dukungan layanan operasional",
-      icon: Headset,
-    },
+  const partnerLogos = [
+    { name: "ReadyRoom Prime", logo: "/readyroom.png" },
+    { name: "ReadyRoom Transit", logo: "/readyroom.png" },
+    { name: "ReadyRoom Business", logo: "/readyroom.png" },
+    { name: "ReadyRoom Suites", logo: "/readyroom.png" },
+    { name: "ReadyRoom Residence", logo: "/readyroom.png" },
+    { name: "ReadyRoom Urban", logo: "/readyroom.png" },
+    { name: "ReadyRoom Stay", logo: "/readyroom.png" },
+    { name: "ReadyRoom Partner", logo: "/readyroom.png" },
   ];
 
   return (
@@ -732,65 +692,44 @@ export default function Home() {
 
       <section className="overflow-hidden bg-white py-20">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
-          <div className="mb-8 text-center">
+          <div className="mb-10 text-center">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
               <Building2 size={16} />
               Mitra Kami
             </div>
+
             <h2 className="text-3xl font-bold leading-tight md:text-4xl">
-              Ekosistem kolaborasi ReadyRoom
+              Tumbuh bersama partner ReadyRoom
             </h2>
+
             <p className="mx-auto mt-4 max-w-3xl leading-relaxed text-gray-500">
-              ReadyRoom membuka kerja sama untuk berbagai tipe properti dan
-              operasional, dengan sistem reservasi modern dan tampilan yang siap
-              membantu pertumbuhan bisnis penginapan.
+              Beberapa partner properti dan kolaborasi yang siap berkembang bersama
+              ekosistem ReadyRoom.
             </p>
           </div>
 
-          <div className="rounded-[2rem] border border-gray-100 bg-gradient-to-br from-white via-red-50/40 to-white p-5 shadow-sm md:p-8">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              {partnerFeatures.map((item, index) => {
-                const Icon = item.icon;
-
-                return (
-                  <div
-                    key={item.title}
-                    data-aos="zoom-in"
-                    data-aos-delay={index * 60}
-                    className="group rounded-[1.75rem] border border-gray-100 bg-white p-5 text-center shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-red-200 hover:shadow-xl"
-                  >
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600 transition duration-300 group-hover:bg-red-600 group-hover:text-white">
-                      <Icon size={24} />
-                    </div>
-
-                    <h3 className="mt-4 text-sm font-bold text-gray-800 md:text-base">
-                      {item.title}
-                    </h3>
-                    <p className="mt-2 text-xs leading-relaxed text-gray-500 md:text-sm">
-                      {item.desc}
-                    </p>
+          <div className="rounded-[2rem] border border-gray-100 bg-gradient-to-br from-white via-red-50/30 to-white p-5 shadow-sm md:p-8">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+              {partnerLogos.map((partner, i) => (
+                <div
+                  key={partner.name}
+                  data-aos="zoom-in"
+                  data-aos-delay={i * 60}
+                  className="group rounded-[1.75rem] border border-gray-100 bg-white px-4 py-5 text-center shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] border border-gray-100 bg-gray-50 shadow-sm transition duration-300 group-hover:border-red-200 group-hover:bg-white">
+                    <img
+                      src={partner.logo}
+                      alt={partner.name}
+                      className="h-11 w-11 object-contain md:h-12 md:w-12"
+                    />
                   </div>
-                );
-              })}
-            </div>
 
-            <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-[1.75rem] border border-red-100 bg-white px-5 py-5 md:flex-row md:px-6">
-              <div>
-                <p className="text-lg font-bold text-gray-800">
-                  Siap tumbuh bersama ReadyRoom?
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  Bangun tampilan properti yang lebih profesional, modern, dan siap jual.
-                </p>
-              </div>
-
-              <Link
-                to="/hotels"
-                className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
-              >
-                Lihat Hotel Aktif
-                <ArrowRight size={18} />
-              </Link>
+                  <p className="mt-4 text-sm font-semibold text-gray-700 md:text-base">
+                    {partner.name}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
