@@ -302,7 +302,7 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-gray-100 text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-hidden pt-20 pb-20 text-white md:pt-28 md:pb-28">
+      <section className="relative overflow-visible pt-20 pb-28 text-white md:pt-28 md:pb-36">
         <div className="absolute inset-0">
           <img
             src={heroImage}
@@ -333,9 +333,9 @@ export default function Home() {
               <div className="mx-auto mb-10 h-6 w-2/3 animate-pulse rounded-xl bg-white/10" />
             )}
 
-            <div className="mx-auto max-w-6xl">
-              <HeroSearchFilter />
-            </div>
+            <div className="relative z-[60] mx-auto max-w-6xl">
+  <HeroSearchFilter />
+</div>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <Link
