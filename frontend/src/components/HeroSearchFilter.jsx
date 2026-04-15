@@ -214,9 +214,9 @@ export default function HeroSearchFilter() {
       data-aos="fade-up"
       className="relative z-30 mx-auto max-w-5xl rounded-[2rem] border border-white/40 bg-white/95 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-2xl md:p-6"
     >
-      <div className="grid grid-cols-1 items-end gap-4 lg:grid-cols-[1.35fr_1fr_auto]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr_180px]">
         <div className="relative" ref={dropdownRef}>
-          <label className="mb-2 block text-sm font-semibold text-red-600">
+          <label className="mb-2 block text-center text-sm font-semibold text-red-600 lg:text-left">
             Destination
           </label>
 
@@ -225,13 +225,13 @@ export default function HeroSearchFilter() {
               setShowDropdown(true);
               setShowCalendar(false);
             }}
-            className={`group flex items-center gap-3 rounded-2xl border px-4 py-4 shadow-sm transition focus-within:ring-4 ${
+            className={`group flex min-h-[68px] items-center gap-3 rounded-2xl border px-4 py-4 shadow-sm transition focus-within:ring-4 ${
               destinationError
                 ? "border-red-300 bg-red-50/60 focus-within:border-red-400 focus-within:ring-red-100"
                 : "border-gray-200 bg-gradient-to-b from-white to-gray-50 hover:border-red-300 focus-within:border-red-500 focus-within:ring-red-100"
             }`}
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-500">
               <MapPin size={18} />
             </div>
 
@@ -251,11 +251,11 @@ export default function HeroSearchFilter() {
           </div>
 
           {destinationError ? (
-            <p className="mt-2 text-xs font-medium text-red-500">
+            <p className="mt-2 text-center text-xs font-medium text-red-500 lg:text-left">
               {destinationError}
             </p>
           ) : (
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-2 text-center text-xs text-gray-400 lg:text-left">
               Pilih kota atau hotel tujuan terlebih dahulu.
             </p>
           )}
@@ -311,7 +311,7 @@ export default function HeroSearchFilter() {
         </div>
 
         <div className="relative" ref={calendarRef}>
-          <label className="mb-2 block text-sm font-semibold text-red-600">
+          <label className="mb-2 block text-center text-sm font-semibold text-red-600 lg:text-left">
             Check In
           </label>
 
@@ -319,7 +319,7 @@ export default function HeroSearchFilter() {
             type="button"
             onClick={handleOpenCalendar}
             onKeyDown={handleKeyDown}
-            className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+            className={`w-full min-h-[68px] rounded-2xl border px-4 py-4 text-left transition ${
               checkInError
                 ? "border-red-300 bg-red-50/60"
                 : destination.trim()
@@ -329,7 +329,7 @@ export default function HeroSearchFilter() {
           >
             <div className="flex items-center gap-3">
               <div
-                className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
                   destination.trim()
                     ? "bg-red-50 text-red-500"
                     : "bg-gray-200 text-gray-400"
@@ -369,15 +369,15 @@ export default function HeroSearchFilter() {
           </button>
 
           {checkInError ? (
-            <p className="mt-2 text-xs font-medium text-red-500">
+            <p className="mt-2 text-center text-xs font-medium text-red-500 lg:text-left">
               {checkInError}
             </p>
           ) : !destination.trim() ? (
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-2 text-center text-xs text-gray-400 lg:text-left">
               Isi destination dulu untuk membuka check-in.
             </p>
           ) : (
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-2 text-center text-xs text-gray-400 lg:text-left">
               Klik seluruh kotak check-in untuk membuka kalender.
             </p>
           )}
@@ -479,15 +479,17 @@ export default function HeroSearchFilter() {
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={handleSearch}
-          disabled={!isFormComplete}
-          className="flex h-[62px] items-center justify-center gap-2 rounded-2xl bg-red-600 px-7 font-semibold text-white shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300 disabled:shadow-none"
-        >
-          <Search size={18} />
-          Cari Hotel
-        </button>
+        <div className="flex flex-col justify-start pt-[30px]">
+          <button
+            type="button"
+            onClick={handleSearch}
+            disabled={!isFormComplete}
+            className="flex min-h-[68px] w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-7 font-semibold text-white shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300 disabled:shadow-none"
+          >
+            <Search size={18} />
+            Cari Hotel
+          </button>
+        </div>
       </div>
     </div>
   );

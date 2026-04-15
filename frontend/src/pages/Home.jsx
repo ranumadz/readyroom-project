@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -13,8 +13,6 @@ import {
   Car,
   Coffee,
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   Building2,
   Sparkles,
   History,
@@ -27,6 +25,16 @@ import {
   AirVent,
   UtensilsCrossed,
   BedDouble,
+  Hotel as HotelIcon,
+  BriefcaseBusiness,
+  House,
+  TimerReset,
+  Megaphone,
+  LayoutGrid,
+  Headset,
+  BadgeCheck,
+  MapPinned,
+  WalletCards,
 } from "lucide-react";
 
 import AOS from "aos";
@@ -41,8 +49,6 @@ export default function Home() {
   const [recentHotels, setRecentHotels] = useState([]);
   const [websiteContent, setWebsiteContent] = useState(null);
   const [loadingContent, setLoadingContent] = useState(true);
-
-  const partnerScrollRef = useRef(null);
 
   useEffect(() => {
     AOS.init({
@@ -211,17 +217,6 @@ export default function Home() {
     );
   };
 
-  const scrollPartners = (direction) => {
-    if (!partnerScrollRef.current) return;
-
-    const scrollAmount = window.innerWidth < 640 ? 280 : 340;
-
-    partnerScrollRef.current.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
-      behavior: "smooth",
-    });
-  };
-
   const recommendedHotels = useMemo(() => {
     return popularHotels.slice(0, 3);
   }, [popularHotels]);
@@ -254,47 +249,46 @@ export default function Home() {
     "/images/hotel.jpg"
   );
 
-  const partnerBrands = [
+  const partnerFeatures = [
     {
-      name: "ReadyRoom Prime",
-      image: "/readyroom.png",
-      description:
-        "Brand premium untuk pengalaman menginap yang lebih eksklusif.",
-      accent: "from-slate-900 via-slate-800 to-slate-700",
+      title: "Hotel Partner",
+      desc: "Kolaborasi properti hotel aktif",
+      icon: HotelIcon,
     },
     {
-      name: "ReadyRoom Transit",
-      image: "/readyroom.png",
-      description:
-        "Pilihan fleksibel untuk tamu transit yang butuh cepat dan nyaman.",
-      accent: "from-red-600 via-rose-600 to-orange-500",
+      title: "Transit Stay",
+      desc: "Booking fleksibel untuk transit",
+      icon: TimerReset,
     },
     {
-      name: "ReadyRoom Business",
-      image: "/readyroom.png",
-      description:
-        "Dirancang untuk perjalanan bisnis dengan kenyamanan efisien.",
-      accent: "from-emerald-700 via-emerald-600 to-teal-500",
+      title: "Business Room",
+      desc: "Pilihan untuk tamu bisnis",
+      icon: BriefcaseBusiness,
     },
     {
-      name: "ReadyRoom Suites",
-      image: "/readyroom.png",
-      description: "Kelas suite dengan suasana modern dan fasilitas lengkap.",
-      accent: "from-amber-500 via-yellow-500 to-orange-400",
+      title: "Residence",
+      desc: "Akomodasi rasa seperti rumah",
+      icon: House,
     },
     {
-      name: "ReadyRoom Residence",
-      image: "/readyroom.png",
-      description:
-        "Pilihan menginap lebih panjang dengan rasa nyaman seperti rumah.",
-      accent: "from-indigo-700 via-violet-700 to-purple-600",
+      title: "Promo Support",
+      desc: "Dorongan kampanye dan promosi",
+      icon: Megaphone,
     },
     {
-      name: "ReadyRoom Urban",
-      image: "/readyroom.png",
-      description:
-        "Gaya urban modern di lokasi strategis kota besar Indonesia.",
-      accent: "from-cyan-700 via-sky-700 to-blue-600",
+      title: "Booking System",
+      desc: "Reservasi modern dan efisien",
+      icon: LayoutGrid,
+    },
+    {
+      title: "Branch Ready",
+      desc: "Mudah dikembangkan per cabang",
+      icon: MapPinned,
+    },
+    {
+      title: "Customer Care",
+      desc: "Dukungan layanan operasional",
+      icon: Headset,
     },
   ];
 
@@ -334,8 +328,8 @@ export default function Home() {
             )}
 
             <div className="relative z-[60] mx-auto max-w-6xl">
-  <HeroSearchFilter />
-</div>
+              <HeroSearchFilter />
+            </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <Link
@@ -522,9 +516,13 @@ export default function Home() {
       <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+              <WalletCards size={16} />
+              Most Chosen
+            </div>
             <h3 className="text-3xl font-bold">Popular Hotels</h3>
             <p className="mt-2 text-gray-500">
-              Pilihan hotel populer untuk transit maupun menginap.
+              Properti yang paling sering dilihat dan dipilih customer.
             </p>
           </div>
           <Link
@@ -564,18 +562,30 @@ export default function Home() {
                 key={hotel.id}
                 data-aos="fade-up"
                 data-aos-delay={i * 100}
-                className="block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                className="group block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
               >
-                <img
-                  src={buildImageUrl(hotel.thumbnail, "/images/hotel.jpg")}
-                  alt={hotel.name}
-                  className="h-56 w-full object-cover"
-                />
+                <div className="relative">
+                  <img
+                    src={buildImageUrl(hotel.thumbnail, "/images/hotel.jpg")}
+                    alt={hotel.name}
+                    className="h-56 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                  />
+
+                  <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-800 shadow">
+                    <BadgeCheck size={13} className="text-red-500" />
+                    Popular Choice
+                  </div>
+                </div>
 
                 <div className="p-5">
                   <div className="mb-3 flex items-center justify-between">
                     <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
                       {hotel.area || "Hotel"}
+                    </span>
+
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                      <Eye size={13} />
+                      Banyak Dilihat
                     </span>
                   </div>
 
@@ -609,9 +619,13 @@ export default function Home() {
       <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-600">
+              <ShieldCheck size={16} />
+              Curated Picks
+            </div>
             <h3 className="text-3xl font-bold">Recommended Hotels</h3>
             <p className="mt-2 text-gray-500">
-              Rekomendasi hotel real berdasarkan booking valid terbanyak.
+              Pilihan hotel yang dikurasi untuk pengalaman menginap yang lebih nyaman.
             </p>
           </div>
           <Link
@@ -654,16 +668,23 @@ export default function Home() {
                 key={hotel.id}
                 data-aos="fade-up"
                 data-aos-delay={i * 100}
-                className="block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                className="group block overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
               >
-                <img
-                  src={buildImageUrl(
-                    hotel.hero_image || hotel.thumbnail,
-                    "/images/hotel.jpg"
-                  )}
-                  alt={hotel.name}
-                  className="h-56 w-full object-cover"
-                />
+                <div className="relative">
+                  <img
+                    src={buildImageUrl(
+                      hotel.hero_image || hotel.thumbnail,
+                      "/images/hotel.jpg"
+                    )}
+                    alt={hotel.name}
+                    className="h-56 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                  />
+
+                  <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-800 shadow">
+                    <Sparkles size={13} className="text-emerald-500" />
+                    Pilihan Kurasi
+                  </div>
+                </div>
 
                 <div className="p-5">
                   <div className="mb-3 flex items-center justify-between">
@@ -672,7 +693,7 @@ export default function Home() {
                     </span>
 
                     <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
-                      Top Choice
+                      Siap Dipilih
                     </span>
                   </div>
 
@@ -711,94 +732,65 @@ export default function Home() {
 
       <section className="overflow-hidden bg-white py-20">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
-          <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.45fr]">
-            <div data-aos="fade-right">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
-                <Building2 size={16} />
-                Discover Our Partners
-              </div>
+          <div className="mb-8 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+              <Building2 size={16} />
+              Mitra Kami
+            </div>
+            <h2 className="text-3xl font-bold leading-tight md:text-4xl">
+              Ekosistem kolaborasi ReadyRoom
+            </h2>
+            <p className="mx-auto mt-4 max-w-3xl leading-relaxed text-gray-500">
+              ReadyRoom membuka kerja sama untuk berbagai tipe properti dan
+              operasional, dengan sistem reservasi modern dan tampilan yang siap
+              membantu pertumbuhan bisnis penginapan.
+            </p>
+          </div>
 
-              <h2 className="text-3xl font-bold leading-tight md:text-4xl">
-                Mitra Kami, tumbuh bersama ReadyRoom
-              </h2>
+          <div className="rounded-[2rem] border border-gray-100 bg-gradient-to-br from-white via-red-50/40 to-white p-5 shadow-sm md:p-8">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {partnerFeatures.map((item, index) => {
+                const Icon = item.icon;
 
-              <p className="mt-4 max-w-xl leading-relaxed text-gray-500">
-                ReadyRoom membuka kolaborasi dengan hotel, residence, transit stay,
-                dan berbagai properti penginapan untuk menghadirkan pengalaman booking
-                yang modern, cepat, dan terpercaya.
-              </p>
+                return (
+                  <div
+                    key={item.title}
+                    data-aos="zoom-in"
+                    data-aos-delay={index * 60}
+                    className="group rounded-[1.75rem] border border-gray-100 bg-white p-5 text-center shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-red-200 hover:shadow-xl"
+                  >
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600 transition duration-300 group-hover:bg-red-600 group-hover:text-white">
+                      <Icon size={24} />
+                    </div>
 
-              <p className="mt-4 max-w-xl leading-relaxed text-gray-500">
-                Tampilkan brand properti kamu dengan tampilan profesional, dukungan
-                promosi, dan sistem reservasi yang siap bersaing dengan hotel-hotel besar.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => scrollPartners("left")}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:border-red-200 hover:text-red-600"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => scrollPartners("right")}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-red-600 text-white shadow-lg shadow-red-500/20 transition hover:bg-red-700"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              </div>
+                    <h3 className="mt-4 text-sm font-bold text-gray-800 md:text-base">
+                      {item.title}
+                    </h3>
+                    <p className="mt-2 text-xs leading-relaxed text-gray-500 md:text-sm">
+                      {item.desc}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
 
-            <div data-aos="fade-left" className="relative overflow-hidden">
-              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-14 bg-gradient-to-r from-white to-transparent md:block" />
-              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-14 bg-gradient-to-l from-white to-transparent md:block" />
-
-              <div
-                ref={partnerScrollRef}
-                className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:gap-5 md:px-0"
-              >
-                {partnerBrands.map((brand, i) => (
-                  <div
-                    key={brand.name}
-                    data-aos="zoom-in"
-                    data-aos-delay={i * 80}
-                    className="group min-w-[78vw] max-w-[78vw] overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-2xl sm:min-w-[320px] sm:max-w-[320px]"
-                  >
-                    <div
-                      className={`h-36 bg-gradient-to-br ${brand.accent} md:h-40`}
-                    />
-
-                    <div className="relative px-5 pb-6 md:px-6">
-                      <div className="-mt-12 mb-5 flex h-20 w-20 items-center justify-center rounded-[1.5rem] border-4 border-white bg-white shadow-lg md:-mt-14 md:h-24 md:w-24 md:rounded-[1.7rem]">
-                        <img
-                          src={brand.image}
-                          alt={brand.name}
-                          className="h-12 w-12 object-contain md:h-14 md:w-14"
-                        />
-                      </div>
-
-                      <h3 className="text-xl font-bold text-gray-800">
-                        {brand.name}
-                      </h3>
-
-                      <p className="mt-3 min-h-[72px] text-sm leading-relaxed text-gray-500">
-                        {brand.description}
-                      </p>
-
-                      <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-red-600">
-                        Join as Partner
-                        <ArrowRight
-                          size={15}
-                          className="transition group-hover:translate-x-1"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-[1.75rem] border border-red-100 bg-white px-5 py-5 md:flex-row md:px-6">
+              <div>
+                <p className="text-lg font-bold text-gray-800">
+                  Siap tumbuh bersama ReadyRoom?
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Bangun tampilan properti yang lebih profesional, modern, dan siap jual.
+                </p>
               </div>
+
+              <Link
+                to="/hotels"
+                className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
+              >
+                Lihat Hotel Aktif
+                <ArrowRight size={18} />
+              </Link>
             </div>
           </div>
         </div>
