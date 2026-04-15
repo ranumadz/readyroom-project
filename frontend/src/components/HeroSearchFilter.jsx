@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, MapPin, Search, Building2 } from "lucide-react";
+import {
+  CalendarDays,
+  MapPin,
+  Search,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
@@ -9,12 +16,14 @@ export default function HeroSearchFilter() {
   const [destination, setDestination] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [hotels, setHotels] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [destinationError, setDestinationError] = useState("");
   const [checkInError, setCheckInError] = useState("");
 
   const dropdownRef = useRef(null);
+  const calendarRef = useRef(null);
 
   const citySuggestions = [
     "Jakarta",
@@ -25,10 +34,14 @@ export default function HeroSearchFilter() {
     "Bali",
   ];
 
-  const minDate = useMemo(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
+  const today = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }, []);
+
+  const [calendarMonth, setCalendarMonth] = useState(
+    new Date(today.getFullYear(), today.getMonth(), 1)
+  );
 
   useEffect(() => {
     fetchHotelSuggestions();
@@ -38,6 +51,10 @@ export default function HeroSearchFilter() {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setShowDropdown(false);
+      }
+
+      if (calendarRef.current && !calendarRef.current.contains(e.target)) {
+        setShowCalendar(false);
       }
     };
 
@@ -150,21 +167,47 @@ export default function HeroSearchFilter() {
 
     if (!e.target.value.trim()) {
       setCheckIn("");
+      setShowCalendar(false);
     }
   };
 
-  const handleCheckInFocus = () => {
+  const handleOpenCalendar = () => {
     if (!destination.trim()) {
       setDestinationError("Isi destination dulu sebelum pilih check-in.");
+      setCheckInError("");
+      setShowCalendar(false);
+      return;
+    }
+
+    setDestinationError("");
+    setShowCalendar(true);
+
+    if (checkIn) {
+      const selected = parseDateString(checkIn);
+      if (selected) {
+        setCalendarMonth(
+          new Date(selected.getFullYear(), selected.getMonth(), 1)
+        );
+      }
     }
   };
 
-  const handleCheckInChange = (e) => {
-    setCheckIn(e.target.value);
+  const handleSelectDate = (date) => {
+    const formatted = formatDateToInput(date);
+    setCheckIn(formatted);
     setCheckInError("");
+    setShowCalendar(false);
   };
 
   const isFormComplete = destination.trim() && checkIn;
+
+  const calendarDays = useMemo(() => {
+    return buildCalendarDays(calendarMonth);
+  }, [calendarMonth]);
+
+  const displayCheckIn = checkIn
+    ? formatDateForDisplay(parseDateString(checkIn))
+    : "";
 
   return (
     <div
@@ -178,7 +221,10 @@ export default function HeroSearchFilter() {
           </label>
 
           <div
-            onClick={() => setShowDropdown(true)}
+            onClick={() => {
+              setShowDropdown(true);
+              setShowCalendar(false);
+            }}
             className={`group flex items-center gap-3 rounded-2xl border px-4 py-4 shadow-sm transition focus-within:ring-4 ${
               destinationError
                 ? "border-red-300 bg-red-50/60 focus-within:border-red-400 focus-within:ring-red-100"
@@ -192,7 +238,10 @@ export default function HeroSearchFilter() {
             <div className="flex-1">
               <input
                 value={destination}
-                onFocus={() => setShowDropdown(true)}
+                onFocus={() => {
+                  setShowDropdown(true);
+                  setShowCalendar(false);
+                }}
                 onChange={handleDestinationChange}
                 onKeyDown={handleKeyDown}
                 className="w-full bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400 md:text-base"
@@ -261,32 +310,63 @@ export default function HeroSearchFilter() {
           )}
         </div>
 
-        <div>
+        <div className="relative" ref={calendarRef}>
           <label className="mb-2 block text-sm font-semibold text-red-600">
             Check In
           </label>
 
-          <div
-            className={`flex items-center gap-3 rounded-2xl border px-4 py-4 transition ${
+          <button
+            type="button"
+            onClick={handleOpenCalendar}
+            onKeyDown={handleKeyDown}
+            className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
               checkInError
                 ? "border-red-300 bg-red-50/60"
                 : destination.trim()
-                ? "border-gray-200 bg-gray-50"
+                ? "border-gray-200 bg-gradient-to-b from-white to-gray-50 hover:border-red-300"
                 : "border-gray-200 bg-gray-100 opacity-80"
             }`}
           >
-            <CalendarDays size={18} className="text-gray-400" />
-            <input
-              type="date"
-              min={minDate}
-              value={checkIn}
-              onFocus={handleCheckInFocus}
-              onChange={handleCheckInChange}
-              onKeyDown={handleKeyDown}
-              disabled={!destination.trim()}
-              className="w-full bg-transparent text-gray-800 outline-none disabled:cursor-not-allowed disabled:text-gray-400"
-            />
-          </div>
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+                  destination.trim()
+                    ? "bg-red-50 text-red-500"
+                    : "bg-gray-200 text-gray-400"
+                }`}
+              >
+                <CalendarDays size={18} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                {checkIn ? (
+                  <>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                      Tanggal Check In
+                    </p>
+                    <p className="mt-1 truncate text-sm font-semibold text-gray-800 md:text-base">
+                      {displayCheckIn}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                      Tanggal Check In
+                    </p>
+                    <p
+                      className={`mt-1 text-sm md:text-base ${
+                        destination.trim() ? "text-gray-800" : "text-gray-400"
+                      }`}
+                    >
+                      {destination.trim()
+                        ? "Pilih tanggal check-in"
+                        : "Isi destination dulu"}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </button>
 
           {checkInError ? (
             <p className="mt-2 text-xs font-medium text-red-500">
@@ -298,8 +378,104 @@ export default function HeroSearchFilter() {
             </p>
           ) : (
             <p className="mt-2 text-xs text-gray-400">
-              Pilih tanggal check-in kamu.
+              Klik seluruh kotak check-in untuk membuka kalender.
             </p>
+          )}
+
+          {showCalendar && destination.trim() && (
+            <div className="absolute left-0 right-0 z-50 mt-3 overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)]">
+              <div className="border-b border-gray-100 px-5 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCalendarMonth(
+                        new Date(
+                          calendarMonth.getFullYear(),
+                          calendarMonth.getMonth() - 1,
+                          1
+                        )
+                      )
+                    }
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+
+                  <div className="text-center">
+                    <p className="text-base font-bold text-gray-800">
+                      {formatMonthYear(calendarMonth)}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Pilih tanggal check-in kamu
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCalendarMonth(
+                        new Date(
+                          calendarMonth.getFullYear(),
+                          calendarMonth.getMonth() + 1,
+                          1
+                        )
+                      )
+                    }
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 md:p-5">
+                <div className="mb-3 grid grid-cols-7 gap-2">
+                  {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map(
+                    (day) => (
+                      <div
+                        key={day}
+                        className="py-2 text-center text-xs font-bold uppercase tracking-wide text-gray-400"
+                      >
+                        {day}
+                      </div>
+                    )
+                  )}
+                </div>
+
+                <div className="grid grid-cols-7 gap-2">
+                  {calendarDays.map((day, index) => {
+                    if (!day) {
+                      return <div key={`empty-${index}`} className="h-11" />;
+                    }
+
+                    const disabled = isBeforeDay(day, today);
+                    const selected = checkIn === formatDateToInput(day);
+                    const isToday = isSameDay(day, today);
+
+                    return (
+                      <button
+                        key={formatDateToInput(day)}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => handleSelectDate(day)}
+                        className={`h-11 rounded-2xl text-sm font-semibold transition ${
+                          disabled
+                            ? "cursor-not-allowed bg-gray-50 text-gray-300"
+                            : selected
+                            ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg shadow-red-200"
+                            : isToday
+                            ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                            : "text-gray-700 hover:bg-gray-100"
+                        }`}
+                      >
+                        {day.getDate()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
@@ -310,9 +486,90 @@ export default function HeroSearchFilter() {
           className="flex h-[62px] items-center justify-center gap-2 rounded-2xl bg-red-600 px-7 font-semibold text-white shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300 disabled:shadow-none"
         >
           <Search size={18} />
-          Explore Hotels
+          Cari Hotel
         </button>
       </div>
     </div>
+  );
+}
+
+function buildCalendarDays(monthDate) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+
+  const startWeekday = firstDayOfMonth.getDay();
+  const totalDays = lastDayOfMonth.getDate();
+
+  const result = [];
+
+  for (let i = 0; i < startWeekday; i++) {
+    result.push(null);
+  }
+
+  for (let day = 1; day <= totalDays; day++) {
+    result.push(new Date(year, month, day));
+  }
+
+  return result;
+}
+
+function formatDateToInput(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateString(value) {
+  if (!value) return null;
+
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+
+  return new Date(year, month - 1, day);
+}
+
+function formatDateForDisplay(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    weekday: "short",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatMonthYear(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function isBeforeDay(a, b) {
+  return (
+    a.getFullYear() < b.getFullYear() ||
+    (a.getFullYear() === b.getFullYear() &&
+      a.getMonth() < b.getMonth()) ||
+    (a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() < b.getDate())
+  );
+}
+
+function isSameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
   );
 }

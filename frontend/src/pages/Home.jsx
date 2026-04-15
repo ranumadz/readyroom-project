@@ -342,7 +342,7 @@ export default function Home() {
                 to="/hotels"
                 className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-100"
               >
-                Explore Hotels
+                Kunjungi Semua Hotel
                 <ArrowRight size={18} />
               </Link>
             </div>
