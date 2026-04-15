@@ -193,11 +193,52 @@ export default function Register() {
       return;
     }
 
-    localStorage.setItem("otp_phone", normalizedPhone);
+    setLoading(true);
+    setError("");
 
-    navigate("/verify-otp", {
-      state: { phone: normalizedPhone },
-    });
+    try {
+      localStorage.setItem("otp_phone", normalizedPhone);
+
+      const res = await api.post("/resend-otp", {
+        phone: normalizedPhone,
+      });
+
+      await Swal.fire({
+        icon: "success",
+        title: "OTP Berhasil Dikirim",
+        text:
+          res.data?.message ||
+          "Kode OTP baru berhasil dikirim ke WhatsApp kamu.",
+        confirmButtonColor: "#dc2626",
+        background: "#ffffff",
+        color: "#1f2937",
+      });
+
+      navigate("/verify-otp", {
+        state: { phone: normalizedPhone },
+      });
+    } catch (err) {
+      console.error(
+        "CONTINUE VERIFICATION ERROR:",
+        err.response?.data || err
+      );
+
+      const message =
+        err.response?.data?.message || "Gagal mengirim ulang OTP";
+
+      setError(message);
+
+      await Swal.fire({
+        icon: "error",
+        title: "Gagal",
+        text: message,
+        confirmButtonColor: "#dc2626",
+        background: "#ffffff",
+        color: "#1f2937",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -310,8 +351,8 @@ export default function Register() {
                 </h2>
 
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-gray-500">
-                  Daftar untuk mulai booking di ReadyRoom dan lanjut ke verifikasi
-                  OTP WhatsApp.
+                  Daftar untuk mulai booking di ReadyRoom dan lanjut ke
+                  verifikasi OTP WhatsApp.
                 </p>
               </div>
             </div>
@@ -411,9 +452,10 @@ export default function Register() {
               <button
                 type="button"
                 onClick={handleContinueVerification}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 font-semibold text-red-600 transition hover:bg-red-50"
+                disabled={loading}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-70"
               >
-                Lanjut Verifikasi OTP
+                {loading ? "Memproses..." : "Lanjut Verifikasi OTP"}
               </button>
 
               <div className="mt-6 rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-4">
