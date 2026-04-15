@@ -141,63 +141,61 @@ export default function Hotels() {
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-          <div className="mx-auto max-w-6xl">
-            <div className="max-w-4xl md:ml-10 lg:ml-16 xl:ml-24">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
-                <HotelIcon size={16} />
-                <span className="text-sm font-medium">
-                  Jelajahi hotel partner terbaik ReadyRoom
-                </span>
-              </div>
-
-              <h1 className="mb-5 text-4xl font-extrabold leading-tight md:text-6xl">
-                Temukan Hotel Terbaik
-                <br />
-                di{" "}
-                <span className="text-red-100 drop-shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
-                  ReadyRoom
-                </span>
-              </h1>
-
-              <p className="mb-8 max-w-3xl text-lg text-red-100 md:text-xl">
-                Cari hotel berdasarkan nama, kota, area, atau alamat. Semua hotel
-                yang tampil di sini adalah hotel aktif yang siap kamu jelajahi.
-              </p>
-
-              <div className="w-full max-w-3xl rounded-3xl border border-white/40 bg-white/95 p-3 shadow-2xl backdrop-blur-md">
-                <div className="relative">
-                  <Search
-                    size={20}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Cari hotel, kota, area, atau alamat..."
-                    className="w-full rounded-2xl bg-transparent py-4 pl-12 pr-4 text-gray-800 outline-none placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-
-              {(destinationFromQuery || checkInFromQuery) && (
-                <div className="mt-5 flex flex-wrap items-center gap-3">
-                  {destinationFromQuery && (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
-                      <MapPin size={15} />
-                      Tujuan: {destinationFromQuery}
-                    </span>
-                  )}
-
-                  {checkInFromQuery && (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
-                      <CalendarDays size={15} />
-                      Check-in: {checkInFromQuery}
-                    </span>
-                  )}
-                </div>
-              )}
+          <div className="mx-auto max-w-5xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
+              <HotelIcon size={16} />
+              <span className="text-sm font-medium">
+                Jelajahi hotel partner terbaik ReadyRoom
+              </span>
             </div>
+
+            <h1 className="mx-auto mb-5 max-w-4xl text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">
+              Temukan Hotel Terbaik
+              <br />
+              di{" "}
+              <span className="text-red-100 drop-shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
+                ReadyRoom
+              </span>
+            </h1>
+
+            <p className="mx-auto mb-8 max-w-3xl text-base leading-relaxed text-red-100 md:text-xl">
+              Cari hotel berdasarkan nama, kota, area, atau alamat. Semua hotel
+              yang tampil di sini adalah hotel aktif yang siap kamu jelajahi.
+            </p>
+
+            <div className="mx-auto w-full max-w-3xl rounded-3xl border border-white/40 bg-white/95 p-3 shadow-2xl backdrop-blur-md">
+              <div className="relative">
+                <Search
+                  size={20}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Cari hotel, kota, area, atau alamat..."
+                  className="w-full rounded-2xl bg-transparent py-4 pl-12 pr-4 text-gray-800 outline-none placeholder:text-gray-400"
+                />
+              </div>
+            </div>
+
+            {(destinationFromQuery || checkInFromQuery) && (
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                {destinationFromQuery && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
+                    <MapPin size={15} />
+                    Tujuan: {destinationFromQuery}
+                  </span>
+                )}
+
+                {checkInFromQuery && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
+                    <CalendarDays size={15} />
+                    Check-in: {checkInFromQuery}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
