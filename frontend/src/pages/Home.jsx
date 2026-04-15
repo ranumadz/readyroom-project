@@ -245,11 +245,11 @@ export default function Home() {
     { name: "Royal Hotel", logo: "/royal_hotel.jpg" },
     { name: "Inna Hotel", logo: "/inna_hotel.jpg" },
     { name: "Grand Hotel", logo: "/grand hotel.jpg" },
-    { name: "ReadyRoom Suites", logo: "/readyroom.png" },
-    { name: "ReadyRoom Residence", logo: "/readyroom.png" },
-    { name: "ReadyRoom Urban", logo: "/readyroom.png" },
-    { name: "ReadyRoom Stay", logo: "/readyroom.png" },
-    { name: "ReadyRoom Partner", logo: "/readyroom.png" },
+    { name: "Manhattan", logo: "/mahantan_hotel.png" },
+    { name: "Hotel Mulia", logo: "/hotel_mulia.jpg" },
+    { name: "For Season Hotel", logo: "/for_season.jpg" },
+    { name: "Falatehan Hotel", logo: "/falatehan_hotel.png" },
+    { name: "ReadyRoom Luxury", logo: "/readyroom.png" },
   ];
 
   return (
