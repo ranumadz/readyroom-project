@@ -121,6 +121,7 @@ Route::prefix('admin')->group(function () {
     Route::post('/users/admin/{id}/toggle-status', [UserController::class, 'toggleAdminStatus']);
 
     Route::get('/users/customers', [UserController::class, 'customers']);
+    Route::delete('/users/customers/{id}', [UserController::class, 'deleteCustomer']);
     Route::post('/users/customers/{id}/reset-password', [UserController::class, 'resetCustomerPassword']);
     Route::post('/users/customers/{id}/toggle-status', [UserController::class, 'toggleCustomerStatus']);
 

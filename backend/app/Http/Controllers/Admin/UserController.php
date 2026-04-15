@@ -354,4 +354,31 @@ class UserController extends Controller
             'data' => $customer
         ]);
     }
+
+    /**
+     * Hapus customer
+     * Boss / super_admin
+     */
+    public function deleteCustomer(Request $request, $id)
+    {
+        $request->validate([
+            'deleted_by' => 'required|exists:users,id',
+        ]);
+
+        $actor = User::find($request->deleted_by);
+
+        if (!$actor || !in_array($actor->role, ['boss', 'super_admin'])) {
+            return response()->json([
+                'message' => 'Hanya boss atau super admin yang boleh menghapus customer'
+            ], 403);
+        }
+
+        $customer = Customer::findOrFail($id);
+
+        $customer->delete();
+
+        return response()->json([
+            'message' => 'Customer berhasil dihapus'
+        ]);
+    }
 }

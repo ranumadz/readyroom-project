@@ -280,6 +280,11 @@ export default function UsersPage() {
     return true;
   };
 
+  const canDeleteCustomer = (target) => {
+    if (!adminUser || !target) return false;
+    return isBossOrSuperAdmin;
+  };
+
   const roleNeedsHotelAssignment = (role) => {
     return role === "admin" || role === "receptionist" || role === "pengawas";
   };
@@ -414,13 +419,21 @@ export default function UsersPage() {
     setNewPassword("");
   };
 
-  const openDeleteModal = (user) => {
-    if (!canDeleteInternalUser(user)) {
-      toast.error("Kamu tidak punya akses untuk menghapus user ini");
+  const openDeleteModal = (target, type = "internal") => {
+    const allowed =
+      type === "internal"
+        ? canDeleteInternalUser(target)
+        : canDeleteCustomer(target);
+
+    if (!allowed) {
+      toast.error("Kamu tidak punya akses untuk menghapus data ini");
       return;
     }
 
-    setDeleteTarget(user);
+    setDeleteTarget({
+      ...target,
+      type,
+    });
     setShowDeleteModal(true);
   };
 
@@ -589,18 +602,28 @@ export default function UsersPage() {
     try {
       setDeletingUser(true);
 
-      await api.delete(`/admin/users/admin/${deleteTarget.id}`, {
+      const endpoint =
+        deleteTarget.type === "internal"
+          ? `/admin/users/admin/${deleteTarget.id}`
+          : `/admin/users/customers/${deleteTarget.id}`;
+
+      await api.delete(endpoint, {
         data: {
           deleted_by: adminUser?.id,
         },
       });
 
-      toast.success("User berhasil dihapus");
+      toast.success(
+        deleteTarget.type === "internal"
+          ? "User berhasil dihapus"
+          : "Customer berhasil dihapus"
+      );
+
       closeDeleteModal();
       fetchUsersData();
     } catch (error) {
       console.error("DELETE USER ERROR:", error.response?.data || error);
-      toast.error(error.response?.data?.message || "Gagal menghapus user");
+      toast.error(error.response?.data?.message || "Gagal menghapus data");
     } finally {
       setDeletingUser(false);
     }
@@ -894,7 +917,7 @@ export default function UsersPage() {
                             {canDeleteInternalUser(user) && (
                               <button
                                 type="button"
-                                onClick={() => openDeleteModal(user)}
+                                onClick={() => openDeleteModal(user, "internal")}
                                 className={calmDangerClass}
                               >
                                 <Trash2 size={16} />
@@ -1009,6 +1032,17 @@ export default function UsersPage() {
                               >
                                 <Power size={16} />
                                 {customer.status ? "Nonaktifkan" : "Aktifkan"}
+                              </button>
+                            )}
+
+                            {canDeleteCustomer(customer) && (
+                              <button
+                                type="button"
+                                onClick={() => openDeleteModal(customer, "customer")}
+                                className={calmDangerClass}
+                              >
+                                <Trash2 size={16} />
+                                Hapus
                               </button>
                             )}
                           </div>
@@ -1349,18 +1383,35 @@ export default function UsersPage() {
 
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.24em] text-rose-500">
-                      Delete User
+                      {deleteTarget.type === "customer"
+                        ? "Delete Customer"
+                        : "Delete User"}
                     </p>
                     <h2 className="mt-1 text-2xl font-bold text-gray-900">
-                      Hapus user ini?
+                      {deleteTarget.type === "customer"
+                        ? "Hapus customer ini?"
+                        : "Hapus user ini?"}
                     </h2>
                     <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                      User{" "}
-                      <span className="font-semibold text-gray-800">
-                        {deleteTarget.name}
-                      </span>{" "}
-                      akan dihapus dari sistem. Gunakan aksi ini hanya untuk akun
-                      test, duplikat, atau akun yang memang tidak dipakai lagi.
+                      {deleteTarget.type === "customer" ? (
+                        <>
+                          Customer{" "}
+                          <span className="font-semibold text-gray-800">
+                            {deleteTarget.name}
+                          </span>{" "}
+                          akan dihapus dari database. Gunakan aksi ini untuk data
+                          test, duplikat, atau customer yang memang ingin dibersihkan.
+                        </>
+                      ) : (
+                        <>
+                          User{" "}
+                          <span className="font-semibold text-gray-800">
+                            {deleteTarget.name}
+                          </span>{" "}
+                          akan dihapus dari sistem. Gunakan aksi ini hanya untuk akun
+                          test, duplikat, atau akun yang memang tidak dipakai lagi.
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -1379,31 +1430,65 @@ export default function UsersPage() {
               <div className="rounded-3xl border border-rose-100 bg-rose-50/70 p-4">
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-gray-500">Nama User</span>
+                    <span className="text-gray-500">
+                      {deleteTarget.type === "customer" ? "Nama Customer" : "Nama User"}
+                    </span>
                     <span className="font-semibold text-gray-800">
                       {deleteTarget.name}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-gray-500">Role</span>
-                    <span className="font-semibold text-gray-800">
-                      {getRoleLabel(deleteTarget.role)}
-                    </span>
-                  </div>
+                  {deleteTarget.type === "internal" ? (
+                    <>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-gray-500">Role</span>
+                        <span className="font-semibold text-gray-800">
+                          {getRoleLabel(deleteTarget.role)}
+                        </span>
+                      </div>
 
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-gray-500">Email</span>
-                    <span className="font-semibold text-gray-800 break-all text-right">
-                      {deleteTarget.email || "-"}
-                    </span>
-                  </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-gray-500">Email</span>
+                        <span className="font-semibold text-gray-800 break-all text-right">
+                          {deleteTarget.email || "-"}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-gray-500">Nomor HP</span>
+                        <span className="font-semibold text-gray-800 break-all text-right">
+                          {deleteTarget.phone || "-"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-gray-500">Verifikasi</span>
+                        <span className="font-semibold text-gray-800">
+                          {deleteTarget.is_verified
+                            ? "Terverifikasi"
+                            : "Belum Verifikasi"}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                Pastikan user ini memang aman untuk dihapus. Untuk akun yang
-                masih dipakai operasional, lebih aman gunakan <strong>Nonaktifkan</strong>.
+                {deleteTarget.type === "customer" ? (
+                  <>
+                    Pastikan customer ini memang aman untuk dihapus dari database,
+                    terutama jika ini hanya data test atau data verifikasi OTP yang
+                    tidak jadi dipakai.
+                  </>
+                ) : (
+                  <>
+                    Pastikan user ini memang aman untuk dihapus. Untuk akun yang
+                    masih dipakai operasional, lebih aman gunakan <strong>Nonaktifkan</strong>.
+                  </>
+                )}
               </div>
 
               <div className="mt-8 flex flex-wrap justify-end gap-3">
@@ -1423,7 +1508,11 @@ export default function UsersPage() {
                   className="inline-flex items-center gap-2 rounded-2xl bg-rose-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <Trash2 size={18} />
-                  {deletingUser ? "Menghapus..." : "Ya, Hapus User"}
+                  {deletingUser
+                    ? "Menghapus..."
+                    : deleteTarget.type === "customer"
+                    ? "Ya, Hapus Customer"
+                    : "Ya, Hapus User"}
                 </button>
               </div>
             </div>
