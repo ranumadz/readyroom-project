@@ -242,9 +242,9 @@ export default function Home() {
   );
 
   const partnerLogos = [
-    { name: "ReadyRoom Prime", logo: "/readyroom.png" },
-    { name: "ReadyRoom Transit", logo: "/readyroom.png" },
-    { name: "ReadyRoom Business", logo: "/readyroom.png" },
+    { name: "Royal Hotel", logo: "/royal_hotel.jpg" },
+    { name: "Inna Hotel", logo: "/inna_hotel.jpg" },
+    { name: "Grand Hotel", logo: "/grand hotel.jpg" },
     { name: "ReadyRoom Suites", logo: "/readyroom.png" },
     { name: "ReadyRoom Residence", logo: "/readyroom.png" },
     { name: "ReadyRoom Urban", logo: "/readyroom.png" },
