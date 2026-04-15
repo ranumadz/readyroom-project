@@ -142,7 +142,7 @@ export default function Hotels() {
 
         <div className="relative mx-auto max-w-7xl px-4 md:px-6">
           <div className="mx-auto max-w-6xl">
-            <div className="max-w-4xl">
+            <div className="max-w-4xl md:ml-10 lg:ml-16 xl:ml-24">
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
                 <HotelIcon size={16} />
                 <span className="text-sm font-medium">
