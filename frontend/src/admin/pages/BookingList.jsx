@@ -1451,6 +1451,29 @@ const buildWhatsAppMessage = (booking) => {
     }
   };
 
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case "checked_in":
+        return "Checked In";
+      case "checked_out":
+        return "Checked Out";
+      case "cleaning":
+        return "Cleaning";
+      case "completed":
+        return "Finished";
+      case "confirmed":
+        return "Confirmed";
+      case "pending":
+        return "Pending";
+      case "cancelled":
+        return "Cancelled";
+      case "rejected":
+        return "Rejected";
+      default:
+        return status || "-";
+    }
+  };
+
   const canAddPenaltyToBooking = (booking) => {
     return ["checked_out", "cleaning", "completed"].includes(booking?.status);
   };
@@ -1727,22 +1750,22 @@ const buildWhatsAppMessage = (booking) => {
     });
   }, [bookings, filters, viewMode, assignedHotelIds, canAccessAllHotels]);
 
-  const reportBookings = useMemo(() => {
-    return filteredBookings.filter((booking) => {
-      const status = String(booking?.status || "").toLowerCase();
-      const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+const reportBookings = useMemo(() => {
+  return filteredBookings.filter((booking) => {
+    const status = String(booking?.status || "").toLowerCase();
+    const paymentStatus = String(booking?.payment_status || "").toLowerCase();
 
-      if (["cancelled", "rejected", "completed"].includes(status)) {
-        return false;
-      }
+    if (["cancelled", "rejected"].includes(status)) {
+      return false;
+    }
 
-      if (paymentStatus === "refunded") {
-        return false;
-      }
+    if (paymentStatus === "refunded") {
+      return false;
+    }
 
-      return matchesReportShift(booking) && matchesReportPaymentMethod(booking);
-    });
-  }, [filteredBookings, reportShift, reportPaymentMethod]);
+    return matchesReportShift(booking) && matchesReportPaymentMethod(booking);
+  });
+}, [filteredBookings, reportShift, reportPaymentMethod]);
 
   const reportTotalValue = useMemo(() => {
     return reportBookings.reduce((sum, booking) => sum + Number(booking?.total_price || 0), 0);
@@ -1969,6 +1992,33 @@ const buildWhatsAppMessage = (booking) => {
     )}
   </div>
 
+  <div className="flex flex-wrap gap-3 mb-4">
+    {[
+      { label: "Semua Status", value: "" },
+      { label: "Checked In", value: "checked_in" },
+      { label: "Checked Out", value: "checked_out" },
+      { label: "Cleaning", value: "cleaning" },
+      { label: "Finished", value: "completed" },
+    ].map((item) => {
+      const active = filters.status === item.value;
+
+      return (
+        <button
+          key={item.label}
+          type="button"
+          onClick={() => handleFilterChange("status", item.value)}
+          className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
+            active
+              ? "bg-gray-900 text-white shadow-sm"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+          }`}
+        >
+          {item.label}
+        </button>
+      );
+    })}
+  </div>
+
   <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
     <div>
       <p className="text-sm font-semibold text-gray-800">
@@ -1987,7 +2037,7 @@ const buildWhatsAppMessage = (booking) => {
       )}
       {filters.status && (
         <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
-          Status: {filters.status}
+          Status: {getStatusLabel(filters.status)}
         </span>
       )}
       {filters.bookingType && (
