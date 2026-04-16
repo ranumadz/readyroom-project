@@ -93,6 +93,7 @@ export default function BookingList() {
     room_unit_id: "",
     booking_type: "transit",
     duration_hours: "3",
+    duration_days: "1",
     check_in: "",
     manual_discount_percent: "",
     admin_note: "",
@@ -111,6 +112,13 @@ export default function BookingList() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportShift, setReportShift] = useState("all");
   const [reportPaymentMethod, setReportPaymentMethod] = useState("all");
+  const [reportDate, setReportDate] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
   const [branchSeenMap, setBranchSeenMap] = useState({});
@@ -688,6 +696,7 @@ export default function BookingList() {
       room_unit_id: "",
       booking_type: "transit",
       duration_hours: "3",
+      duration_days: "1",
       check_in: "",
       manual_discount_percent: "",
       admin_note: "",
@@ -715,10 +724,15 @@ export default function BookingList() {
 
       if (name === "booking_type" && value === "overnight") {
         next.duration_hours = "";
+        next.duration_days = prev.duration_days || "1";
       }
 
       if (name === "booking_type" && value === "transit" && !prev.duration_hours) {
         next.duration_hours = "3";
+      }
+
+      if (name === "booking_type" && value === "transit") {
+        next.duration_days = "1";
       }
 
       return next;
@@ -749,8 +763,9 @@ export default function BookingList() {
       return 0;
     }
 
-    return selectedManualRoom.price_per_night || 0;
-  }, [selectedManualRoom, manualForm.booking_type, manualForm.duration_hours]);
+    const durationDays = Math.max(1, Number(manualForm.duration_days || 1));
+    return Number(selectedManualRoom.price_per_night || 0) * durationDays;
+  }, [selectedManualRoom, manualForm.booking_type, manualForm.duration_hours, manualForm.duration_days]);
 
   const manualDiscountPercent = useMemo(() => {
     const raw = Number(manualForm.manual_discount_percent || 0);
@@ -779,6 +794,12 @@ export default function BookingList() {
     if (manualForm.booking_type === "transit" && !manualForm.duration_hours) {
       return toast.error("Durasi transit wajib dipilih");
     }
+    if (
+      manualForm.booking_type === "overnight" &&
+      (!manualForm.duration_days || Number(manualForm.duration_days) < 1)
+    ) {
+      return toast.error("Durasi hari overnight wajib diisi");
+    }
 
     try {
       setSavingManual(true);
@@ -796,7 +817,15 @@ export default function BookingList() {
     manualForm.booking_type === "transit"
       ? Number(manualForm.duration_hours)
       : null,
+  duration_days:
+    manualForm.booking_type === "overnight"
+      ? Number(manualForm.duration_days || 1)
+      : null,
   check_in: manualForm.check_in.replace("T", " ") + ":00",
+  check_out:
+    manualForm.booking_type === "overnight"
+      ? getManualOvernightCheckOut()
+      : null,
   admin_note: manualForm.admin_note || "",
   ...(canEditBooking ? { discount_percent: manualDiscountPercent } : {}),
 };
@@ -836,6 +865,7 @@ const handlePrintReport = () => {
       ? "Shift Pagi"
       : "Shift Malam";
   const paymentMethodLabel = getReportPaymentMethodLabel(reportPaymentMethod);
+  const reportDateLabel = reportDate ? formatDate(reportDate) : "Semua Tanggal";
 
   const printWindow = window.open("", "_blank", "width=1280,height=900");
 
@@ -899,7 +929,7 @@ const handlePrintReport = () => {
           }
           .meta-grid {
             display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-columns: repeat(6, minmax(0, 1fr));
             gap: 12px;
             padding: 20px 24px 0;
           }
@@ -993,6 +1023,10 @@ const handlePrintReport = () => {
               <p class="meta-value">${branchName}</p>
             </div>
             <div class="meta-card">
+              <p class="meta-label">Tanggal</p>
+              <p class="meta-value">${reportDateLabel}</p>
+            </div>
+            <div class="meta-card">
               <p class="meta-label">Shift</p>
               <p class="meta-value">${shiftLabel}</p>
             </div>
@@ -1012,7 +1046,7 @@ const handlePrintReport = () => {
 
           <div class="content">
             <div class="note">
-              Filter aktif: ${branchName} • ${shiftLabel} • ${paymentMethodLabel}
+              Filter aktif: ${branchName} • ${reportDateLabel} • ${shiftLabel} • ${paymentMethodLabel}
             </div>
             ${printEl.innerHTML}
           </div>
@@ -1268,6 +1302,47 @@ const handlePrintReport = () => {
       currency: "IDR",
       maximumFractionDigits: 0,
     }).format(value || 0);
+  };
+
+  const getTodayDateValue = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const normalizeDateOnlyValue = (value) => {
+    if (!value) return "";
+    return String(value).slice(0, 10);
+  };
+
+  const getManualOvernightCheckOut = () => {
+    if (!manualForm.check_in) return "";
+
+    const checkIn = new Date(manualForm.check_in);
+    if (Number.isNaN(checkIn.getTime())) return "";
+
+    const durationDays = Math.max(1, Number(manualForm.duration_days || 1));
+    const checkout = new Date(checkIn);
+    const noonBoundary = new Date(checkIn);
+    noonBoundary.setHours(12, 0, 0, 0);
+
+    if (checkIn < noonBoundary) {
+      checkout.setHours(12, 0, 0, 0);
+      checkout.setDate(checkout.getDate() + (durationDays - 1));
+    } else {
+      checkout.setDate(checkout.getDate() + durationDays);
+      checkout.setHours(12, 0, 0, 0);
+    }
+
+    return `${checkout.getFullYear()}-${String(checkout.getMonth() + 1).padStart(2, "0")}-${String(checkout.getDate()).padStart(2, "0")} ${String(checkout.getHours()).padStart(2, "0")}:${String(checkout.getMinutes()).padStart(2, "0")}:00`;
+  };
+
+  const getManualOvernightCheckOutText = () => {
+    const raw = getManualOvernightCheckOut();
+    if (!raw) return "-";
+    return formatDateTime(raw);
   };
 
   const getPenaltySummary = (booking) => {
@@ -1763,9 +1838,18 @@ const reportBookings = useMemo(() => {
       return false;
     }
 
-    return matchesReportShift(booking) && matchesReportPaymentMethod(booking);
+    const transactionDate = getReportTransactionDate(booking);
+    const matchesReportDate = reportDate
+      ? normalizeDateOnlyValue(transactionDate) === reportDate
+      : true;
+
+    return (
+      matchesReportDate &&
+      matchesReportShift(booking) &&
+      matchesReportPaymentMethod(booking)
+    );
   });
-}, [filteredBookings, reportShift, reportPaymentMethod]);
+}, [filteredBookings, reportDate, reportShift, reportPaymentMethod]);
 
   const reportTotalValue = useMemo(() => {
     return reportBookings.reduce((sum, booking) => sum + Number(booking?.total_price || 0), 0);
@@ -1978,11 +2062,11 @@ const reportBookings = useMemo(() => {
       }`}
     >
       <History size={18} />
-      Semua Booking
+      Riwayat Booking
     </button>
 
     <div className="inline-flex items-center rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-      Booking aktif / relevan hari ini: {todayVisibleCount}
+      Booking aktif hari ini: {todayVisibleCount}
     </div>
 
     {(filters.search || filters.status || filters.bookingType || filters.hotelId || filters.month) && (
@@ -2025,7 +2109,7 @@ const reportBookings = useMemo(() => {
         
       </p>
       <p className="text-sm text-gray-500 mt-1">
-        Gunakan tombol Filter untuk pencarian lanjutan dan Report untuk ringkasan cetak.
+        Aktif Hari Ini fokus untuk operasional, sedangkan Riwayat Booking menyimpan semua data agar tetap bisa dipakai untuk report. Gunakan tombol Filter untuk pencarian lanjutan dan Report untuk ringkasan cetak.
       </p>
     </div>
 
@@ -2162,41 +2246,6 @@ const reportBookings = useMemo(() => {
 
                           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 text-sm">
                             <div className="flex items-start gap-3">
-                              <User size={16} className="text-red-500 mt-0.5" />
-                              <div>
-                                <p className="text-gray-400">Customer / Tamu</p>
-                                <p className="font-semibold text-gray-800">
-                                  {customerName}
-                                </p>
-                                {booking.creator && (
-                                  <p className="text-xs text-gray-400 mt-1">
-                                    Dibuat oleh: {booking.creator.name}
-                                  </p>
-                                )}
-                                {booking.editor && (
-                                  <p className="text-xs text-amber-600 mt-1">
-                                    Diedit oleh: {booking.editor.name}
-                                  </p>
-                                )}
-                                {booking.refunder && (
-                                  <p className="text-xs text-purple-600 mt-1">
-                                    Refund oleh: {booking.refunder.name}
-                                  </p>
-                                )}
-                                {booking.canceller && (
-                                  <p className="text-xs text-red-600 mt-1">
-                                    Cancel oleh: {booking.canceller.name}
-                                  </p>
-                                )}
-                                {customerPhone && (
-                                  <p className="text-gray-500 mt-1">
-                                    {customerPhone}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
                               <Hotel size={16} className="text-red-500 mt-0.5" />
                               <div>
                                 <p className="text-gray-400">Hotel</p>
@@ -2273,6 +2322,12 @@ const reportBookings = useMemo(() => {
                             {booking.duration_hours && (
                               <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
                                 Durasi: {booking.duration_hours} jam
+                              </span>
+                            )}
+
+                            {!booking.duration_hours && Number(booking.duration_days || 0) > 0 && (
+                              <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
+                                Durasi: {booking.duration_days} hari
                               </span>
                             )}
 
@@ -3689,7 +3744,20 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </button>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="mb-5 grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Filter Tanggal
+          </label>
+
+          <input
+            type="date"
+            value={reportDate}
+            onChange={(e) => setReportDate(e.target.value || getTodayDateValue())}
+            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+          />
+        </div>
+
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
           <label className="mb-2 block text-sm font-semibold text-gray-700">
             Filter Shift
@@ -3774,7 +3842,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             </div>
             <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Keterangan</p>
-              <p className="mt-1 text-sm font-semibold text-gray-700">Filter aktif: {reportShift === "all" ? "Semua Shift" : reportShift === "pagi" ? "Shift Pagi" : "Shift Malam"} • {getReportPaymentMethodLabel(reportPaymentMethod)}</p>
+              <p className="mt-1 text-sm font-semibold text-gray-700">Filter aktif: {reportDate ? formatDate(reportDate) : "Semua Tanggal"} • {reportShift === "all" ? "Semua Shift" : reportShift === "pagi" ? "Shift Pagi" : "Shift Malam"} • {getReportPaymentMethodLabel(reportPaymentMethod)}</p>
             </div>
           </div>
 
@@ -3864,7 +3932,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 )}
           {showManualModal && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-              <div className="bg-white rounded-3xl p-6 w-full max-w-5xl shadow-xl my-8">
+              <div className="bg-white rounded-3xl p-5 md:p-6 w-full max-w-4xl shadow-xl my-8">
                 <div className="flex items-center justify-between gap-4 mb-6">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-800">
@@ -3884,8 +3952,8 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                   </button>
                 </div>
 
-                <div className="space-y-6">
-                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6">
+                <div className="space-y-5">
+                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
                     <div className="mb-5">
                       <h3 className="text-lg font-bold text-gray-800">
                         Data Tamu
@@ -3958,7 +4026,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6">
+                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
                     <div className="mb-5">
                       <h3 className="text-lg font-bold text-gray-800">
                         Pilih Hotel & Kamar
@@ -4059,14 +4127,14 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6">
+                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
                     <div className="mb-5">
                       <h3 className="text-lg font-bold text-gray-800">
                         Data Booking
                       </h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                           Jenis Booking
@@ -4126,13 +4194,15 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                       ) : (
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            Jenis Menginap
+                            Durasi Hari
                           </label>
                           <div className="relative">
                             <input
-                              type="text"
-                              value="Per Malam"
-                              readOnly
+                              type="number"
+                              min="1"
+                              name="duration_days"
+                              value={manualForm.duration_days}
+                              onChange={handleManualChange}
                               className={`${inputClass} pl-12`}
                             />
                             <MoonStar

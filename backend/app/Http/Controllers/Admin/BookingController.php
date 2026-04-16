@@ -248,6 +248,8 @@ class BookingController extends Controller
                     'status' => $booking->status,
                     'payment_status' => $booking->payment_status,
                     'booking_type' => $booking->booking_type,
+                    'duration_hours' => $booking->duration_hours,
+                    'duration_days' => $booking->duration_days,
                     'payment_method' => $booking->payment_method ?? null,
                     'paid_amount' => $booking->paid_amount ?? null,
                     'payment_note' => $booking->payment_note ?? null,
@@ -314,6 +316,23 @@ class BookingController extends Controller
         }
 
         return $sameDayNoon->addDay();
+    }
+
+    /**
+     * Hitung checkout overnight multi-hari.
+     * Logic lama tetap dipakai sebagai base minimum checkout,
+     * lalu ditambah (duration_days - 1) hari.
+     */
+    private function calculateOvernightCheckOutByDays(Carbon $checkIn, int $durationDays = 1): Carbon
+    {
+        $durationDays = max(1, $durationDays);
+        $baseCheckOut = $this->calculateOvernightCheckOut($checkIn);
+
+        if ($durationDays <= 1) {
+            return $baseCheckOut;
+        }
+
+        return (clone $baseCheckOut)->addDays($durationDays - 1);
     }
 
     // ✅ APPROVE BOOKING CUSTOMER
@@ -441,9 +460,10 @@ class BookingController extends Controller
         $checkOut = null;
 
         if ($booking->booking_type === 'transit') {
-            $checkOut = (clone $checkIn)->addHours($booking->duration_hours);
+            $checkOut = (clone $checkIn)->addHours((int) $booking->duration_hours);
         } else {
-            $checkOut = $this->calculateOvernightCheckOut($checkIn);
+            $durationDays = (int) ($booking->duration_days ?? 1);
+            $checkOut = $this->calculateOvernightCheckOutByDays($checkIn, $durationDays);
         }
 
         if (
@@ -753,7 +773,9 @@ class BookingController extends Controller
             'room_unit_id' => 'required|exists:room_units,id',
             'booking_type' => 'required|in:transit,overnight',
             'duration_hours' => 'nullable|integer|min:1',
+            'duration_days' => 'nullable|integer|min:1',
             'check_in' => 'required|date',
+            'check_out' => 'nullable|date|after:check_in',
             'discount_percent' => 'nullable|numeric|min:0|max:100',
             'total_price' => 'nullable|numeric|min:0',
             'admin_note' => 'nullable|string',
@@ -790,6 +812,7 @@ class BookingController extends Controller
         $checkIn = Carbon::parse($request->check_in);
         $checkOut = null;
         $basePrice = 0;
+        $durationDays = null;
 
         if ($request->booking_type === 'transit') {
             $durationHours = (int) $request->duration_hours;
@@ -814,12 +837,25 @@ class BookingController extends Controller
                 }
             }
         } else {
-            $checkOut = $this->calculateOvernightCheckOut($checkIn);
+            $durationDays = max(1, (int) ($request->duration_days ?? 1));
+
+            if ($request->filled('check_out')) {
+                $checkOut = Carbon::parse($request->check_out);
+
+                $minimumCheckOut = $this->calculateOvernightCheckOutByDays($checkIn, 1);
+                if ($checkOut->lt($minimumCheckOut)) {
+                    return response()->json([
+                        'message' => 'Check-out overnight tidak boleh kurang dari batas minimum aturan hotel'
+                    ], 422);
+                }
+            } else {
+                $checkOut = $this->calculateOvernightCheckOutByDays($checkIn, $durationDays);
+            }
 
             if ($request->filled('total_price')) {
                 $basePrice = (float) $request->total_price;
             } else {
-                $basePrice = (float) ($room->price_per_night ?? 0);
+                $basePrice = (float) ($room->price_per_night ?? 0) * $durationDays;
             }
         }
 
@@ -860,7 +896,12 @@ class BookingController extends Controller
             'room_unit_id' => $request->room_unit_id,
 
             'booking_type' => $request->booking_type,
-            'duration_hours' => $request->booking_type === 'transit' ? $request->duration_hours : null,
+            'duration_hours' => $request->booking_type === 'transit'
+                ? $request->duration_hours
+                : null,
+            'duration_days' => $request->booking_type === 'overnight'
+                ? $durationDays
+                : null,
 
             'check_in' => $checkIn,
             'check_out' => $checkOut,
