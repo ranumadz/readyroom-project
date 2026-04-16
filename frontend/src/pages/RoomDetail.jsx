@@ -47,6 +47,7 @@ export default function RoomDetail() {
 
   const [bookingForm, setBookingForm] = useState({
     check_in: "",
+    overnight_end_date: "",
   });
 
   const [guestForm, setGuestForm] = useState({
@@ -206,11 +207,35 @@ export default function RoomDetail() {
     )} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
   };
 
+  const formatDateOnlyValue = (date) => {
+    if (!date) return "";
+
+    const pad = (num) => String(num).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )}`;
+  };
+
+  const parseDateOnlyValue = (value) => {
+    if (!value) return null;
+
+    const [year, month, day] = String(value).split("-").map(Number);
+    if (!year || !month || !day) return null;
+
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  };
+
   const selectedCheckInDate = useMemo(() => {
     return bookingForm.check_in
       ? parseDateTimeLocalValue(bookingForm.check_in)
       : null;
   }, [bookingForm.check_in]);
+
+  const selectedOvernightEndDate = useMemo(() => {
+    return bookingForm.overnight_end_date
+      ? parseDateOnlyValue(bookingForm.overnight_end_date)
+      : null;
+  }, [bookingForm.overnight_end_date]);
 
   const hourOptions = useMemo(
     () => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")),
@@ -231,6 +256,98 @@ export default function RoomDetail() {
     if (!selectedCheckInDate) return "";
     return String(selectedCheckInDate.getMinutes()).padStart(2, "0");
   }, [selectedCheckInDate]);
+
+  const overnightMinimumCheckoutDate = useMemo(() => {
+    if (!selectedCheckInDate) return null;
+
+    const checkIn = new Date(selectedCheckInDate);
+    const noonBoundary = new Date(checkIn);
+    noonBoundary.setHours(12, 0, 0, 0);
+
+    const minimumDate = new Date(checkIn);
+
+    if (checkIn < noonBoundary) {
+      minimumDate.setHours(12, 0, 0, 0);
+      return minimumDate;
+    }
+
+    minimumDate.setDate(minimumDate.getDate() + 1);
+    minimumDate.setHours(12, 0, 0, 0);
+    return minimumDate;
+  }, [selectedCheckInDate]);
+
+  const overnightMinimumCheckoutDateOnly = useMemo(() => {
+    if (!overnightMinimumCheckoutDate) return null;
+
+    return new Date(
+      overnightMinimumCheckoutDate.getFullYear(),
+      overnightMinimumCheckoutDate.getMonth(),
+      overnightMinimumCheckoutDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+  }, [overnightMinimumCheckoutDate]);
+
+  const selectedOvernightCheckOutDateTime = useMemo(() => {
+    if (bookingMode !== "overnight") return null;
+    if (!selectedCheckInDate) return null;
+
+    if (!selectedOvernightEndDate && overnightMinimumCheckoutDate) {
+      return new Date(overnightMinimumCheckoutDate);
+    }
+
+    if (!selectedOvernightEndDate) return null;
+
+    const checkout = new Date(selectedOvernightEndDate);
+    checkout.setHours(12, 0, 0, 0);
+
+    if (
+      overnightMinimumCheckoutDate &&
+      checkout.getTime() < overnightMinimumCheckoutDate.getTime()
+    ) {
+      return new Date(overnightMinimumCheckoutDate);
+    }
+
+    return checkout;
+  }, [
+    bookingMode,
+    selectedCheckInDate,
+    selectedOvernightEndDate,
+    overnightMinimumCheckoutDate,
+  ]);
+
+  const overnightDurationDays = useMemo(() => {
+    if (bookingMode !== "overnight") return 1;
+    if (!selectedCheckInDate) return 1;
+    if (!selectedOvernightCheckOutDateTime) return 1;
+
+    const start = new Date(
+      selectedCheckInDate.getFullYear(),
+      selectedCheckInDate.getMonth(),
+      selectedCheckInDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+
+    const end = new Date(
+      selectedOvernightCheckOutDateTime.getFullYear(),
+      selectedOvernightCheckOutDateTime.getMonth(),
+      selectedOvernightCheckOutDateTime.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+
+    const diffMs = end.getTime() - start.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    return diffDays <= 0 ? 1 : diffDays;
+  }, [bookingMode, selectedCheckInDate, selectedOvernightCheckOutDateTime]);
 
   const updateCheckInTimePart = (type, value) => {
     if (!selectedCheckInDate) {
@@ -263,6 +380,42 @@ export default function RoomDetail() {
     setGuestError("");
   };
 
+  useEffect(() => {
+    if (bookingMode !== "overnight") return;
+    if (!selectedCheckInDate) return;
+    if (!overnightMinimumCheckoutDateOnly) return;
+
+    if (!selectedOvernightEndDate) {
+      setBookingForm((prev) => ({
+        ...prev,
+        overnight_end_date: formatDateOnlyValue(overnightMinimumCheckoutDateOnly),
+      }));
+      return;
+    }
+
+    const chosenEndDate = new Date(
+      selectedOvernightEndDate.getFullYear(),
+      selectedOvernightEndDate.getMonth(),
+      selectedOvernightEndDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+
+    if (chosenEndDate.getTime() < overnightMinimumCheckoutDateOnly.getTime()) {
+      setBookingForm((prev) => ({
+        ...prev,
+        overnight_end_date: formatDateOnlyValue(overnightMinimumCheckoutDateOnly),
+      }));
+    }
+  }, [
+    bookingMode,
+    selectedCheckInDate,
+    selectedOvernightEndDate,
+    overnightMinimumCheckoutDateOnly,
+  ]);
+
   const estimatedCheckOutText = useMemo(() => {
     if (!selectedCheckInDate) return "-";
 
@@ -271,6 +424,8 @@ export default function RoomDetail() {
 
     if (bookingMode === "transit") {
       checkOut.setHours(checkOut.getHours() + Number(transitDuration || 0));
+    } else if (selectedOvernightCheckOutDateTime) {
+      checkOut.setTime(selectedOvernightCheckOutDateTime.getTime());
     } else {
       const sameDayNoon = new Date(checkIn);
       sameDayNoon.setHours(12, 0, 0, 0);
@@ -290,7 +445,12 @@ export default function RoomDetail() {
       hour: "2-digit",
       minute: "2-digit",
     });
-  }, [selectedCheckInDate, bookingMode, transitDuration]);
+  }, [
+    selectedCheckInDate,
+    bookingMode,
+    transitDuration,
+    selectedOvernightCheckOutDateTime,
+  ]);
 
   useEffect(() => {
     if (!galleryImages.length) return;
@@ -335,6 +495,7 @@ export default function RoomDetail() {
       setBookingForm((prev) => ({
         ...prev,
         check_in: "",
+        ...(bookingMode === "overnight" ? { overnight_end_date: "" } : {}),
       }));
       setBookingError("");
       setGuestError("");
@@ -358,6 +519,64 @@ export default function RoomDetail() {
       ...prev,
       check_in: formatDateTimeLocalValue(nextDate),
     }));
+
+    setBookingError("");
+    setGuestError("");
+  };
+
+  const handleOvernightRangeChange = (dates) => {
+    const [start, end] = dates || [];
+
+    if (!start) {
+      setBookingForm((prev) => ({
+        ...prev,
+        check_in: "",
+        overnight_end_date: "",
+      }));
+      setBookingError("");
+      setGuestError("");
+      return;
+    }
+
+    const nextStart = new Date(start);
+
+    if (!selectedCheckInDate) {
+      nextStart.setHours(12, 0, 0, 0);
+    } else {
+      nextStart.setHours(
+        selectedCheckInDate.getHours(),
+        selectedCheckInDate.getMinutes(),
+        0,
+        0
+      );
+    }
+
+    setBookingForm((prev) => ({
+      ...prev,
+      check_in: formatDateTimeLocalValue(nextStart),
+      overnight_end_date: end ? formatDateOnlyValue(end) : prev.overnight_end_date,
+    }));
+
+    setBookingError("");
+    setGuestError("");
+  };
+
+  const handleOvernightEndDateChange = (date) => {
+    if (!date) {
+      setBookingForm((prev) => ({
+        ...prev,
+        overnight_end_date: "",
+      }));
+      setBookingError("");
+      setGuestError("");
+      return;
+    }
+
+    setBookingForm((prev) => ({
+      ...prev,
+      overnight_end_date: formatDateOnlyValue(date),
+    }));
+
     setBookingError("");
     setGuestError("");
   };
@@ -393,10 +612,17 @@ export default function RoomDetail() {
       ? room?.price_transit_6h || 0
       : room?.price_transit_12h || 0;
 
+  const overnightUnitPrice = Number(room?.price_per_night || 0);
+
   const mainPrice =
     bookingMode === "transit"
       ? transitPrice
-      : Number(room?.price_per_night || 0);
+      : overnightUnitPrice * Number(overnightDurationDays || 1);
+
+  const bookingLabelText =
+    bookingMode === "transit"
+      ? `Transit ${transitDuration} Jam`
+      : `Overnight ${overnightDurationDays} Hari`;
 
   const waAdminLink = useMemo(() => {
     const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
@@ -406,19 +632,30 @@ export default function RoomDetail() {
       ? `62${rawWa.slice(1)}`
       : rawWa;
 
-    const bookingLabel =
-      bookingMode === "transit"
-        ? `Transit ${transitDuration} Jam`
-        : "Overnight";
-
     const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi kamar.\n\nHotel: ${
       room?.hotel?.name || "-"
-    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabel}\nHarga: ${formatRupiah(
+    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${
+      selectedCheckInDate
+        ? selectedCheckInDate.toLocaleString("id-ID", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "-"
+    }\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
       mainPrice
     )}\n\nMohon info ketersediaannya ya.`;
 
     return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
-  }, [room, bookingMode, transitDuration, mainPrice]);
+  }, [
+    room,
+    bookingLabelText,
+    mainPrice,
+    selectedCheckInDate,
+    estimatedCheckOutText,
+  ]);
 
   const guestWaLink = useMemo(() => {
     const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
@@ -427,11 +664,6 @@ export default function RoomDetail() {
     const normalizedAdminWa = rawWa.startsWith("0")
       ? `62${rawWa.slice(1)}`
       : rawWa;
-
-    const bookingLabel =
-      bookingMode === "transit"
-        ? `Transit ${transitDuration} Jam`
-        : "Overnight";
 
     const normalizedGuestPhone = normalizePhone(guestForm.guest_phone);
 
@@ -449,15 +681,14 @@ export default function RoomDetail() {
       guestForm.guest_name || "-"
     }\nNo. WhatsApp: ${normalizedGuestPhone || guestForm.guest_phone || "-"}\nHotel: ${
       room?.hotel?.name || "-"
-    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabel}\nCheck-in: ${checkInText}\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
+    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${checkInText}\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
       mainPrice
     )}\n\nMohon dibantu cek ketersediaan dan konfirmasi reservasinya ya.`;
 
     return `https://wa.me/${normalizedAdminWa}?text=${encodeURIComponent(text)}`;
   }, [
     room,
-    bookingMode,
-    transitDuration,
+    bookingLabelText,
     mainPrice,
     guestForm.guest_name,
     guestForm.guest_phone,
@@ -513,6 +744,11 @@ export default function RoomDetail() {
       return false;
     }
 
+    if (bookingMode === "overnight" && !selectedOvernightCheckOutDateTime) {
+      setGuestError("Silakan pilih tanggal checkout untuk overnight.");
+      return false;
+    }
+
     if (!room?.hotel?.wa_admin) {
       setGuestError("WhatsApp admin hotel belum tersedia.");
       return false;
@@ -542,6 +778,11 @@ export default function RoomDetail() {
       return;
     }
 
+    if (bookingMode === "overnight" && !selectedOvernightCheckOutDateTime) {
+      setBookingError("Silakan pilih tanggal checkout untuk overnight.");
+      return;
+    }
+
     try {
       setSubmittingBooking(true);
       setBookingError("");
@@ -553,7 +794,13 @@ export default function RoomDetail() {
         booking_type: bookingMode,
         duration_hours:
           bookingMode === "transit" ? Number(transitDuration) : null,
+        duration_days:
+          bookingMode === "overnight" ? Number(overnightDurationDays) : null,
         check_in: bookingForm.check_in,
+        check_out:
+          bookingMode === "overnight" && selectedOvernightCheckOutDateTime
+            ? formatDateTimeLocalValue(selectedOvernightCheckOutDateTime)
+            : null,
       };
 
       const res = await api.post("/bookings", payload);
@@ -561,6 +808,7 @@ export default function RoomDetail() {
 
       setBookingForm({
         check_in: "",
+        overnight_end_date: "",
       });
 
       setBookingSuccess({
@@ -573,6 +821,7 @@ export default function RoomDetail() {
       const message =
         error.response?.data?.message ||
         error.response?.data?.errors?.check_in?.[0] ||
+        error.response?.data?.errors?.check_out?.[0] ||
         error.response?.data?.errors?.user_id?.[0] ||
         "Booking gagal dibuat. Silakan coba lagi.";
 
@@ -722,10 +971,18 @@ export default function RoomDetail() {
         }
 
         .readyroom-datepicker-inline .react-datepicker__day--selected,
-        .readyroom-datepicker-inline .react-datepicker__day--keyboard-selected {
+        .readyroom-datepicker-inline .react-datepicker__day--keyboard-selected,
+        .readyroom-datepicker-inline .react-datepicker__day--range-start,
+        .readyroom-datepicker-inline .react-datepicker__day--range-end {
           background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
           color: #ffffff !important;
           font-weight: 800 !important;
+        }
+
+        .readyroom-datepicker-inline .react-datepicker__day--in-range {
+          background: #fee2e2 !important;
+          color: #dc2626 !important;
+          font-weight: 700 !important;
         }
 
         .readyroom-datepicker-inline .react-datepicker__day--outside-month {
@@ -931,7 +1188,8 @@ export default function RoomDetail() {
                     <MoonStar size={16} className="mt-0.5 shrink-0" />
                     <p>
                       Untuk booking overnight, checkout mengikuti aturan hotel
-                      dan maksimal pukul 12.00 siang.
+                      dan maksimal pukul 12.00 siang. Sekarang kamu juga bisa
+                      pilih lebih dari 1 hari.
                     </p>
                   </div>
                 )}
@@ -941,11 +1199,18 @@ export default function RoomDetail() {
                     Harga{" "}
                     {bookingMode === "transit"
                       ? `Transit ${transitDuration} Jam`
-                      : "Overnight"}
+                      : `Overnight ${overnightDurationDays} Hari`}
                   </p>
                   <p className="text-2xl font-bold text-gray-800">
                     {formatRupiah(mainPrice)}
                   </p>
+
+                  {bookingMode === "overnight" && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      {formatRupiah(overnightUnitPrice)} x {overnightDurationDays}{" "}
+                      hari
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -968,22 +1233,40 @@ export default function RoomDetail() {
                   <div className="rounded-[24px] border border-red-100 bg-white overflow-hidden">
                     <div className="px-4 py-3 border-b border-red-50 bg-gradient-to-r from-red-50 to-rose-50">
                       <h3 className="font-semibold text-gray-800">
-                        Tanggal Check-in
+                        {bookingMode === "transit"
+                          ? "Tanggal Check-in"
+                          : "Tanggal Check-in & Checkout"}
                       </h3>
                       <p className="text-xs text-gray-500 mt-1">
-                        Pilih tanggal booking yang kamu inginkan
+                        {bookingMode === "transit"
+                          ? "Pilih tanggal booking yang kamu inginkan"
+                          : "Pilih range tanggal untuk overnight"}
                       </p>
                     </div>
 
                     <div className="p-3 sm:p-4">
                       <div className="readyroom-datepicker-inline">
-                        <DatePicker
-                          selected={selectedCheckInDate}
-                          onChange={handleCheckInDateChange}
-                          minDate={new Date()}
-                          inline
-                          calendarClassName="readyroom-datepicker-inline"
-                        />
+                        {bookingMode === "transit" ? (
+                          <DatePicker
+                            selected={selectedCheckInDate}
+                            onChange={handleCheckInDateChange}
+                            minDate={new Date()}
+                            inline
+                            calendarClassName="readyroom-datepicker-inline"
+                          />
+                        ) : (
+                          <DatePicker
+                            selected={selectedCheckInDate}
+                            startDate={selectedCheckInDate}
+                            endDate={selectedOvernightEndDate}
+                            onChange={handleOvernightRangeChange}
+                            minDate={new Date()}
+                            selectsRange
+                            monthsShown={2}
+                            inline
+                            calendarClassName="readyroom-datepicker-inline"
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1057,6 +1340,49 @@ export default function RoomDetail() {
                         </div>
                       </div>
 
+                      {bookingMode === "overnight" && (
+                        <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                          <p className="text-xs font-semibold text-red-600 mb-1">
+                            Checkout Minimum Otomatis
+                          </p>
+                          <p className="text-sm font-semibold text-gray-800">
+                            {overnightMinimumCheckoutDate
+                              ? overnightMinimumCheckoutDate.toLocaleString(
+                                  "id-ID",
+                                  {
+                                    day: "2-digit",
+                                    month: "long",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )
+                              : "-"}
+                          </p>
+                        </div>
+                      )}
+
+                      {bookingMode === "overnight" && (
+                        <div className="mt-4">
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                            Tanggal Checkout
+                          </label>
+                          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                            <DatePicker
+                              selected={selectedOvernightEndDate}
+                              onChange={handleOvernightEndDateChange}
+                              minDate={overnightMinimumCheckoutDateOnly || new Date()}
+                              dateFormat="dd MMM yyyy"
+                              placeholderText="Pilih tanggal checkout"
+                              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-800 outline-none focus:border-red-300"
+                            />
+                          </div>
+                          <p className="mt-2 text-xs text-gray-500">
+                            Jam checkout tetap mengikuti aturan hotel: 12.00 siang.
+                          </p>
+                        </div>
+                      )}
+
                       <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
                         <p className="text-xs font-semibold text-gray-500 mb-1">
                           Check-in Dipilih
@@ -1074,6 +1400,28 @@ export default function RoomDetail() {
                         </p>
                       </div>
 
+                      {bookingMode === "overnight" && (
+                        <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                          <p className="text-xs font-semibold text-gray-500 mb-1">
+                            Checkout Dipilih
+                          </p>
+                          <p className="text-sm font-semibold text-gray-800">
+                            {selectedOvernightCheckOutDateTime
+                              ? selectedOvernightCheckOutDateTime.toLocaleString(
+                                  "id-ID",
+                                  {
+                                    day: "2-digit",
+                                    month: "long",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )
+                              : "-"}
+                          </p>
+                        </div>
+                      )}
+
                       <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
                         <p className="text-sm font-medium text-amber-800">
                           Estimasi checkout:{" "}
@@ -1082,6 +1430,17 @@ export default function RoomDetail() {
                           </span>
                         </p>
                       </div>
+
+                      {bookingMode === "overnight" && (
+                        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                          <p className="text-sm font-medium text-emerald-800">
+                            Total durasi overnight:{" "}
+                            <span className="font-bold">
+                              {overnightDurationDays} hari
+                            </span>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1094,10 +1453,7 @@ export default function RoomDetail() {
                       </p>
                       <p className="font-bold text-gray-800">{room.name}</p>
                       <p className="text-sm text-gray-600">
-                        {bookingMode === "transit"
-                          ? `Transit ${transitDuration} Jam`
-                          : "Overnight"}{" "}
-                        • {formatRupiah(mainPrice)}
+                        {bookingLabelText} • {formatRupiah(mainPrice)}
                       </p>
                     </div>
 
