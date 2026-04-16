@@ -80,13 +80,34 @@ class HotelController extends Controller
 
     public function create()
     {
-        $cities = City::where('status', true)->get();
+        $cities = City::where('status', true)
+            ->orderBy('name')
+            ->get();
+
         $facilities = Facility::where('status', true)->get();
 
         return response()->json([
             'cities' => $cities,
             'facilities' => $facilities,
         ]);
+    }
+
+    public function storeCity(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:cities,name',
+            'status' => 'nullable|boolean',
+        ]);
+
+        $city = City::create([
+            'name' => trim($validated['name']),
+            'status' => $request->status ?? true,
+        ]);
+
+        return response()->json([
+            'message' => 'Kota berhasil ditambahkan',
+            'data' => $city
+        ], 201);
     }
 
     public function store(Request $request)
@@ -105,8 +126,6 @@ class HotelController extends Controller
             'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
             'rating' => 'nullable|numeric|min:0|max:5',
             'status' => 'nullable|boolean',
-
-            // fasilitas hotel
             'facility_ids' => 'nullable|array',
             'facility_ids.*' => 'exists:facilities,id',
         ]);
@@ -138,7 +157,6 @@ class HotelController extends Controller
             'status' => $request->status ?? true,
         ]);
 
-        // simpan fasilitas hotel ke pivot
         $hotel->facilities()->sync($request->facility_ids ?? []);
 
         return response()->json([
@@ -165,8 +183,6 @@ class HotelController extends Controller
             'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
             'rating' => 'nullable|numeric|min:0|max:5',
             'status' => 'nullable|boolean',
-
-            // fasilitas hotel
             'facility_ids' => 'nullable|array',
             'facility_ids.*' => 'exists:facilities,id',
         ]);
@@ -203,7 +219,6 @@ class HotelController extends Controller
 
         $hotel->update($data);
 
-        // update fasilitas hotel ke pivot
         $hotel->facilities()->sync($request->facility_ids ?? []);
 
         return response()->json([

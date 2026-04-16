@@ -89,6 +89,11 @@ Route::prefix('admin')->group(function () {
     Route::delete('/hotels/{id}', [HotelController::class, 'destroy']);
 
     // =========================
+    // Cities
+    // =========================
+    Route::post('/cities', [HotelController::class, 'storeCity']);
+
+    // =========================
     // Rooms
     // =========================
     Route::get('/rooms', [RoomController::class, 'index']);
@@ -132,10 +137,7 @@ Route::prefix('admin')->group(function () {
     Route::get('/internal-broadcasts/active', [InternalBroadcastController::class, 'active']);
     Route::post('/internal-broadcasts', [InternalBroadcastController::class, 'store']);
     Route::put('/internal-broadcasts/{id}', [InternalBroadcastController::class, 'update']);
-
-    // 🔥 INI YANG BARU (PENTING)
     Route::post('/internal-broadcasts/{id}/dismiss', [InternalBroadcastController::class, 'dismiss']);
-
     Route::post('/internal-broadcasts/{id}/toggle-status', [InternalBroadcastController::class, 'toggleStatus']);
     Route::delete('/internal-broadcasts/{id}', [InternalBroadcastController::class, 'destroy']);
 
