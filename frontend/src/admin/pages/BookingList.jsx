@@ -1304,6 +1304,19 @@ const handlePrintReport = () => {
     }).format(value || 0);
   };
 
+  const formatDate = (value) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
   const getTodayDateValue = () => {
     const now = new Date();
     const year = now.getFullYear();
