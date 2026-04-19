@@ -14,9 +14,7 @@ import {
   ArrowRight,
   SlidersHorizontal,
   Hotel as HotelIcon,
-  ShieldCheck,
   Sparkles,
-  MapPinned,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -213,7 +211,14 @@ export default function Rooms() {
     }
 
     if (safeCurrentPage >= totalPages - 2) {
-      return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+      return [
+        1,
+        "...",
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages,
+      ];
     }
 
     return [
@@ -238,102 +243,79 @@ export default function Rooms() {
           <div className="absolute -top-10 left-0 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute right-10 top-12 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
           <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-red-300/10 blur-3xl" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.10),transparent_30%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_24%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.10),transparent_28%)]" />
+
+          {/* ORNAMEN KIRI */}
+          <div className="pointer-events-none absolute left-0 top-0 hidden select-none lg:block">
+            <div className="relative h-[260px] w-[420px] -translate-x-[86px] -translate-y-[84px]">
+              <div className="absolute left-0 top-0 h-[210px] w-[210px] rounded-full border-[28px] border-white/12 border-b-transparent border-r-transparent rotate-[-20deg]" />
+              <div className="absolute left-[94px] top-[48px] h-[136px] w-[136px] rounded-full border-[20px] border-red-200/20 border-b-transparent border-r-transparent rotate-[-20deg]" />
+              <div className="absolute left-[182px] top-[92px] h-[82px] w-[82px] rounded-full border-[13px] border-red-100/16 border-b-transparent border-r-transparent rotate-[-20deg]" />
+              <div className="absolute left-[156px] top-[204px] text-[11px] font-semibold uppercase tracking-[0.52em] text-red-100/22">
+                READYROOM
+              </div>
+            </div>
+          </div>
+
+          {/* ORNAMEN KANAN */}
+          <div className="pointer-events-none absolute right-0 top-0 hidden select-none lg:block">
+            <div className="relative h-[260px] w-[460px] translate-x-[86px] -translate-y-[90px]">
+              <div className="absolute right-0 top-0 h-[198px] w-[198px] rounded-full border-[28px] border-red-300/18 border-b-transparent border-l-transparent rotate-[18deg]" />
+              <div className="absolute right-[84px] top-[40px] h-[136px] w-[136px] rounded-full border-[20px] border-white/12 border-b-transparent border-l-transparent rotate-[18deg]" />
+              <div className="absolute right-[154px] top-[90px] h-[82px] w-[82px] rounded-full border-[13px] border-red-200/14 border-b-transparent border-l-transparent rotate-[18deg]" />
+            </div>
+          </div>
+
+          {/* ORNAMEN TENGAH ATAS */}
+          <div className="pointer-events-none absolute left-1/2 top-0 hidden -translate-x-1/2 select-none md:block">
+            <div className="relative h-[120px] w-[420px] -translate-y-[30px]">
+              <div className="absolute left-[90px] top-[58px] h-[2px] w-[74px] rounded-full bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+              <div className="absolute left-[172px] top-[44px] h-6 w-6 rounded-full bg-white/14" />
+              <div className="absolute left-[210px] top-[24px] h-14 w-14 rounded-full border-[10px] border-red-100/18 border-b-transparent border-r-transparent rotate-[-20deg]" />
+              <div className="absolute left-[282px] top-[58px] h-[2px] w-[74px] rounded-full bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+            </div>
+          </div>
+
+          {/* ORNAMEN BAWAH */}
+          <div className="pointer-events-none absolute bottom-0 left-1/2 hidden -translate-x-1/2 translate-y-1/3 select-none lg:block">
+            <div className="relative h-[140px] w-[680px]">
+              <div className="absolute left-0 top-[56px] h-[2px] w-[220px] bg-gradient-to-r from-transparent via-white/24 to-transparent" />
+              <div className="absolute left-[236px] top-[36px] h-10 w-10 rounded-full border border-white/16 bg-white/6" />
+              <div className="absolute left-[292px] top-[48px] h-6 w-6 rounded-full bg-white/12" />
+              <div className="absolute left-[336px] top-[28px] h-[72px] w-[72px] rounded-full border-[11px] border-red-100/16 border-b-transparent border-r-transparent rotate-[-18deg]" />
+              <div className="absolute left-[424px] top-[56px] h-[2px] w-[220px] bg-gradient-to-r from-transparent via-white/24 to-transparent" />
+            </div>
+          </div>
+
+          {/* AKSEN FLOATING */}
+          <div className="pointer-events-none absolute left-[14%] top-[32%] hidden h-3 w-3 rounded-full bg-white/18 blur-[1px] lg:block" />
+          <div className="pointer-events-none absolute left-[22%] top-[64%] hidden h-4 w-4 rounded-full bg-red-200/18 blur-[1px] lg:block" />
+          <div className="pointer-events-none absolute right-[16%] top-[30%] hidden h-3 w-3 rounded-full bg-white/16 blur-[1px] lg:block" />
+          <div className="pointer-events-none absolute right-[24%] top-[68%] hidden h-4 w-4 rounded-full bg-red-100/16 blur-[1px] lg:block" />
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-          <div className="grid items-center gap-10 lg:grid-cols-12">
-            <div className="hidden lg:col-span-5 lg:block">
-              <div className="relative">
-                <div className="absolute -left-6 top-6 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-
-                <div className="relative overflow-hidden rounded-[32px] border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-                  <div className="mb-6 flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 shadow-lg backdrop-blur-md">
-                      <BedDouble size={26} />
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-red-100">
-                        Kamar Pilihan ReadyRoom
-                      </p>
-                      <h3 className="text-2xl font-bold leading-tight">
-                        Lebih mudah pilih kamar yang cocok
-                      </h3>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                      <p className="text-sm text-red-100">Pilihan lebih praktis</p>
-                      <p className="mt-1 text-lg font-semibold leading-snug">
-                        Bandingkan kamar transit dan menginap dari berbagai hotel
-                        aktif dalam satu halaman.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                        <div className="mb-2 flex items-center gap-2 text-red-100">
-                          <Clock3 size={16} />
-                          <p className="text-sm">Fleksibel</p>
-                        </div>
-                        <p className="text-base font-semibold leading-snug">
-                          Cocok untuk transit singkat maupun overnight.
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                        <div className="mb-2 flex items-center gap-2 text-red-100">
-                          <MapPinned size={16} />
-                          <p className="text-sm">Mudah dicari</p>
-                        </div>
-                        <p className="text-base font-semibold leading-snug">
-                          Temukan kamar berdasarkan hotel, kota, atau area.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                      <div className="mb-2 flex items-center gap-2 text-red-100">
-                        <ShieldCheck size={16} />
-                        <p className="text-sm">Lebih nyaman dijelajahi</p>
-                      </div>
-                      <p className="text-sm leading-relaxed text-red-100">
-                        Semua kamar aktif ditampilkan agar kamu bisa membandingkan
-                        tipe, fasilitas dasar, dan harga dengan lebih cepat tanpa
-                        harus buka hotel satu per satu.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          <div className="mx-auto max-w-4xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
+              <BedDouble size={16} />
+              <span className="text-sm font-medium">
+                Jelajahi semua tipe kamar dari hotel aktif ReadyRoom
+              </span>
             </div>
 
-            <div className="lg:col-span-7">
-              <div className="mx-auto max-w-4xl text-center lg:ml-auto lg:mr-0 lg:max-w-3xl lg:text-right">
-                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md lg:ml-auto">
-                  <BedDouble size={16} />
-                  <span className="text-sm font-medium">
-                    Jelajahi semua tipe kamar dari hotel aktif ReadyRoom
-                  </span>
-                </div>
+            <h1 className="mb-5 text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">
+              Temukan Kamar yang
+              <br />
+              Cocok untuk Transit
+              <br />
+              atau Menginap
+            </h1>
 
-                <h1 className="mb-5 text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">
-                  Temukan Kamar yang
-                  <br />
-                  Cocok untuk Transit
-                  <br />
-                  atau Menginap
-                </h1>
-
-                <p className="mx-auto max-w-3xl text-lg text-red-100 md:text-xl lg:mr-0">
-                  Cari kamar berdasarkan nama, hotel, kota, atau harga. Semua
-                  kamar aktif dari hotel aktif dikumpulkan di sini agar lebih
-                  mudah dibanding pilih hotel satu per satu.
-                </p>
-              </div>
-            </div>
+            <p className="mx-auto max-w-3xl text-lg text-red-100 md:text-xl">
+              Cari kamar berdasarkan nama, hotel, kota, atau harga. Semua kamar
+              aktif dari hotel aktif dikumpulkan di sini agar lebih mudah
+              dibanding pilih hotel satu per satu.
+            </p>
           </div>
         </div>
       </section>
@@ -347,7 +329,9 @@ export default function Rooms() {
                   <SlidersHorizontal size={20} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">Filter Rooms</h2>
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Filter Rooms
+                  </h2>
                   <p className="text-sm text-gray-500">
                     Cari kamar yang paling cocok
                   </p>
@@ -453,12 +437,14 @@ export default function Rooms() {
                     </h2>
 
                     <p className="mt-2 text-gray-500">
-                      {filteredRooms.length} kamar ditemukan dari semua hotel aktif.
+                      {filteredRooms.length} kamar ditemukan dari semua hotel
+                      aktif.
                     </p>
 
                     {!loading && filteredRooms.length > 0 && (
                       <p className="mt-2 text-sm text-gray-400">
-                        Menampilkan {startItem}-{endItem} dari {filteredRooms.length} kamar
+                        Menampilkan {startItem}-{endItem} dari{" "}
+                        {filteredRooms.length} kamar
                       </p>
                     )}
                   </div>
@@ -494,8 +480,7 @@ export default function Rooms() {
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  ))}</div>
               ) : filteredRooms.length === 0 ? (
                 <div className="rounded-[2rem] border border-gray-100 bg-white p-12 text-center shadow-sm">
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-600">
@@ -506,7 +491,8 @@ export default function Rooms() {
                     Kamar tidak ditemukan
                   </h3>
                   <p className="text-gray-500">
-                    Coba ubah keyword atau filter harga supaya hasilnya lebih cocok.
+                    Coba ubah keyword atau filter harga supaya hasilnya lebih
+                    cocok.
                   </p>
                 </div>
               ) : (
@@ -553,7 +539,9 @@ export default function Rooms() {
                                 <span className="inline-flex items-center gap-2">
                                   <MapPin size={15} className="text-red-500" />
                                   {room.hotel?.city?.name || "-"}
-                                  {room.hotel?.area ? ` • ${room.hotel.area}` : ""}
+                                  {room.hotel?.area
+                                    ? ` • ${room.hotel.area}`
+                                    : ""}
                                 </span>
                               </div>
 
@@ -653,8 +641,14 @@ export default function Rooms() {
                   {totalPages > 1 && (
                     <div className="mt-8 flex flex-col items-center justify-center gap-4 rounded-[2rem] border border-gray-100 bg-white px-4 py-5 shadow-[0_10px_35px_rgba(0,0,0,0.04)]">
                       <div className="text-sm text-gray-500">
-                        Halaman <span className="font-semibold text-gray-800">{safeCurrentPage}</span> dari{" "}
-                        <span className="font-semibold text-gray-800">{totalPages}</span>
+                        Halaman{" "}
+                        <span className="font-semibold text-gray-800">
+                          {safeCurrentPage}
+                        </span>{" "}
+                        dari{" "}
+                        <span className="font-semibold text-gray-800">
+                          {totalPages}
+                        </span>
                       </div>
 
                       <div className="flex flex-wrap items-center justify-center gap-2">

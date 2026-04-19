@@ -21,9 +21,6 @@ import {
   BedDouble,
   Sparkles,
   CalendarDays,
-  ShieldCheck,
-  Clock3,
-  MapPinned,
 } from "lucide-react";
 
 const BACKEND_BASE_URL =
@@ -138,141 +135,100 @@ export default function Hotels() {
 
       <section className="relative overflow-hidden bg-gradient-to-br from-red-700 via-red-600 to-rose-600 pb-16 pt-16 text-white md:pb-24 md:pt-24">
         <div className="absolute inset-0">
-          <div className="absolute -left-10 top-0 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute -left-16 top-4 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute right-0 top-10 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
           <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-red-300/10 blur-3xl" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.10),transparent_30%)]" />
+
+          {/* ORNAMEN KIRI ATAS */}
+          <div className="pointer-events-none absolute left-0 top-0 hidden select-none lg:block">
+            <div className="relative h-[220px] w-[360px] -translate-x-[72px] -translate-y-[68px]">
+              <div className="absolute left-0 top-0 h-[180px] w-[180px] rounded-full border-[24px] border-white/12 border-b-transparent border-r-transparent rotate-[-18deg]" />
+              <div className="absolute left-[82px] top-[38px] h-[120px] w-[120px] rounded-full border-[18px] border-red-200/20 border-b-transparent border-r-transparent rotate-[-18deg]" />
+              <div className="absolute left-[160px] top-[66px] h-[72px] w-[72px] rounded-full border-[12px] border-red-100/15 border-b-transparent border-r-transparent rotate-[-18deg]" />
+              <div className="absolute left-[145px] top-[170px] text-[11px] font-semibold uppercase tracking-[0.5em] text-red-100/20">
+                READYROOM
+              </div>
+            </div>
+          </div>
+
+          {/* ORNAMEN KANAN ATAS */}
+          <div className="pointer-events-none absolute right-0 top-0 hidden select-none lg:block">
+            <div className="relative h-[220px] w-[420px] translate-x-[68px] -translate-y-[74px]">
+              <div className="absolute right-0 top-0 h-[170px] w-[170px] rounded-full border-[24px] border-red-300/20 border-b-transparent border-l-transparent rotate-[14deg]" />
+              <div className="absolute right-[76px] top-[34px] h-[118px] w-[118px] rounded-full border-[18px] border-white/12 border-b-transparent border-l-transparent rotate-[14deg]" />
+              <div className="absolute right-[140px] top-[74px] h-[70px] w-[70px] rounded-full border-[12px] border-red-200/15 border-b-transparent border-l-transparent rotate-[14deg]" />
+            </div>
+          </div>
+
+          {/* ORNAMEN BAWAH */}
+          <div className="pointer-events-none absolute bottom-0 left-1/2 hidden -translate-x-1/2 translate-y-1/3 select-none lg:block">
+            <div className="relative h-[120px] w-[560px]">
+              <div className="absolute left-0 top-[44px] h-[2px] w-[180px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+              <div className="absolute left-[190px] top-[30px] h-12 w-12 rounded-full border border-white/15 bg-white/5" />
+              <div className="absolute left-[252px] top-[40px] h-8 w-8 rounded-full bg-white/10" />
+              <div className="absolute left-[308px] top-[22px] h-16 w-16 rounded-full border-[10px] border-red-200/15 border-b-transparent border-r-transparent rotate-[-18deg]" />
+              <div className="absolute right-0 top-[44px] h-[2px] w-[180px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            </div>
+          </div>
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-          <div className="grid items-center gap-10 lg:grid-cols-12">
-            <div className="hidden lg:col-span-5 lg:block">
+          <div className="mx-auto max-w-4xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
+              <HotelIcon size={16} />
+              <span className="text-sm font-medium">
+                Jelajahi hotel partner terbaik ReadyRoom
+              </span>
+            </div>
+
+            <h1 className="mb-5 text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">
+              Temukan Hotel Terbaik
+              <br />
+              di{" "}
+              <span className="text-red-100 drop-shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
+                ReadyRoom
+              </span>
+            </h1>
+
+            <p className="mx-auto mb-8 max-w-3xl text-base leading-relaxed text-red-100 md:text-xl">
+              Cari hotel berdasarkan nama, kota, area, atau alamat. Semua hotel
+              yang tampil di sini adalah hotel aktif yang siap kamu jelajahi.
+            </p>
+
+            <div className="mx-auto w-full max-w-3xl rounded-[28px] border border-white/35 bg-white/95 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-md">
               <div className="relative">
-                <div className="absolute -left-6 top-6 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-
-                <div className="relative overflow-hidden rounded-[32px] border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-                  <div className="mb-6 flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 shadow-lg backdrop-blur-md">
-                      <HotelIcon size={26} />
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-red-100">
-                        Hotel ReadyRoom
-                      </p>
-                      <h3 className="text-2xl font-bold leading-tight">
-                        Tempat Rehat Paling Tepat
-                      </h3>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                      <p className="text-sm text-red-100">Hotel pilihan</p>
-                      <p className="mt-1 text-lg font-semibold leading-snug">
-                        Hotel aktif dengan lokasi strategis dan akses
-                        mudah untuk kebutuhan istirahatmu.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                        <div className="mb-2 flex items-center gap-2 text-red-100">
-                          <Clock3 size={16} />
-                          <p className="text-sm">Check-in fleksibel</p>
-                        </div>
-                        <p className="text-base font-semibold leading-snug">
-                          Cocok untuk transit maupun overnight.
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                        <div className="mb-2 flex items-center gap-2 text-red-100">
-                          <MapPinned size={16} />
-                          <p className="text-sm">Lebih praktis</p>
-                        </div>
-                        <p className="text-base font-semibold leading-snug">
-                          Cari hotel berdasarkan kota, area, atau alamat.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                      <div className="mb-2 flex items-center gap-2 text-red-100">
-                        <ShieldCheck size={16} />
-                        <p className="text-sm">Pengalaman lebih nyaman</p>
-                      </div>
-                      <p className="text-sm leading-relaxed text-red-100">
-                        Jelajahi hotel partner ReadyRoom untuk kebutuhan
-                        istirahat, perjalanan bisnis, atau singgah singkat
-                        dengan pengalaman booking yang lebih mudah dan lebih
-                        praktis.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <Search
+                  size={20}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Cari hotel, kota, area, atau alamat..."
+                  className="w-full rounded-2xl bg-transparent py-4 pl-12 pr-4 text-gray-800 outline-none placeholder:text-gray-400"
+                />
               </div>
             </div>
 
-            <div className="lg:col-span-7">
-              <div className="mx-auto max-w-4xl text-center lg:ml-auto lg:mr-0 lg:max-w-3xl lg:text-right">
-                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md lg:ml-auto">
-                  <HotelIcon size={16} />
-                  <span className="text-sm font-medium">
-                    Jelajahi hotel partner terbaik ReadyRoom
+            {(destinationFromQuery || checkInFromQuery) && (
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                {destinationFromQuery && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
+                    <MapPin size={15} />
+                    Tujuan: {destinationFromQuery}
                   </span>
-                </div>
+                )}
 
-                <h1 className="mb-5 text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">
-                  Temukan Hotel Terbaik
-                  <br />
-                  di{" "}
-                  <span className="text-red-100 drop-shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
-                    ReadyRoom
+                {checkInFromQuery && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
+                    <CalendarDays size={15} />
+                    Check-in: {checkInFromQuery}
                   </span>
-                </h1>
-
-                <p className="mx-auto mb-8 max-w-3xl text-base leading-relaxed text-red-100 md:text-xl lg:mr-0">
-                  Cari hotel berdasarkan nama, kota, area, atau alamat. Semua
-                  hotel yang tampil di sini adalah hotel aktif yang siap kamu
-                  jelajahi.
-                </p>
-
-                <div className="mx-auto w-full max-w-3xl rounded-[28px] border border-white/35 bg-white/95 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-md lg:mr-0">
-                  <div className="relative">
-                    <Search
-                      size={20}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                    />
-                    <input
-                      type="text"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Cari hotel, kota, area, atau alamat..."
-                      className="w-full rounded-2xl bg-transparent py-4 pl-12 pr-4 text-gray-800 outline-none placeholder:text-gray-400"
-                    />
-                  </div>
-                </div>
-
-                {(destinationFromQuery || checkInFromQuery) && (
-                  <div className="mt-5 flex flex-wrap items-center justify-center gap-3 lg:justify-end">
-                    {destinationFromQuery && (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
-                        <MapPin size={15} />
-                        Tujuan: {destinationFromQuery}
-                      </span>
-                    )}
-
-                    {checkInFromQuery && (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
-                        <CalendarDays size={15} />
-                        Check-in: {checkInFromQuery}
-                      </span>
-                    )}
-                  </div>
                 )}
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>

@@ -17,7 +17,6 @@ import {
   Sparkles,
   History,
   Eye,
-  Newspaper,
   Tv,
   Bath,
   Dumbbell,
@@ -41,10 +40,11 @@ export default function Home() {
   const [recentHotels, setRecentHotels] = useState([]);
   const [websiteContent, setWebsiteContent] = useState(null);
   const [loadingContent, setLoadingContent] = useState(true);
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
 
   useEffect(() => {
     AOS.init({
-      duration: 1000,
+      duration: 900,
       once: true,
     });
   }, []);
@@ -184,7 +184,7 @@ export default function Home() {
 
     if (facilities.length === 0) {
       return (
-        <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+        <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-500">
           <Building2 size={13} />
           Fasilitas menyusul
         </span>
@@ -198,7 +198,7 @@ export default function Home() {
           return (
             <span
               key={facility.id}
-              className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600"
+              className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600"
             >
               <FacilityIcon size={13} />
               {facility.name}
@@ -213,33 +213,31 @@ export default function Home() {
     return popularHotels.slice(0, 3);
   }, [popularHotels]);
 
-  const heroTitle = loadingContent ? "" : websiteContent?.hero_title || "";
-  const heroSubtitle =
-    loadingContent ? "" : websiteContent?.hero_subtitle || "";
+  const heroTitle =
+    loadingContent
+      ? ""
+      : websiteContent?.hero_title ||
+        "Booking hotel lebih mudah bersama ReadyRoom";
 
-  const heroImage = buildImageUrl(
+  const heroSubtitle =
+    loadingContent
+      ? ""
+      : websiteContent?.hero_subtitle ||
+        "Temukan hotel yang nyaman, lokasi strategis, dan proses booking yang cepat untuk kebutuhan transit maupun menginap.";
+
+  const heroMainImage = buildImageUrl(
     websiteContent?.hero_image,
     "/images/hotel.jpg"
   );
 
-  const infoTitle = websiteContent?.info_title || "Info Terbaru ReadyRoom";
-  const infoDescription =
-    websiteContent?.info_description ||
-    "Nikmati pengalaman booking hotel yang lebih cepat, aman, dan nyaman untuk kebutuhan harian maupun perjalanan bisnis.";
-  const infoImage = buildImageUrl(
-    websiteContent?.info_image,
-    "/images/hotel.jpg"
-  );
-
-  const promo2Title =
-    websiteContent?.promo2_title || "Promo Tambahan ReadyRoom";
-  const promo2Description =
-    websiteContent?.promo2_description ||
-    "Nikmati promo tambahan dan berbagai pilihan kamar yang nyaman untuk kebutuhan transit maupun menginap.";
-  const promo2Image = buildImageUrl(
-    websiteContent?.promo2_image,
-    "/images/hotel.jpg"
-  );
+  const cityItems = [
+    { img: "/photo_jakarta.jpg", name: "Jakarta" },
+    { img: "/destinasi_bali.jpg", name: "Bali" },
+    { img: "/destinasi aceh.jpg", name: "Aceh" },
+    { img: "/tebing-breksi.jpg", name: "Yogyakarta" },
+    { img: "/destinasi_surabaya.jpg", name: "Surabaya" },
+    { img: "/destinasi-semarang.jpg", name: "Semarang" },
+  ];
 
   const partnerLogos = [
     { name: "Royal Hotel", logo: "/royal_hotel.jpg" },
@@ -252,143 +250,142 @@ export default function Home() {
     { name: "ReadyRoom Luxury", logo: "/readyroom.png" },
   ];
 
+  const heroSlides = useMemo(() => {
+    const rawSlides = [
+      heroMainImage,
+      "/galeri4.jpeg",
+      "/galeri1.jpeg",
+      "/galeri6.jpeg",
+    ];
+
+    return rawSlides.filter(Boolean);
+  }, [heroMainImage]);
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setActiveHeroIndex((prev) => (prev + 1) % heroSlides.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [heroSlides]);
+
+  const activeHeroImage = heroSlides[activeHeroIndex] || "/images/hotel.jpg";
+
+  const galleryItems = [
+    {
+      title: "Sudut Santai",
+      subtitle: "Area duduk nyaman dengan pencahayaan alami",
+      image: "/galeri7.jpg",
+    },
+    {
+      title: "Nuansa Kamar Eksklusif",
+      subtitle: "Nuansa hangat dan eksklusif",
+      image: "/kamar1.jpg",
+    },
+    {
+      title: "Tempat Rehat",
+      subtitle: "Interior modern dengan sentuhan premium",
+      image: "/kolam1.jpg",
+    },
+    {
+      title: "Reception Experience",
+      subtitle: "Pelayanan yang terasa rapi dan profesional",
+      image: "/resepsionis.jpeg",
+    },
+  ];
+
+  const offerShowcaseImages = [
+    "/galeri_mix.jpg",
+    "/destinasi_bali.jpg",
+    "/destinasi_surabaya.jpg",
+  ];
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gray-100 text-gray-800">
+    <div className="min-h-screen overflow-x-hidden bg-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-visible pt-20 pb-28 text-white md:pt-28 md:pb-36">
+      <section className="relative pt-16 pb-24 md:pt-20 md:pb-28">
         <div className="absolute inset-0">
           <img
-            src={heroImage}
+            src={activeHeroImage}
             alt="ReadyRoom Hero"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-all duration-700"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-[#4b0000]/90 via-red-800/80 to-rose-700/80" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,0,0,0.18),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.08),transparent_25%)]" />
-          <div className="absolute top-12 right-10 h-96 w-96 rounded-full bg-black/15 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 h-[28rem] w-[28rem] rounded-full bg-red-300/10 blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#240000]/80 via-[#7a0c0c]/55 to-[#240000]/20" />
+          <div className="absolute inset-0 bg-black/15" />
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-          <div className="mx-auto max-w-5xl text-center">
-            {heroTitle ? (
-              <h2 className="mb-5 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl xl:text-7xl">
-                {heroTitle}
-              </h2>
-            ) : (
-              <div className="mx-auto mb-5 h-12 w-3/4 animate-pulse rounded-2xl bg-white/15 md:h-16" />
-            )}
+          <div className="flex min-h-[440px] items-center justify-center md:min-h-[500px]">
+            <div
+              className="mx-auto -mt-28 flex max-w-4xl flex-col items-center text-center text-white md:-mt-32"
+              data-aos="fade-up"
+            >
+              {heroTitle ? (
+                <h1 className="max-w-4xl text-4xl font-extrabold leading-[1.02] tracking-tight md:text-6xl xl:text-[72px]">
+                  {heroTitle}
+                </h1>
+              ) : (
+                <div className="mb-4 h-14 w-4/5 animate-pulse rounded-2xl bg-white/15" />
+              )}
 
-            {heroSubtitle ? (
-              <p className="mx-auto mb-10 max-w-3xl text-lg leading-relaxed text-red-100 md:text-xl">
-                {heroSubtitle}
-              </p>
-            ) : (
-              <div className="mx-auto mb-10 h-6 w-2/3 animate-pulse rounded-xl bg-white/10" />
-            )}
-
-            <div className="relative z-[60] mx-auto max-w-6xl">
-              <HeroSearchFilter />
+              {heroSubtitle ? (
+                <p className="mt-6 max-w-2xl text-base leading-relaxed text-red-50/95 md:text-lg">
+                  {heroSubtitle}
+                </p>
+              ) : (
+                <div className="mt-6 h-6 w-2/3 animate-pulse rounded-xl bg-white/10" />
+              )}
             </div>
+          </div>
+        </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
-              <Link
-                to="/hotels"
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-100"
-              >
-                Kunjungi Semua Hotel
-                <ArrowRight size={18} />
-              </Link>
-            </div>
+        <div className="absolute left-0 right-0 bottom-[34px] z-30 mx-auto max-w-6xl px-4 md:bottom-[52px] md:px-6">
+          <HeroSearchFilter />
+
+          <div className="mt-3 flex justify-center">
+            <Link
+              to="/hotels"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-red-50"
+            >
+              Kunjungi Semua Hotel
+              <ArrowRight size={18} />
+            </Link>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h3 className="text-3xl font-bold">Explore by City</h3>
-            <p className="mt-2 text-gray-500">
-              Temukan destinasi dan kamar favorit di berbagai kota.
-            </p>
-          </div>
+      <section className="mx-auto max-w-7xl px-4 pt-24 pb-16 md:px-6 md:pt-28">
+        <div className="mb-8">
+          <h3 className="text-3xl font-bold">Explore by City</h3>
+          <p className="mt-2 text-gray-500">
+            Temukan destinasi dan kamar favorit di berbagai kota.
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-6">
-          {[
-            { img: "/photo_jakarta.jpg", name: "Jakarta" },
-            { img: "/destinasi_bali.jpg", name: "Bali" },
-            { img: "/destinasi aceh.jpg", name: "Aceh" },
-            { img: "/tebing-breksi.jpg", name: "Yogyakarta" },
-            { img: "/destinasi_surabaya.jpg", name: "Surabaya" },
-            { img: "/destinasi-semarang.jpg", name: "Semarang" },
-          ].map((city, i) => (
+        <div className="grid grid-cols-2 gap-5 md:grid-cols-6">
+          {cityItems.map((city, i) => (
             <Link
               to={`/hotels?destination=${encodeURIComponent(city.name)}`}
               key={i}
               data-aos="zoom-in"
-              className="group relative block cursor-pointer overflow-hidden rounded-3xl shadow-md"
+              className="group relative block overflow-hidden rounded-[1.75rem] shadow-sm"
             >
               <img
                 src={city.img}
                 alt={city.name}
                 className="h-48 w-full object-cover transition duration-500 group-hover:scale-110"
               />
-              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 to-black/20 p-4">
-                <h4 className="text-xl font-bold text-white">{city.name}</h4>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-4">
+                <h4 className="text-lg font-bold text-white md:text-xl">
+                  {city.name}
+                </h4>
               </div>
             </Link>
           ))}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm">
-            <div className="relative h-72 md:h-80">
-              <img
-                src={infoImage}
-                alt={infoTitle}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-red-600 shadow">
-                <Newspaper size={16} />
-                Highlight
-              </div>
-              <div className="absolute right-0 bottom-0 left-0 p-6 text-white md:p-8">
-                <h3 className="text-2xl font-bold leading-tight md:text-3xl">
-                  {infoTitle}
-                </h3>
-                <p className="mt-3 leading-relaxed text-white/85">
-                  {infoDescription}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm">
-            <div className="relative h-72 md:h-80">
-              <img
-                src={promo2Image}
-                alt={promo2Title}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-green-600 shadow">
-                <Sparkles size={16} />
-                Promo Highlight
-              </div>
-              <div className="absolute right-0 bottom-0 left-0 p-6 text-white md:p-8">
-                <h3 className="text-2xl font-bold leading-tight md:text-3xl">
-                  {promo2Title}
-                </h3>
-                <p className="mt-3 leading-relaxed text-white/85">
-                  {promo2Description}
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -421,7 +418,7 @@ export default function Home() {
                 key={hotel.id}
                 data-aos="fade-up"
                 data-aos-delay={i * 100}
-                className="block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                className="block overflow-hidden rounded-[1.85rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
               >
                 <div className="relative">
                   <img
@@ -498,7 +495,7 @@ export default function Home() {
             {[1, 2, 3].map((item) => (
               <div
                 key={item}
-                className="animate-pulse overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
+                className="animate-pulse overflow-hidden rounded-[1.85rem] border border-gray-100 bg-white shadow-sm"
               >
                 <div className="h-56 w-full bg-gray-200" />
                 <div className="p-5">
@@ -511,7 +508,7 @@ export default function Home() {
             ))}
           </div>
         ) : popularHotels.length === 0 ? (
-          <div className="rounded-3xl border border-gray-100 bg-white p-10 text-center text-gray-500 shadow-sm">
+          <div className="rounded-[1.85rem] border border-gray-100 bg-white p-10 text-center text-gray-500 shadow-sm">
             Belum ada hotel aktif yang tampil.
           </div>
         ) : (
@@ -522,7 +519,7 @@ export default function Home() {
                 key={hotel.id}
                 data-aos="fade-up"
                 data-aos-delay={i * 100}
-                className="group block overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
+                className="group block overflow-hidden rounded-[1.85rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
               >
                 <div className="relative">
                   <img
@@ -579,7 +576,7 @@ export default function Home() {
       <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-600">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
               <ShieldCheck size={16} />
               Curated Picks
             </div>
@@ -601,7 +598,7 @@ export default function Home() {
             {[1, 2, 3].map((item) => (
               <div
                 key={item}
-                className="animate-pulse overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
+                className="animate-pulse overflow-hidden rounded-[1.85rem] border border-gray-100 bg-white shadow-sm"
               >
                 <div className="h-56 w-full bg-gray-200" />
                 <div className="p-5">
@@ -617,7 +614,7 @@ export default function Home() {
             ))}
           </div>
         ) : recommendedHotels.length === 0 ? (
-          <div className="rounded-3xl border border-gray-100 bg-white p-10 text-center text-gray-500 shadow-sm">
+          <div className="rounded-[1.85rem] border border-gray-100 bg-white p-10 text-center text-gray-500 shadow-sm">
             Belum ada hotel rekomendasi yang tampil.
           </div>
         ) : (
@@ -628,7 +625,7 @@ export default function Home() {
                 key={hotel.id}
                 data-aos="fade-up"
                 data-aos-delay={i * 100}
-                className="group block overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
+                className="group block overflow-hidden rounded-[1.85rem] border border-red-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
               >
                 <div className="relative">
                   <img
@@ -641,7 +638,7 @@ export default function Home() {
                   />
 
                   <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-800 shadow">
-                    <Sparkles size={13} className="text-emerald-500" />
+                    <Sparkles size={13} className="text-red-500" />
                     Pilihan Kurasi
                   </div>
                 </div>
@@ -652,7 +649,7 @@ export default function Home() {
                       {hotel.area || "Hotel"}
                     </span>
 
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
+                    <span className="rounded-full bg-[#fff5f5] px-3 py-1 text-xs font-semibold text-red-600">
                       Siap Dipilih
                     </span>
                   </div>
@@ -690,14 +687,166 @@ export default function Home() {
         )}
       </section>
 
+      <section className="overflow-hidden bg-gradient-to-br from-[#fff5f5] via-[#ffe9e9] to-[#fff7f7] py-20 md:py-24">
+        <div className="mx-auto max-w-[1440px] px-4 md:px-6">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.1fr_1.05fr_1.1fr_0.95fr] lg:items-center">
+            <div
+              data-aos="fade-right"
+              className="overflow-hidden rounded-[2rem] bg-white/70 p-2 shadow-[0_18px_50px_rgba(127,17,17,0.08)] backdrop-blur-sm"
+            >
+              <div className="overflow-hidden rounded-[1.7rem]">
+                <img
+                  src={galleryItems[0].image}
+                  alt={galleryItems[0].title}
+                  className="h-[360px] w-full object-cover object-center transition duration-500 hover:scale-[1.03] md:h-[470px]"
+                />
+              </div>
+              <div className="px-2 pt-4 md:px-3">
+                <h3 className="text-[28px] font-extrabold leading-[1.05] tracking-tight text-[#3d3b37] md:text-[38px]">
+                  {galleryItems[0].title}
+                </h3>
+                <p className="mt-1 text-sm text-[#6e6961] md:text-base">
+                  {galleryItems[0].subtitle}
+                </p>
+              </div>
+            </div>
+
+            <div
+              data-aos="fade-up"
+              data-aos-delay={80}
+              className="overflow-hidden rounded-[2rem] bg-white/70 p-2 shadow-[0_18px_50px_rgba(127,17,17,0.08)] backdrop-blur-sm"
+            >
+              <div className="px-2 pb-4 pt-2 md:px-3 md:pb-5">
+                <h3 className="text-[28px] font-extrabold leading-[1.05] tracking-tight text-[#3d3b37] md:text-[38px]">
+                  {galleryItems[1].title}
+                </h3>
+                <p className="mt-1 text-sm text-[#6e6961] md:text-base">
+                  {galleryItems[1].subtitle}
+                </p>
+              </div>
+              <div className="overflow-hidden rounded-[1.7rem]">
+                <img
+                  src={galleryItems[1].image}
+                  alt={galleryItems[1].title}
+                  className="h-[360px] w-full object-cover object-center transition duration-500 hover:scale-[1.03] md:h-[470px]"
+                />
+              </div>
+            </div>
+
+            <div
+              data-aos="fade-up"
+              data-aos-delay={140}
+              className="overflow-hidden rounded-[2rem] bg-white/70 p-2 shadow-[0_18px_50px_rgba(127,17,17,0.08)] backdrop-blur-sm"
+            >
+              <div className="overflow-hidden rounded-[1.7rem]">
+                <img
+                  src={galleryItems[2].image}
+                  alt={galleryItems[2].title}
+                  className="h-[360px] w-full object-cover object-center transition duration-500 hover:scale-[1.03] md:h-[470px]"
+                />
+              </div>
+              <div className="px-2 pt-4 md:px-3 md:pt-5">
+                <h3 className="text-[28px] font-extrabold leading-[1.05] tracking-tight text-[#3d3b37] md:text-[38px]">
+                  {galleryItems[2].title}
+                </h3>
+                <p className="mt-1 text-sm text-[#6e6961] md:text-base">
+                  {galleryItems[2].subtitle}
+                </p>
+              </div>
+            </div>
+
+            <div
+              data-aos="fade-left"
+              className="flex h-full flex-col justify-center pl-0 lg:pl-4"
+            >
+              <p className="text-base font-medium uppercase tracking-[0.28em] text-[#a24b4b] md:text-lg">
+                Galeri Properti
+              </p>
+
+              <h2 className="mt-4 text-4xl font-light leading-tight tracking-tight text-[#5c4a4a] md:text-[50px]">
+                tempat rehat
+                <span className="mt-1 block font-extrabold text-[#8f0f0f]">
+                  Paling Tepat
+                </span>
+              </h2>
+
+              <div className="mt-6 h-[2px] w-24 rounded-full bg-[#c26a6a]/45" />
+
+              <p className="mt-6 max-w-sm text-base leading-8 text-[#6b5555] md:text-lg">
+                Jelajahi pilihan properti dengan karakter ruang yang hangat,
+                bersih, dan dirancang untuk memberi pengalaman menginap yang
+                terasa lebih tenang, modern, dan berkelas.
+              </p>
+
+              
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#8f0f0f] py-20 text-white">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 md:px-6 lg:grid-cols-[0.88fr_1.12fr]">
+          <div data-aos="fade-right" className="flex flex-col justify-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-100/80">
+              Penawaran Tambahan
+            </p>
+
+            <h2 className="mt-3 text-4xl font-bold leading-tight md:text-5xl">
+              Bikin tampilan properti kamu bekerja lebih keras
+            </h2>
+
+            <p className="mt-5 max-w-xl text-sm leading-relaxed text-red-50/85 md:text-base">
+              Layout ini dibuat lebih clean dan lebih kuat secara visual, jadi bagian
+              promo bawah terasa premium, rapi, dan lebih enak dilihat customer.
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Link
+                to="/hotels"
+                className="rounded-full bg-white px-6 py-3 font-semibold text-red-600 transition hover:bg-red-50"
+              >
+                Lihat Properti
+              </Link>
+
+              <button className="rounded-full border border-white/20 px-6 py-3 font-semibold text-white transition hover:bg-white/10">
+                Pelajari Lebih Lanjut
+              </button>
+            </div>
+          </div>
+
+          <div data-aos="fade-left">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/10 md:col-span-2">
+                <img
+                  src={offerShowcaseImages[0]}
+                  alt="Showcase utama ReadyRoom"
+                  className="h-64 w-full object-cover md:h-80"
+                />
+              </div>
+
+              <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/10">
+                <img
+                  src={offerShowcaseImages[1]}
+                  alt="Showcase kedua ReadyRoom"
+                  className="h-52 w-full object-cover md:h-64"
+                />
+              </div>
+
+              <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/10">
+                <img
+                  src={offerShowcaseImages[2]}
+                  alt="Showcase ketiga ReadyRoom"
+                  className="h-52 w-full object-cover md:h-64"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="overflow-hidden bg-white py-20">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
           <div className="mb-10 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
-              <Building2 size={16} />
-              Mitra Kami
-            </div>
-
             <h2 className="text-3xl font-bold leading-tight md:text-4xl">
               Tumbuh bersama partner ReadyRoom
             </h2>
@@ -735,7 +884,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-gradient-to-b from-white to-gray-100 py-20">
+      <section className="bg-gradient-to-b from-white to-[#f7f7f7] py-20">
         <div className="mx-auto max-w-7xl px-6 text-center">
           <h2 className="text-3xl font-bold md:text-4xl">
             Mengapa Pilih <span className="text-red-600">ReadyRoom?</span>
@@ -782,7 +931,7 @@ export default function Home() {
               <div
                 key={i}
                 data-aos="fade-up"
-                className="rounded-3xl border border-white/40 bg-white/80 p-8 shadow-sm backdrop-blur-lg transition duration-300 hover:-translate-y-2 hover:shadow-2xl"
+                className="rounded-[1.85rem] border border-white/40 bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-2xl"
               >
                 <div className="mb-4 flex justify-center">
                   <div className="rounded-2xl bg-red-500 p-3 text-white shadow-lg shadow-red-500/20">
@@ -800,7 +949,7 @@ export default function Home() {
 
       <section className="py-16">
         <div className="mx-auto max-w-6xl px-4 md:px-6">
-          <div className="rounded-[2rem] bg-gradient-to-r from-red-600 via-red-500 to-rose-500 p-8 text-white shadow-2xl md:p-12">
+          <div className="rounded-[2rem] bg-gradient-to-r from-[#7f1010] via-red-600 to-red-500 p-8 text-white shadow-2xl md:p-12">
             <div className="max-w-3xl">
               <h3 className="mb-4 text-3xl font-bold md:text-4xl">
                 Booking lebih cepat dengan ReadyRoom
@@ -813,12 +962,12 @@ export default function Home() {
               <div className="flex flex-wrap gap-4">
                 <Link
                   to="/hotels"
-                  className="rounded-2xl bg-white px-6 py-3 font-semibold text-red-600 transition hover:bg-gray-100"
+                  className="rounded-full bg-white px-6 py-3 font-semibold text-red-600 transition hover:bg-gray-100"
                 >
                   Explore Rooms
                 </Link>
-                <button className="rounded-2xl border border-white/20 bg-black/20 px-6 py-3 font-semibold transition hover:bg-black/30">
-                  Download App Soon
+                <button className="rounded-full border border-white/20 bg-black/10 px-6 py-3 font-semibold transition hover:bg-black/20">
+                  Promo & Informasi
                 </button>
               </div>
             </div>

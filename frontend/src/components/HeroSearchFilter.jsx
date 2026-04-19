@@ -164,22 +164,11 @@ export default function HeroSearchFilter() {
   const handleDestinationChange = (e) => {
     setDestination(e.target.value);
     setDestinationError("");
-
-    if (!e.target.value.trim()) {
-      setCheckIn("");
-      setShowCalendar(false);
-    }
   };
 
   const handleOpenCalendar = () => {
-    if (!destination.trim()) {
-      setDestinationError("Isi destination dulu sebelum pilih check-in.");
-      setCheckInError("");
-      setShowCalendar(false);
-      return;
-    }
-
-    setDestinationError("");
+    setCheckInError("");
+    setShowDropdown(false);
     setShowCalendar(true);
 
     if (checkIn) {
@@ -188,8 +177,11 @@ export default function HeroSearchFilter() {
         setCalendarMonth(
           new Date(selected.getFullYear(), selected.getMonth(), 1)
         );
+        return;
       }
     }
+
+    setCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
   };
 
   const handleSelectDate = (date) => {
@@ -256,7 +248,7 @@ export default function HeroSearchFilter() {
             </p>
           ) : (
             <p className="mt-2 text-center text-xs text-gray-400 lg:text-left">
-              Pilih kota atau hotel tujuan terlebih dahulu.
+              Pilih kota atau hotel tujuan, atau isi setelah menentukan tanggal.
             </p>
           )}
 
@@ -322,19 +314,11 @@ export default function HeroSearchFilter() {
             className={`w-full min-h-[68px] rounded-2xl border px-4 py-4 text-left transition ${
               checkInError
                 ? "border-red-300 bg-red-50/60"
-                : destination.trim()
-                ? "border-gray-200 bg-gradient-to-b from-white to-gray-50 hover:border-red-300"
-                : "border-gray-200 bg-gray-100 opacity-80"
+                : "border-gray-200 bg-gradient-to-b from-white to-gray-50 hover:border-red-300"
             }`}
           >
             <div className="flex items-center gap-3">
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
-                  destination.trim()
-                    ? "bg-red-50 text-red-500"
-                    : "bg-gray-200 text-gray-400"
-                }`}
-              >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-500">
                 <CalendarDays size={18} />
               </div>
 
@@ -353,14 +337,8 @@ export default function HeroSearchFilter() {
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                       Tanggal Check In
                     </p>
-                    <p
-                      className={`mt-1 text-sm md:text-base ${
-                        destination.trim() ? "text-gray-800" : "text-gray-400"
-                      }`}
-                    >
-                      {destination.trim()
-                        ? "Pilih tanggal check-in"
-                        : "Isi destination dulu"}
+                    <p className="mt-1 text-sm text-gray-800 md:text-base">
+                      Pilih tanggal check-in
                     </p>
                   </>
                 )}
@@ -372,17 +350,13 @@ export default function HeroSearchFilter() {
             <p className="mt-2 text-center text-xs font-medium text-red-500 lg:text-left">
               {checkInError}
             </p>
-          ) : !destination.trim() ? (
-            <p className="mt-2 text-center text-xs text-gray-400 lg:text-left">
-              Isi destination dulu untuk membuka check-in.
-            </p>
           ) : (
             <p className="mt-2 text-center text-xs text-gray-400 lg:text-left">
-              Klik seluruh kotak check-in untuk membuka kalender.
+              Kamu bisa pilih tanggal check-in lebih dulu.
             </p>
           )}
 
-          {showCalendar && destination.trim() && (
+          {showCalendar && (
             <div className="absolute left-0 right-0 z-50 mt-3 overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)]">
               <div className="border-b border-gray-100 px-5 py-4">
                 <div className="flex items-center justify-between gap-3">
