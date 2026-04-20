@@ -17,6 +17,7 @@ import {
   Sparkles,
   History,
   Eye,
+  Newspaper,
   Tv,
   Bath,
   Dumbbell,
@@ -230,6 +231,30 @@ export default function Home() {
     "/images/hotel.jpg"
   );
 
+  const infoTitle =
+    websiteContent?.info_title || "Info Terbaru ReadyRoom";
+
+  const infoDescription =
+    websiteContent?.info_description ||
+    "Nikmati pengalaman booking hotel yang lebih cepat, aman, dan nyaman untuk kebutuhan harian maupun perjalanan bisnis.";
+
+  const infoImage = buildImageUrl(
+    websiteContent?.info_image,
+    "/images/hotel.jpg"
+  );
+
+  const promo2Title =
+    websiteContent?.promo2_title || "Promo Tambahan ReadyRoom";
+
+  const promo2Description =
+    websiteContent?.promo2_description ||
+    "Nikmati promo tambahan dan berbagai pilihan kamar yang nyaman untuk kebutuhan transit maupun menginap.";
+
+  const promo2Image = buildImageUrl(
+    websiteContent?.promo2_image,
+    "/images/hotel.jpg"
+  );
+
   const cityItems = [
     { img: "/photo_jakarta.jpg", name: "Jakarta" },
     { img: "/destinasi_bali.jpg", name: "Bali" },
@@ -386,6 +411,60 @@ export default function Home() {
               </div>
             </Link>
           ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-16 md:px-6">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+            <div className="relative h-72 md:h-80">
+              <img
+                src={infoImage}
+                alt={infoTitle}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+              <div className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-red-600 shadow">
+                <Newspaper size={16} />
+                Informasi Highlight
+              </div>
+
+              <div className="absolute right-0 bottom-0 left-0 p-6 text-white md:p-8">
+                <h3 className="text-2xl font-bold leading-tight md:text-3xl">
+                  {infoTitle}
+                </h3>
+                <p className="mt-3 leading-relaxed text-white/85">
+                  {infoDescription}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+            <div className="relative h-72 md:h-80">
+              <img
+                src={promo2Image}
+                alt={promo2Title}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+              <div className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-green-600 shadow">
+                <Sparkles size={16} />
+                Promo Highlight
+              </div>
+
+              <div className="absolute right-0 bottom-0 left-0 p-6 text-white md:p-8">
+                <h3 className="text-2xl font-bold leading-tight md:text-3xl">
+                  {promo2Title}
+                </h3>
+                <p className="mt-3 leading-relaxed text-white/85">
+                  {promo2Description}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -777,8 +856,6 @@ export default function Home() {
                 bersih, dan dirancang untuk memberi pengalaman menginap yang
                 terasa lebih tenang, modern, dan berkelas.
               </p>
-
-              
             </div>
           </div>
         </div>
@@ -792,12 +869,12 @@ export default function Home() {
             </p>
 
             <h2 className="mt-3 text-4xl font-bold leading-tight md:text-5xl">
-              Bikin tampilan properti kamu bekerja lebih keras
+              Bikin properti kamu lebih menarik di mata tamu
             </h2>
 
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-red-50/85 md:text-base">
-              Layout ini dibuat lebih clean dan lebih kuat secara visual, jadi bagian
-              promo bawah terasa premium, rapi, dan lebih enak dilihat customer.
+              Tampilan yang rapi, modern, dan siap meningkatkan daya tarik
+              properti kamu di setiap pencarian.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
@@ -809,7 +886,7 @@ export default function Home() {
               </Link>
 
               <button className="rounded-full border border-white/20 px-6 py-3 font-semibold text-white transition hover:bg-white/10">
-                Pelajari Lebih Lanjut
+                Lihat Detail
               </button>
             </div>
           </div>
