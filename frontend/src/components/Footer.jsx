@@ -10,53 +10,6 @@ import {
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
-  const branchColumns = [
-    {
-      city: "ReadyRoom Jakarta",
-      branches: [
-        "ReadyRoom Veteran",
-        "ReadyRoom Anggrek",
-        "ReadyRoom Melawai",
-        "ReadyRoom Tamsar",
-        "ReadyRoom Madu",
-        "ReadyRoom Gancit",
-        
-      ],
-    },
-    {
-      city: "ReadyRoom Bali",
-      branches: [
-        "ReadyRoom Hikaru",
-      ],
-    },
-    {
-      city: "ReadyRoom Aceh",
-      branches: [
-        "ReadyRoom Arista",
-      ],
-    },
-    {
-      city: "ReadyRoom Yogyakarta",
-      branches: [
-        "ReadyRoom Melati",
-      ],
-    },
-    {
-      city: "ReadyRoom Surabaya",
-      branches: [
-        "ReadyRoom Dibino",
-        "ReadyRoom Palacio"
-      ],
-    },
-    {
-      city: "ReadyRoom Semarang",
-      branches: [
-        "ReadyRoom Karejo",
-        "ReadyRoom Hello",
-      ],
-    },
-  ];
-
   const quickLinks = [
     { label: "Beranda", href: "/" },
     { label: "Semua Hotel", href: "/hotels" },
@@ -69,7 +22,6 @@ export default function Footer() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(239,68,68,0.12),transparent_28%)]" />
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
 
-      {/* ORNAMEN BARU - BUSUR MINIMALIS */}
       <div className="pointer-events-none absolute right-0 top-0 hidden select-none md:block">
         <div className="relative h-[150px] w-[360px] translate-x-[42px] -translate-y-[58px] overflow-visible">
           <div className="absolute right-0 top-0 h-[130px] w-[130px] rounded-full border-[18px] border-red-600/80 border-b-transparent border-l-transparent rotate-[16deg]" />
@@ -85,7 +37,7 @@ export default function Footer() {
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 py-14 md:px-6 md:py-16">
-        <div className="grid grid-cols-1 gap-8 border-b border-white/10 pb-10 lg:grid-cols-[1.2fr_1.1fr_1.1fr_0.9fr]">
+        <div className="grid grid-cols-1 gap-8 border-b border-white/10 pb-10 lg:grid-cols-[1.35fr_0.85fr_0.8fr]">
           {/* KOLOM BRAND */}
           <div>
             <div className="inline-flex items-center gap-4">
@@ -116,7 +68,7 @@ export default function Footer() {
 
             <div className="mt-6 space-y-3 text-sm text-white/68">
               <div className="flex items-start gap-3">
-                <MapPin size={17} className="mt-0.5 text-red-400" />
+                <MapPin size={17} className="mt-0.5 shrink-0 text-red-400" />
                 <span>
                   Office Center
                   <br />
@@ -126,17 +78,17 @@ export default function Footer() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Mail size={17} className="text-red-400" />
+                <Mail size={17} className="shrink-0 text-red-400" />
                 <span>readyroom.id@gmail.com</span>
               </div>
 
               <div className="flex items-center gap-3">
-                <Phone size={17} className="text-red-400" />
+                <Phone size={17} className="shrink-0 text-red-400" />
                 <span>+62 811 590 150</span>
               </div>
 
               <div className="flex items-center gap-3">
-                <Clock3 size={17} className="text-red-400" />
+                <Clock3 size={17} className="shrink-0 text-red-400" />
                 <span>Setiap Hari • 24/7 Layanan Service</span>
               </div>
             </div>
@@ -171,60 +123,6 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* CABANG KOLOM 1 */}
-          <div>
-            <h4 className="text-lg font-bold tracking-tight">Cabang ReadyRoom</h4>
-
-            <div className="mt-5 space-y-8">
-              {branchColumns.slice(0, 3).map((group) => (
-                <div key={group.city}>
-                  <p className="mb-3 text-sm font-semibold text-white">
-                    {group.city}
-                  </p>
-
-                  <div className="space-y-2.5">
-                    {group.branches.map((branch) => (
-                      <span
-                        key={branch}
-                        className="block text-sm text-white/68 transition hover:text-white"
-                      >
-                        {branch}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* CABANG KOLOM 2 */}
-          <div>
-            <h4 className="text-lg font-bold tracking-tight text-transparent">
-              Cabang ReadyRoom
-            </h4>
-
-            <div className="mt-5 space-y-8">
-              {branchColumns.slice(3, 6).map((group) => (
-                <div key={group.city}>
-                  <p className="mb-3 text-sm font-semibold text-white">
-                    {group.city}
-                  </p>
-
-                  <div className="space-y-2.5">
-                    {group.branches.map((branch) => (
-                      <span
-                        key={branch}
-                        className="block text-sm text-white/68 transition hover:text-white"
-                      >
-                        {branch}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* JELAJAHI */}
           <div>
             <h4 className="text-lg font-bold tracking-tight">
@@ -246,8 +144,11 @@ export default function Footer() {
                 </a>
               ))}
             </div>
+          </div>
 
-            <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
+          {/* CARD INFO */}
+          <div>
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 md:p-6">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-red-300/90">
                 Tempat Rehat
               </p>

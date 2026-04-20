@@ -15,7 +15,6 @@ import {
   Users,
   FileText,
   LogIn,
-  UserPlus,
   MessageCircle,
   ShieldCheck,
   CalendarDays,
@@ -31,6 +30,8 @@ import {
 
 const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+
+const FULL_DAY_MIN_HOUR = 14;
 
 export default function RoomDetail() {
   const { id } = useParams();
@@ -69,6 +70,8 @@ export default function RoomDetail() {
     fetchRoomDetail();
     detectCustomerLogin();
   }, [id]);
+
+  const isFullDayMode = bookingMode === "overnight";
 
   const detectCustomerLogin = () => {
     try {
@@ -359,6 +362,10 @@ export default function RoomDetail() {
       return;
     }
 
+    if (isFullDayMode && type === "hour" && Number(value) < FULL_DAY_MIN_HOUR) {
+      return;
+    }
+
     const nextDate = new Date(selectedCheckInDate);
 
     if (type === "hour") {
@@ -370,6 +377,10 @@ export default function RoomDetail() {
     }
 
     nextDate.setSeconds(0, 0);
+
+    if (isFullDayMode && nextDate.getHours() < FULL_DAY_MIN_HOUR) {
+      nextDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
+    }
 
     setBookingForm((prev) => ({
       ...prev,
@@ -415,6 +426,20 @@ export default function RoomDetail() {
     selectedOvernightEndDate,
     overnightMinimumCheckoutDateOnly,
   ]);
+
+  useEffect(() => {
+    if (!isFullDayMode || !selectedCheckInDate) return;
+
+    if (selectedCheckInDate.getHours() < FULL_DAY_MIN_HOUR) {
+      const adjustedDate = new Date(selectedCheckInDate);
+      adjustedDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
+
+      setBookingForm((prev) => ({
+        ...prev,
+        check_in: formatDateTimeLocalValue(adjustedDate),
+      }));
+    }
+  }, [isFullDayMode, selectedCheckInDate]);
 
   const estimatedCheckOutText = useMemo(() => {
     if (!selectedCheckInDate) return "-";
@@ -505,7 +530,7 @@ export default function RoomDetail() {
     const nextDate = new Date(date);
 
     if (!selectedCheckInDate) {
-      nextDate.setHours(12, 0, 0, 0);
+      nextDate.setHours(isFullDayMode ? FULL_DAY_MIN_HOUR : 12, 0, 0, 0);
     } else {
       nextDate.setHours(
         selectedCheckInDate.getHours(),
@@ -513,6 +538,10 @@ export default function RoomDetail() {
         0,
         0
       );
+    }
+
+    if (isFullDayMode && nextDate.getHours() < FULL_DAY_MIN_HOUR) {
+      nextDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
     }
 
     setBookingForm((prev) => ({
@@ -541,7 +570,7 @@ export default function RoomDetail() {
     const nextStart = new Date(start);
 
     if (!selectedCheckInDate) {
-      nextStart.setHours(12, 0, 0, 0);
+      nextStart.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
     } else {
       nextStart.setHours(
         selectedCheckInDate.getHours(),
@@ -549,6 +578,10 @@ export default function RoomDetail() {
         0,
         0
       );
+    }
+
+    if (nextStart.getHours() < FULL_DAY_MIN_HOUR) {
+      nextStart.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
     }
 
     setBookingForm((prev) => ({
@@ -622,7 +655,7 @@ export default function RoomDetail() {
   const bookingLabelText =
     bookingMode === "transit"
       ? `Transit ${transitDuration} Jam`
-      : `Overnight ${overnightDurationDays} Hari`;
+      : `Full Day ${overnightDurationDays} Hari`;
 
   const waAdminLink = useMemo(() => {
     const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
@@ -745,7 +778,7 @@ export default function RoomDetail() {
     }
 
     if (bookingMode === "overnight" && !selectedOvernightCheckOutDateTime) {
-      setGuestError("Silakan pilih tanggal checkout untuk overnight.");
+      setGuestError("Silakan pilih tanggal checkout untuk full day.");
       return false;
     }
 
@@ -779,7 +812,7 @@ export default function RoomDetail() {
     }
 
     if (bookingMode === "overnight" && !selectedOvernightCheckOutDateTime) {
-      setBookingError("Silakan pilih tanggal checkout untuk overnight.");
+      setBookingError("Silakan pilih tanggal checkout untuk full day.");
       return;
     }
 
@@ -1153,7 +1186,7 @@ export default function RoomDetail() {
                         : "text-gray-600"
                     }`}
                   >
-                    Overnight
+                    Full Day
                   </button>
                 </div>
 
@@ -1187,9 +1220,10 @@ export default function RoomDetail() {
                   <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                     <MoonStar size={16} className="mt-0.5 shrink-0" />
                     <p>
-                      Untuk booking overnight, checkout mengikuti aturan hotel
-                      dan maksimal pukul 12.00 siang. Sekarang kamu juga bisa
-                      pilih lebih dari 1 hari.
+                      Untuk booking full day, check-in hanya bisa mulai pukul
+                      14.00 dan checkout tetap mengikuti aturan hotel maksimal
+                      pukul 12.00 siang. Sekarang kamu juga bisa pilih lebih dari
+                      1 hari.
                     </p>
                   </div>
                 )}
@@ -1199,7 +1233,7 @@ export default function RoomDetail() {
                     Harga{" "}
                     {bookingMode === "transit"
                       ? `Transit ${transitDuration} Jam`
-                      : `Overnight ${overnightDurationDays} Hari`}
+                      : `Full Day ${overnightDurationDays} Hari`}
                   </p>
                   <p className="text-2xl font-bold text-gray-800">
                     {formatRupiah(mainPrice)}
@@ -1240,7 +1274,7 @@ export default function RoomDetail() {
                       <p className="text-xs text-gray-500 mt-1">
                         {bookingMode === "transit"
                           ? "Pilih tanggal booking yang kamu inginkan"
-                          : "Pilih range tanggal untuk overnight"}
+                          : "Pilih range tanggal untuk full day"}
                       </p>
                     </div>
 
@@ -1293,24 +1327,39 @@ export default function RoomDetail() {
                           </label>
                           <div className="readyroom-time-scroll h-48 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
                             <div className="grid grid-cols-2 gap-2">
-                              {hourOptions.map((hour) => (
-                                <button
-                                  key={hour}
-                                  type="button"
-                                  onClick={() =>
-                                    updateCheckInTimePart("hour", hour)
-                                  }
-                                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                                    selectedHour === hour
-                                      ? "bg-red-600 text-white shadow"
-                                      : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
-                                  }`}
-                                >
-                                  {hour}
-                                </button>
-                              ))}
+                              {hourOptions.map((hour) => {
+                                const isDisabledHour =
+                                  isFullDayMode &&
+                                  Number(hour) < FULL_DAY_MIN_HOUR;
+
+                                return (
+                                  <button
+                                    key={hour}
+                                    type="button"
+                                    disabled={isDisabledHour}
+                                    onClick={() =>
+                                      updateCheckInTimePart("hour", hour)
+                                    }
+                                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                                      isDisabledHour
+                                        ? "cursor-not-allowed bg-gray-200 text-gray-400"
+                                        : selectedHour === hour
+                                        ? "bg-red-600 text-white shadow"
+                                        : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                                    }`}
+                                  >
+                                    {hour}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
+
+                          {isFullDayMode && (
+                            <p className="mt-2 text-xs text-gray-500">
+                              Untuk full day, jam 00:00–13:55 tidak bisa dipilih.
+                            </p>
+                          )}
                         </div>
 
                         <div>
@@ -1434,7 +1483,7 @@ export default function RoomDetail() {
                       {bookingMode === "overnight" && (
                         <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                           <p className="text-sm font-medium text-emerald-800">
-                            Total durasi overnight:{" "}
+                            Total durasi full day:{" "}
                             <span className="font-bold">
                               {overnightDurationDays} hari
                             </span>
@@ -1522,17 +1571,6 @@ export default function RoomDetail() {
                   </div>
                 ) : (
                   <div className="mt-5 space-y-5">
-                    <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4">
-                      <p className="text-sm text-blue-700 font-semibold mb-1">
-                        Dua cara reservasi tersedia
-                      </p>
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        Kamu bisa <b>login / buat akun</b> agar booking masuk ke
-                        sistem customer, atau <b>reservasi manual via WhatsApp</b>
-                        jika tidak ingin login.
-                      </p>
-                    </div>
-
                     <div className="rounded-3xl border border-dashed border-red-200 bg-red-50/60 p-5">
                       <h3 className="text-lg font-bold text-gray-800 mb-2">
                         Reservasi manual tanpa login
@@ -1611,37 +1649,6 @@ export default function RoomDetail() {
                         </button>
                       </div>
                     </div>
-
-                    <div className="rounded-3xl border border-dashed border-gray-200 bg-white p-5">
-                      <h3 className="text-lg font-bold text-gray-800 mb-2">
-                        Mau booking lewat akun?
-                      </h3>
-                      <p className="text-sm text-gray-600 leading-relaxed">
-                        Kalau kamu login atau buat akun, booking tetap masuk ke
-                        admin dan menunggu approval, tapi nanti lebih rapi karena
-                        muncul di riwayat booking customer.
-                      </p>
-
-                      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => navigate("/login")}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3.5 text-white font-semibold hover:bg-red-700 transition"
-                        >
-                          <LogIn size={18} />
-                          Login Sekarang
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => navigate("/register")}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-red-600 font-semibold hover:bg-red-50 transition"
-                        >
-                          <UserPlus size={18} />
-                          Buat Akun
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
@@ -1664,52 +1671,6 @@ export default function RoomDetail() {
                 <p className="text-gray-700 leading-relaxed">
                   {room.description || "Deskripsi kamar belum tersedia."}
                 </p>
-              </div>
-
-              <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
-                    <MoonStar size={20} />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-800">
-                      Ringkasan Harga
-                    </h2>
-                    <p className="text-sm text-gray-500">
-                      Perbandingan harga kamar
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Transit 3 Jam</span>
-                    <span className="font-semibold text-gray-800">
-                      {formatRupiah(room.price_transit_3h || 0)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Transit 6 Jam</span>
-                    <span className="font-semibold text-gray-800">
-                      {formatRupiah(room.price_transit_6h || 0)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Transit 12 Jam</span>
-                    <span className="font-semibold text-gray-800">
-                      {formatRupiah(room.price_transit_12h || 0)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-                    <span className="text-gray-500">Overnight / per malam</span>
-                    <span className="font-semibold text-gray-800">
-                      {formatRupiah(room.price_per_night || 0)}
-                    </span>
-                  </div>
-                </div>
               </div>
 
               <p className="text-xs text-gray-400 mt-4 text-center">

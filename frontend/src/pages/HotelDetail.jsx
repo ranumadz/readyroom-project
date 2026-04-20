@@ -6,10 +6,8 @@ import api from "../services/api";
 import {
   ArrowLeft,
   MapPin,
-  Star,
   Building2,
   FileText,
-  Image as ImageIcon,
   Navigation,
   MessageCircle,
   Wifi,
@@ -23,8 +21,10 @@ import {
   UtensilsCrossed,
   BedDouble,
   Sparkles,
-  ShieldCheck,
 } from "lucide-react";
+
+const BACKEND_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
 
 export default function HotelDetail() {
   const { id } = useParams();
@@ -32,6 +32,7 @@ export default function HotelDetail() {
 
   const [hotel, setHotel] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   useEffect(() => {
     fetchHotelDetail();
@@ -40,6 +41,7 @@ export default function HotelDetail() {
   useEffect(() => {
     if (hotel) {
       saveRecentViewedHotel(hotel);
+      setActiveImageIndex(0);
     }
   }, [hotel]);
 
@@ -75,11 +77,51 @@ export default function HotelDetail() {
     }
 
     if (cleanPath.startsWith("storage/")) {
-      return `http://127.0.0.1:8000/${cleanPath}`;
+      return `${BACKEND_BASE_URL}/${cleanPath}`;
     }
 
-    return `/storage/${cleanPath}`;
+    return `${BACKEND_BASE_URL}/storage/${cleanPath}`;
   };
+
+  const galleryImages = useMemo(() => {
+    if (!hotel) return ["/images/hotel.jpg"];
+
+    const list = [];
+
+    if (hotel.hero_image) {
+      list.push(buildImageUrl(hotel.hero_image, "/images/hotel.jpg"));
+    }
+
+    if (hotel.thumbnail) {
+      const thumbnailUrl = buildImageUrl(hotel.thumbnail, "/images/hotel.jpg");
+      if (!list.includes(thumbnailUrl)) {
+        list.push(thumbnailUrl);
+      }
+    }
+
+    if (Array.isArray(hotel.images)) {
+      hotel.images.forEach((img) => {
+        const imagePath =
+          img?.image || img?.path || img?.url || img?.image_path || null;
+
+        if (!imagePath) return;
+
+        const imageUrl = buildImageUrl(imagePath, "/images/hotel.jpg");
+        if (!list.includes(imageUrl)) {
+          list.push(imageUrl);
+        }
+      });
+    }
+
+    return list.length > 0 ? list : ["/images/hotel.jpg"];
+  }, [hotel]);
+
+  const activeImage =
+    galleryImages[activeImageIndex] || galleryImages[0] || "/images/hotel.jpg";
+
+  const previewImages = useMemo(() => {
+    return galleryImages.slice(0, 5);
+  }, [galleryImages]);
 
   const getFacilityIcon = (iconName) => {
     switch (iconName) {
@@ -136,7 +178,6 @@ export default function HotelDetail() {
       if (!hotelData?.id) return;
 
       const storageKey = getCustomerStorageKey();
-
       const existingRecent = JSON.parse(localStorage.getItem(storageKey) || "[]");
 
       const hotelItem = {
@@ -213,14 +254,14 @@ export default function HotelDetail() {
     return (
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-16">
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden animate-pulse">
-            <div className="w-full h-[320px] bg-gray-200" />
-            <div className="p-8 space-y-4">
-              <div className="h-6 w-32 bg-gray-200 rounded" />
-              <div className="h-10 w-80 bg-gray-200 rounded" />
-              <div className="h-5 w-60 bg-gray-200 rounded" />
-              <div className="h-24 w-full bg-gray-200 rounded" />
+        <div className="mx-auto max-w-7xl px-4 py-16 md:px-6">
+          <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm animate-pulse">
+            <div className="h-[360px] w-full bg-gray-200" />
+            <div className="space-y-4 p-8">
+              <div className="h-6 w-32 rounded bg-gray-200" />
+              <div className="h-10 w-80 rounded bg-gray-200" />
+              <div className="h-5 w-60 rounded bg-gray-200" />
+              <div className="h-24 w-full rounded bg-gray-200" />
             </div>
           </div>
         </div>
@@ -233,18 +274,18 @@ export default function HotelDetail() {
     return (
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
-        <div className="max-w-4xl mx-auto px-4 md:px-6 py-20">
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-10 text-center">
-            <h1 className="text-2xl font-bold text-gray-800 mb-3">
+        <div className="mx-auto max-w-4xl px-4 py-20 md:px-6">
+          <div className="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">
+            <h1 className="mb-3 text-2xl font-bold text-gray-800">
               Hotel tidak ditemukan
             </h1>
-            <p className="text-gray-500 mb-6">
+            <p className="mb-6 text-gray-500">
               Data hotel yang kamu cari belum tersedia atau sudah tidak aktif.
             </p>
 
             <button
               onClick={() => navigate("/")}
-              className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-semibold hover:bg-red-700 transition"
+              className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-700"
             >
               <ArrowLeft size={18} />
               Kembali ke Beranda
@@ -261,37 +302,37 @@ export default function HotelDetail() {
       <Navbar />
 
       <section className="relative">
-        <div className="absolute inset-0 bg-black/40 z-10" />
+        <div className="absolute inset-0 z-10 bg-black/40" />
 
         <img
           src={buildImageUrl(
-            hotel.hero_image || hotel.thumbnail,
+            hotel.hero_image || hotel.thumbnail || galleryImages[0],
             "/images/hero.jpg"
           )}
           alt={hotel.name}
           onError={(e) => {
             e.currentTarget.src = "/images/hero.jpg";
           }}
-          className="w-full h-[340px] md:h-[430px] object-cover"
+          className="h-[340px] w-full object-cover md:h-[430px]"
         />
 
         <div className="absolute inset-0 z-20">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 h-full flex flex-col justify-end pb-10">
+          <div className="mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-10 md:px-6">
             <button
               onClick={() => navigate(-1)}
-              className="mb-5 inline-flex w-fit items-center gap-2 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 px-4 py-2 text-white font-medium hover:bg-white/20 transition"
+              className="mb-5 inline-flex w-fit items-center gap-2 rounded-2xl border border-white/20 bg-white/15 px-4 py-2 font-medium text-white backdrop-blur-md transition hover:bg-white/20"
             >
               <ArrowLeft size={18} />
               Kembali
             </button>
 
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-md border border-white/20 px-4 py-2 mb-4 text-white text-sm">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-4 py-2 text-sm text-white backdrop-blur-md">
                 <Building2 size={16} />
                 Hotel Detail
               </div>
 
-              <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-3">
+              <h1 className="mb-3 text-3xl font-extrabold text-white md:text-5xl">
                 {hotel.name}
               </h1>
 
@@ -303,63 +344,160 @@ export default function HotelDetail() {
                     {hotel.area ? ` • ${hotel.area}` : ""}
                   </span>
                 </div>
-
-                <div className="inline-flex items-center gap-2">
-                  <Star size={18} />
-                  <span>{hotel.rating || "0.0"} / 5</span>
-                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 md:px-6 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
-                  <MapPin size={20} />
+      <section className="relative z-30 mx-auto -mt-8 max-w-7xl px-4 md:px-6">
+        <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-[0_18px_50px_rgba(0,0,0,0.08)] md:p-5">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-gray-800">Galeri Hotel</h2>
+            <p className="text-sm text-gray-500">
+              Klik foto kecil untuk melihat preview besar
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="overflow-hidden rounded-[22px]">
+              <img
+                src={activeImage}
+                alt={hotel.name}
+                onError={(e) => {
+                  e.currentTarget.src = "/images/hotel.jpg";
+                }}
+                className="h-[280px] w-full rounded-[22px] object-cover md:h-[420px]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {previewImages.map((image, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setActiveImageIndex(index)}
+                  className={`overflow-hidden rounded-[18px] transition ${
+                    activeImageIndex === index
+                      ? "ring-2 ring-red-500"
+                      : "hover:opacity-90"
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`${hotel.name} ${index + 1}`}
+                    onError={(e) => {
+                      e.currentTarget.src = "/images/hotel.jpg";
+                    }}
+                    className="h-[120px] w-full rounded-[18px] object-cover md:h-[198px]"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-10 md:px-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm md:p-7">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                  <Navigation size={20} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">Lokasi</h2>
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Lokasi, Deskripsi & Map
+                  </h2>
                   <p className="text-sm text-gray-500">
-                    Informasi area dan alamat hotel
+                    Informasi utama hotel dalam satu bagian
                   </p>
                 </div>
               </div>
 
-              <p className="text-gray-700 leading-relaxed">
-                {hotel.address || "Alamat hotel belum tersedia."}
-              </p>
-            </div>
-
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
-                  <FileText size={20} />
+              <div className="mb-5 rounded-2xl border border-red-100 bg-red-50/60 p-4">
+                <div className="mb-4 flex items-start gap-3">
+                  <FileText size={18} className="mt-1 shrink-0 text-red-600" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Deskripsi Hotel</p>
+                    <p className="mt-1 leading-relaxed text-gray-600">
+                      {hotel.description || "Deskripsi hotel belum tersedia."}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800">Deskripsi</h2>
-                  <p className="text-sm text-gray-500">
-                    Gambaran singkat mengenai hotel
-                  </p>
+
+                <div className="flex items-start gap-3">
+                  <MapPin size={18} className="mt-1 shrink-0 text-red-600" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Alamat Hotel</p>
+                    <p className="mt-1 leading-relaxed text-gray-600">
+                      {hotel.address || "Alamat hotel belum tersedia."}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <p className="text-gray-700 leading-relaxed">
-                {hotel.description || "Deskripsi hotel belum tersedia."}
-              </p>
+              {embedMapUrl ? (
+                <>
+                  <div className="h-[340px] w-full overflow-hidden rounded-2xl border border-gray-100">
+                    <iframe
+                      title={`Map ${hotel.name}`}
+                      width="100%"
+                      height="100%"
+                      loading="lazy"
+                      allowFullScreen
+                      src={embedMapUrl}
+                      referrerPolicy="no-referrer-when-downgrade"
+                      className="h-full w-full"
+                    />
+                  </div>
+
+                  {googleMapsUrl && (
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 font-semibold text-white transition hover:bg-black"
+                    >
+                      <MapPin size={18} />
+                      Buka di Google Maps
+                    </a>
+                  )}
+                </>
+              ) : googleMapsUrl ? (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
+                  <p className="leading-relaxed text-gray-600">
+                    Peta embed belum tersedia, tapi lokasi hotel sudah bisa dibuka
+                    langsung lewat Google Maps.
+                  </p>
+
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 font-semibold text-white transition hover:bg-black"
+                  >
+                    <MapPin size={18} />
+                    Buka di Google Maps
+                  </a>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
+                  Lokasi hotel belum tersedia.
+                </div>
+              )}
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                   <Sparkles size={20} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">Fasilitas Hotel</h2>
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Fasilitas Hotel
+                  </h2>
                   <p className="text-sm text-gray-500">
                     Fasilitas utama yang tersedia di hotel ini
                   </p>
@@ -403,140 +541,22 @@ export default function HotelDetail() {
                 </div>
               )}
             </div>
-
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
-                  <Navigation size={20} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800">Lokasi di Map</h2>
-                  <p className="text-sm text-gray-500">
-                    Lihat posisi hotel langsung di peta
-                  </p>
-                </div>
-              </div>
-
-              {embedMapUrl ? (
-                <>
-                  <div className="w-full h-[320px] rounded-2xl overflow-hidden border border-gray-100">
-                    <iframe
-                      title={`Map ${hotel.name}`}
-                      width="100%"
-                      height="100%"
-                      loading="lazy"
-                      allowFullScreen
-                      src={embedMapUrl}
-                      referrerPolicy="no-referrer-when-downgrade"
-                      className="w-full h-full"
-                    />
-                  </div>
-
-                  {googleMapsUrl && (
-                    <a
-                      href={googleMapsUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 mt-4 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
-                    >
-                      <MapPin size={18} />
-                      Buka di Google Maps
-                    </a>
-                  )}
-                </>
-              ) : googleMapsUrl ? (
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
-                  <p className="text-gray-600 leading-relaxed">
-                    Peta embed belum tersedia, tapi lokasi hotel sudah bisa dibuka
-                    langsung lewat Google Maps.
-                  </p>
-
-                  <a
-                    href={googleMapsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 mt-4 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
-                  >
-                    <MapPin size={18} />
-                    Buka di Google Maps
-                  </a>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
-                  Lokasi hotel belum tersedia.
-                </div>
-              )}
-            </div>
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">
-                Ringkasan Hotel
-              </h3>
-
-              <div className="space-y-4 text-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-gray-500">Nama Hotel</span>
-                  <span className="font-semibold text-gray-800 text-right">
-                    {hotel.name}
-                  </span>
-                </div>
-
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-gray-500">Kota</span>
-                  <span className="font-semibold text-gray-800 text-right">
-                    {hotel.city?.name || "-"}
-                  </span>
-                </div>
-
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-gray-500">Area</span>
-                  <span className="font-semibold text-gray-800 text-right">
-                    {hotel.area || "-"}
-                  </span>
-                </div>
-
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-gray-500">Rating</span>
-                  <span className="font-semibold text-gray-800 text-right">
-                    {hotel.rating || "0.0"} / 5
-                  </span>
-                </div>
-
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-gray-500">Status</span>
-                  <span className="font-semibold text-emerald-600 text-right">
-                    {hotel.status ? "Aktif" : "Nonaktif"}
-                  </span>
-                </div>
-
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-gray-500">Jumlah Fasilitas</span>
-                  <span className="font-semibold text-gray-800 text-right">
-                    {Array.isArray(hotel.facilities) ? hotel.facilities.length : 0} fasilitas
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/hotels/${hotel.id}/rooms`)}
-                  className="w-full rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
-                >
-                  Lihat Kamar Hotel
-                </button>
-
-                <p className="text-xs text-gray-400 mt-3 text-center">
-                  Step berikutnya kita sambungkan ke daftar kamar hotel ini.
-                </p>
-              </div>
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+              <button
+                type="button"
+                onClick={() => navigate(`/hotels/${hotel.id}/rooms`)}
+                className="w-full rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
+              >
+                Lihat Kamar Hotel
+              </button>
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-green-600">
                   <MessageCircle size={20} />
                 </div>
                 <div>
@@ -551,7 +571,7 @@ export default function HotelDetail() {
 
               {waAdminLink ? (
                 <>
-                  <p className="text-sm text-gray-600 leading-relaxed">
+                  <p className="text-sm leading-relaxed text-gray-600">
                     Untuk pertanyaan ketersediaan kamar, reservasi manual, atau
                     bantuan cepat, kamu bisa langsung menghubungi admin hotel ini
                     melalui WhatsApp.
@@ -561,7 +581,7 @@ export default function HotelDetail() {
                     href={waAdminLink}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-white font-semibold hover:bg-green-700 transition"
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
                   >
                     <MessageCircle size={18} />
                     Chat WhatsApp Admin
@@ -574,34 +594,9 @@ export default function HotelDetail() {
               )}
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
-                  <ImageIcon size={20} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800">
-                    Preview Gambar
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Thumbnail hotel saat ini
-                  </p>
-                </div>
-              </div>
-
-              <img
-                src={buildImageUrl(hotel.thumbnail, "/images/hotel.jpg")}
-                alt={hotel.name}
-                onError={(e) => {
-                  e.currentTarget.src = "/images/hotel.jpg";
-                }}
-                className="w-full h-56 object-cover rounded-2xl border border-gray-100"
-              />
-            </div>
-
             <Link
               to="/hotels"
-              className="block text-center rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
+              className="block rounded-2xl bg-gray-900 px-5 py-3 text-center font-semibold text-white transition hover:bg-black"
             >
               Kembali ke Semua Hotel
             </Link>

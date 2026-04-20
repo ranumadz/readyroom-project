@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\City;
 use App\Models\Hotel;
 use App\Models\Facility;
+use App\Models\HotelImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -25,21 +26,16 @@ class HotelController extends Controller
 
     public function index()
     {
-        $hotels = Hotel::with(['city', 'facilities'])->latest()->get();
+        $hotels = Hotel::with(['city', 'facilities', 'images'])->latest()->get();
 
         return response()->json($hotels);
     }
 
-    /**
-     * Public hotel list untuk customer
-     * hanya hotel aktif
-     * urut berdasarkan booking valid terbanyak
-     */
     public function publicIndex()
     {
         $validStatuses = $this->validBookingStatuses();
 
-        $hotels = Hotel::with(['city', 'facilities'])
+        $hotels = Hotel::with(['city', 'facilities', 'images'])
             ->withCount([
                 'bookings as valid_booking_count' => function ($query) use ($validStatuses) {
                     $query->whereIn('status', $validStatuses);
@@ -56,14 +52,11 @@ class HotelController extends Controller
         ]);
     }
 
-    /**
-     * Public detail hotel untuk customer
-     */
     public function publicShow($id)
     {
         $validStatuses = $this->validBookingStatuses();
 
-        $hotel = Hotel::with(['city', 'facilities'])
+        $hotel = Hotel::with(['city', 'facilities', 'images'])
             ->withCount([
                 'bookings as valid_booking_count' => function ($query) use ($validStatuses) {
                     $query->whereIn('status', $validStatuses);
@@ -122,8 +115,9 @@ class HotelController extends Controller
             'longitude' => 'nullable|string|max:50',
             'map_link' => 'nullable|string',
             'description' => 'nullable|string',
-            'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
-            'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'gallery_images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'rating' => 'nullable|numeric|min:0|max:5',
             'status' => 'nullable|boolean',
             'facility_ids' => 'nullable|array',
@@ -159,15 +153,26 @@ class HotelController extends Controller
 
         $hotel->facilities()->sync($request->facility_ids ?? []);
 
+        if ($request->hasFile('gallery_images')) {
+            foreach ($request->file('gallery_images') as $image) {
+                $path = $image->store('hotels/gallery', 'public');
+
+                HotelImage::create([
+                    'hotel_id' => $hotel->id,
+                    'image' => $path,
+                ]);
+            }
+        }
+
         return response()->json([
             'message' => 'Hotel berhasil ditambahkan',
-            'data' => $hotel->load(['city', 'facilities'])
+            'data' => $hotel->load(['city', 'facilities', 'images'])
         ], 201);
     }
 
     public function update(Request $request, $id)
     {
-        $hotel = Hotel::findOrFail($id);
+        $hotel = Hotel::with('images')->findOrFail($id);
 
         $request->validate([
             'city_id' => 'required|exists:cities,id',
@@ -179,8 +184,9 @@ class HotelController extends Controller
             'longitude' => 'nullable|string|max:50',
             'map_link' => 'nullable|string',
             'description' => 'nullable|string',
-            'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
-            'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'gallery_images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'rating' => 'nullable|numeric|min:0|max:5',
             'status' => 'nullable|boolean',
             'facility_ids' => 'nullable|array',
@@ -221,15 +227,34 @@ class HotelController extends Controller
 
         $hotel->facilities()->sync($request->facility_ids ?? []);
 
+        if ($request->hasFile('gallery_images')) {
+            foreach ($hotel->images as $oldImage) {
+                if ($oldImage->image && Storage::disk('public')->exists($oldImage->image)) {
+                    Storage::disk('public')->delete($oldImage->image);
+                }
+            }
+
+            $hotel->images()->delete();
+
+            foreach ($request->file('gallery_images') as $image) {
+                $path = $image->store('hotels/gallery', 'public');
+
+                HotelImage::create([
+                    'hotel_id' => $hotel->id,
+                    'image' => $path,
+                ]);
+            }
+        }
+
         return response()->json([
             'message' => 'Hotel berhasil diupdate',
-            'data' => $hotel->load(['city', 'facilities'])
+            'data' => $hotel->load(['city', 'facilities', 'images'])
         ]);
     }
 
     public function destroy($id)
     {
-        $hotel = Hotel::findOrFail($id);
+        $hotel = Hotel::with('images')->findOrFail($id);
 
         if ($hotel->thumbnail && Storage::disk('public')->exists($hotel->thumbnail)) {
             Storage::disk('public')->delete($hotel->thumbnail);
@@ -239,6 +264,13 @@ class HotelController extends Controller
             Storage::disk('public')->delete($hotel->hero_image);
         }
 
+        foreach ($hotel->images as $image) {
+            if ($image->image && Storage::disk('public')->exists($image->image)) {
+                Storage::disk('public')->delete($image->image);
+            }
+        }
+
+        $hotel->images()->delete();
         $hotel->delete();
 
         return response()->json([

@@ -4,6 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use App\Models\City;
+use App\Models\Room;
+use App\Models\Facility;
+use App\Models\Booking;
+use App\Models\HotelImage;
 
 class Hotel extends Model
 {
@@ -46,5 +51,10 @@ class Hotel extends Model
     public function users()
     {
         return $this->belongsToMany(User::class, 'user_hotels');
+    }
+
+    public function images()
+    {
+        return $this->hasMany(HotelImage::class);
     }
 }

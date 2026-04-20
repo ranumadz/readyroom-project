@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import HeroSearchFilter from "../components/HeroSearchFilter";
 import api from "../services/api";
 import {
   Building2,
@@ -21,17 +22,143 @@ import {
   BedDouble,
   Sparkles,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Images,
 } from "lucide-react";
 
 const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+
+function HotelImageSlider({ hotel, buildImageUrl }) {
+  const images = useMemo(() => {
+    const list = [];
+
+    if (hotel?.thumbnail) {
+      list.push(buildImageUrl(hotel.thumbnail, "/images/hotel.jpg"));
+    }
+
+    if (hotel?.hero_image) {
+      const heroUrl = buildImageUrl(hotel.hero_image, "/images/hotel.jpg");
+      if (!list.includes(heroUrl)) {
+        list.push(heroUrl);
+      }
+    }
+
+    if (Array.isArray(hotel?.images)) {
+      hotel.images.forEach((img) => {
+        const imagePath =
+          img?.image || img?.path || img?.url || img?.image_path || null;
+        const imageUrl = buildImageUrl(imagePath, "/images/hotel.jpg");
+
+        if (imagePath && !list.includes(imageUrl)) {
+          list.push(imageUrl);
+        }
+      });
+    }
+
+    if (list.length === 0) {
+      list.push("/images/hotel.jpg");
+    }
+
+    return list;
+  }, [hotel, buildImageUrl]);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [hotel?.id]);
+
+  const goPrev = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
+  const goNext = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+  };
+
+  const activeImage = images[currentIndex] || "/images/hotel.jpg";
+
+  return (
+    <div className="relative overflow-hidden rounded-t-[28px]">
+      <img
+        src={activeImage}
+        alt={hotel?.name || "Hotel"}
+        onError={(e) => {
+          e.currentTarget.src = "/images/hotel.jpg";
+        }}
+        className="h-64 w-full object-cover transition duration-500 group-hover:scale-105"
+      />
+
+      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+
+      <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-red-600 shadow-md">
+        <Building2 size={14} />
+        {hotel?.area || "Hotel"}
+      </div>
+
+      {images.length > 1 && (
+        <>
+          <div className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
+            <Images size={13} />
+            {currentIndex + 1}/{images.length}
+          </div>
+
+          <button
+            type="button"
+            onClick={goPrev}
+            className="absolute left-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white"
+            aria-label="Previous image"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={goNext}
+            className="absolute right-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white"
+            aria-label="Next image"
+          >
+            <ChevronRight size={18} />
+          </button>
+
+          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2">
+            {images.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCurrentIndex(index);
+                }}
+                className={`h-2.5 rounded-full transition ${
+                  currentIndex === index
+                    ? "w-6 bg-white"
+                    : "w-2.5 bg-white/55 hover:bg-white/80"
+                }`}
+                aria-label={`Go to image ${index + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function Hotels() {
   const [searchParams] = useSearchParams();
 
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
 
   const destinationFromQuery = searchParams.get("destination") || "";
   const checkInFromQuery = searchParams.get("check_in") || "";
@@ -39,10 +166,6 @@ export default function Hotels() {
   useEffect(() => {
     fetchHotels();
   }, []);
-
-  useEffect(() => {
-    setSearch(destinationFromQuery);
-  }, [destinationFromQuery]);
 
   const fetchHotels = async () => {
     try {
@@ -110,7 +233,7 @@ export default function Hotels() {
   };
 
   const filteredHotels = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+    const keyword = destinationFromQuery.trim().toLowerCase();
 
     if (!keyword) return hotels;
 
@@ -127,21 +250,20 @@ export default function Hotels() {
         address.includes(keyword)
       );
     });
-  }, [hotels, search]);
+  }, [hotels, destinationFromQuery]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-[#fff8f8] to-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-hidden bg-gradient-to-br from-red-700 via-red-600 to-rose-600 pb-16 pt-16 text-white md:pb-24 md:pt-24">
-        <div className="absolute inset-0">
+      <section className="relative overflow-visible bg-gradient-to-br from-red-700 via-red-600 to-rose-600 pb-28 pt-16 text-white md:pb-36 md:pt-24">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -left-16 top-4 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute right-0 top-10 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
           <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-red-300/10 blur-3xl" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.10),transparent_30%)]" />
 
-          {/* ORNAMEN KIRI ATAS */}
-          <div className="pointer-events-none absolute left-0 top-0 hidden select-none lg:block">
+          <div className="absolute left-0 top-0 hidden select-none lg:block">
             <div className="relative h-[220px] w-[360px] -translate-x-[72px] -translate-y-[68px]">
               <div className="absolute left-0 top-0 h-[180px] w-[180px] rounded-full border-[24px] border-white/12 border-b-transparent border-r-transparent rotate-[-18deg]" />
               <div className="absolute left-[82px] top-[38px] h-[120px] w-[120px] rounded-full border-[18px] border-red-200/20 border-b-transparent border-r-transparent rotate-[-18deg]" />
@@ -152,8 +274,7 @@ export default function Hotels() {
             </div>
           </div>
 
-          {/* ORNAMEN KANAN ATAS */}
-          <div className="pointer-events-none absolute right-0 top-0 hidden select-none lg:block">
+          <div className="absolute right-0 top-0 hidden select-none lg:block">
             <div className="relative h-[220px] w-[420px] translate-x-[68px] -translate-y-[74px]">
               <div className="absolute right-0 top-0 h-[170px] w-[170px] rounded-full border-[24px] border-red-300/20 border-b-transparent border-l-transparent rotate-[14deg]" />
               <div className="absolute right-[76px] top-[34px] h-[118px] w-[118px] rounded-full border-[18px] border-white/12 border-b-transparent border-l-transparent rotate-[14deg]" />
@@ -161,8 +282,7 @@ export default function Hotels() {
             </div>
           </div>
 
-          {/* ORNAMEN BAWAH */}
-          <div className="pointer-events-none absolute bottom-0 left-1/2 hidden -translate-x-1/2 translate-y-1/3 select-none lg:block">
+          <div className="absolute bottom-0 left-1/2 hidden -translate-x-1/2 translate-y-1/3 select-none lg:block">
             <div className="relative h-[120px] w-[560px]">
               <div className="absolute left-0 top-[44px] h-[2px] w-[180px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
               <div className="absolute left-[190px] top-[30px] h-12 w-12 rounded-full border border-white/15 bg-white/5" />
@@ -173,7 +293,7 @@ export default function Hotels() {
           </div>
         </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+        <div className="relative z-20 mx-auto max-w-7xl px-4 md:px-6">
           <div className="mx-auto max-w-4xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
               <HotelIcon size={16} />
@@ -195,45 +315,36 @@ export default function Hotels() {
               Cari hotel berdasarkan nama, kota, area, atau alamat. Semua hotel
               yang tampil di sini adalah hotel aktif yang siap kamu jelajahi.
             </p>
-
-            <div className="mx-auto w-full max-w-3xl rounded-[28px] border border-white/35 bg-white/95 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-md">
-              <div className="relative">
-                <Search
-                  size={20}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Cari hotel, kota, area, atau alamat..."
-                  className="w-full rounded-2xl bg-transparent py-4 pl-12 pr-4 text-gray-800 outline-none placeholder:text-gray-400"
-                />
-              </div>
-            </div>
-
-            {(destinationFromQuery || checkInFromQuery) && (
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-                {destinationFromQuery && (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
-                    <MapPin size={15} />
-                    Tujuan: {destinationFromQuery}
-                  </span>
-                )}
-
-                {checkInFromQuery && (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
-                    <CalendarDays size={15} />
-                    Check-in: {checkInFromQuery}
-                  </span>
-                )}
-              </div>
-            )}
           </div>
+
+          <div className="relative z-[100] mx-auto mt-10 max-w-6xl overflow-visible">
+            <HeroSearchFilter />
+          </div>
+
+          {(destinationFromQuery || checkInFromQuery) && (
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              {destinationFromQuery && (
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
+                  <MapPin size={15} />
+                  Tujuan: {destinationFromQuery}
+                </span>
+              )}
+
+              {checkInFromQuery && (
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
+                  <CalendarDays size={15} />
+                  Check-in: {checkInFromQuery}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-14 md:px-6">
+      <section
+        id="hotel-results-section"
+        className="relative z-10 mx-auto max-w-7xl px-4 py-14 md:px-6"
+      >
         <div className="mb-8 flex flex-col gap-4 rounded-[28px] border border-red-100 bg-white/90 p-6 shadow-[0_10px_40px_rgba(255,0,0,0.05)] backdrop-blur-sm md:flex-row md:items-end md:justify-between">
           <div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-600">
@@ -251,22 +362,23 @@ export default function Hotels() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {search && (
+            {destinationFromQuery && (
               <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-600">
                 <Search size={14} />
                 Kata kunci:{" "}
-                <span className="font-semibold text-gray-800">{search}</span>
+                <span className="font-semibold text-gray-800">
+                  {destinationFromQuery}
+                </span>
               </div>
             )}
 
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
+            {destinationFromQuery && (
+              <Link
+                to="/hotels"
                 className="inline-flex items-center justify-center rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
               >
                 Bersihkan Pencarian
-              </button>
+              </Link>
             )}
           </div>
         </div>
@@ -278,7 +390,7 @@ export default function Hotels() {
                 key={item}
                 className="animate-pulse overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm"
               >
-                <div className="h-60 w-full bg-gray-200" />
+                <div className="h-64 w-full bg-gray-200" />
                 <div className="p-5">
                   <div className="mb-3 h-4 w-24 rounded bg-gray-200" />
                   <div className="mb-2 h-6 w-44 rounded bg-gray-200" />
@@ -308,44 +420,35 @@ export default function Hotels() {
               <Link
                 to={`/hotels/${hotel.id}`}
                 key={hotel.id}
-                className="group block overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-[0_10px_35px_rgba(0,0,0,0.04)] transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(0,0,0,0.10)]"
+                className="group block overflow-hidden rounded-[28px] border border-red-100 bg-white shadow-[0_10px_35px_rgba(0,0,0,0.04)] transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(239,68,68,0.14)]"
               >
-                <div className="relative overflow-hidden">
-                  <img
-                    src={buildImageUrl(hotel.thumbnail, "/images/hotel.jpg")}
-                    alt={hotel.name}
-                    onError={(e) => {
-                      e.currentTarget.src = "/images/hotel.jpg";
-                    }}
-                    className="h-60 w-full object-cover transition duration-500 group-hover:scale-105"
-                  />
+                <HotelImageSlider hotel={hotel} buildImageUrl={buildImageUrl} />
 
-                  <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                <div className="bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-5 pb-5 pt-4 text-white">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="line-clamp-1 text-[1.7rem] font-extrabold leading-tight tracking-tight">
+                        {hotel.name || "Hotel"}
+                      </h3>
+                      <p className="mt-1 text-sm font-medium text-red-50">
+                        {hotel.city?.name || "-"}
+                        {hotel.area ? ` • ${hotel.area}` : ""}
+                      </p>
+                    </div>
 
-                  <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-red-600 shadow-md">
-                    <Building2 size={14} />
-                    {hotel.area || "Hotel"}
+                    <div className="shrink-0 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                      ReadyRoom
+                    </div>
                   </div>
-                </div>
 
-                <div className="p-5">
-                  <h3 className="line-clamp-1 text-xl font-bold text-gray-800 transition group-hover:text-red-600">
-                    {hotel.name}
-                  </h3>
-
-                  <p className="mt-2 flex items-center gap-2 text-gray-500">
-                    <MapPin size={16} className="shrink-0 text-red-500" />
-                    <span className="line-clamp-1">
-                      {hotel.city?.name || "-"}
-                      {hotel.area ? ` • ${hotel.area}` : ""}
+                  <div className="mb-4 flex min-h-[48px] items-start gap-2 text-sm text-red-50">
+                    <MapPin size={15} className="mt-0.5 shrink-0 text-white" />
+                    <span className="line-clamp-2">
+                      {hotel.address || "Alamat hotel belum tersedia."}
                     </span>
-                  </p>
+                  </div>
 
-                  <p className="mt-3 min-h-[40px] line-clamp-2 text-sm leading-relaxed text-gray-500">
-                    {hotel.address || "Alamat hotel belum tersedia."}
-                  </p>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="mb-4 flex flex-wrap gap-2">
                     {Array.isArray(hotel.facilities) &&
                     hotel.facilities.length > 0 ? (
                       hotel.facilities.slice(0, 3).map((facility) => {
@@ -354,7 +457,7 @@ export default function Hotels() {
                         return (
                           <span
                             key={facility.id}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm"
                           >
                             <FacilityIcon size={13} />
                             {facility.name}
@@ -362,19 +465,19 @@ export default function Hotels() {
                         );
                       })
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
                         <Building2 size={13} />
                         Fasilitas menyusul
                       </span>
                     )}
                   </div>
 
-                  <div className="mt-5 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-red-600">
+                  <div className="flex items-center justify-between border-t border-white/20 pt-4">
+                    <span className="text-sm font-semibold text-white">
                       Lihat Detail
                     </span>
 
-                    <span className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition group-hover:bg-red-100">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-red-600 transition group-hover:translate-x-0.5">
                       Explore
                       <ArrowRight size={14} />
                     </span>

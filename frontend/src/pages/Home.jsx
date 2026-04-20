@@ -1010,7 +1010,7 @@ export default function Home() {
                 data-aos="fade-up"
                 className="rounded-[1.85rem] border border-white/40 bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-2xl"
               >
-                <div className="mb-4 flex justify-center">
+                <div className="mb-4 flex justify-ce5nter">
                   <div className="rounded-2xl bg-red-500 p-3 text-white shadow-lg shadow-red-500/20">
                     {item.icon}
                   </div>
