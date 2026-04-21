@@ -42,7 +42,9 @@ class BookingController extends Controller
             'room_id' => 'required|exists:rooms,id',
             'booking_type' => 'required|in:transit,overnight',
             'duration_hours' => 'nullable|integer|min:1',
+            'duration_days' => 'nullable|integer|min:1',
             'check_in' => 'required|date',
+            'check_out' => 'nullable|date',
         ]);
 
         $isLoggedInBooking = !empty($request->user_id);
@@ -79,6 +81,8 @@ class BookingController extends Controller
         $checkIn = Carbon::parse($request->check_in);
         $checkOut = null;
         $totalPrice = 0;
+        $durationHours = null;
+        $durationDays = null;
 
         if ($request->booking_type === 'transit') {
             $durationHours = (int) $request->duration_hours;
@@ -99,8 +103,42 @@ class BookingController extends Controller
                 $totalPrice = $room->price_transit_12h ?? 0;
             }
         } else {
-            $checkOut = $this->calculateOvernightCheckOut($checkIn);
-            $totalPrice = $room->price_per_night ?? 0;
+            if (!$request->check_out) {
+                return response()->json([
+                    'message' => 'Check out wajib dikirim untuk booking full day'
+                ], 422);
+            }
+
+            $checkOut = Carbon::parse($request->check_out);
+
+            if ($checkOut->lessThanOrEqualTo($checkIn)) {
+                return response()->json([
+                    'message' => 'Check out harus lebih besar dari check in'
+                ], 422);
+            }
+
+            if ((int) $checkOut->format('H') !== 12 || (int) $checkOut->format('i') !== 0) {
+                return response()->json([
+                    'message' => 'Untuk full day, check out harus pukul 12:00'
+                ], 422);
+            }
+
+            $startDateOnly = (clone $checkIn)->startOfDay();
+            $endDateOnly = (clone $checkOut)->startOfDay();
+
+            $durationDays = $startDateOnly->diffInDays($endDateOnly);
+
+            if ($durationDays < 1) {
+                $durationDays = 1;
+            }
+
+            if ($request->filled('duration_days') && (int) $request->duration_days !== (int) $durationDays) {
+                return response()->json([
+                    'message' => 'Durasi full day tidak sesuai. Silakan ulangi pilih tanggal booking.'
+                ], 422);
+            }
+
+            $totalPrice = ($room->price_per_night ?? 0) * $durationDays;
         }
 
         $bookingCode = $this->generateBookingCode();
@@ -126,7 +164,10 @@ class BookingController extends Controller
 
             'booking_type' => $request->booking_type,
             'duration_hours' => $request->booking_type === 'transit'
-                ? $request->duration_hours
+                ? $durationHours
+                : null,
+            'duration_days' => $request->booking_type === 'overnight'
+                ? $durationDays
                 : null,
 
             'check_in' => $checkIn,
@@ -147,17 +188,6 @@ class BookingController extends Controller
                 : 'Reservasi manual berhasil dibuat dan menunggu tindak lanjut admin',
             'data' => $booking->load(['hotel', 'room'])
         ], 201);
-    }
-
-    private function calculateOvernightCheckOut(Carbon $checkIn): Carbon
-    {
-        $checkOut = (clone $checkIn)->setTime(12, 0, 0);
-
-        if ($checkIn->greaterThanOrEqualTo((clone $checkIn)->setTime(12, 0, 0))) {
-            $checkOut->addDay();
-        }
-
-        return $checkOut;
     }
 
     private function generateBookingCode()
