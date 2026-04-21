@@ -204,7 +204,7 @@ export default function HeroSearchFilter() {
   return (
     <div
       data-aos="fade-up"
-      className="relative z-30 mx-auto max-w-5xl rounded-[2rem] border border-white/40 bg-white/95 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-2xl md:p-6"
+      className="relative z-30 mx-auto max-w-5xl overflow-visible rounded-[2rem] border border-white/40 bg-white/95 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-2xl md:p-6"
     >
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr_180px]">
         <div className="relative" ref={dropdownRef}>
@@ -357,103 +357,110 @@ export default function HeroSearchFilter() {
           )}
 
           {showCalendar && (
-            <div className="absolute left-0 right-0 z-50 mt-3 overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)]">
-              <div className="border-b border-gray-100 px-5 py-4">
-                <div className="flex items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCalendarMonth(
-                        new Date(
-                          calendarMonth.getFullYear(),
-                          calendarMonth.getMonth() - 1,
-                          1
+            <div className="relative z-50 mt-3 md:absolute md:left-0 md:right-0 md:mt-3">
+              <div className="overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)]">
+                <div className="border-b border-gray-100 px-4 py-4 md:px-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCalendarMonth(
+                          new Date(
+                            calendarMonth.getFullYear(),
+                            calendarMonth.getMonth() - 1,
+                            1
+                          )
                         )
-                      )
-                    }
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
+                      }
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
 
-                  <div className="text-center">
-                    <p className="text-base font-bold text-gray-800">
-                      {formatMonthYear(calendarMonth)}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      Pilih tanggal check-in kamu
-                    </p>
+                    <div className="text-center">
+                      <p className="text-base font-bold text-gray-800">
+                        {formatMonthYear(calendarMonth)}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-400">
+                        Pilih tanggal check-in kamu
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCalendarMonth(
+                          new Date(
+                            calendarMonth.getFullYear(),
+                            calendarMonth.getMonth() + 1,
+                            1
+                          )
+                        )
+                      }
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 md:p-5">
+                  <div className="mb-3 grid grid-cols-7 gap-1 md:gap-2">
+                    {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map(
+                      (day) => (
+                        <div
+                          key={day}
+                          className="py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gray-400 md:text-xs"
+                        >
+                          {day}
+                        </div>
+                      )
+                    )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCalendarMonth(
-                        new Date(
-                          calendarMonth.getFullYear(),
-                          calendarMonth.getMonth() + 1,
-                          1
-                        )
-                      )
-                    }
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
-              </div>
+                  <div className="grid grid-cols-7 gap-1 md:gap-2">
+                    {calendarDays.map((day, index) => {
+                      if (!day) {
+                        return (
+                          <div
+                            key={`empty-${index}`}
+                            className="h-10 md:h-11"
+                          />
+                        );
+                      }
 
-              <div className="p-4 md:p-5">
-                <div className="mb-3 grid grid-cols-7 gap-2">
-                  {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map(
-                    (day) => (
-                      <div
-                        key={day}
-                        className="py-2 text-center text-xs font-bold uppercase tracking-wide text-gray-400"
-                      >
-                        {day}
-                      </div>
-                    )
-                  )}
-                </div>
+                      const disabled = isBeforeDay(day, today);
+                      const selected = checkIn === formatDateToInput(day);
+                      const isToday = isSameDay(day, today);
 
-                <div className="grid grid-cols-7 gap-2">
-                  {calendarDays.map((day, index) => {
-                    if (!day) {
-                      return <div key={`empty-${index}`} className="h-11" />;
-                    }
-
-                    const disabled = isBeforeDay(day, today);
-                    const selected = checkIn === formatDateToInput(day);
-                    const isToday = isSameDay(day, today);
-
-                    return (
-                      <button
-                        key={formatDateToInput(day)}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => handleSelectDate(day)}
-                        className={`h-11 rounded-2xl text-sm font-semibold transition ${
-                          disabled
-                            ? "cursor-not-allowed bg-gray-50 text-gray-300"
-                            : selected
-                            ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg shadow-red-200"
-                            : isToday
-                            ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                            : "text-gray-700 hover:bg-gray-100"
-                        }`}
-                      >
-                        {day.getDate()}
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={formatDateToInput(day)}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => handleSelectDate(day)}
+                          className={`h-10 rounded-xl text-sm font-semibold transition md:h-11 md:rounded-2xl ${
+                            disabled
+                              ? "cursor-not-allowed bg-gray-50 text-gray-300"
+                              : selected
+                              ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg shadow-red-200"
+                              : isToday
+                              ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                              : "text-gray-700 hover:bg-gray-100"
+                          }`}
+                        >
+                          {day.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex flex-col justify-start pt-[30px]">
+        <div className="flex flex-col justify-start pt-0 lg:pt-[30px]">
           <button
             type="button"
             onClick={handleSearch}
