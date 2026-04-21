@@ -214,25 +214,19 @@ export default function Home() {
     return popularHotels.slice(0, 3);
   }, [popularHotels]);
 
-  const heroTitle =
-    loadingContent
-      ? ""
-      : websiteContent?.hero_title ||
-        "Booking hotel lebih mudah bersama ReadyRoom";
+  // HERO TEXT FIXED FROM FRONTEND (NOT FROM BACKEND)
+  const heroTitle = "ReadyRoom, Booking Hotel Lebih Mudah";
 
   const heroSubtitle =
-    loadingContent
-      ? ""
-      : websiteContent?.hero_subtitle ||
-        "Temukan hotel yang nyaman, lokasi strategis, dan proses booking yang cepat untuk kebutuhan transit maupun menginap.";
+    "Nikmati pengalaman booking yang cepat, nyaman, modern, dan fleksibel untuk kebutuhan transit maupun menginap.";
 
+  // Hero image tetap boleh dari backend
   const heroMainImage = buildImageUrl(
     websiteContent?.hero_image,
     "/images/hotel.jpg"
   );
 
-  const infoTitle =
-    websiteContent?.info_title || "Info Terbaru ReadyRoom";
+  const infoTitle = websiteContent?.info_title || "Info Terbaru ReadyRoom";
 
   const infoDescription =
     websiteContent?.info_description ||
@@ -331,56 +325,64 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative pt-16 pb-24 md:pt-20 md:pb-28">
-        <div className="absolute inset-0">
-          <img
-            src={activeHeroImage}
-            alt="ReadyRoom Hero"
-            className="h-full w-full object-cover transition-all duration-700"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#240000]/80 via-[#7a0c0c]/55 to-[#240000]/20" />
-          <div className="absolute inset-0 bg-black/15" />
-        </div>
+      <section className="relative overflow-hidden pt-16 pb-10 md:pt-20 md:pb-28">
+  <div className="absolute inset-0">
+    <img
+      src={activeHeroImage}
+      alt="ReadyRoom Hero"
+      className="h-full w-full object-cover transition-all duration-700"
+    />
+    <div className="absolute inset-0 bg-gradient-to-r from-[#240000]/80 via-[#7a0c0c]/55 to-[#240000]/20" />
+    <div className="absolute inset-0 bg-black/15" />
+  </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-          <div className="flex min-h-[440px] items-center justify-center md:min-h-[500px]">
-            <div
-              className="mx-auto -mt-28 flex max-w-4xl flex-col items-center text-center text-white md:-mt-32"
-              data-aos="fade-up"
-            >
-              {heroTitle ? (
-                <h1 className="max-w-4xl text-4xl font-extrabold leading-[1.02] tracking-tight md:text-6xl xl:text-[72px]">
-                  {heroTitle}
-                </h1>
-              ) : (
-                <div className="mb-4 h-14 w-4/5 animate-pulse rounded-2xl bg-white/15" />
-              )}
+  <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+    <div className="flex min-h-[420px] items-start justify-center pt-20 pb-10 sm:min-h-[460px] sm:pt-24 sm:pb-12 md:min-h-[560px] md:items-center md:pt-8 md:pb-40">
+      <div
+        className="mx-auto flex w-full max-w-5xl flex-col items-center px-2 text-center text-white sm:px-4 md:px-6"
+        data-aos="fade-up"
+      >
+        <h1 className="max-w-[340px] break-words text-[32px] font-extrabold leading-[1.06] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.35)] sm:max-w-[460px] sm:text-[40px] md:max-w-4xl md:text-5xl lg:text-6xl xl:text-[72px]">
+          {heroTitle}
+        </h1>
 
-              {heroSubtitle ? (
-                <p className="mt-6 max-w-2xl text-base leading-relaxed text-red-50/95 md:text-lg">
-                  {heroSubtitle}
-                </p>
-              ) : (
-                <div className="mt-6 h-6 w-2/3 animate-pulse rounded-xl bg-white/10" />
-              )}
-            </div>
-          </div>
-        </div>
+       <p className="mt-3 max-w-[340px] text-sm leading-relaxed text-red-50/95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.28)] sm:mt-4 sm:max-w-[560px] sm:text-base md:mt-6 md:max-w-2xl md:text-lg">
+          {heroSubtitle}
+        </p>
+      </div>
+    </div>
+  </div>
 
-        <div className="absolute left-0 right-0 bottom-[34px] z-30 mx-auto max-w-6xl px-4 md:bottom-[52px] md:px-6">
-          <HeroSearchFilter />
+  {/* MOBILE: filter normal, tidak absolute */}
+  <div className="relative z-30 mx-auto -mt-20 block max-w-6xl px-4 md:hidden">
+    <HeroSearchFilter />
 
-          <div className="mt-3 flex justify-center">
-            <Link
-              to="/hotels"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-red-50"
-            >
-              Kunjungi Semua Hotel
-              <ArrowRight size={18} />
-            </Link>
-          </div>
-        </div>
-      </section>
+    <div className="mt-2 flex justify-center">
+      <Link
+        to="/hotels"
+        className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-red-50"
+      >
+        Kunjungi Semua Hotel
+        <ArrowRight size={18} />
+      </Link>
+    </div>
+  </div>
+
+  {/* DESKTOP: filter tetap absolute */}
+  <div className="absolute left-0 right-0 bottom-[52px] z-30 mx-auto hidden max-w-6xl px-4 md:block md:px-6">
+    <HeroSearchFilter />
+
+    <div className="mt-3 flex justify-center">
+      <Link
+        to="/hotels"
+        className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-red-50"
+      >
+        Kunjungi Semua Hotel
+        <ArrowRight size={18} />
+      </Link>
+    </div>
+  </div>
+</section>
 
       <section className="mx-auto max-w-7xl px-4 pt-24 pb-16 md:px-6 md:pt-28">
         <div className="mb-8">
@@ -1010,7 +1012,7 @@ export default function Home() {
                 data-aos="fade-up"
                 className="rounded-[1.85rem] border border-white/40 bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-2xl"
               >
-                <div className="mb-4 flex justify-ce5nter">
+                <div className="mb-4 flex justify-center">
                   <div className="rounded-2xl bg-red-500 p-3 text-white shadow-lg shadow-red-500/20">
                     {item.icon}
                   </div>
