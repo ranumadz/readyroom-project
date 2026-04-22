@@ -12,6 +12,7 @@ import {
   Hotel,
   Eye,
   EyeOff,
+  Award,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import api from "../services/api";
@@ -258,7 +259,7 @@ export default function Register() {
 
         <div className="relative z-10 max-w-2xl px-10 text-white">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur-md mb-6">
-            <Sparkles size={16} />
+            <Award size={16} />
             <span className="text-sm font-medium">
               Create Your ReadyRoom Account
             </span>

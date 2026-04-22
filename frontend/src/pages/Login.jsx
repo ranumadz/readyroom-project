@@ -11,6 +11,7 @@ import {
   X,
   BadgeCheck,
   Hotel,
+  Award,
 } from "lucide-react";
 import api from "../services/api";
 
@@ -104,9 +105,9 @@ export default function Login() {
 
           <div className="relative z-10 max-w-2xl px-10 text-white">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur-md mb-6">
-              <Sparkles size={16} />
+              <Award size={16} />
               <span className="text-sm font-medium">
-                Welcome Back to ReadyRoom
+                Selamat Datang Kemabali
               </span>
             </div>
 
