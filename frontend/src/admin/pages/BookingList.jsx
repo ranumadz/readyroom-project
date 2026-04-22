@@ -798,7 +798,7 @@ export default function BookingList() {
       manualForm.booking_type === "overnight" &&
       (!manualForm.duration_days || Number(manualForm.duration_days) < 1)
     ) {
-      return toast.error("Durasi hari overnight wajib diisi");
+      return toast.error("Durasi hari Full Day wajib diisi");
     }
 
     try {
@@ -1097,6 +1097,33 @@ const handlePrintReport = () => {
     );
   };
 
+  const getEditedByName = (booking) => {
+    return (
+      booking?.editor?.name ||
+      booking?.edited_by_user?.name ||
+      booking?.editedBy?.name ||
+      "-"
+    );
+  };
+
+  const getRefundedByName = (booking) => {
+    return (
+      booking?.refunder?.name ||
+      booking?.refunded_by_user?.name ||
+      booking?.refundedBy?.name ||
+      "-"
+    );
+  };
+
+  const getCancelledByName = (booking) => {
+    return (
+      booking?.canceller?.name ||
+      booking?.cancelled_by_user?.name ||
+      booking?.cancelledBy?.name ||
+      "-"
+    );
+  };
+
   const getReceiptSourceLabel = (booking) => {
     if (booking?.booking_source === "admin_manual") return "Manual Admin";
     if (booking?.booking_source === "customer_app") return "App Customer";
@@ -1378,6 +1405,12 @@ const handlePrintReport = () => {
       dateStyle: "medium",
       timeStyle: "short",
     });
+  };
+
+  const getBookingTypeLabel = (bookingType) => {
+    if (bookingType === "transit") return "Transit";
+    if (bookingType === "overnight") return "Full Day";
+    return bookingType || "-";
   };
 
   const getReportTransactionDate = (booking) => {
@@ -2139,7 +2172,7 @@ const reportBookings = useMemo(() => {
       )}
       {filters.bookingType && (
         <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
-          Jenis: {filters.bookingType}
+          Jenis: {getBookingTypeLabel(filters.bookingType)}
         </span>
       )}
       {filters.hotelId && (
@@ -2259,6 +2292,16 @@ const reportBookings = useMemo(() => {
 
                           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 text-sm">
                             <div className="flex items-start gap-3">
+                              <User size={16} className="text-red-500 mt-0.5" />
+                              <div>
+                                <p className="text-gray-400">Nama Customer</p>
+                                <p className="font-semibold text-gray-800">
+                                  {getBookingCustomerName(booking)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-3">
                               <Hotel size={16} className="text-red-500 mt-0.5" />
                               <div>
                                 <p className="text-gray-400">Hotel</p>
@@ -2329,7 +2372,7 @@ const reportBookings = useMemo(() => {
 
                           <div className="mt-4 flex flex-wrap gap-3 text-sm">
                             <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
-                              Booking: {booking.booking_type}
+                              Booking: {getBookingTypeLabel(booking.booking_type)}
                             </span>
 
                             {booking.duration_hours && (
@@ -2504,6 +2547,66 @@ const reportBookings = useMemo(() => {
                           {booking.admin_note && (
                             <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-700">
                               <strong>Catatan Admin:</strong> {booking.admin_note}
+                            </div>
+                          )}
+
+                          {(booking?.creator?.name ||
+                            booking?.editor?.name ||
+                            booking?.refunder?.name ||
+                            booking?.canceller?.name) && (
+                            <div className="mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-4">
+                              <div className="mb-3 flex items-center gap-2">
+                                <History size={16} className="text-red-500" />
+                                <p className="text-sm font-bold text-gray-800">
+                                  Riwayat Booking
+                                </p>
+                              </div>
+
+                              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+                                {booking?.creator?.name && (
+                                  <div className="rounded-2xl bg-gray-50 border border-gray-200 px-3 py-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                      Dibuat Oleh
+                                    </p>
+                                    <p className="mt-1 font-semibold text-gray-800">
+                                      {getCreatedByName(booking)}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {booking?.editor?.name && (
+                                  <div className="rounded-2xl bg-gray-50 border border-gray-200 px-3 py-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                      Diedit Oleh
+                                    </p>
+                                    <p className="mt-1 font-semibold text-gray-800">
+                                      {getEditedByName(booking)}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {booking?.refunder?.name && (
+                                  <div className="rounded-2xl bg-gray-50 border border-gray-200 px-3 py-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                      Refund Oleh
+                                    </p>
+                                    <p className="mt-1 font-semibold text-gray-800">
+                                      {getRefundedByName(booking)}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {booking?.canceller?.name && (
+                                  <div className="rounded-2xl bg-gray-50 border border-gray-200 px-3 py-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                      Cancel Oleh
+                                    </p>
+                                    <p className="mt-1 font-semibold text-gray-800">
+                                      {getCancelledByName(booking)}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
 
@@ -3336,7 +3439,7 @@ const reportBookings = useMemo(() => {
                                   Booking Type
                                 </p>
                                 <p className="mt-2 text-lg font-black capitalize text-slate-900">
-                                  {selectedReceiptBooking.booking_type || "-"}
+                                  {getBookingTypeLabel(selectedReceiptBooking.booking_type)}
                                   {selectedReceiptBooking.duration_hours
                                     ? ` • ${selectedReceiptBooking.duration_hours} jam`
                                     : ""}
@@ -4159,7 +4262,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                           className={inputClass}
                         >
                           <option value="transit">Transit</option>
-                          <option value="overnight">Overnight</option>
+                          <option value="overnight">Full Day</option>
                         </select>
                       </div>
 

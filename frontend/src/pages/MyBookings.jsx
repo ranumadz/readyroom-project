@@ -147,7 +147,7 @@ export default function MyBookings() {
   const getBookingTypeText = (booking) => {
     return booking.booking_type === "transit"
       ? `Transit ${booking.duration_hours || "-"} Jam`
-      : "Overnight";
+      : "Full Day";
   };
 
   const getCustomerInfoMessage = (booking) => {
