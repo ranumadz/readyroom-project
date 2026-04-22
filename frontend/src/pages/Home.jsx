@@ -345,9 +345,7 @@ export default function Home() {
               className="mx-auto flex w-full max-w-4xl flex-col items-center text-center text-white"
               data-aos="fade-up"
             >
-              <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] text-red-50 shadow-sm backdrop-blur-md sm:px-4 sm:text-[10px] md:text-xs">
-                Booking Hotel Lebih Praktis
-              </div>
+              
 
               <h1 className="mt-3 max-w-[360px] text-balance break-words 
   text-[22px] 

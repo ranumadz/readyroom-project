@@ -26,6 +26,8 @@ import {
   ChevronRight,
   Images,
 } from "lucide-react";
+import AOS from "aos";
+import "aos/dist/aos.css";
 
 const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
@@ -164,8 +166,19 @@ export default function Hotels() {
   const checkInFromQuery = searchParams.get("check_in") || "";
 
   useEffect(() => {
+    AOS.init({
+      duration: 800,
+      once: true,
+    });
+  }, []);
+
+  useEffect(() => {
     fetchHotels();
   }, []);
+
+  useEffect(() => {
+    AOS.refresh();
+  }, [loading, hotels.length]);
 
   const fetchHotels = async () => {
     try {
@@ -295,12 +308,7 @@ export default function Hotels() {
 
         <div className="relative z-20 mx-auto max-w-7xl px-4 md:px-6">
           <div className="mx-auto max-w-4xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 shadow-lg backdrop-blur-md">
-              <HotelIcon size={16} />
-              <span className="text-sm font-medium">
-                Jelajahi hotel partner terbaik ReadyRoom
-              </span>
-            </div>
+            
 
             <h1 className="mb-5 text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">
               Temukan Hotel Terbaik
