@@ -14,7 +14,7 @@ import {
   Coffee,
   ArrowRight,
   Building2,
-  Sparkles,
+  Award,
   History,
   Eye,
   Newspaper,
@@ -174,7 +174,7 @@ export default function Home() {
       case "bed-double":
         return BedDouble;
       default:
-        return Sparkles;
+        return Award;
     }
   };
 
@@ -451,7 +451,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
               <div className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-green-600 shadow">
-                <Sparkles size={16} />
+                <Award size={16} />
                 Promo Highlight
               </div>
 
@@ -717,7 +717,7 @@ export default function Home() {
                   />
 
                   <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-800 shadow">
-                    <Sparkles size={13} className="text-red-500" />
+                    <Award size={13} className="text-red-500" />
                     Pilihan Kurasi
                   </div>
                 </div>
