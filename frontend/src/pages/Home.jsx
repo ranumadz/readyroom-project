@@ -328,36 +328,35 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-visible pt-16 pb-12 sm:pt-[72px] sm:pb-14 md:pt-20 md:pb-44 lg:pb-52">
+      <section className="relative overflow-visible pt-16 pb-8 sm:pt-[72px] sm:pb-10 md:pt-20 md:pb-44 lg:pb-52">
         <div className="absolute inset-0">
           <img
             src={activeHeroImage}
             alt="ReadyRoom Hero"
-            className="h-full w-full object-cover transition-all duration-700"
+            className="h-full w-full object-cover object-center transition-all duration-700"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#240000]/72 via-[#5f0a0a]/38 to-[#240000]/10" />
-          <div className="absolute inset-0 bg-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#240000]/58 via-[#5f0a0a]/18 to-[#240000]/6 md:from-[#240000]/72 md:via-[#5f0a0a]/38 md:to-[#240000]/10" />
+          <div className="absolute inset-0 bg-black/8 md:bg-black/10" />
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-          <div className="flex min-h-[220px] items-start justify-center pt-7 sm:min-h-[250px] sm:pt-8 md:min-h-[430px] md:items-center md:pt-6 md:pb-32 lg:min-h-[500px] lg:pb-40">
+          <div className="flex min-h-[180px] items-start justify-center pt-7 sm:min-h-[210px] sm:pt-8 md:min-h-[430px] md:items-center md:pt-6 md:pb-32 lg:min-h-[500px] lg:pb-40">
             <div
               className="mx-auto flex w-full max-w-4xl flex-col items-center text-center text-white"
               data-aos="fade-up"
             >
-              
+              <h1
+                className="mt-2 max-w-[290px] text-balance break-words
+                text-[18px] font-extrabold leading-[1.1] tracking-tight text-white
+                drop-shadow-[0_6px_24px_rgba(0,0,0,0.35)]
+                sm:max-w-[340px] sm:text-[22px]
+                md:mt-5 md:max-w-[800px] md:text-[42px]
+                lg:text-[52px] xl:text-[58px]"
+              >
+                {loadingContent ? "Memuat tampilan hero..." : heroTitle}
+              </h1>
 
-              <h1 className="mt-3 max-w-[360px] text-balance break-words 
-  text-[22px] 
-  font-extrabold leading-[1.12] tracking-tight text-white 
-  drop-shadow-[0_6px_24px_rgba(0,0,0,0.35)] 
-  sm:max-w-[380px] sm:text-[26px] 
-  md:mt-5 md:max-w-[800px] md:text-[42px] 
-  lg:text-[52px] xl:text-[58px]">
-  {loadingContent ? "Memuat tampilan hero..." : heroTitle}
-</h1>
-
-              <p className="mt-2.5 max-w-[260px] text-[11px] leading-relaxed text-red-50/95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.28)] sm:max-w-[340px] sm:text-[12px] md:mt-3 md:max-w-2xl md:text-[14px] lg:text-[15px]">
+              <p className="mt-2 max-w-[255px] text-[10px] leading-relaxed text-red-50/95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.28)] sm:max-w-[320px] sm:text-[11px] md:mt-3 md:max-w-2xl md:text-[14px] lg:text-[15px]">
                 {loadingContent
                   ? "Tunggu sebentar, konten sedang disiapkan."
                   : heroSubtitle}
@@ -367,8 +366,8 @@ export default function Home() {
         </div>
 
         {/* MOBILE HERO FILTER */}
-        <div className="relative z-30 mx-auto -mt-5 block max-w-3xl px-3 sm:-mt-3 md:hidden">
-          <div className="mx-auto w-full max-w-[300px]">
+        <div className="relative z-30 mx-auto -mt-3 block max-w-3xl px-3 sm:-mt-2 md:hidden">
+          <div className="mx-auto w-full max-w-[360px]">
             <HeroSearchFilter />
           </div>
 
