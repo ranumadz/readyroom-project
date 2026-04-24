@@ -425,7 +425,7 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-visible pt-12 pb-5 sm:pt-[64px] sm:pb-7 md:pt-20 md:pb-44 lg:pb-52">
+      <section className="relative overflow-visible pt-[92px] pb-5 sm:pt-[96px] sm:pb-7 md:pt-20 md:pb-44 lg:pb-52">
         <div className="absolute inset-0">
           <img
             src={heroMainImage}
@@ -455,12 +455,12 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative z-30 mx-auto -mt-7 block max-w-3xl px-3 sm:-mt-6 md:hidden">
-          <div className="mx-auto w-full max-w-[330px]">
+        <div className="relative z-30 mx-auto -mt-4 block max-w-3xl px-4 sm:-mt-4 md:hidden">
+  <div className="mx-auto w-full max-w-[1000px] origin-top scale-[0.6]">
             <HeroSearchFilter />
           </div>
 
-          <div className="mt-1.5 flex justify-center">
+          <div className="relative z-40 -mt-8 flex justify-center">
             <Link
               to="/hotels"
               className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[11px] font-semibold text-red-600 shadow-lg transition hover:-translate-y-0.5 hover:bg-red-50"
