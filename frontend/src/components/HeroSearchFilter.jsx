@@ -22,11 +22,8 @@ export default function HeroSearchFilter() {
   const [destinationError, setDestinationError] = useState("");
   const [checkInError, setCheckInError] = useState("");
 
-  // desktop refs
   const desktopDropdownRef = useRef(null);
   const desktopCalendarRef = useRef(null);
-
-  // mobile refs
   const mobileDropdownRef = useRef(null);
   const mobileCalendarRef = useRef(null);
 
@@ -228,13 +225,12 @@ export default function HeroSearchFilter() {
   return (
     <div
       data-aos="fade-up"
-      className="relative z-30 mx-auto w-full max-w-[980px] rounded-[1.4rem] border border-white/60 bg-white/95 p-2.5 shadow-[0_16px_45px_rgba(0,0,0,0.14)] backdrop-blur-2xl sm:p-3 md:rounded-[1.9rem] md:p-4"
+      className="relative z-50 mx-auto w-full max-w-[980px] rounded-[1rem] border border-white/60 bg-white/95 p-1.5 shadow-[0_14px_36px_rgba(0,0,0,0.14)] backdrop-blur-2xl md:rounded-[1.9rem] md:p-4"
     >
       {/* DESKTOP / TABLET */}
       <div className="hidden md:block">
         <div className="rounded-[1.45rem] border border-gray-200 bg-[#fbfbfb] p-2 shadow-inner">
           <div className="grid grid-cols-[1.18fr_1fr_110px] items-center overflow-visible rounded-[1.2rem] border border-gray-200 bg-white">
-            {/* DESTINATION */}
             <div
               className="relative min-w-0 border-r border-gray-200"
               ref={desktopDropdownRef}
@@ -265,7 +261,7 @@ export default function HeroSearchFilter() {
               </div>
 
               {showDropdown && (
-                <div className="absolute left-0 right-0 top-full z-[70] mt-2 overflow-hidden rounded-[1rem] border border-gray-100 bg-white shadow-2xl">
+                <div className="absolute left-0 right-0 top-full z-[90] mt-2 overflow-hidden rounded-[1rem] border border-gray-100 bg-white shadow-2xl">
                   {loadingSuggestions ? (
                     <div className="px-4 py-3 text-sm text-gray-400">
                       Memuat tujuan...
@@ -314,7 +310,6 @@ export default function HeroSearchFilter() {
               )}
             </div>
 
-            {/* CHECK IN */}
             <div
               className="relative min-w-0 border-r border-gray-200"
               ref={desktopCalendarRef}
@@ -342,105 +337,20 @@ export default function HeroSearchFilter() {
               </button>
 
               {showCalendar && (
-                <div className="absolute left-0 top-full z-[80] mt-3">
-                  <div className="w-[360px] overflow-hidden rounded-[20px] border border-gray-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.20)]">
-                    <div className="border-b border-gray-100 px-4 py-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCalendarMonth(
-                              new Date(
-                                calendarMonth.getFullYear(),
-                                calendarMonth.getMonth() - 1,
-                                1
-                              )
-                            )
-                          }
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                        >
-                          <ChevronLeft size={16} />
-                        </button>
-
-                        <div className="text-center">
-                          <p className="text-sm font-bold text-gray-800">
-                            {formatMonthYear(calendarMonth)}
-                          </p>
-                          <p className="mt-1 text-[10px] text-gray-400">
-                            Pilih tanggal check-in kamu
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCalendarMonth(
-                              new Date(
-                                calendarMonth.getFullYear(),
-                                calendarMonth.getMonth() + 1,
-                                1
-                              )
-                            )
-                          }
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="p-3">
-                      <div className="mb-2.5 grid grid-cols-7 gap-1">
-                        {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map(
-                          (day) => (
-                            <div
-                              key={day}
-                              className="py-1 text-center text-[9px] font-bold uppercase tracking-wide text-gray-400"
-                            >
-                              {day}
-                            </div>
-                          )
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-7 gap-1">
-                        {calendarDays.map((day, index) => {
-                          if (!day) {
-                            return <div key={`empty-${index}`} className="h-8.5" />;
-                          }
-
-                          const disabled = isBeforeDay(day, today);
-                          const selected = checkIn === formatDateToInput(day);
-                          const isToday = isSameDay(day, today);
-
-                          return (
-                            <button
-                              key={formatDateToInput(day)}
-                              type="button"
-                              disabled={disabled}
-                              onClick={() => handleSelectDate(day)}
-                              className={`h-8.5 rounded-lg text-[11px] font-semibold transition ${
-                                disabled
-                                  ? "cursor-not-allowed bg-gray-50 text-gray-300"
-                                  : selected
-                                  ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg shadow-red-200"
-                                  : isToday
-                                  ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                                  : "text-gray-700 hover:bg-gray-100"
-                              }`}
-                            >
-                              {day.getDate()}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
+                <div className="absolute left-0 top-full z-[95] mt-3">
+                  <CalendarPanel
+                    calendarMonth={calendarMonth}
+                    setCalendarMonth={setCalendarMonth}
+                    calendarDays={calendarDays}
+                    today={today}
+                    checkIn={checkIn}
+                    handleSelectDate={handleSelectDate}
+                    widthClass="w-[360px]"
+                  />
                 </div>
               )}
             </div>
 
-            {/* SEARCH */}
             <div className="px-3">
               <button
                 type="button"
@@ -472,25 +382,24 @@ export default function HeroSearchFilter() {
 
       {/* MOBILE */}
       <div className="md:hidden">
-        <div className="rounded-[0.95rem] border border-gray-200 bg-[#fbfbfb] p-1.5 shadow-inner">
-          <div className="rounded-[0.85rem] border border-gray-200 bg-white p-1.5">
-            <div className="grid grid-cols-[1fr_1fr_74px] gap-1.5">
-              {/* MOBILE DESTINATION */}
+        <div className="rounded-[0.85rem] border border-gray-200 bg-[#fbfbfb] p-1 shadow-inner">
+          <div className="rounded-[0.75rem] border border-gray-200 bg-white p-1">
+            <div className="grid grid-cols-[1fr_1fr_58px] gap-1">
               <div className="relative min-w-0" ref={mobileDropdownRef}>
                 <div
                   onClick={handleOpenDropdown}
-                  className={`flex min-h-[56px] items-center gap-1.5 rounded-[0.8rem] border px-1.5 py-1.5 transition ${
+                  className={`flex h-[42px] items-center gap-1 rounded-[0.65rem] border px-1.5 transition ${
                     destinationError
                       ? "border-red-300 bg-red-50/60"
                       : "border-gray-200 bg-white"
                   }`}
                 >
-                  <div className="flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
-                    <MapPin size={12} />
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                    <MapPin size={10} />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-[7px] font-bold uppercase tracking-wide text-gray-800">
+                    <p className="text-[6px] font-bold uppercase tracking-wide text-gray-800">
                       Destination
                     </p>
                     <input
@@ -498,46 +407,46 @@ export default function HeroSearchFilter() {
                       onFocus={handleOpenDropdown}
                       onChange={handleDestinationChange}
                       onKeyDown={handleKeyDown}
-                      className="mt-0.5 w-full bg-transparent text-[10px] text-gray-700 outline-none placeholder:text-gray-400"
+                      className="mt-0.5 w-full bg-transparent text-[8.5px] text-gray-700 outline-none placeholder:text-gray-400"
                       placeholder="Cari kota"
                     />
                   </div>
                 </div>
 
                 {showDropdown && (
-                  <div className="absolute left-0 right-0 z-[70] mt-2 overflow-hidden rounded-[1rem] border border-gray-100 bg-white shadow-2xl">
+                  <div className="absolute left-0 top-full z-[100] mt-1.5 w-[150px] overflow-hidden rounded-[0.75rem] border border-gray-100 bg-white shadow-2xl">
                     {loadingSuggestions ? (
-                      <div className="px-4 py-3 text-sm text-gray-400">
+                      <div className="px-3 py-2 text-[10px] text-gray-400">
                         Memuat tujuan...
                       </div>
                     ) : filteredSuggestions.length > 0 ? (
-                      <div className="max-h-64 overflow-y-auto">
+                      <div className="max-h-44 overflow-y-auto">
                         {filteredSuggestions.map((item, index) => (
                           <div
                             key={`${item.type}-${item.value}-${index}`}
                             onClick={() => handleSelectSuggestion(item)}
-                            className="flex cursor-pointer items-start gap-3 px-4 py-3 transition hover:bg-red-50"
+                            className="flex cursor-pointer items-start gap-2 px-3 py-2 transition hover:bg-red-50"
                           >
                             <div className="mt-0.5 text-red-500">
                               {item.type === "hotel" ? (
-                                <Building2 size={15} />
+                                <Building2 size={12} />
                               ) : (
-                                <MapPin size={15} />
+                                <MapPin size={12} />
                               )}
                             </div>
 
                             <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-700">
+                              <p className="line-clamp-1 text-[10px] font-medium text-gray-700">
                                 {item.label}
                               </p>
 
                               {item.type === "hotel" ? (
-                                <p className="mt-0.5 text-xs text-gray-400">
+                                <p className="mt-0.5 line-clamp-1 text-[8.5px] text-gray-400">
                                   {item.city || "-"}
                                   {item.area ? ` • ${item.area}` : ""}
                                 </p>
                               ) : (
-                                <p className="mt-0.5 text-xs text-gray-400">
+                                <p className="mt-0.5 text-[8.5px] text-gray-400">
                                   Kota tujuan
                                 </p>
                               )}
@@ -546,7 +455,7 @@ export default function HeroSearchFilter() {
                         ))}
                       </div>
                     ) : (
-                      <div className="px-4 py-3 text-sm text-gray-400">
+                      <div className="px-3 py-2 text-[10px] text-gray-400">
                         Tidak ditemukan
                       </div>
                     )}
@@ -554,160 +463,197 @@ export default function HeroSearchFilter() {
                 )}
               </div>
 
-              {/* MOBILE CHECK IN */}
               <div className="relative min-w-0" ref={mobileCalendarRef}>
                 <button
                   type="button"
                   onClick={handleOpenCalendar}
                   onKeyDown={handleKeyDown}
-                  className={`flex min-h-[56px] w-full items-center gap-1.5 rounded-[0.8rem] border px-1.5 py-1.5 text-left transition ${
+                  className={`flex h-[42px] w-full items-center gap-1 rounded-[0.65rem] border px-1.5 text-left transition ${
                     checkInError
                       ? "border-red-300 bg-red-50/60"
                       : "border-gray-200 bg-white"
                   }`}
                 >
-                  <div className="flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
-                    <CalendarDays size={12} />
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                    <CalendarDays size={10} />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-[7px] font-bold uppercase tracking-wide text-gray-800">
+                    <p className="text-[6px] font-bold uppercase tracking-wide text-gray-800">
                       Check In
                     </p>
-                    <p className="mt-0.5 truncate text-[10px] text-gray-700">
+                    <p className="mt-0.5 truncate text-[8.5px] text-gray-700">
                       {displayCheckIn || "Pilih tanggal"}
                     </p>
                   </div>
                 </button>
+
+                {showCalendar && (
+                  <div className="absolute left-1/2 top-full z-[110] mt-1.5 w-[230px] -translate-x-1/2">
+                    <CalendarPanel
+                      calendarMonth={calendarMonth}
+                      setCalendarMonth={setCalendarMonth}
+                      calendarDays={calendarDays}
+                      today={today}
+                      checkIn={checkIn}
+                      handleSelectDate={handleSelectDate}
+                      widthClass="w-full"
+                      compact
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* MOBILE SEARCH BUTTON */}
               <div className="min-w-0">
                 <button
                   type="button"
                   onClick={handleSearch}
-                  className="flex h-[56px] w-full flex-col items-center justify-center gap-0.5 rounded-[0.8rem] bg-red-400 px-1 text-[10px] font-semibold text-white shadow-md transition hover:bg-red-500"
+                  className="flex h-[42px] w-full flex-col items-center justify-center gap-0.5 rounded-[0.65rem] bg-red-400 px-1 text-[8.5px] font-semibold text-white shadow-md transition hover:bg-red-500"
                 >
-                  <Search size={13} />
+                  <Search size={11} />
                   Cari
                 </button>
               </div>
             </div>
-
-            {showCalendar && (
-              <div className="relative z-[80] mt-2" ref={mobileCalendarRef}>
-                <div className="w-full overflow-hidden rounded-[18px] border border-gray-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.20)]">
-                  <div className="border-b border-gray-100 px-4 py-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCalendarMonth(
-                            new Date(
-                              calendarMonth.getFullYear(),
-                              calendarMonth.getMonth() - 1,
-                              1
-                            )
-                          )
-                        }
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <ChevronLeft size={16} />
-                      </button>
-
-                      <div className="text-center">
-                        <p className="text-sm font-bold text-gray-800">
-                          {formatMonthYear(calendarMonth)}
-                        </p>
-                        <p className="mt-1 text-[10px] text-gray-400">
-                          Pilih tanggal check-in kamu
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCalendarMonth(
-                            new Date(
-                              calendarMonth.getFullYear(),
-                              calendarMonth.getMonth() + 1,
-                              1
-                            )
-                          )
-                        }
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <ChevronRight size={16} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-3">
-                    <div className="mb-2.5 grid grid-cols-7 gap-1">
-                      {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map(
-                        (day) => (
-                          <div
-                            key={day}
-                            className="py-1 text-center text-[9px] font-bold uppercase tracking-wide text-gray-400"
-                          >
-                            {day}
-                          </div>
-                        )
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1">
-                      {calendarDays.map((day, index) => {
-                        if (!day) {
-                          return <div key={`empty-${index}`} className="h-8.5" />;
-                        }
-
-                        const disabled = isBeforeDay(day, today);
-                        const selected = checkIn === formatDateToInput(day);
-                        const isToday = isSameDay(day, today);
-
-                        return (
-                          <button
-                            key={formatDateToInput(day)}
-                            type="button"
-                            disabled={disabled}
-                            onClick={() => handleSelectDate(day)}
-                            className={`h-8.5 rounded-lg text-[11px] font-semibold transition ${
-                              disabled
-                                ? "cursor-not-allowed bg-gray-50 text-gray-300"
-                                : selected
-                                ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg shadow-red-200"
-                                : isToday
-                                ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                                : "text-gray-700 hover:bg-gray-100"
-                            }`}
-                          >
-                            {day.getDate()}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {(destinationError || checkInError) && (
-          <div className="space-y-1 pt-2">
+          <div className="space-y-0.5 pt-1.5">
             {destinationError && (
-              <p className="text-center text-[10px] font-medium text-red-500">
+              <p className="text-center text-[9px] font-medium text-red-500">
                 {destinationError}
               </p>
             )}
             {checkInError && (
-              <p className="text-center text-[10px] font-medium text-red-500">
+              <p className="text-center text-[9px] font-medium text-red-500">
                 {checkInError}
               </p>
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function CalendarPanel({
+  calendarMonth,
+  setCalendarMonth,
+  calendarDays,
+  today,
+  checkIn,
+  handleSelectDate,
+  widthClass = "w-[360px]",
+  compact = false,
+}) {
+  return (
+    <div
+      className={`${widthClass} overflow-hidden rounded-[${
+        compact ? "14px" : "20px"
+      }] border border-gray-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.20)]`}
+    >
+      <div className={`border-b border-gray-100 ${compact ? "px-3 py-2.5" : "px-4 py-4"}`}>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              setCalendarMonth(
+                new Date(
+                  calendarMonth.getFullYear(),
+                  calendarMonth.getMonth() - 1,
+                  1
+                )
+              )
+            }
+            className={`inline-flex shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 ${
+              compact ? "h-7 w-7" : "h-9 w-9"
+            }`}
+          >
+            <ChevronLeft size={compact ? 13 : 16} />
+          </button>
+
+          <div className="text-center">
+            <p className={`${compact ? "text-[11px]" : "text-sm"} font-bold text-gray-800`}>
+              {formatMonthYear(calendarMonth)}
+            </p>
+            <p className={`mt-0.5 ${compact ? "text-[8px]" : "text-[10px]"} text-gray-400`}>
+              Pilih tanggal check-in
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setCalendarMonth(
+                new Date(
+                  calendarMonth.getFullYear(),
+                  calendarMonth.getMonth() + 1,
+                  1
+                )
+              )
+            }
+            className={`inline-flex shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 ${
+              compact ? "h-7 w-7" : "h-9 w-9"
+            }`}
+          >
+            <ChevronRight size={compact ? 13 : 16} />
+          </button>
+        </div>
+      </div>
+
+      <div className={compact ? "p-2" : "p-3"}>
+        <div className={`${compact ? "mb-1.5" : "mb-2.5"} grid grid-cols-7 gap-1`}>
+          {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((day) => (
+            <div
+              key={day}
+              className={`py-1 text-center font-bold uppercase tracking-wide text-gray-400 ${
+                compact ? "text-[7px]" : "text-[9px]"
+              }`}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1">
+          {calendarDays.map((day, index) => {
+            if (!day) {
+              return (
+                <div
+                  key={`empty-${index}`}
+                  className={compact ? "h-6" : "h-8.5"}
+                />
+              );
+            }
+
+            const disabled = isBeforeDay(day, today);
+            const selected = checkIn === formatDateToInput(day);
+            const isToday = isSameDay(day, today);
+
+            return (
+              <button
+                key={formatDateToInput(day)}
+                type="button"
+                disabled={disabled}
+                onClick={() => handleSelectDate(day)}
+                className={`rounded-lg font-semibold transition ${
+                  compact ? "h-6 text-[8.5px]" : "h-8.5 text-[11px]"
+                } ${
+                  disabled
+                    ? "cursor-not-allowed bg-gray-50 text-gray-300"
+                    : selected
+                    ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg shadow-red-200"
+                    : isToday
+                    ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                {day.getDate()}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -778,8 +724,7 @@ function formatMonthYear(date) {
 function isBeforeDay(a, b) {
   return (
     a.getFullYear() < b.getFullYear() ||
-    (a.getFullYear() === b.getFullYear() &&
-      a.getMonth() < b.getMonth()) ||
+    (a.getFullYear() === b.getFullYear() && a.getMonth() < b.getMonth()) ||
     (a.getFullYear() === b.getFullYear() &&
       a.getMonth() === b.getMonth() &&
       a.getDate() < b.getDate())

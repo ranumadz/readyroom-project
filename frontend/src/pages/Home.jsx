@@ -460,10 +460,10 @@ export default function Home() {
             <HeroSearchFilter />
           </div>
 
-          <div className="relative z-40 -mt-8 flex justify-center">
+          <div className="relative z-40 -mt-8 hidden md:flex justify-center">
             <Link
               to="/hotels"
-              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[11px] font-semibold text-red-600 shadow-lg transition hover:-translate-y-0.5 hover:bg-red-50"
+             className="inline-flex items-center gap-[2px] rounded-full bg-white px-2 py-[3px] text-[9px] font-medium text-red-500 shadow-sm"
             >
               Kunjungi Semua Hotel
               <ArrowRight size={14} />
