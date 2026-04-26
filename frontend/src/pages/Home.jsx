@@ -484,21 +484,23 @@ export default function Home() {
 
       <section className="mx-auto max-w-7xl px-4 pt-10 pb-8 md:px-6 md:pt-20 md:pb-16">
         <div className="mb-4 md:mb-8">
-          <h3 className="text-lg font-bold md:text-3xl">Explore by City</h3>
-          <p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
-            Temukan destinasi dan kamar favorit di berbagai kota.
-          </p>
+          <h3 className="text-lg font-bold md:text-3xl">
+  Jelajahi Berdasarkan Kota
+</h3>
+<p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
+  Temukan hotel ReadyRoom favorit di berbagai kota pilihan.
+</p>
         </div>
 
         <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] md:mx-0 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
-          <div className="flex gap-3 md:grid md:grid-cols-6 md:gap-5">
+         <div className="grid grid-cols-3 gap-2.5 md:grid-cols-6 md:gap-5 overflow-x-auto">
             {cityItems.map((city, i) => (
               <Link
                 draggable={false}
                 to={`/hotels?destination=${encodeURIComponent(city.name)}`}
                 key={i}
                 data-aos="zoom-in"
-                className="group relative block w-[135px] shrink-0 overflow-hidden rounded-[1rem] shadow-sm md:w-auto md:rounded-[1.75rem]"
+                className="group relative block w-[31%] min-w-[105px] shrink-0 overflow-hidden rounded-[0.9rem] shadow-sm md:w-auto md:rounded-[1.75rem]"
               >
                 <img
                   draggable={false}
