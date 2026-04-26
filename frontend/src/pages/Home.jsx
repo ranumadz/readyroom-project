@@ -58,6 +58,10 @@ export default function Home() {
     return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
+  const handleHotelCardOpen = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  };
+
   const fetchPopularHotels = async () => {
     try {
       setLoadingHotels(true);
@@ -214,8 +218,7 @@ export default function Home() {
 
   const infoImage = buildImageUrl(websiteContent?.info_image, "/images/hotel.jpg");
 
-  const promo2Title =
-    websiteContent?.promo2_title || "Promo Tambahan ReadyRoom";
+  const promo2Title = websiteContent?.promo2_title || "Promo Tambahan ReadyRoom";
 
   const promo2Description =
     websiteContent?.promo2_description ||
@@ -321,6 +324,7 @@ export default function Home() {
       <Link
         draggable={false}
         to={`/hotels/${hotel.id}`}
+        onClick={handleHotelCardOpen}
         key={hotel.id}
         data-aos="fade-up"
         data-aos-delay={i * 80}
@@ -425,7 +429,7 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-visible pt-[92px] pb-5 sm:pt-[96px] sm:pb-7 md:pt-20 md:pb-44 lg:pb-52">
+      <section className="relative overflow-visible pt-[92px] pb-0 sm:pt-[96px] sm:pb-7 md:pt-20 md:pb-44 lg:pb-52">
         <div className="absolute inset-0">
           <img
             src={heroMainImage}
@@ -455,19 +459,9 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative z-30 mx-auto -mt-4 block max-w-3xl px-4 sm:-mt-4 md:hidden">
-  <div className="mx-auto w-full max-w-[1000px] origin-top scale-[0.6]">
+        <div className="relative z-30 mx-auto -mt-9 block w-full max-w-[390px] px-3 md:hidden">
+          <div className="mx-auto w-full">
             <HeroSearchFilter />
-          </div>
-
-          <div className="relative z-40 -mt-8 hidden md:flex justify-center">
-            <Link
-              to="/hotels"
-             className="inline-flex items-center gap-[2px] rounded-full bg-white px-2 py-[3px] text-[9px] font-medium text-red-500 shadow-sm"
-            >
-              Kunjungi Semua Hotel
-              <ArrowRight size={14} />
-            </Link>
           </div>
         </div>
 
@@ -488,7 +482,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 pt-7 pb-8 md:px-6 md:pt-20 md:pb-16">
+      <section className="mx-auto max-w-7xl px-4 pt-10 pb-8 md:px-6 md:pt-20 md:pb-16">
         <div className="mb-4 md:mb-8">
           <h3 className="text-lg font-bold md:text-3xl">Explore by City</h3>
           <p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
