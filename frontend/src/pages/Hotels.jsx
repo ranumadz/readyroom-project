@@ -9,7 +9,6 @@ import {
   MapPin,
   Search,
   ArrowRight,
-  Hotel as HotelIcon,
   Wifi,
   Car,
   Coffee,
@@ -42,9 +41,7 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
 
     if (hotel?.hero_image) {
       const heroUrl = buildImageUrl(hotel.hero_image, "/images/hotel.jpg");
-      if (!list.includes(heroUrl)) {
-        list.push(heroUrl);
-      }
+      if (!list.includes(heroUrl)) list.push(heroUrl);
     }
 
     if (Array.isArray(hotel?.images)) {
@@ -53,15 +50,11 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
           img?.image || img?.path || img?.url || img?.image_path || null;
         const imageUrl = buildImageUrl(imagePath, "/images/hotel.jpg");
 
-        if (imagePath && !list.includes(imageUrl)) {
-          list.push(imageUrl);
-        }
+        if (imagePath && !list.includes(imageUrl)) list.push(imageUrl);
       });
     }
 
-    if (list.length === 0) {
-      list.push("/images/hotel.jpg");
-    }
+    if (list.length === 0) list.push("/images/hotel.jpg");
 
     return list;
   }, [hotel, buildImageUrl]);
@@ -75,48 +68,46 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
   const goPrev = (e) => {
     e.preventDefault();
     e.stopPropagation();
-
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
   };
 
   const goNext = (e) => {
     e.preventDefault();
     e.stopPropagation();
-
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
   const activeImage = images[currentIndex] || "/images/hotel.jpg";
 
   return (
-    <div className="relative overflow-hidden rounded-t-[28px]">
+    <div className="relative overflow-hidden rounded-t-[16px] sm:rounded-t-[28px]">
       <img
         src={activeImage}
         alt={hotel?.name || "Hotel"}
         onError={(e) => {
           e.currentTarget.src = "/images/hotel.jpg";
         }}
-        className="h-64 w-full object-cover transition duration-500 group-hover:scale-105"
+        className="h-28 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64"
       />
 
-      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 via-black/10 to-transparent sm:h-28" />
 
-      <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-red-600 shadow-md">
-        <Building2 size={14} />
-        {hotel?.area || "Hotel"}
+      <div className="absolute left-2 top-2 inline-flex max-w-[78px] items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[10px] font-semibold text-red-600 shadow-md sm:left-4 sm:top-4 sm:max-w-none sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs">
+        <Building2 size={11} className="shrink-0 sm:h-[14px] sm:w-[14px]" />
+        <span className="truncate">{hotel?.area || "Hotel"}</span>
       </div>
 
       {images.length > 1 && (
         <>
-          <div className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
-            <Images size={13} />
+          <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm sm:right-4 sm:top-4 sm:px-2.5 sm:py-1.5 sm:text-xs">
+            <Images size={11} className="sm:h-[13px] sm:w-[13px]" />
             {currentIndex + 1}/{images.length}
           </div>
 
           <button
             type="button"
             onClick={goPrev}
-            className="absolute left-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white"
+            className="absolute left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white sm:inline-flex sm:h-10 sm:w-10"
             aria-label="Previous image"
           >
             <ChevronLeft size={18} />
@@ -125,13 +116,13 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
           <button
             type="button"
             onClick={goNext}
-            className="absolute right-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white"
+            className="absolute right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white sm:inline-flex sm:h-10 sm:w-10"
             aria-label="Next image"
           >
             <ChevronRight size={18} />
           </button>
 
-          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2">
+          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 sm:bottom-4 sm:gap-2">
             {images.map((_, index) => (
               <button
                 key={index}
@@ -141,10 +132,10 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
                   e.stopPropagation();
                   setCurrentIndex(index);
                 }}
-                className={`h-2.5 rounded-full transition ${
+                className={`h-1.5 rounded-full transition sm:h-2.5 ${
                   currentIndex === index
-                    ? "w-6 bg-white"
-                    : "w-2.5 bg-white/55 hover:bg-white/80"
+                    ? "w-4 bg-white sm:w-6"
+                    : "w-1.5 bg-white/55 hover:bg-white/80 sm:w-2.5"
                 }`}
                 aria-label={`Go to image ${index + 1}`}
               />
@@ -207,9 +198,7 @@ export default function Hotels() {
 
     const cleanPath = rawPath.replace(/^\/+/, "");
 
-    if (cleanPath.startsWith("images/")) {
-      return `/${cleanPath}`;
-    }
+    if (cleanPath.startsWith("images/")) return `/${cleanPath}`;
 
     if (cleanPath.startsWith("storage/")) {
       return `${BACKEND_BASE_URL}/${cleanPath}`;
@@ -269,48 +258,17 @@ export default function Hotels() {
     <div className="min-h-screen bg-gradient-to-b from-white via-[#fff8f8] to-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-visible bg-gradient-to-br from-red-700 via-red-600 to-rose-600 pb-28 pt-16 text-white md:pb-36 md:pt-24">
+      <section className="relative overflow-visible bg-gradient-to-br from-red-700 via-red-600 to-rose-600 pb-14 pt-14 text-white sm:pb-28 sm:pt-16 md:pb-36 md:pt-24">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -left-16 top-4 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute right-0 top-10 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
           <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-red-300/10 blur-3xl" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.10),transparent_30%)]" />
-
-          <div className="absolute left-0 top-0 hidden select-none lg:block">
-            <div className="relative h-[220px] w-[360px] -translate-x-[72px] -translate-y-[68px]">
-              <div className="absolute left-0 top-0 h-[180px] w-[180px] rounded-full border-[24px] border-white/12 border-b-transparent border-r-transparent rotate-[-18deg]" />
-              <div className="absolute left-[82px] top-[38px] h-[120px] w-[120px] rounded-full border-[18px] border-red-200/20 border-b-transparent border-r-transparent rotate-[-18deg]" />
-              <div className="absolute left-[160px] top-[66px] h-[72px] w-[72px] rounded-full border-[12px] border-red-100/15 border-b-transparent border-r-transparent rotate-[-18deg]" />
-              <div className="absolute left-[145px] top-[170px] text-[11px] font-semibold uppercase tracking-[0.5em] text-red-100/20">
-                READYROOM
-              </div>
-            </div>
-          </div>
-
-          <div className="absolute right-0 top-0 hidden select-none lg:block">
-            <div className="relative h-[220px] w-[420px] translate-x-[68px] -translate-y-[74px]">
-              <div className="absolute right-0 top-0 h-[170px] w-[170px] rounded-full border-[24px] border-red-300/20 border-b-transparent border-l-transparent rotate-[14deg]" />
-              <div className="absolute right-[76px] top-[34px] h-[118px] w-[118px] rounded-full border-[18px] border-white/12 border-b-transparent border-l-transparent rotate-[14deg]" />
-              <div className="absolute right-[140px] top-[74px] h-[70px] w-[70px] rounded-full border-[12px] border-red-200/15 border-b-transparent border-l-transparent rotate-[14deg]" />
-            </div>
-          </div>
-
-          <div className="absolute bottom-0 left-1/2 hidden -translate-x-1/2 translate-y-1/3 select-none lg:block">
-            <div className="relative h-[120px] w-[560px]">
-              <div className="absolute left-0 top-[44px] h-[2px] w-[180px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-              <div className="absolute left-[190px] top-[30px] h-12 w-12 rounded-full border border-white/15 bg-white/5" />
-              <div className="absolute left-[252px] top-[40px] h-8 w-8 rounded-full bg-white/10" />
-              <div className="absolute left-[308px] top-[22px] h-16 w-16 rounded-full border-[10px] border-red-200/15 border-b-transparent border-r-transparent rotate-[-18deg]" />
-              <div className="absolute right-0 top-[44px] h-[2px] w-[180px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-            </div>
-          </div>
         </div>
 
         <div className="relative z-20 mx-auto max-w-7xl px-4 md:px-6">
           <div className="mx-auto max-w-4xl text-center">
-            
-
-            <h1 className="mb-5 text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">
+            <h1 className="mb-4 text-[2rem] font-extrabold leading-[1.05] tracking-tight sm:text-4xl md:text-6xl">
               Temukan Hotel Terbaik
               <br />
               di{" "}
@@ -319,28 +277,28 @@ export default function Hotels() {
               </span>
             </h1>
 
-            <p className="mx-auto mb-8 max-w-3xl text-base leading-relaxed text-red-100 md:text-xl">
+            <p className="mx-auto mb-8 hidden max-w-3xl text-base leading-relaxed text-red-100 sm:block md:text-xl">
               Cari hotel berdasarkan nama, kota, area, atau alamat. Semua hotel
               yang tampil di sini adalah hotel aktif yang siap kamu jelajahi.
             </p>
           </div>
 
-          <div className="relative z-[100] mx-auto mt-10 max-w-6xl overflow-visible">
+          <div className="relative z-[100] mx-auto mt-7 max-w-6xl overflow-visible sm:mt-10">
             <HeroSearchFilter />
           </div>
 
           {(destinationFromQuery || checkInFromQuery) && (
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:mt-5 sm:gap-3">
               {destinationFromQuery && (
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
-                  <MapPin size={15} />
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md sm:px-4 sm:py-2 sm:text-sm">
+                  <MapPin size={14} />
                   Tujuan: {destinationFromQuery}
                 </span>
               )}
 
               {checkInFromQuery && (
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md">
-                  <CalendarDays size={15} />
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md sm:px-4 sm:py-2 sm:text-sm">
+                  <CalendarDays size={14} />
                   Check-in: {checkInFromQuery}
                 </span>
               )}
@@ -351,27 +309,28 @@ export default function Hotels() {
 
       <section
         id="hotel-results-section"
-        className="relative z-10 mx-auto max-w-7xl px-4 py-14 md:px-6"
+        className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-14 md:px-6"
       >
-        <div className="mb-8 flex flex-col gap-4 rounded-[28px] border border-red-100 bg-white/90 p-6 shadow-[0_10px_40px_rgba(255,0,0,0.05)] backdrop-blur-sm md:flex-row md:items-end md:justify-between">
+        <div className="mb-4 sm:mb-8 sm:flex sm:flex-col sm:gap-4 sm:rounded-[28px] sm:border sm:border-red-100 sm:bg-white/90 sm:p-6 sm:shadow-[0_10px_40px_rgba(255,0,0,0.05)] sm:backdrop-blur-sm md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-600">
-              <Building2 size={15} />
+            <div className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 sm:mb-3 sm:text-sm">
+              <Building2 size={14} />
               Daftar Hotel ReadyRoom
             </div>
 
-            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+            <h2 className="hidden text-3xl font-extrabold tracking-tight text-gray-900 sm:block md:text-4xl">
               Semua Hotel
             </h2>
-            <p className="mt-2 text-gray-500">
+
+            <p className="mt-2 hidden text-base leading-relaxed text-gray-500 sm:block">
               {filteredHotels.length} hotel ditemukan dari data hotel aktif
               ReadyRoom.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-0 sm:gap-3">
             {destinationFromQuery && (
-              <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-600">
+              <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-600 sm:px-4 sm:py-2 sm:text-sm">
                 <Search size={14} />
                 Kata kunci:{" "}
                 <span className="font-semibold text-gray-800">
@@ -383,111 +342,119 @@ export default function Hotels() {
             {destinationFromQuery && (
               <Link
                 to="/hotels"
-                className="inline-flex items-center justify-center rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                className="inline-flex items-center justify-center rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
               >
-                Bersihkan Pencarian
+                Bersihkan
               </Link>
             )}
           </div>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <div
                 key={item}
-                className="animate-pulse overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm"
+                className="animate-pulse overflow-hidden rounded-[16px] border border-gray-100 bg-white shadow-sm sm:rounded-[28px]"
               >
-                <div className="h-64 w-full bg-gray-200" />
-                <div className="p-5">
-                  <div className="mb-3 h-4 w-24 rounded bg-gray-200" />
-                  <div className="mb-2 h-6 w-44 rounded bg-gray-200" />
-                  <div className="mb-3 h-4 w-32 rounded bg-gray-200" />
-                  <div className="mb-2 h-4 w-full rounded bg-gray-200" />
-                  <div className="h-4 w-2/3 rounded bg-gray-200" />
+                <div className="h-28 w-full bg-gray-200 sm:h-64" />
+                <div className="p-3 sm:p-5">
+                  <div className="mb-2 h-3 w-16 rounded bg-gray-200 sm:h-4 sm:w-24" />
+                  <div className="mb-2 h-5 w-24 rounded bg-gray-200 sm:h-6 sm:w-44" />
+                  <div className="mb-2 h-3 w-20 rounded bg-gray-200 sm:h-4 sm:w-32" />
+                  <div className="h-3 w-full rounded bg-gray-200 sm:h-4" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredHotels.length === 0 ? (
-          <div className="rounded-[30px] border border-red-100 bg-white p-10 text-center shadow-[0_14px_45px_rgba(0,0,0,0.04)]">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-600">
-              <Search size={28} />
+          <div className="rounded-[24px] border border-red-100 bg-white p-8 text-center shadow-[0_14px_45px_rgba(0,0,0,0.04)] sm:rounded-[30px] sm:p-10">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600 sm:h-16 sm:w-16">
+              <Search size={26} />
             </div>
 
-            <h3 className="mb-2 text-2xl font-bold text-gray-800">
+            <h3 className="mb-2 text-xl font-bold text-gray-800 sm:text-2xl">
               Hotel tidak ditemukan
             </h3>
-            <p className="mx-auto max-w-md text-gray-500">
+            <p className="mx-auto max-w-md text-sm text-gray-500 sm:text-base">
               Coba kata kunci lain untuk menemukan hotel yang kamu cari.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
             {filteredHotels.map((hotel) => (
               <Link
                 to={`/hotels/${hotel.id}`}
                 key={hotel.id}
-                className="group block overflow-hidden rounded-[28px] border border-red-100 bg-white shadow-[0_10px_35px_rgba(0,0,0,0.04)] transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(239,68,68,0.14)]"
+                className="group block overflow-hidden rounded-[16px] border border-red-100 bg-white shadow-[0_6px_18px_rgba(0,0,0,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(239,68,68,0.14)] sm:rounded-[28px]"
               >
                 <HotelImageSlider hotel={hotel} buildImageUrl={buildImageUrl} />
 
-                <div className="bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-5 pb-5 pt-4 text-white">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="line-clamp-1 text-[1.7rem] font-extrabold leading-tight tracking-tight">
+                <div className="bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-3 pb-3 pt-3 text-white sm:px-5 sm:pb-5 sm:pt-4">
+                  <div className="mb-2 flex items-start justify-between gap-2 sm:mb-3 sm:gap-3">
+                    <div className="min-w-0">
+                      <h3 className="line-clamp-2 min-h-[38px] text-[15px] font-extrabold leading-[1.25] tracking-tight sm:min-h-0 sm:line-clamp-1 sm:text-[1.7rem]">
                         {hotel.name || "Hotel"}
                       </h3>
-                      <p className="mt-1 text-sm font-medium text-red-50">
+
+                      <p className="mt-1 line-clamp-1 text-[11px] font-medium text-red-50 sm:text-sm">
                         {hotel.city?.name || "-"}
                         {hotel.area ? ` • ${hotel.area}` : ""}
                       </p>
                     </div>
 
-                    <div className="shrink-0 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                    <div className="hidden shrink-0 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm sm:block">
                       ReadyRoom
                     </div>
                   </div>
 
-                  <div className="mb-4 flex min-h-[48px] items-start gap-2 text-sm text-red-50">
-                    <MapPin size={15} className="mt-0.5 shrink-0 text-white" />
+                  <div className="mb-3 flex min-h-[34px] items-start gap-1.5 text-[11px] text-red-50 sm:mb-4 sm:min-h-[48px] sm:gap-2 sm:text-sm">
+                    <MapPin
+                      size={13}
+                      className="mt-0.5 shrink-0 text-white sm:h-[15px] sm:w-[15px]"
+                    />
                     <span className="line-clamp-2">
                       {hotel.address || "Alamat hotel belum tersedia."}
                     </span>
                   </div>
 
-                  <div className="mb-4 flex flex-wrap gap-2">
+                  <div className="mb-3 flex flex-wrap gap-1.5 sm:mb-4 sm:gap-2">
                     {Array.isArray(hotel.facilities) &&
                     hotel.facilities.length > 0 ? (
-                      hotel.facilities.slice(0, 3).map((facility) => {
+                      hotel.facilities.slice(0, 2).map((facility) => {
                         const FacilityIcon = getFacilityIcon(facility.icon);
 
                         return (
                           <span
                             key={facility.id}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm"
+                            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
                           >
-                            <FacilityIcon size={13} />
-                            {facility.name}
+                            <FacilityIcon size={11} />
+                            <span className="max-w-[58px] truncate sm:max-w-none">
+                              {facility.name}
+                            </span>
                           </span>
                         );
                       })
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
-                        <Building2 size={13} />
-                        Fasilitas menyusul
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
+                        <Building2 size={11} />
+                        Fasilitas
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-white/20 pt-4">
-                    <span className="text-sm font-semibold text-white">
-                      Lihat Detail
+                  <div className="flex items-center justify-between border-t border-white/20 pt-3 sm:pt-4">
+                    <span className="text-[11px] font-semibold text-white sm:text-sm">
+                      Detail
                     </span>
 
-                    <span className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-red-600 transition group-hover:translate-x-0.5">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-red-600 transition group-hover:translate-x-0.5 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs">
                       Explore
-                      <ArrowRight size={14} />
+                      <ArrowRight
+                        size={12}
+                        className="sm:h-[14px] sm:w-[14px]"
+                      />
                     </span>
                   </div>
                 </div>
