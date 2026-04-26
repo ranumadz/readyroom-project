@@ -87,20 +87,20 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
         onError={(e) => {
           e.currentTarget.src = "/images/hotel.jpg";
         }}
-        className="h-28 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64"
+        className="h-24 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64"
       />
 
-      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 via-black/10 to-transparent sm:h-28" />
+      <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/55 via-black/10 to-transparent sm:h-28" />
 
-      <div className="absolute left-2 top-2 inline-flex max-w-[78px] items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[10px] font-semibold text-red-600 shadow-md sm:left-4 sm:top-4 sm:max-w-none sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs">
-        <Building2 size={11} className="shrink-0 sm:h-[14px] sm:w-[14px]" />
+      <div className="absolute left-2 top-2 inline-flex max-w-[72px] items-center gap-1 rounded-full bg-white/95 px-1.5 py-0.5 text-[9px] font-semibold text-red-600 shadow-md sm:left-4 sm:top-4 sm:max-w-none sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs">
+        <Building2 size={10} className="shrink-0 sm:h-[14px] sm:w-[14px]" />
         <span className="truncate">{hotel?.area || "Hotel"}</span>
       </div>
 
       {images.length > 1 && (
         <>
-          <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm sm:right-4 sm:top-4 sm:px-2.5 sm:py-1.5 sm:text-xs">
-            <Images size={11} className="sm:h-[13px] sm:w-[13px]" />
+          <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur-sm sm:right-4 sm:top-4 sm:px-2.5 sm:py-1.5 sm:text-xs">
+            <Images size={10} className="sm:h-[13px] sm:w-[13px]" />
             {currentIndex + 1}/{images.length}
           </div>
 
@@ -122,7 +122,7 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
             <ChevronRight size={18} />
           </button>
 
-          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 sm:bottom-4 sm:gap-2">
+          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 sm:bottom-4 sm:gap-2">
             {images.map((_, index) => (
               <button
                 key={index}
@@ -309,9 +309,9 @@ export default function Hotels() {
 
       <section
         id="hotel-results-section"
-        className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-14 md:px-6"
+        className="relative z-10 mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-14 md:px-6"
       >
-        <div className="mb-4 sm:mb-8 sm:flex sm:flex-col sm:gap-4 sm:rounded-[28px] sm:border sm:border-red-100 sm:bg-white/90 sm:p-6 sm:shadow-[0_10px_40px_rgba(255,0,0,0.05)] sm:backdrop-blur-sm md:flex-row md:items-end md:justify-between">
+        <div className="mb-3 sm:mb-8 sm:flex sm:flex-col sm:gap-4 sm:rounded-[28px] sm:border sm:border-red-100 sm:bg-white/90 sm:p-6 sm:shadow-[0_10px_40px_rgba(255,0,0,0.05)] sm:backdrop-blur-sm md:flex-row md:items-end md:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 sm:mb-3 sm:text-sm">
               <Building2 size={14} />
@@ -357,8 +357,8 @@ export default function Hotels() {
                 key={item}
                 className="animate-pulse overflow-hidden rounded-[16px] border border-gray-100 bg-white shadow-sm sm:rounded-[28px]"
               >
-                <div className="h-28 w-full bg-gray-200 sm:h-64" />
-                <div className="p-3 sm:p-5">
+                <div className="h-24 w-full bg-gray-200 sm:h-64" />
+                <div className="p-2.5 sm:p-5">
                   <div className="mb-2 h-3 w-16 rounded bg-gray-200 sm:h-4 sm:w-24" />
                   <div className="mb-2 h-5 w-24 rounded bg-gray-200 sm:h-6 sm:w-44" />
                   <div className="mb-2 h-3 w-20 rounded bg-gray-200 sm:h-4 sm:w-32" />
@@ -390,14 +390,14 @@ export default function Hotels() {
               >
                 <HotelImageSlider hotel={hotel} buildImageUrl={buildImageUrl} />
 
-                <div className="bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-3 pb-3 pt-3 text-white sm:px-5 sm:pb-5 sm:pt-4">
-                  <div className="mb-2 flex items-start justify-between gap-2 sm:mb-3 sm:gap-3">
+                <div className="bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-2.5 pb-2.5 pt-2.5 text-white sm:px-5 sm:pb-5 sm:pt-4">
+                  <div className="mb-1.5 flex items-start justify-between gap-2 sm:mb-3 sm:gap-3">
                     <div className="min-w-0">
-                      <h3 className="line-clamp-2 min-h-[38px] text-[15px] font-extrabold leading-[1.25] tracking-tight sm:min-h-0 sm:line-clamp-1 sm:text-[1.7rem]">
+                      <h3 className="line-clamp-2 min-h-[34px] text-[14px] font-extrabold leading-[1.18] tracking-tight sm:min-h-0 sm:line-clamp-1 sm:text-[1.7rem]">
                         {hotel.name || "Hotel"}
                       </h3>
 
-                      <p className="mt-1 line-clamp-1 text-[11px] font-medium text-red-50 sm:text-sm">
+                      <p className="mt-1 line-clamp-1 text-[10.5px] font-semibold text-red-50 sm:text-sm">
                         {hotel.city?.name || "-"}
                         {hotel.area ? ` • ${hotel.area}` : ""}
                       </p>
@@ -408,17 +408,17 @@ export default function Hotels() {
                     </div>
                   </div>
 
-                  <div className="mb-3 flex min-h-[34px] items-start gap-1.5 text-[11px] text-red-50 sm:mb-4 sm:min-h-[48px] sm:gap-2 sm:text-sm">
+                  <div className="mb-2 flex items-start gap-1.5 text-[10.5px] text-red-50 sm:mb-4 sm:min-h-[48px] sm:gap-2 sm:text-sm">
                     <MapPin
-                      size={13}
+                      size={12}
                       className="mt-0.5 shrink-0 text-white sm:h-[15px] sm:w-[15px]"
                     />
-                    <span className="line-clamp-2">
+                    <span className="line-clamp-1 sm:line-clamp-2">
                       {hotel.address || "Alamat hotel belum tersedia."}
                     </span>
                   </div>
 
-                  <div className="mb-3 flex flex-wrap gap-1.5 sm:mb-4 sm:gap-2">
+                  <div className="mb-2 flex flex-wrap gap-1 sm:mb-4 sm:gap-2">
                     {Array.isArray(hotel.facilities) &&
                     hotel.facilities.length > 0 ? (
                       hotel.facilities.slice(0, 2).map((facility) => {
@@ -427,32 +427,32 @@ export default function Hotels() {
                         return (
                           <span
                             key={facility.id}
-                            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
+                            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5 py-0.5 text-[9.5px] font-semibold text-white backdrop-blur-sm sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
                           >
-                            <FacilityIcon size={11} />
-                            <span className="max-w-[58px] truncate sm:max-w-none">
+                            <FacilityIcon size={10} />
+                            <span className="max-w-[48px] truncate sm:max-w-none">
                               {facility.name}
                             </span>
                           </span>
                         );
                       })
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
-                        <Building2 size={11} />
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5 py-0.5 text-[9.5px] font-medium text-white backdrop-blur-sm sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
+                        <Building2 size={10} />
                         Fasilitas
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-white/20 pt-3 sm:pt-4">
-                    <span className="text-[11px] font-semibold text-white sm:text-sm">
+                  <div className="flex items-center justify-between border-t border-white/20 pt-2 sm:pt-4">
+                    <span className="text-[10.5px] font-semibold text-white sm:text-sm">
                       Detail
                     </span>
 
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-red-600 transition group-hover:translate-x-0.5 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[9.5px] font-bold text-red-600 transition group-hover:translate-x-0.5 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs">
                       Explore
                       <ArrowRight
-                        size={12}
+                        size={11}
                         className="sm:h-[14px] sm:w-[14px]"
                       />
                     </span>
