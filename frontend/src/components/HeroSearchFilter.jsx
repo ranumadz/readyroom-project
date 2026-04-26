@@ -223,14 +223,11 @@ export default function HeroSearchFilter() {
     : "";
 
   return (
-    <div
-      data-aos="fade-up"
-      className="relative z-50 mx-auto w-full max-w-[980px] rounded-[1rem] border border-white/60 bg-white/95 p-1.5 shadow-[0_14px_36px_rgba(0,0,0,0.14)] backdrop-blur-2xl md:rounded-[1.9rem] md:p-4"
-    >
+    <div data-aos="fade-up" className="relative z-50 mx-auto w-full max-w-[980px]">
       {/* DESKTOP / TABLET */}
       <div className="hidden md:block">
-        <div className="rounded-[1.45rem] border border-gray-200 bg-[#fbfbfb] p-2 shadow-inner">
-          <div className="grid grid-cols-[1.18fr_1fr_110px] items-center overflow-visible rounded-[1.2rem] border border-gray-200 bg-white">
+        <div className="overflow-visible rounded-[1.6rem] border border-gray-200 bg-white/95 p-2 shadow-[0_18px_45px_rgba(0,0,0,0.15)] backdrop-blur-2xl">
+          <div className="grid grid-cols-[1.18fr_1fr_110px] items-center overflow-visible rounded-[1.25rem] bg-white">
             <div
               className="relative min-w-0 border-r border-gray-200"
               ref={desktopDropdownRef}
@@ -382,138 +379,136 @@ export default function HeroSearchFilter() {
 
       {/* MOBILE */}
       <div className="md:hidden">
-        <div className="rounded-[0.85rem] border border-gray-200 bg-[#fbfbfb] p-1 shadow-inner">
-          <div className="rounded-[0.75rem] border border-gray-200 bg-white p-1">
-            <div className="grid grid-cols-[1fr_1fr_58px] gap-1">
-              <div className="relative min-w-0" ref={mobileDropdownRef}>
-                <div
-                  onClick={handleOpenDropdown}
-                  className={`flex h-[42px] items-center gap-1 rounded-[0.65rem] border px-1.5 transition ${
-                    destinationError
-                      ? "border-red-300 bg-red-50/60"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
-                    <MapPin size={10} />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[6px] font-bold uppercase tracking-wide text-gray-800">
-                      Destination
-                    </p>
-                    <input
-                      value={destination}
-                      onFocus={handleOpenDropdown}
-                      onChange={handleDestinationChange}
-                      onKeyDown={handleKeyDown}
-                      className="mt-0.5 w-full bg-transparent text-[8.5px] text-gray-700 outline-none placeholder:text-gray-400"
-                      placeholder="Cari kota"
-                    />
-                  </div>
+        <div className="rounded-[0.95rem] border border-gray-200 bg-white/95 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.14)] backdrop-blur-2xl">
+          <div className="grid grid-cols-[1fr_1fr_58px] gap-1">
+            <div className="relative min-w-0" ref={mobileDropdownRef}>
+              <div
+                onClick={handleOpenDropdown}
+                className={`flex h-[42px] items-center gap-1 rounded-[0.7rem] border px-1.5 transition ${
+                  destinationError
+                    ? "border-red-300 bg-red-50/60"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                  <MapPin size={10} />
                 </div>
 
-                {showDropdown && (
-                  <div className="absolute left-0 top-full z-[100] mt-1.5 w-[150px] overflow-hidden rounded-[0.75rem] border border-gray-100 bg-white shadow-2xl">
-                    {loadingSuggestions ? (
-                      <div className="px-3 py-2 text-[10px] text-gray-400">
-                        Memuat tujuan...
-                      </div>
-                    ) : filteredSuggestions.length > 0 ? (
-                      <div className="max-h-44 overflow-y-auto">
-                        {filteredSuggestions.map((item, index) => (
-                          <div
-                            key={`${item.type}-${item.value}-${index}`}
-                            onClick={() => handleSelectSuggestion(item)}
-                            className="flex cursor-pointer items-start gap-2 px-3 py-2 transition hover:bg-red-50"
-                          >
-                            <div className="mt-0.5 text-red-500">
-                              {item.type === "hotel" ? (
-                                <Building2 size={12} />
-                              ) : (
-                                <MapPin size={12} />
-                              )}
-                            </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[6px] font-bold uppercase tracking-wide text-gray-800">
+                    Destination
+                  </p>
+                  <input
+                    value={destination}
+                    onFocus={handleOpenDropdown}
+                    onChange={handleDestinationChange}
+                    onKeyDown={handleKeyDown}
+                    className="mt-0.5 w-full bg-transparent text-[8.5px] text-gray-700 outline-none placeholder:text-gray-400"
+                    placeholder="Cari kota"
+                  />
+                </div>
+              </div>
 
-                            <div className="min-w-0">
-                              <p className="line-clamp-1 text-[10px] font-medium text-gray-700">
-                                {item.label}
-                              </p>
-
-                              {item.type === "hotel" ? (
-                                <p className="mt-0.5 line-clamp-1 text-[8.5px] text-gray-400">
-                                  {item.city || "-"}
-                                  {item.area ? ` • ${item.area}` : ""}
-                                </p>
-                              ) : (
-                                <p className="mt-0.5 text-[8.5px] text-gray-400">
-                                  Kota tujuan
-                                </p>
-                              )}
-                            </div>
+              {showDropdown && (
+                <div className="absolute left-0 top-full z-[100] mt-1.5 w-[150px] overflow-hidden rounded-[0.75rem] border border-gray-100 bg-white shadow-2xl">
+                  {loadingSuggestions ? (
+                    <div className="px-3 py-2 text-[10px] text-gray-400">
+                      Memuat tujuan...
+                    </div>
+                  ) : filteredSuggestions.length > 0 ? (
+                    <div className="max-h-44 overflow-y-auto">
+                      {filteredSuggestions.map((item, index) => (
+                        <div
+                          key={`${item.type}-${item.value}-${index}`}
+                          onClick={() => handleSelectSuggestion(item)}
+                          className="flex cursor-pointer items-start gap-2 px-3 py-2 transition hover:bg-red-50"
+                        >
+                          <div className="mt-0.5 text-red-500">
+                            {item.type === "hotel" ? (
+                              <Building2 size={12} />
+                            ) : (
+                              <MapPin size={12} />
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="px-3 py-2 text-[10px] text-gray-400">
-                        Tidak ditemukan
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
 
-              <div className="relative min-w-0" ref={mobileCalendarRef}>
-                <button
-                  type="button"
-                  onClick={handleOpenCalendar}
-                  onKeyDown={handleKeyDown}
-                  className={`flex h-[42px] w-full items-center gap-1 rounded-[0.65rem] border px-1.5 text-left transition ${
-                    checkInError
-                      ? "border-red-300 bg-red-50/60"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
-                    <CalendarDays size={10} />
-                  </div>
+                          <div className="min-w-0">
+                            <p className="line-clamp-1 text-[10px] font-medium text-gray-700">
+                              {item.label}
+                            </p>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[6px] font-bold uppercase tracking-wide text-gray-800">
-                      Check In
-                    </p>
-                    <p className="mt-0.5 truncate text-[8.5px] text-gray-700">
-                      {displayCheckIn || "Pilih tanggal"}
-                    </p>
-                  </div>
-                </button>
+                            {item.type === "hotel" ? (
+                              <p className="mt-0.5 line-clamp-1 text-[8.5px] text-gray-400">
+                                {item.city || "-"}
+                                {item.area ? ` • ${item.area}` : ""}
+                              </p>
+                            ) : (
+                              <p className="mt-0.5 text-[8.5px] text-gray-400">
+                                Kota tujuan
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-2 text-[10px] text-gray-400">
+                      Tidak ditemukan
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-                {showCalendar && (
-                  <div className="absolute left-1/2 top-full z-[110] mt-1.5 w-[230px] -translate-x-1/2">
-                    <CalendarPanel
-                      calendarMonth={calendarMonth}
-                      setCalendarMonth={setCalendarMonth}
-                      calendarDays={calendarDays}
-                      today={today}
-                      checkIn={checkIn}
-                      handleSelectDate={handleSelectDate}
-                      widthClass="w-full"
-                      compact
-                    />
-                  </div>
-                )}
-              </div>
+            <div className="relative min-w-0" ref={mobileCalendarRef}>
+              <button
+                type="button"
+                onClick={handleOpenCalendar}
+                onKeyDown={handleKeyDown}
+                className={`flex h-[42px] w-full items-center gap-1 rounded-[0.7rem] border px-1.5 text-left transition ${
+                  checkInError
+                    ? "border-red-300 bg-red-50/60"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                  <CalendarDays size={10} />
+                </div>
 
-              <div className="min-w-0">
-                <button
-                  type="button"
-                  onClick={handleSearch}
-                  className="flex h-[42px] w-full flex-col items-center justify-center gap-0.5 rounded-[0.65rem] bg-red-400 px-1 text-[8.5px] font-semibold text-white shadow-md transition hover:bg-red-500"
-                >
-                  <Search size={11} />
-                  Cari
-                </button>
-              </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[6px] font-bold uppercase tracking-wide text-gray-800">
+                    Check In
+                  </p>
+                  <p className="mt-0.5 truncate text-[8.5px] text-gray-700">
+                    {displayCheckIn || "Pilih tanggal"}
+                  </p>
+                </div>
+              </button>
+
+              {showCalendar && (
+                <div className="absolute left-1/2 top-full z-[110] mt-1.5 w-[230px] -translate-x-1/2">
+                  <CalendarPanel
+                    calendarMonth={calendarMonth}
+                    setCalendarMonth={setCalendarMonth}
+                    calendarDays={calendarDays}
+                    today={today}
+                    checkIn={checkIn}
+                    handleSelectDate={handleSelectDate}
+                    widthClass="w-full"
+                    compact
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={handleSearch}
+                className="flex h-[42px] w-full flex-col items-center justify-center gap-0.5 rounded-[0.7rem] bg-red-400 px-1 text-[8.5px] font-semibold text-white shadow-md transition hover:bg-red-500"
+              >
+                <Search size={11} />
+                Cari
+              </button>
             </div>
           </div>
         </div>
@@ -553,7 +548,11 @@ function CalendarPanel({
         compact ? "14px" : "20px"
       }] border border-gray-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.20)]`}
     >
-      <div className={`border-b border-gray-100 ${compact ? "px-3 py-2.5" : "px-4 py-4"}`}>
+      <div
+        className={`border-b border-gray-100 ${
+          compact ? "px-3 py-2.5" : "px-4 py-4"
+        }`}
+      >
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
@@ -574,10 +573,18 @@ function CalendarPanel({
           </button>
 
           <div className="text-center">
-            <p className={`${compact ? "text-[11px]" : "text-sm"} font-bold text-gray-800`}>
+            <p
+              className={`${
+                compact ? "text-[11px]" : "text-sm"
+              } font-bold text-gray-800`}
+            >
               {formatMonthYear(calendarMonth)}
             </p>
-            <p className={`mt-0.5 ${compact ? "text-[8px]" : "text-[10px]"} text-gray-400`}>
+            <p
+              className={`mt-0.5 ${
+                compact ? "text-[8px]" : "text-[10px]"
+              } text-gray-400`}
+            >
               Pilih tanggal check-in
             </p>
           </div>
@@ -603,7 +610,11 @@ function CalendarPanel({
       </div>
 
       <div className={compact ? "p-2" : "p-3"}>
-        <div className={`${compact ? "mb-1.5" : "mb-2.5"} grid grid-cols-7 gap-1`}>
+        <div
+          className={`${
+            compact ? "mb-1.5" : "mb-2.5"
+          } grid grid-cols-7 gap-1`}
+        >
           {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((day) => (
             <div
               key={day}

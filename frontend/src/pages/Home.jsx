@@ -429,58 +429,58 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-visible pt-[92px] pb-0 sm:pt-[96px] sm:pb-7 md:pt-20 md:pb-44 lg:pb-52">
-        <div className="absolute inset-0">
-          <img
-            src={heroMainImage}
-            alt="ReadyRoom Hero"
-            className="h-full w-full object-cover object-center transition-all duration-700"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#240000]/58 via-[#5f0a0a]/18 to-[#240000]/6 md:from-[#240000]/72 md:via-[#5f0a0a]/38 md:to-[#240000]/10" />
-          <div className="absolute inset-0 bg-black/8 md:bg-black/10" />
-        </div>
+      <section className="relative overflow-visible pt-[92px] pb-16 sm:pt-[96px] sm:pb-20 md:pt-20 md:pb-44 lg:pb-52">
+  <div className="absolute inset-0">
+    <img
+      src={heroMainImage}
+      alt="ReadyRoom Hero"
+      className="h-full w-full object-cover object-center transition-all duration-700"
+    />
+    <div className="absolute inset-0 bg-gradient-to-b from-[#240000]/58 via-[#5f0a0a]/18 to-[#240000]/6 md:from-[#240000]/72 md:via-[#5f0a0a]/38 md:to-[#240000]/10" />
+    <div className="absolute inset-0 bg-black/8 md:bg-black/10" />
+  </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-          <div className="flex min-h-[120px] items-start justify-center pt-4 sm:min-h-[155px] sm:pt-6 md:min-h-[430px] md:items-center md:pt-6 md:pb-32 lg:min-h-[500px] lg:pb-40">
-            <div
-              className="mx-auto flex w-full max-w-4xl flex-col items-center text-center text-white"
-              data-aos="fade-up"
-            >
-              <h1 className="mt-1.5 max-w-[260px] text-balance break-words text-[15px] font-extrabold leading-[1.06] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.35)] sm:max-w-[315px] sm:text-[19px] md:mt-5 md:max-w-[800px] md:text-[42px] lg:text-[52px] xl:text-[58px]">
-                {loadingContent ? "Memuat tampilan hero..." : heroTitle}
-              </h1>
+  <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+    <div className="flex min-h-[120px] items-start justify-center pt-4 sm:min-h-[155px] sm:pt-6 md:min-h-[430px] md:items-center md:pt-6 md:pb-32 lg:min-h-[500px] lg:pb-40">
+      <div
+        className="mx-auto flex w-full max-w-4xl flex-col items-center text-center text-white"
+        data-aos="fade-up"
+      >
+        <h1 className="mt-1.5 max-w-[260px] text-balance break-words text-[15px] font-extrabold leading-[1.06] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.35)] sm:max-w-[315px] sm:text-[19px] md:mt-5 md:max-w-[800px] md:text-[42px] lg:text-[52px] xl:text-[58px]">
+          {loadingContent ? "Memuat tampilan hero..." : heroTitle}
+        </h1>
 
-              <p className="mt-1 max-w-[235px] text-[9px] leading-relaxed text-red-50/95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.28)] sm:max-w-[295px] sm:text-[10px] md:mt-3 md:max-w-2xl md:text-[14px] lg:text-[15px]">
-                {loadingContent
-                  ? "Tunggu sebentar, konten sedang disiapkan."
-                  : heroSubtitle}
-              </p>
-            </div>
-          </div>
-        </div>
+        <p className="mt-1 max-w-[235px] text-[9px] leading-relaxed text-red-50/95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.28)] sm:max-w-[295px] sm:text-[10px] md:mt-3 md:max-w-2xl md:text-[14px] lg:text-[15px]">
+          {loadingContent
+            ? "Tunggu sebentar, konten sedang disiapkan."
+            : heroSubtitle}
+        </p>
+      </div>
+    </div>
+  </div>
 
-        <div className="relative z-30 mx-auto -mt-9 block w-full max-w-[390px] px-3 md:hidden">
-          <div className="mx-auto w-full">
-            <HeroSearchFilter />
-          </div>
-        </div>
+  <div className="pointer-events-none absolute left-0 right-0 bottom-[-30px] z-30 block px-3 md:hidden">
+    <div className="pointer-events-auto mx-auto w-full max-w-[390px]">
+      <HeroSearchFilter />
+    </div>
+  </div>
 
-        <div className="absolute left-0 right-0 bottom-[96px] z-30 mx-auto hidden max-w-6xl px-4 md:block md:px-6 lg:bottom-[108px]">
-          <div className="mx-auto max-w-5xl">
-            <HeroSearchFilter />
-          </div>
+  <div className="absolute left-0 right-0 bottom-[96px] z-30 mx-auto hidden max-w-6xl px-4 md:block md:px-6 lg:bottom-[108px]">
+    <div className="mx-auto max-w-5xl">
+      <HeroSearchFilter />
+    </div>
 
-          <div className="mt-3 flex justify-center">
-            <Link
-              to="/hotels"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-red-50"
-            >
-              Kunjungi Semua Hotel
-              <ArrowRight size={17} />
-            </Link>
-          </div>
-        </div>
-      </section>
+    <div className="mt-3 flex justify-center">
+      <Link
+        to="/hotels"
+        className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-red-50"
+      >
+        Kunjungi Semua Hotel
+        <ArrowRight size={17} />
+      </Link>
+    </div>
+  </div>
+</section>
 
       <section className="mx-auto max-w-7xl px-4 pt-10 pb-8 md:px-6 md:pt-20 md:pb-16">
         <div className="mb-4 md:mb-8">
