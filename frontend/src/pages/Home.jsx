@@ -482,7 +482,7 @@ export default function Home() {
   </div>
 </section>
 
-      <section className="mx-auto max-w-7xl px-4 pt-10 pb-8 md:px-6 md:pt-20 md:pb-16">
+      <section className="mx-auto max-w-7xl px-4 pt-10 pb-3 md:px-6 md:pt-20 md:pb-10">
         <div className="mb-4 md:mb-8">
           <h3 className="text-lg font-bold md:text-3xl">
   Jelajahi Berdasarkan Kota

@@ -20,7 +20,6 @@ import {
   UtensilsCrossed,
   BedDouble,
   Sparkles,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Images,
@@ -154,7 +153,6 @@ export default function Hotels() {
   const [loading, setLoading] = useState(true);
 
   const destinationFromQuery = searchParams.get("destination") || "";
-  const checkInFromQuery = searchParams.get("check_in") || "";
 
   useEffect(() => {
     AOS.init({
@@ -277,24 +275,6 @@ export default function Hotels() {
           <div className="relative z-[100] mx-auto mt-7 max-w-6xl overflow-visible sm:mt-10">
             <HeroSearchFilter />
           </div>
-
-          {(destinationFromQuery || checkInFromQuery) && (
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:mt-5 sm:gap-3">
-              {destinationFromQuery && (
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md sm:px-4 sm:py-2 sm:text-sm">
-                  <MapPin size={14} />
-                  Tujuan: {destinationFromQuery}
-                </span>
-              )}
-
-              {checkInFromQuery && (
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md sm:px-4 sm:py-2 sm:text-sm">
-                  <CalendarDays size={14} />
-                  Check-in: {checkInFromQuery}
-                </span>
-              )}
-            </div>
-          )}
         </div>
       </section>
 
@@ -317,27 +297,6 @@ export default function Hotels() {
               {filteredHotels.length} hotel ditemukan dari data hotel aktif
               ReadyRoom.
             </p>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-0 sm:gap-3">
-            {destinationFromQuery && (
-              <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-600 sm:px-4 sm:py-2 sm:text-sm">
-                <Search size={14} />
-                Kata kunci:{" "}
-                <span className="font-semibold text-gray-800">
-                  {destinationFromQuery}
-                </span>
-              </div>
-            )}
-
-            {destinationFromQuery && (
-              <Link
-                to="/hotels"
-                className="inline-flex items-center justify-center rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
-              >
-                Bersihkan
-              </Link>
-            )}
           </div>
         </div>
 

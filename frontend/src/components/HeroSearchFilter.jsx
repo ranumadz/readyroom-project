@@ -7,11 +7,12 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 
 export default function HeroSearchFilter() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [destination, setDestination] = useState("");
   const [checkIn, setCheckIn] = useState("");
@@ -48,6 +49,23 @@ export default function HeroSearchFilter() {
   useEffect(() => {
     fetchHotelSuggestions();
   }, []);
+
+  useEffect(() => {
+    const destinationFromUrl = searchParams.get("destination") || "";
+    const checkInFromUrl = searchParams.get("check_in") || "";
+
+    setDestination(destinationFromUrl);
+    setCheckIn(checkInFromUrl);
+
+    if (checkInFromUrl) {
+      const parsedDate = parseDateString(checkInFromUrl);
+      if (parsedDate) {
+        setCalendarMonth(
+          new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1)
+        );
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
