@@ -107,19 +107,19 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
           <button
             type="button"
             onClick={goPrev}
-            className="absolute left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white sm:inline-flex sm:h-10 sm:w-10"
+            className="absolute left-1.5 top-1/2 z-10 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white sm:left-3 sm:h-10 sm:w-10"
             aria-label="Previous image"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={14} className="sm:h-[18px] sm:w-[18px]" />
           </button>
 
           <button
             type="button"
             onClick={goNext}
-            className="absolute right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white sm:inline-flex sm:h-10 sm:w-10"
+            className="absolute right-1.5 top-1/2 z-10 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105 hover:bg-white sm:right-3 sm:h-10 sm:w-10"
             aria-label="Next image"
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={14} className="sm:h-[18px] sm:w-[18px]" />
           </button>
 
           <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 sm:bottom-4 sm:gap-2">
@@ -268,15 +268,6 @@ export default function Hotels() {
 
         <div className="relative z-20 mx-auto max-w-7xl px-4 md:px-6">
           <div className="mx-auto max-w-4xl text-center">
-            <h1 className="mb-4 text-[2rem] font-extrabold leading-[1.05] tracking-tight sm:text-4xl md:text-6xl">
-              Temukan Hotel Terbaik
-              <br />
-              di{" "}
-              <span className="text-red-100 drop-shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
-                ReadyRoom
-              </span>
-            </h1>
-
             <p className="mx-auto mb-8 hidden max-w-3xl text-base leading-relaxed text-red-100 sm:block md:text-xl">
               Cari hotel berdasarkan nama, kota, area, atau alamat. Semua hotel
               yang tampil di sini adalah hotel aktif yang siap kamu jelajahi.
