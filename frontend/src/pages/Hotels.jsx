@@ -255,25 +255,23 @@ export default function Hotels() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-[#fff8f8] to-[#f8f8f8] text-gray-800">
       <Navbar />
+<section className="relative overflow-visible bg-gradient-to-b from-[#fff1f1] via-white to-white pt-20 pb-12 sm:pt-24 sm:pb-16 md:pt-28 md:pb-20">
+  <div className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-transparent via-red-400/50 to-transparent" />
+    <div className="absolute -top-24 right-[-80px] h-64 w-64 rounded-full bg-red-200/25 blur-3xl" />
+    <div className="absolute left-[-90px] bottom-[-120px] h-72 w-72 rounded-full bg-rose-100/50 blur-3xl" />
 
-      <section className="relative overflow-visible bg-gradient-to-br from-red-700 via-red-600 to-rose-600 pb-14 pt-14 text-white sm:pb-28 sm:pt-16 md:pb-36 md:pt-24">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-16 top-4 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute right-0 top-10 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-red-300/10 blur-3xl" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.10),transparent_30%)]" />
-        </div>
+    {/* ornamen lingkaran halus, BUKAN wrapper search */}
+    <div className="absolute right-[-34px] top-[74px] h-28 w-28 rounded-full border-[18px] border-red-300/20 md:right-[90px] md:top-[105px] md:h-40 md:w-40 md:border-[26px]" />
+    <div className="absolute left-[-42px] top-[112px] h-24 w-24 rounded-full border-[16px] border-red-200/20 md:left-[90px] md:top-[130px] md:h-36 md:w-36 md:border-[24px]" />
+  </div>
 
-        <div className="relative z-20 mx-auto max-w-7xl px-4 md:px-6">
-          <div className="mx-auto max-w-4xl text-center">
-           
-          </div>
-
-          <div className="relative z-[100] mx-auto mt-7 max-w-6xl overflow-visible sm:mt-10">
-            <HeroSearchFilter />
-          </div>
-        </div>
-      </section>
+  <div className="relative z-20 mx-auto max-w-7xl px-4 pt-3 md:px-6 md:pt-6">
+    <div className="relative z-[100] mx-auto max-w-6xl">
+      <HeroSearchFilter />
+    </div>
+  </div>
+</section>
 
       <section
         id="hotel-results-section"
@@ -337,7 +335,7 @@ export default function Hotels() {
               >
                 <HotelImageSlider hotel={hotel} buildImageUrl={buildImageUrl} />
 
-                <div className="bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-2.5 pb-2.5 pt-2.5 text-white sm:px-5 sm:pb-5 sm:pt-4">
+                <div className="flex min-h-[150px] flex-col bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-2.5 pb-2.5 pt-2.5 text-white sm:min-h-[260px] sm:px-5 sm:pb-5 sm:pt-4">
                   <div className="mb-1.5 flex items-start justify-between gap-2 sm:mb-3 sm:gap-3">
                     <div className="min-w-0">
                       <h3 className="line-clamp-2 min-h-[34px] text-[14px] font-extrabold leading-[1.18] tracking-tight sm:min-h-0 sm:line-clamp-1 sm:text-[1.7rem]">
@@ -360,38 +358,14 @@ export default function Hotels() {
                       size={12}
                       className="mt-0.5 shrink-0 text-white sm:h-[15px] sm:w-[15px]"
                     />
-                    <span className="line-clamp-1 sm:line-clamp-2">
+                    <span className="line-clamp-2 sm:line-clamp-3">
                       {hotel.address || "Alamat hotel belum tersedia."}
                     </span>
                   </div>
 
-                  <div className="mb-2 flex flex-wrap gap-1 sm:mb-4 sm:gap-2">
-                    {Array.isArray(hotel.facilities) &&
-                    hotel.facilities.length > 0 ? (
-                      hotel.facilities.slice(0, 2).map((facility) => {
-                        const FacilityIcon = getFacilityIcon(facility.icon);
+                  
 
-                        return (
-                          <span
-                            key={facility.id}
-                            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5 py-0.5 text-[9.5px] font-semibold text-white backdrop-blur-sm sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
-                          >
-                            <FacilityIcon size={10} />
-                            <span className="max-w-[48px] truncate sm:max-w-none">
-                              {facility.name}
-                            </span>
-                          </span>
-                        );
-                      })
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5 py-0.5 text-[9.5px] font-medium text-white backdrop-blur-sm sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
-                        <Building2 size={10} />
-                        Fasilitas
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-white/20 pt-2 sm:pt-4">
+                  <div className="mt-auto flex items-center justify-between border-t border-white/20 pt-2 sm:pt-4">
                     <span className="text-[10.5px] font-semibold text-white sm:text-sm">
                       Detail
                     </span>

@@ -553,11 +553,9 @@ export default function Home() {
             <div>
               <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 md:mb-4 md:px-4 md:py-2 md:text-sm">
                 <History size={13} />
-                Recent Viewed
-              </div>
-              <h3 className="text-lg font-bold md:text-3xl">
                 Terakhir Kamu Lihat
-              </h3>
+              </div>
+              
               <p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
                 Lanjutkan lihat hotel yang baru saja kamu kunjungi.
               </p>
@@ -590,9 +588,9 @@ export default function Home() {
           <div>
             <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 md:mb-4 md:px-4 md:py-2 md:text-sm">
               <WalletCards size={13} />
-              Most Chosen
+              Hotel Populer 
             </div>
-            <h3 className="text-lg font-bold md:text-3xl">Popular Hotels</h3>
+           
             <p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
               Properti yang paling sering dilihat dan dipilih customer.
             </p>
@@ -627,11 +625,9 @@ export default function Home() {
           <div>
             <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 md:mb-4 md:px-4 md:py-2 md:text-sm">
               <ShieldCheck size={13} />
-              Curated Picks
+              Pilihan ReadyRoom
             </div>
-            <h3 className="text-lg font-bold md:text-3xl">
-              Recommended Hotels
-            </h3>
+            
             <p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
               Pilihan hotel yang dikurasi untuk pengalaman menginap yang lebih nyaman.
             </p>

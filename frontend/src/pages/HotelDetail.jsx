@@ -1,26 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import api from "../services/api";
 import {
   ArrowLeft,
-  MapPin,
-  Building2,
-  FileText,
-  Navigation,
-  MessageCircle,
-  Wifi,
-  Car,
-  Coffee,
-  Tv,
-  Bath,
-  Dumbbell,
-  Waves,
-  AirVent,
-  UtensilsCrossed,
+  ArrowRight,
   BedDouble,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  FileText,
+  Images,
+  MapPin,
+  MessageCircle,
+  Navigation,
   Sparkles,
+  Users,
+  X,
 } from "lucide-react";
 
 const BACKEND_BASE_URL =
@@ -29,13 +27,16 @@ const BACKEND_BASE_URL =
 export default function HotelDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const roomsRef = useRef(null);
 
   const [hotel, setHotel] = useState(null);
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [showGalleryModal, setShowGalleryModal] = useState(false);
 
   useEffect(() => {
-    fetchHotelDetail();
+    fetchHotelDetailAndRooms();
   }, [id]);
 
   useEffect(() => {
@@ -45,17 +46,21 @@ export default function HotelDetail() {
     }
   }, [hotel]);
 
-  const fetchHotelDetail = async () => {
+  const fetchHotelDetailAndRooms = async () => {
     try {
       setLoading(true);
 
-      const res = await api.get(`/hotels/${id}`);
-      const hotelData = res.data?.data || null;
+      const [hotelRes, roomsRes] = await Promise.all([
+        api.get(`/hotels/${id}`),
+        api.get(`/hotels/${id}/rooms`),
+      ]);
 
-      setHotel(hotelData);
+      setHotel(hotelRes.data?.data || null);
+      setRooms(Array.isArray(roomsRes.data?.data) ? roomsRes.data.data : []);
     } catch (error) {
-      console.error("GET HOTEL DETAIL ERROR:", error.response?.data || error);
+      console.error("GET HOTEL DETAIL / ROOMS ERROR:", error.response?.data || error);
       setHotel(null);
+      setRooms([]);
     } finally {
       setLoading(false);
     }
@@ -63,7 +68,6 @@ export default function HotelDetail() {
 
   const buildImageUrl = (path, fallback = "/images/hotel.jpg") => {
     if (!path) return fallback;
-
     const rawPath = String(path).trim();
 
     if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
@@ -71,17 +75,46 @@ export default function HotelDetail() {
     }
 
     const cleanPath = rawPath.replace(/^\/+/, "");
-
-    if (cleanPath.startsWith("images/")) {
-      return `/${cleanPath}`;
-    }
-
-    if (cleanPath.startsWith("storage/")) {
-      return `${BACKEND_BASE_URL}/${cleanPath}`;
-    }
+    if (cleanPath.startsWith("images/")) return `/${cleanPath}`;
+    if (cleanPath.startsWith("storage/")) return `${BACKEND_BASE_URL}/${cleanPath}`;
 
     return `${BACKEND_BASE_URL}/storage/${cleanPath}`;
   };
+
+  const formatRupiah = (value) => {
+    const amount = Number(value || 0);
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const getRoomLowestPrice = (room) => {
+    const prices = [
+      room.price_transit_3h,
+      room.price_transit_6h,
+      room.price_transit_12h,
+      room.price_per_night,
+    ]
+      .map((price) => Number(price || 0))
+      .filter((price) => price > 0);
+
+    return prices.length > 0 ? Math.min(...prices) : 0;
+  };
+
+  const sortedRooms = useMemo(() => {
+    return [...rooms].sort((a, b) => {
+      const priceA = getRoomLowestPrice(a);
+      const priceB = getRoomLowestPrice(b);
+
+      if (priceA === 0 && priceB === 0) return 0;
+      if (priceA === 0) return 1;
+      if (priceB === 0) return -1;
+
+      return priceA - priceB;
+    });
+  }, [rooms]);
 
   const galleryImages = useMemo(() => {
     if (!hotel) return ["/images/hotel.jpg"];
@@ -94,9 +127,7 @@ export default function HotelDetail() {
 
     if (hotel.thumbnail) {
       const thumbnailUrl = buildImageUrl(hotel.thumbnail, "/images/hotel.jpg");
-      if (!list.includes(thumbnailUrl)) {
-        list.push(thumbnailUrl);
-      }
+      if (!list.includes(thumbnailUrl)) list.push(thumbnailUrl);
     }
 
     if (Array.isArray(hotel.images)) {
@@ -107,9 +138,7 @@ export default function HotelDetail() {
         if (!imagePath) return;
 
         const imageUrl = buildImageUrl(imagePath, "/images/hotel.jpg");
-        if (!list.includes(imageUrl)) {
-          list.push(imageUrl);
-        }
+        if (!list.includes(imageUrl)) list.push(imageUrl);
       });
     }
 
@@ -119,35 +148,29 @@ export default function HotelDetail() {
   const activeImage =
     galleryImages[activeImageIndex] || galleryImages[0] || "/images/hotel.jpg";
 
-  const previewImages = useMemo(() => {
-    return galleryImages.slice(0, 5);
+  const desktopGalleryImages = useMemo(() => {
+    const base = galleryImages.slice(0, 7);
+    while (base.length < 7) base.push(galleryImages[0] || "/images/hotel.jpg");
+    return base;
   }, [galleryImages]);
 
-  const getFacilityIcon = (iconName) => {
-    switch (iconName) {
-      case "wifi":
-        return Wifi;
-      case "car":
-        return Car;
-      case "coffee":
-        return Coffee;
-      case "tv":
-        return Tv;
-      case "bath":
-        return Bath;
-      case "dumbbell":
-        return Dumbbell;
-      case "waves":
-        return Waves;
-      case "air-vent":
-        return AirVent;
-      case "utensils-crossed":
-        return UtensilsCrossed;
-      case "bed-double":
-        return BedDouble;
-      default:
-        return Sparkles;
-    }
+  const handlePrevImage = () => {
+    setActiveImageIndex((prev) =>
+      prev === 0 ? galleryImages.length - 1 : prev - 1
+    );
+  };
+
+  const handleNextImage = () => {
+    setActiveImageIndex((prev) =>
+      prev === galleryImages.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  const handleScrollToRooms = () => {
+    roomsRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   const getFacilityLabel = (facility) => {
@@ -198,7 +221,6 @@ export default function HotelDetail() {
       );
 
       const updatedRecent = [hotelItem, ...filteredRecent].slice(0, 6);
-
       localStorage.setItem(storageKey, JSON.stringify(updatedRecent));
     } catch (error) {
       console.error("SAVE RECENT VIEWED HOTEL ERROR:", error);
@@ -252,10 +274,10 @@ export default function HotelDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 text-gray-800">
+      <div className="min-h-screen bg-[#f5f6f8] text-gray-800">
         <Navbar />
         <div className="mx-auto max-w-7xl px-4 py-16 md:px-6">
-          <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm animate-pulse">
+          <div className="animate-pulse overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
             <div className="h-[360px] w-full bg-gray-200" />
             <div className="space-y-4 p-8">
               <div className="h-6 w-32 rounded bg-gray-200" />
@@ -272,7 +294,7 @@ export default function HotelDetail() {
 
   if (!hotel) {
     return (
-      <div className="min-h-screen bg-gray-100 text-gray-800">
+      <div className="min-h-screen bg-[#f5f6f8] text-gray-800">
         <Navbar />
         <div className="mx-auto max-w-4xl px-4 py-20 md:px-6">
           <div className="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">
@@ -298,89 +320,154 @@ export default function HotelDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-800">
+    <div className="min-h-screen bg-[#f5f6f8] text-gray-800">
       <Navbar />
 
-      <section className="relative">
-        <div className="absolute inset-0 z-10 bg-black/40" />
-
-        <img
-          src={buildImageUrl(
-            hotel.hero_image || hotel.thumbnail || galleryImages[0],
-            "/images/hero.jpg"
-          )}
-          alt={hotel.name}
-          onError={(e) => {
-            e.currentTarget.src = "/images/hero.jpg";
-          }}
-          className="h-[340px] w-full object-cover md:h-[430px]"
-        />
-
-        <div className="absolute inset-0 z-20">
-          <div className="mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-10 md:px-6">
+      <section className="bg-white pt-24 md:pt-28">
+        <div className="mx-auto max-w-7xl px-4 md:px-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="mb-5 inline-flex w-fit items-center gap-2 rounded-2xl border border-white/20 bg-white/15 px-4 py-2 font-medium text-white backdrop-blur-md transition hover:bg-white/20"
+              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={17} />
               Kembali
             </button>
 
-            <div className="max-w-3xl">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-4 py-2 text-sm text-white backdrop-blur-md">
-                <Building2 size={16} />
-                Hotel Detail
-              </div>
+            <Link
+              to="/hotels"
+              className="hidden text-sm font-semibold text-red-600 hover:underline md:block"
+            >
+              Lihat properti lain
+            </Link>
+          </div>
 
-              <h1 className="mb-3 text-3xl font-extrabold text-white md:text-5xl">
-                {hotel.name}
-              </h1>
+          <div className="mb-4">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+              <Building2 size={14} />
+              Detail Hotel
+            </div>
 
-              <div className="flex flex-wrap items-center gap-4 text-white/90">
-                <div className="inline-flex items-center gap-2">
-                  <MapPin size={18} />
-                  <span>
-                    {hotel.city?.name || "-"}
-                    {hotel.area ? ` • ${hotel.area}` : ""}
-                  </span>
-                </div>
-              </div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-gray-950 md:text-4xl">
+              {hotel.name}
+            </h1>
+
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-gray-500 md:text-base">
+              <MapPin size={17} className="text-red-500" />
+              <span>
+                {hotel.city?.name || "-"}
+                {hotel.area ? ` • ${hotel.area}` : ""}
+              </span>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="relative z-30 mx-auto -mt-8 max-w-7xl px-4 md:px-6">
-        <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-[0_18px_50px_rgba(0,0,0,0.08)] md:p-5">
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-gray-800">Galeri Hotel</h2>
-            <p className="text-sm text-gray-500">
-              Klik foto kecil untuk melihat preview besar
-            </p>
+          <div className="hidden overflow-hidden rounded-[1.35rem] bg-gray-100 md:grid md:h-[430px] md:grid-cols-[1.1fr_1.55fr] md:gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveImageIndex(0);
+                setShowGalleryModal(true);
+              }}
+              className="group relative overflow-hidden bg-gray-200 text-left"
+            >
+              <img
+                src={desktopGalleryImages[0]}
+                alt={hotel.name}
+                onError={(e) => {
+                  e.currentTarget.src = "/images/hotel.jpg";
+                }}
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+              />
+
+              <div className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-red-600 shadow-xl">
+                <Images size={17} />
+                Lihat semua foto
+              </div>
+            </button>
+
+            <div className="grid grid-cols-3 grid-rows-2 gap-2">
+              {desktopGalleryImages.slice(1, 7).map((image, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => {
+                    setActiveImageIndex(index + 1);
+                    setShowGalleryModal(true);
+                  }}
+                  className="group relative overflow-hidden bg-gray-200"
+                >
+                  <img
+                    src={image}
+                    alt={`${hotel.name} ${index + 2}`}
+                    onError={(e) => {
+                      e.currentTarget.src = "/images/hotel.jpg";
+                    }}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+                  />
+
+                  {index === 5 && galleryImages.length > 7 && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-sm font-bold text-white">
+                      +{galleryImages.length - 7} Foto
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="overflow-hidden rounded-[22px]">
+          <div className="md:hidden">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setShowGalleryModal(true)}
+              className="relative overflow-hidden rounded-[1.25rem] bg-gray-100"
+            >
               <img
                 src={activeImage}
                 alt={hotel.name}
                 onError={(e) => {
                   e.currentTarget.src = "/images/hotel.jpg";
                 }}
-                className="h-[280px] w-full rounded-[22px] object-cover md:h-[420px]"
+                className="h-[270px] w-full object-cover"
               />
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrevImage();
+                }}
+                className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-lg"
+              >
+                <ChevronLeft size={20} />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNextImage();
+                }}
+                className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-lg"
+              >
+                <ChevronRight size={20} />
+              </button>
+
+              <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-3 py-1 text-xs font-bold text-white backdrop-blur-md">
+                {activeImageIndex + 1}/{galleryImages.length}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {previewImages.map((image, index) => (
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {galleryImages.map((image, index) => (
                 <button
                   key={index}
                   type="button"
                   onClick={() => setActiveImageIndex(index)}
-                  className={`overflow-hidden rounded-[18px] transition ${
+                  className={`h-16 w-20 shrink-0 overflow-hidden rounded-xl border-2 ${
                     activeImageIndex === index
-                      ? "ring-2 ring-red-500"
-                      : "hover:opacity-90"
+                      ? "border-red-500"
+                      : "border-transparent"
                   }`}
                 >
                   <img
@@ -389,7 +476,7 @@ export default function HotelDetail() {
                     onError={(e) => {
                       e.currentTarget.src = "/images/hotel.jpg";
                     }}
-                    className="h-[120px] w-full rounded-[18px] object-cover md:h-[198px]"
+                    className="h-full w-full object-cover"
                   />
                 </button>
               ))}
@@ -398,35 +485,78 @@ export default function HotelDetail() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-10 md:px-6">
+      <section className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-10">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm md:p-7">
-              <div className="mb-5 flex items-center gap-3">
+            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm md:p-7">
+              <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                  <Navigation size={20} />
+                  <FileText size={20} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">
-                    Lokasi, Deskripsi & Map
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Deskripsi Hotel
                   </h2>
                   <p className="text-sm text-gray-500">
-                    Informasi utama hotel dalam satu bagian
+                    Informasi singkat mengenai hotel ini
                   </p>
                 </div>
               </div>
 
-              <div className="mb-5 rounded-2xl border border-red-100 bg-red-50/60 p-4">
-                <div className="mb-4 flex items-start gap-3">
-                  <FileText size={18} className="mt-1 shrink-0 text-red-600" />
-                  <div>
-                    <p className="font-semibold text-gray-800">Deskripsi Hotel</p>
-                    <p className="mt-1 leading-relaxed text-gray-600">
-                      {hotel.description || "Deskripsi hotel belum tersedia."}
-                    </p>
-                  </div>
-                </div>
+              <p className="leading-relaxed text-gray-600">
+                {hotel.description || "Deskripsi hotel belum tersedia."}
+              </p>
+            </div>
 
+            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm md:p-7">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Fasilitas Hotel
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Fasilitas yang tersedia di hotel ini
+                  </p>
+                </div>
+              </div>
+
+              {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {hotel.facilities.map((facility) => (
+                    <span
+                      key={facility.id}
+                      className="rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-600"
+                    >
+                      {getFacilityLabel(facility)}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
+                  Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm md:p-7">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                  <Navigation size={20} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Alamat & Peta
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Lokasi hotel dan akses Google Maps
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-4 rounded-2xl border border-red-100 bg-red-50/50 p-4">
                 <div className="flex items-start gap-3">
                   <MapPin size={18} className="mt-1 shrink-0 text-red-600" />
                   <div>
@@ -440,7 +570,7 @@ export default function HotelDetail() {
 
               {embedMapUrl ? (
                 <>
-                  <div className="h-[340px] w-full overflow-hidden rounded-2xl border border-gray-100">
+                  <div className="h-[320px] w-full overflow-hidden rounded-2xl border border-gray-100 md:h-[380px]">
                     <iframe
                       title={`Map ${hotel.name}`}
                       width="100%"
@@ -489,72 +619,141 @@ export default function HotelDetail() {
               )}
             </div>
 
-            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                  <Sparkles size={20} />
-                </div>
+            <div
+              ref={roomsRef}
+              className="scroll-mt-24 rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm md:p-7"
+            >
+              <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">
-                    Fasilitas Hotel
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+                    <BedDouble size={14} />
+                    Pilihan Kamar
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 md:text-2xl">
+                    Pilih kamar sesuai kebutuhanmu
                   </h2>
-                  <p className="text-sm text-gray-500">
-                    Fasilitas utama yang tersedia di hotel ini
+                  <p className="mt-1 text-sm text-gray-500">
+                    Diurutkan dari harga termurah yang tersedia.
                   </p>
                 </div>
               </div>
 
-              {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
-                <>
-                  <div className="flex flex-wrap gap-3">
-                    {hotel.facilities.map((facility) => {
-                      const FacilityIcon = getFacilityIcon(facility.icon);
+              {sortedRooms.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
+                  Belum ada kamar tersedia untuk hotel ini.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {sortedRooms.map((room, index) => {
+                    const lowestPrice = getRoomLowestPrice(room);
 
-                      return (
-                        <div
-                          key={facility.id}
-                          className="inline-flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3"
-                        >
-                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-red-600 shadow-sm">
-                            <FacilityIcon size={18} />
+                    return (
+                      <div
+                        key={room.id}
+                        className="overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm transition hover:shadow-md"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
+                          <div className="relative min-h-[190px] bg-gray-100">
+                            <img
+                              src={buildImageUrl(room.thumbnail, "/images/hotel.jpg")}
+                              alt={room.name}
+                              onError={(e) => {
+                                e.currentTarget.src = "/images/hotel.jpg";
+                              }}
+                              className="h-full w-full object-cover"
+                            />
+
+                            <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
+                              <BedDouble size={14} />
+                              {room.type || "Room"}
+                            </div>
+
+                            {index === 0 && (
+                              <div className="absolute bottom-3 left-3 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
+                                Termurah
+                              </div>
+                            )}
                           </div>
-                          <div>
-                            <p className="font-semibold text-red-700">
-                              {getFacilityLabel(facility)}
-                            </p>
-                            <p className="text-xs text-red-500">
-                              {facility.icon || "facility"}
-                            </p>
+
+                          <div className="p-4 md:p-5">
+                            <div className="mb-3">
+                              <h3 className="text-lg font-extrabold text-gray-900 md:text-xl">
+                                {room.name}
+                              </h3>
+                              <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                                {room.description ||
+                                  "Kamar nyaman untuk kebutuhan menginap atau transit."}
+                              </p>
+                            </div>
+
+                            <div className="grid gap-2 text-sm text-gray-600 sm:grid-cols-2">
+                              <div className="flex items-center gap-2">
+                                <Users size={16} className="text-red-500" />
+                                Kapasitas {room.capacity || 0} orang
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock3 size={16} className="text-red-500" />
+                                Transit 3 jam: {formatRupiah(room.price_transit_3h || 0)}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock3 size={16} className="text-red-500" />
+                                Transit 6 jam: {formatRupiah(room.price_transit_6h || 0)}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock3 size={16} className="text-red-500" />
+                                Transit 12 jam: {formatRupiah(room.price_transit_12h || 0)}
+                              </div>
+                            </div>
+
+                            <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                              <p className="text-xs font-semibold text-red-600">
+                                Mulai dari
+                              </p>
+                              <p className="mt-1 text-2xl font-extrabold text-gray-900">
+                                {lowestPrice > 0 ? formatRupiah(lowestPrice) : "Hubungi admin"}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/rooms/${room.id}`)}
+                              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
+                            >
+                              Lihat Detail Kamar
+                              <ArrowRight size={18} />
+                            </button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  <p className="mt-4 text-sm leading-relaxed text-gray-500">
-                    Fasilitas yang tersedia di ReadyRoom
-                  </p>
-                </>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
-                  Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="sticky top-24 rounded-[1.5rem] border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-gray-900">
+                  Siap pilih kamar?
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Lihat daftar kamar yang tersedia di hotel ini.
+                </p>
+              </div>
+
               <button
                 type="button"
-                onClick={() => navigate(`/hotels/${hotel.id}/rooms`)}
-                className="w-full rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
+                onClick={handleScrollToRooms}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
               >
                 Lihat Kamar Hotel
+                <ArrowRight size={18} />
               </button>
             </div>
 
-            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-green-600">
                   <MessageCircle size={20} />
@@ -603,6 +802,73 @@ export default function HotelDetail() {
           </div>
         </div>
       </section>
+
+      {showGalleryModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/90 p-4 text-white">
+          <button
+            type="button"
+            onClick={() => setShowGalleryModal(false)}
+            className="absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
+          >
+            <X size={24} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handlePrevImage}
+            className="absolute left-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
+          >
+            <ChevronLeft size={28} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleNextImage}
+            className="absolute right-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
+          >
+            <ChevronRight size={28} />
+          </button>
+
+          <div className="flex h-full flex-col items-center justify-center gap-4">
+            <div className="text-sm font-semibold text-white/80">
+              {activeImageIndex + 1} / {galleryImages.length}
+            </div>
+
+            <img
+              src={activeImage}
+              alt={`${hotel.name} preview`}
+              onError={(e) => {
+                e.currentTarget.src = "/images/hotel.jpg";
+              }}
+              className="max-h-[78vh] max-w-full rounded-2xl object-contain"
+            />
+
+            <div className="flex max-w-full gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {galleryImages.map((image, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setActiveImageIndex(index)}
+                  className={`h-16 w-20 shrink-0 overflow-hidden rounded-xl border-2 ${
+                    activeImageIndex === index
+                      ? "border-red-500"
+                      : "border-white/20"
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`${hotel.name} ${index + 1}`}
+                    onError={(e) => {
+                      e.currentTarget.src = "/images/hotel.jpg";
+                    }}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
