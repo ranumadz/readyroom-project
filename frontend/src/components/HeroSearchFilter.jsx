@@ -562,15 +562,11 @@ function CalendarPanel({
 }) {
   return (
     <div
-      className={`${widthClass} overflow-hidden rounded-[${
-        compact ? "14px" : "20px"
-      }] border border-gray-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.20)]`}
+      className={`${widthClass} ${
+        compact ? "rounded-[1.6rem]" : "rounded-[2rem]"
+      } overflow-hidden border border-gray-100 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.20)]`}
     >
-      <div
-        className={`border-b border-gray-100 ${
-          compact ? "px-3 py-2.5" : "px-4 py-4"
-        }`}
-      >
+      <div className={`bg-white ${compact ? "px-3 py-2.5" : "px-5 py-5"}`}>
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
@@ -627,7 +623,7 @@ function CalendarPanel({
         </div>
       </div>
 
-      <div className={compact ? "p-2" : "p-3"}>
+      <div className={`bg-white ${compact ? "px-3 pb-3" : "px-5 pb-5"}`}>
         <div
           className={`${
             compact ? "mb-1.5" : "mb-2.5"
@@ -651,7 +647,7 @@ function CalendarPanel({
               return (
                 <div
                   key={`empty-${index}`}
-                  className={compact ? "h-6" : "h-8.5"}
+                  className={compact ? "h-6" : "h-8"}
                 />
               );
             }
@@ -666,8 +662,8 @@ function CalendarPanel({
                 type="button"
                 disabled={disabled}
                 onClick={() => handleSelectDate(day)}
-                className={`rounded-lg font-semibold transition ${
-                  compact ? "h-6 text-[8.5px]" : "h-8.5 text-[11px]"
+                className={`rounded-xl font-semibold transition ${
+                  compact ? "h-6 text-[8.5px]" : "h-8 text-[11px]"
                 } ${
                   disabled
                     ? "cursor-not-allowed bg-gray-50 text-gray-300"
