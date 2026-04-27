@@ -195,16 +195,6 @@ export default function Home() {
     return popularHotels.slice(0, 6);
   }, [popularHotels]);
 
-  const heroTitle =
-    websiteContent?.hero_title ||
-    websiteContent?.banner_title ||
-    "ReadyRoom, Booking Hotel Lebih Mudah";
-
-  const heroSubtitle =
-    websiteContent?.hero_subtitle ||
-    websiteContent?.banner_subtitle ||
-    "Nikmati pengalaman booking yang cepat, nyaman, modern, dan fleksibel untuk kebutuhan transit maupun menginap.";
-
   const heroMainImage = buildImageUrl(
     websiteContent?.hero_image,
     "/images/hotel.jpg"
@@ -429,95 +419,74 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-visible pt-[92px] pb-16 sm:pt-[96px] sm:pb-20 md:pt-20 md:pb-44 lg:pb-52">
-  <div className="absolute inset-0">
-    <img
-      src={heroMainImage}
-      alt="ReadyRoom Hero"
-      className="h-full w-full object-cover object-center transition-all duration-700"
-    />
-    <div className="absolute inset-0 bg-gradient-to-b from-[#240000]/58 via-[#5f0a0a]/18 to-[#240000]/6 md:from-[#240000]/72 md:via-[#5f0a0a]/38 md:to-[#240000]/10" />
-    <div className="absolute inset-0 bg-black/8 md:bg-black/10" />
+      <section className="relative overflow-visible pt-[84px] pb-14 sm:pt-[88px] sm:pb-16 md:pt-20 md:pb-28 lg:pb-32">
+        <div className="absolute inset-0">
+          <img
+            src={heroMainImage}
+            alt="ReadyRoom Hero"
+            className="h-full w-full object-cover object-center transition-all duration-700"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/5" />
+        </div>
+
+        <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+          <div
+            className="min-h-[230px] sm:min-h-[285px] md:min-h-[430px] lg:min-h-[500px]"
+            data-aos="fade-up"
+          />
+        </div>
+
+        <div className="absolute left-0 right-0 bottom-[-29px] z-30 px-3 sm:bottom-[-44px] md:bottom-[-px]  md:px-6">
+  <div className="mb-3 hidden justify-center md:flex">
+    <Link
+      to="/hotels"
+      className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-red-50"
+    >
+      Kunjungi Semua Hotel
+      <ArrowRight size={17} />
+    </Link>
   </div>
 
-  <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-    <div className="flex min-h-[120px] items-start justify-center pt-4 sm:min-h-[155px] sm:pt-6 md:min-h-[430px] md:items-center md:pt-6 md:pb-32 lg:min-h-[500px] lg:pb-40">
-      <div
-        className="mx-auto flex w-full max-w-4xl flex-col items-center text-center text-white"
-        data-aos="fade-up"
-      >
-        <h1 className="mt-1.5 max-w-[260px] text-balance break-words text-[15px] font-extrabold leading-[1.06] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.35)] sm:max-w-[315px] sm:text-[19px] md:mt-5 md:max-w-[800px] md:text-[42px] lg:text-[52px] xl:text-[58px]">
-          {loadingContent ? "Memuat tampilan hero..." : heroTitle}
-        </h1>
-
-        <p className="mt-1 max-w-[235px] text-[9px] leading-relaxed text-red-50/95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.28)] sm:max-w-[295px] sm:text-[10px] md:mt-3 md:max-w-2xl md:text-[14px] lg:text-[15px]">
-          {loadingContent
-            ? "Tunggu sebentar, konten sedang disiapkan."
-            : heroSubtitle}
-        </p>
-      </div>
-    </div>
+  <div className="mx-auto w-full max-w-[680px] sm:max-w-[760px] md:max-w-[980px] lg:max-w-[1180px]">
+    <HeroSearchFilter />
   </div>
+</div>
+      </section>
 
-  <div className="pointer-events-none absolute left-0 right-0 bottom-[-30px] z-30 block px-3 md:hidden">
-    <div className="pointer-events-auto mx-auto w-full max-w-[390px]">
-      <HeroSearchFilter />
-    </div>
-  </div>
-
-  <div className="absolute left-0 right-0 bottom-[96px] z-30 mx-auto hidden max-w-6xl px-4 md:block md:px-6 lg:bottom-[108px]">
-    <div className="mx-auto max-w-5xl">
-      <HeroSearchFilter />
-    </div>
-
-    <div className="mt-3 flex justify-center">
-      <Link
-        to="/hotels"
-        className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-red-50"
-      >
-        Kunjungi Semua Hotel
-        <ArrowRight size={17} />
-      </Link>
-    </div>
-  </div>
-</section>
-
-      <section className="mx-auto max-w-7xl px-4 pt-10 pb-3 md:px-6 md:pt-20 md:pb-10">
+      <section className="mx-auto max-w-7xl px-4 pt-16 pb-3 md:px-6 md:pt-24 md:pb-10">
         <div className="mb-4 md:mb-8">
           <h3 className="text-lg font-bold md:text-3xl">
-  Jelajahi Berdasarkan Kota
-</h3>
-<p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
-  Temukan hotel ReadyRoom favorit di berbagai kota pilihan.
-</p>
+            Jelajahi Berdasarkan Kota
+          </h3>
+          <p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
+            Temukan hotel ReadyRoom favorit di berbagai kota pilihan.
+          </p>
         </div>
 
-        <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] md:mx-0 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
-         <div className="grid grid-cols-3 gap-2.5 md:grid-cols-6 md:gap-5 overflow-x-auto">
-            {cityItems.map((city, i) => (
-              <Link
+        <ScrollRow>
+          {cityItems.map((city, i) => (
+            <Link
+              draggable={false}
+              to={`/hotels?destination=${encodeURIComponent(city.name)}`}
+              key={i}
+              data-aos="zoom-in"
+              className="group relative block w-[31.5%] min-w-[105px] shrink-0 overflow-hidden rounded-[0.9rem] shadow-sm sm:min-w-[150px] md:w-[31.5%] md:min-w-[280px] md:rounded-[1.75rem] lg:min-w-[360px]"
+            >
+              <img
                 draggable={false}
-                to={`/hotels?destination=${encodeURIComponent(city.name)}`}
-                key={i}
-                data-aos="zoom-in"
-                className="group relative block w-[31%] min-w-[105px] shrink-0 overflow-hidden rounded-[0.9rem] shadow-sm md:w-auto md:rounded-[1.75rem]"
-              >
-                <img
-                  draggable={false}
-                  src={city.img}
-                  alt={city.name}
-                  className="h-24 w-full object-cover transition duration-500 group-hover:scale-110 md:h-48"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 p-2 md:p-4">
-                  <h4 className="text-xs font-bold text-white md:text-xl">
-                    {city.name}
-                  </h4>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+                src={city.img}
+                alt={city.name}
+                className="h-24 w-full object-cover transition duration-500 group-hover:scale-110 sm:h-32 md:h-52"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-2 md:p-4">
+                <h4 className="text-xs font-bold text-white md:text-xl">
+                  {city.name}
+                </h4>
+              </div>
+            </Link>
+          ))}
+        </ScrollRow>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-7 md:px-6 md:py-16">

@@ -266,10 +266,7 @@ export default function Hotels() {
 
         <div className="relative z-20 mx-auto max-w-7xl px-4 md:px-6">
           <div className="mx-auto max-w-4xl text-center">
-            <p className="mx-auto mb-8 hidden max-w-3xl text-base leading-relaxed text-red-100 sm:block md:text-xl">
-              Cari hotel berdasarkan nama, kota, area, atau alamat. Semua hotel
-              yang tampil di sini adalah hotel aktif yang siap kamu jelajahi.
-            </p>
+           
           </div>
 
           <div className="relative z-[100] mx-auto mt-7 max-w-6xl overflow-visible sm:mt-10">
