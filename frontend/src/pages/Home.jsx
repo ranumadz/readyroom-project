@@ -438,13 +438,7 @@ export default function Home() {
 
         <div className="absolute left-0 right-0 bottom-[-29px] z-30 px-3 sm:bottom-[-44px] md:px-6">
           <div className="mb-3 hidden justify-center md:flex">
-            <Link
-              to="/hotels"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-red-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-red-50"
-            >
-              Kunjungi Semua Hotel
-              <ArrowRight size={17} />
-            </Link>
+            
           </div>
 
           <div className="mx-auto w-full max-w-[680px] sm:max-w-[760px] md:max-w-[980px] lg:max-w-[1180px]">
