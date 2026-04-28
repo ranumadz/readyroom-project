@@ -65,6 +65,8 @@ export default function RoomDetail() {
 
   const [bookingError, setBookingError] = useState("");
   const [guestError, setGuestError] = useState("");
+  const [showDatePanel, setShowDatePanel] = useState(false);
+  const [showTimePanel, setShowTimePanel] = useState(false);
 
   useEffect(() => {
     fetchRoomDetail();
@@ -1258,13 +1260,62 @@ export default function RoomDetail() {
                       Pilih Tanggal & Jam Booking
                     </h2>
                     <p className="text-sm text-gray-500">
-                      Pilih jadwal booking sebelum lanjut ke reservasi
+                      Tekan tombol tanggal atau jam agar tampilan lebih ringkas
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-5">
-                  <div className="rounded-[24px] border border-red-100 bg-white overflow-hidden">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowDatePanel((prev) => !prev)}
+                    className={`flex items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
+                      showDatePanel
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div>
+                      <p className="text-sm font-bold">Pilih Tanggal</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {selectedCheckInDate
+                          ? selectedCheckInDate.toLocaleDateString("id-ID", {
+                              day: "2-digit",
+                              month: "long",
+                              year: "numeric",
+                            })
+                          : "Belum dipilih"}
+                      </p>
+                    </div>
+                    <CalendarDays size={20} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowTimePanel((prev) => !prev)}
+                    className={`flex items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
+                      showTimePanel
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div>
+                      <p className="text-sm font-bold">Pilih Jam</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {selectedCheckInDate
+                          ? selectedCheckInDate.toLocaleTimeString("id-ID", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "Belum dipilih"}
+                      </p>
+                    </div>
+                    <Clock3 size={20} />
+                  </button>
+                </div>
+
+                {showDatePanel && (
+                  <div className="mt-4 rounded-[24px] border border-red-100 bg-white overflow-hidden">
                     <div className="px-4 py-3 border-b border-red-50 bg-gradient-to-r from-red-50 to-rose-50">
                       <h3 className="font-semibold text-gray-800">
                         {bookingMode === "transit"
@@ -1283,7 +1334,10 @@ export default function RoomDetail() {
                         {bookingMode === "transit" ? (
                           <DatePicker
                             selected={selectedCheckInDate}
-                            onChange={handleCheckInDateChange}
+                            onChange={(date) => {
+                              handleCheckInDateChange(date);
+                              if (date) setShowTimePanel(true);
+                            }}
                             minDate={new Date()}
                             inline
                             calendarClassName="readyroom-datepicker-inline"
@@ -1293,10 +1347,13 @@ export default function RoomDetail() {
                             selected={selectedCheckInDate}
                             startDate={selectedCheckInDate}
                             endDate={selectedOvernightEndDate}
-                            onChange={handleOvernightRangeChange}
+                            onChange={(dates) => {
+                              handleOvernightRangeChange(dates);
+                              if (dates?.[0]) setShowTimePanel(true);
+                            }}
                             minDate={new Date()}
                             selectsRange
-                            monthsShown={2}
+                            monthsShown={1}
                             inline
                             calendarClassName="readyroom-datepicker-inline"
                           />
@@ -1304,195 +1361,195 @@ export default function RoomDetail() {
                       </div>
                     </div>
                   </div>
+                )}
 
-                  <div className="space-y-4">
-                    <div className="rounded-[24px] border border-red-100 bg-white p-4">
-                      <h3 className="font-semibold text-gray-800 mb-1">
-                        Waktu Check-in
-                      </h3>
-                      <p className="text-xs text-gray-500 mb-4">
-                        Pilih jam tanpa popup tambahan
-                      </p>
+                {showTimePanel && (
+                  <div className="mt-4 rounded-[24px] border border-red-100 bg-white p-4">
+                    <h3 className="font-semibold text-gray-800 mb-1">
+                      Waktu Check-in
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Pilih jam dan menit check-in
+                    </p>
 
-                      {!selectedCheckInDate && (
-                        <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                          Silakan pilih tanggal terlebih dahulu sebelum pilih jam.
-                        </div>
-                      )}
+                    {!selectedCheckInDate && (
+                      <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                        Silakan pilih tanggal terlebih dahulu sebelum pilih jam.
+                      </div>
+                    )}
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
-                            Pilih Jam
-                          </label>
-                          <div className="readyroom-time-scroll h-48 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              {hourOptions.map((hour) => {
-                                const isDisabledHour =
-                                  isFullDayMode &&
-                                  Number(hour) < FULL_DAY_MIN_HOUR;
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                          Pilih Jam
+                        </label>
+                        <div className="readyroom-time-scroll h-40 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            {hourOptions.map((hour) => {
+                              const isDisabledHour =
+                                isFullDayMode &&
+                                Number(hour) < FULL_DAY_MIN_HOUR;
 
-                                return (
-                                  <button
-                                    key={hour}
-                                    type="button"
-                                    disabled={isDisabledHour}
-                                    onClick={() =>
-                                      updateCheckInTimePart("hour", hour)
-                                    }
-                                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                                      isDisabledHour
-                                        ? "cursor-not-allowed bg-gray-200 text-gray-400"
-                                        : selectedHour === hour
-                                        ? "bg-red-600 text-white shadow"
-                                        : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
-                                    }`}
-                                  >
-                                    {hour}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {isFullDayMode && (
-                            <p className="mt-2 text-xs text-gray-500">
-                              Untuk full day, jam 00:00–13:55 tidak bisa dipilih.
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
-                            Pilih Menit
-                          </label>
-                          <div className="readyroom-time-scroll h-48 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              {minuteOptions.map((minute) => (
+                              return (
                                 <button
-                                  key={minute}
+                                  key={hour}
                                   type="button"
+                                  disabled={isDisabledHour}
                                   onClick={() =>
-                                    updateCheckInTimePart("minute", minute)
+                                    updateCheckInTimePart("hour", hour)
                                   }
                                   className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                                    selectedMinute === minute
+                                    isDisabledHour
+                                      ? "cursor-not-allowed bg-gray-200 text-gray-400"
+                                      : selectedHour === hour
                                       ? "bg-red-600 text-white shadow"
                                       : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
                                   }`}
                                 >
-                                  {minute}
+                                  {hour}
                                 </button>
-                              ))}
-                            </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
 
-                      {bookingMode === "overnight" && (
-                        <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-                          <p className="text-xs font-semibold text-red-600 mb-1">
-                            Checkout Minimum Otomatis
-                          </p>
-                          <p className="text-sm font-semibold text-gray-800">
-                            {overnightMinimumCheckoutDate
-                              ? overnightMinimumCheckoutDate.toLocaleString(
-                                  "id-ID",
-                                  {
-                                    day: "2-digit",
-                                    month: "long",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )
-                              : "-"}
-                          </p>
-                        </div>
-                      )}
-
-                      {bookingMode === "overnight" && (
-                        <div className="mt-4">
-                          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
-                            Tanggal Checkout
-                          </label>
-                          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
-                            <DatePicker
-                              selected={selectedOvernightEndDate}
-                              onChange={handleOvernightEndDateChange}
-                              minDate={overnightMinimumCheckoutDateOnly || new Date()}
-                              dateFormat="dd MMM yyyy"
-                              placeholderText="Pilih tanggal checkout"
-                              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-800 outline-none focus:border-red-300"
-                            />
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                          Pilih Menit
+                        </label>
+                        <div className="readyroom-time-scroll h-40 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            {minuteOptions.map((minute) => (
+                              <button
+                                key={minute}
+                                type="button"
+                                onClick={() =>
+                                  updateCheckInTimePart("minute", minute)
+                                }
+                                className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                                  selectedMinute === minute
+                                    ? "bg-red-600 text-white shadow"
+                                    : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                                }`}
+                              >
+                                {minute}
+                              </button>
+                            ))}
                           </div>
-                          <p className="mt-2 text-xs text-gray-500">
-                            Jam checkout tetap mengikuti aturan hotel: 12.00 siang.
-                          </p>
                         </div>
-                      )}
+                      </div>
+                    </div>
 
-                      <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                        <p className="text-xs font-semibold text-gray-500 mb-1">
-                          Check-in Dipilih
+                    {isFullDayMode && (
+                      <p className="mt-3 text-xs text-gray-500">
+                        Untuk full day, jam 00:00–13:55 tidak bisa dipilih.
+                      </p>
+                    )}
+
+                    {bookingMode === "overnight" && (
+                      <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                        <p className="text-xs font-semibold text-red-600 mb-1">
+                          Checkout Minimum Otomatis
                         </p>
                         <p className="text-sm font-semibold text-gray-800">
-                          {selectedCheckInDate
-                            ? selectedCheckInDate.toLocaleString("id-ID", {
-                                day: "2-digit",
-                                month: "long",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
+                          {overnightMinimumCheckoutDate
+                            ? overnightMinimumCheckoutDate.toLocaleString(
+                                "id-ID",
+                                {
+                                  day: "2-digit",
+                                  month: "long",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )
                             : "-"}
                         </p>
                       </div>
+                    )}
 
-                      {bookingMode === "overnight" && (
-                        <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                          <p className="text-xs font-semibold text-gray-500 mb-1">
-                            Checkout Dipilih
-                          </p>
-                          <p className="text-sm font-semibold text-gray-800">
-                            {selectedOvernightCheckOutDateTime
-                              ? selectedOvernightCheckOutDateTime.toLocaleString(
-                                  "id-ID",
-                                  {
-                                    day: "2-digit",
-                                    month: "long",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )
-                              : "-"}
-                          </p>
+                    {bookingMode === "overnight" && (
+                      <div className="mt-4">
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                          Tanggal Checkout
+                        </label>
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                          <DatePicker
+                            selected={selectedOvernightEndDate}
+                            onChange={handleOvernightEndDateChange}
+                            minDate={overnightMinimumCheckoutDateOnly || new Date()}
+                            dateFormat="dd MMM yyyy"
+                            placeholderText="Pilih tanggal checkout"
+                            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-800 outline-none focus:border-red-300"
+                          />
                         </div>
-                      )}
-
-                      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-                        <p className="text-sm font-medium text-amber-800">
-                          Estimasi checkout:{" "}
-                          <span className="font-bold">
-                            {estimatedCheckOutText}
-                          </span>
+                        <p className="mt-2 text-xs text-gray-500">
+                          Jam checkout tetap mengikuti aturan hotel: 12.00 siang.
                         </p>
                       </div>
-
-                      {bookingMode === "overnight" && (
-                        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                          <p className="text-sm font-medium text-emerald-800">
-                            Total durasi full day:{" "}
-                            <span className="font-bold">
-                              {overnightDurationDays} hari
-                            </span>
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
+                )}
+
+                <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-gray-500 mb-1">
+                    Check-in Dipilih
+                  </p>
+                  <p className="text-sm font-semibold text-gray-800">
+                    {selectedCheckInDate
+                      ? selectedCheckInDate.toLocaleString("id-ID", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "-"}
+                  </p>
                 </div>
+
+                {bookingMode === "overnight" && (
+                  <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 mb-1">
+                      Checkout Dipilih
+                    </p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {selectedOvernightCheckOutDateTime
+                        ? selectedOvernightCheckOutDateTime.toLocaleString(
+                            "id-ID",
+                            {
+                              day: "2-digit",
+                              month: "long",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )
+                        : "-"}
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                  <p className="text-sm font-medium text-amber-800">
+                    Estimasi checkout:{" "}
+                    <span className="font-bold">
+                      {estimatedCheckOutText}
+                    </span>
+                  </p>
+                </div>
+
+                {bookingMode === "overnight" && (
+                  <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                    <p className="text-sm font-medium text-emerald-800">
+                      Total durasi full day:{" "}
+                      <span className="font-bold">
+                        {overnightDurationDays} hari
+                      </span>
+                    </p>
+                  </div>
+                )}
 
                 {isCustomerLoggedIn ? (
                   <div className="mt-5 space-y-5">

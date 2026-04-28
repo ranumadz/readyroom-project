@@ -195,6 +195,16 @@ export default function HotelDetail() {
     });
   };
 
+  const handleOpenRoomDetail = (roomId) => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+
+    navigate(`/rooms/${roomId}`);
+  };
+
   const getFacilityLabel = (facility) => {
     return facility?.name || "Fasilitas";
   };
@@ -708,20 +718,6 @@ export default function HotelDetail() {
                                 <Users size={15} className="text-red-500" />
                                 Kapasitas {room.capacity || 0} orang
                               </span>
-
-                              {Number(room.price_transit_3h || 0) > 0 && (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-2 text-red-600">
-                                  <Clock3 size={15} />
-                                  Transit
-                                </span>
-                              )}
-
-                              {Number(room.price_per_night || 0) > 0 && (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-2 text-indigo-600">
-                                  <MoonStar size={15} />
-                                  Full Day
-                                </span>
-                              )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -787,7 +783,7 @@ export default function HotelDetail() {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  navigate(`/rooms/${room.id}`);
+                                  handleOpenRoomDetail(room.id);
                                 }}
                                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700"
                               >
@@ -845,13 +841,6 @@ export default function HotelDetail() {
                 </div>
               )}
             </div>
-
-            <Link
-              to="/hotels"
-              className="block rounded-2xl bg-gray-900 px-5 py-3 text-center font-semibold text-white transition hover:bg-black"
-            >
-              Kembali ke Semua Hotel
-            </Link>
           </div>
         </div>
       </section>
