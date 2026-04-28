@@ -419,7 +419,7 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#f8f8f8] text-gray-800">
       <Navbar />
 
-      <section className="relative overflow-visible pt-[70px] pb-14 sm:pt-[78px] sm:pb-16 md:pt-20 md:pb-28 lg:pb-32">
+      <section className="relative overflow-visible pt-[62px] pb-14 sm:pt-[70px] sm:pb-16 md:pt-20 md:pb-28 lg:pb-32">
         <div className="absolute inset-0">
           <img
             src={heroMainImage}
@@ -431,7 +431,7 @@ export default function Home() {
 
         <div className="relative mx-auto max-w-7xl px-4 md:px-6">
           <div
-            className="min-h-[205px] sm:min-h-[245px] md:min-h-[430px] lg:min-h-[500px]"
+            className="min-h-[245px] sm:min-h-[285px] md:min-h-[430px] lg:min-h-[500px]"
             data-aos="fade-up"
           />
         </div>
@@ -457,14 +457,14 @@ export default function Home() {
           </p>
         </div>
 
-       <ScrollRow className="pr-6 md:pr-0">
+       <ScrollRow className="pr-20 md:pr-0">
   {cityItems.map((city, i) => (
     <Link
       draggable={false}
       to={`/hotels?destination=${encodeURIComponent(city.name)}`}
       key={i}
       data-aos="zoom-in"
-      className="group relative block min-w-[88px] w-[24%] shrink-0 overflow-hidden rounded-[0.9rem] shadow-sm sm:min-w-[150px] md:w-[31.5%] md:min-w-[280px] md:rounded-[1.75rem] lg:min-w-[360px]"
+className="group relative block min-w-[104px] w-[29%] shrink-0 overflow-hidden rounded-[0.9rem] shadow-sm sm:min-w-[150px] md:w-[31.5%] md:min-w-[280px] md:rounded-[1.75rem] lg:min-w-[360px]"
     >
       <img
         draggable={false}
