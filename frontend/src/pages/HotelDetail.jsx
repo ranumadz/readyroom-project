@@ -11,14 +11,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  FileText,
   Images,
   MapPin,
   MessageCircle,
-  Navigation,
-  Sparkles,
   Users,
   X,
+  BadgeCheck,
+  MoonStar,
 } from "lucide-react";
 
 const BACKEND_BASE_URL =
@@ -34,6 +33,7 @@ export default function HotelDetail() {
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
+  const [roomsVisible, setRoomsVisible] = useState(false);
 
   useEffect(() => {
     fetchHotelDetailAndRooms();
@@ -45,6 +45,25 @@ export default function HotelDetail() {
       setActiveImageIndex(0);
     }
   }, [hotel]);
+
+  useEffect(() => {
+    if (!roomsRef.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setRoomsVisible(entry.isIntersecting);
+      },
+      {
+        root: null,
+        threshold: 0.12,
+        rootMargin: "-90px 0px -45% 0px",
+      }
+    );
+
+    observer.observe(roomsRef.current);
+
+    return () => observer.disconnect();
+  }, [loading, rooms.length]);
 
   const fetchHotelDetailAndRooms = async () => {
     try {
@@ -116,6 +135,9 @@ export default function HotelDetail() {
     });
   }, [rooms]);
 
+  const cheapestRoom = sortedRooms[0] || null;
+  const cheapestPrice = cheapestRoom ? getRoomLowestPrice(cheapestRoom) : 0;
+
   const galleryImages = useMemo(() => {
     if (!hotel) return ["/images/hotel.jpg"];
 
@@ -175,6 +197,17 @@ export default function HotelDetail() {
 
   const getFacilityLabel = (facility) => {
     return facility?.name || "Fasilitas";
+  };
+
+  const getRoomImage = (room) => {
+    return (
+      room.thumbnail ||
+      room.image ||
+      room.images?.[0]?.image_path ||
+      room.images?.[0]?.image ||
+      hotel?.thumbnail ||
+      hotel?.hero_image
+    );
   };
 
   const getCustomerStorageKey = () => {
@@ -320,7 +353,7 @@ export default function HotelDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-gray-800">
+    <div className="min-h-screen bg-[#f5f6f8] pb-24 text-gray-800 md:pb-0">
       <Navbar />
 
       <section className="bg-white pt-24 md:pt-28">
@@ -343,11 +376,6 @@ export default function HotelDetail() {
           </div>
 
           <div className="mb-4">
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
-              <Building2 size={14} />
-              Detail Hotel
-            </div>
-
             <h1 className="text-2xl font-extrabold tracking-tight text-gray-950 md:text-4xl">
               {hotel.name}
             </h1>
@@ -488,74 +516,41 @@ export default function HotelDetail() {
       <section className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-10">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm md:p-7">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                  <FileText size={20} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Deskripsi Hotel
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Informasi singkat mengenai hotel ini
-                  </p>
-                </div>
+            <div className="overflow-hidden rounded-[1.5rem] border border-gray-100 bg-white shadow-sm">
+              <div className="border-b border-gray-100 p-5 md:p-7">
+                <h2 className="text-lg font-bold text-gray-900 md:text-xl">
+                  Deskripsi Hotel
+                </h2>
+                <p className="mt-3 leading-relaxed text-gray-600">
+                  {hotel.description || "Deskripsi hotel belum tersedia."}
+                </p>
               </div>
 
-              <p className="leading-relaxed text-gray-600">
-                {hotel.description || "Deskripsi hotel belum tersedia."}
-              </p>
+              <div className="p-5 md:p-7">
+                <h2 className="text-lg font-bold text-gray-900 md:text-xl">
+                  Fasilitas Hotel
+                </h2>
+
+                {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {hotel.facilities.map((facility) => (
+                      <span
+                        key={facility.id}
+                        className="rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-600"
+                      >
+                        {getFacilityLabel(facility)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-gray-500">
+                    Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm md:p-7">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                  <Sparkles size={20} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Fasilitas Hotel
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Fasilitas yang tersedia di hotel ini
-                  </p>
-                </div>
-              </div>
-
-              {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {hotel.facilities.map((facility) => (
-                    <span
-                      key={facility.id}
-                      className="rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-600"
-                    >
-                      {getFacilityLabel(facility)}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
-                  Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm md:p-7">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                  <Navigation size={20} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Alamat & Peta
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Lokasi hotel dan akses Google Maps
-                  </p>
-                </div>
-              </div>
-
+            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-5 shadow-sm md:p-7">
               <div className="mb-4 rounded-2xl border border-red-100 bg-red-50/50 p-4">
                 <div className="flex items-start gap-3">
                   <MapPin size={18} className="mt-1 shrink-0 text-red-600" />
@@ -621,9 +616,9 @@ export default function HotelDetail() {
 
             <div
               ref={roomsRef}
-              className="scroll-mt-24 rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm md:p-7"
+              className="scroll-mt-24 rounded-[1.5rem] border border-gray-100 bg-white p-4 shadow-sm md:p-7"
             >
-              <div className="mb-5 flex items-center justify-between gap-4">
+              <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                 <div>
                   <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
                     <BedDouble size={14} />
@@ -633,9 +628,20 @@ export default function HotelDetail() {
                     Pilih kamar sesuai kebutuhanmu
                   </h2>
                   <p className="mt-1 text-sm text-gray-500">
-                    Diurutkan dari harga termurah yang tersedia.
+                    Kamar termurah otomatis berada di urutan pertama.
                   </p>
                 </div>
+
+                {cheapestPrice > 0 && (
+                  <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                    <p className="text-xs font-semibold text-red-600">
+                      Mulai dari
+                    </p>
+                    <p className="text-xl font-extrabold text-red-600">
+                      {formatRupiah(cheapestPrice)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {sortedRooms.length === 0 ? (
@@ -643,19 +649,19 @@ export default function HotelDetail() {
                   Belum ada kamar tersedia untuk hotel ini.
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 md:space-y-5">
                   {sortedRooms.map((room, index) => {
                     const lowestPrice = getRoomLowestPrice(room);
 
                     return (
                       <div
                         key={room.id}
-                        className="overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm transition hover:shadow-md"
+                        className="overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg md:rounded-[1.7rem]"
                       >
-                        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
-                          <div className="relative min-h-[190px] bg-gray-100">
+                        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr]">
+                          <div className="relative min-h-[210px] bg-gray-100 md:min-h-[260px]">
                             <img
-                              src={buildImageUrl(room.thumbnail, "/images/hotel.jpg")}
+                              src={buildImageUrl(getRoomImage(room), "/images/hotel.jpg")}
                               alt={room.name}
                               onError={(e) => {
                                 e.currentTarget.src = "/images/hotel.jpg";
@@ -663,65 +669,132 @@ export default function HotelDetail() {
                               className="h-full w-full object-cover"
                             />
 
-                            <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
+                            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
+
+                            <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-red-600 shadow">
                               <BedDouble size={14} />
                               {room.type || "Room"}
                             </div>
 
                             {index === 0 && (
-                              <div className="absolute bottom-3 left-3 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
-                                Termurah
+                              <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
+                                <BadgeCheck size={13} />
+                                Termurah di hotel ini
                               </div>
                             )}
                           </div>
 
                           <div className="p-4 md:p-5">
-                            <div className="mb-3">
-                              <h3 className="text-lg font-extrabold text-gray-900 md:text-xl">
-                                {room.name}
-                              </h3>
-                              <p className="mt-1 text-sm leading-relaxed text-gray-500">
-                                {room.description ||
-                                  "Kamar nyaman untuk kebutuhan menginap atau transit."}
-                              </p>
+                            <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                              <div>
+                                <h3 className="text-lg font-extrabold leading-tight text-gray-900 md:text-2xl">
+                                  {room.name}
+                                </h3>
+                                <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                                  {room.description ||
+                                    "Kamar nyaman untuk kebutuhan transit maupun menginap."}
+                                </p>
+                              </div>
+
+                              {index === 0 && (
+                                <span className="w-fit rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-600">
+                                  Rekomendasi Hemat
+                                </span>
+                              )}
                             </div>
 
-                            <div className="grid gap-2 text-sm text-gray-600 sm:grid-cols-2">
-                              <div className="flex items-center gap-2">
-                                <Users size={16} className="text-red-500" />
+                            <div className="mb-4 flex flex-wrap gap-2 text-xs font-semibold md:text-sm">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-3 py-2 text-gray-600">
+                                <Users size={15} className="text-red-500" />
                                 Kapasitas {room.capacity || 0} orang
+                              </span>
+
+                              {Number(room.price_transit_3h || 0) > 0 && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-2 text-red-600">
+                                  <Clock3 size={15} />
+                                  Transit
+                                </span>
+                              )}
+
+                              {Number(room.price_per_night || 0) > 0 && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-2 text-indigo-600">
+                                  <MoonStar size={15} />
+                                  Full Day
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                              <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-3">
+                                <p className="text-[10px] font-bold uppercase text-red-500">
+                                  Transit 3 Jam
+                                </p>
+                                <p className="mt-1 text-sm font-extrabold text-red-700">
+                                  {Number(room.price_transit_3h || 0) > 0
+                                    ? formatRupiah(room.price_transit_3h)
+                                    : "-"}
+                                </p>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Clock3 size={16} className="text-red-500" />
-                                Transit 3 jam: {formatRupiah(room.price_transit_3h || 0)}
+
+                              <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-3">
+                                <p className="text-[10px] font-bold uppercase text-orange-500">
+                                  Transit 6 Jam
+                                </p>
+                                <p className="mt-1 text-sm font-extrabold text-orange-700">
+                                  {Number(room.price_transit_6h || 0) > 0
+                                    ? formatRupiah(room.price_transit_6h)
+                                    : "-"}
+                                </p>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Clock3 size={16} className="text-red-500" />
-                                Transit 6 jam: {formatRupiah(room.price_transit_6h || 0)}
+
+                              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3">
+                                <p className="text-[10px] font-bold uppercase text-amber-600">
+                                  Transit 12 Jam
+                                </p>
+                                <p className="mt-1 text-sm font-extrabold text-amber-700">
+                                  {Number(room.price_transit_12h || 0) > 0
+                                    ? formatRupiah(room.price_transit_12h)
+                                    : "-"}
+                                </p>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Clock3 size={16} className="text-red-500" />
-                                Transit 12 jam: {formatRupiah(room.price_transit_12h || 0)}
+
+                              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3">
+                                <p className="text-[10px] font-bold uppercase text-emerald-600">
+                                  Full Day
+                                </p>
+                                <p className="mt-1 text-sm font-extrabold text-emerald-700">
+                                  {Number(room.price_per_night || 0) > 0
+                                    ? formatRupiah(room.price_per_night)
+                                    : "-"}
+                                </p>
                               </div>
                             </div>
 
-                            <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-                              <p className="text-xs font-semibold text-red-600">
-                                Mulai dari
-                              </p>
-                              <p className="mt-1 text-2xl font-extrabold text-gray-900">
-                                {lowestPrice > 0 ? formatRupiah(lowestPrice) : "Hubungi admin"}
-                              </p>
-                            </div>
+                            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3 md:flex-row md:items-center md:justify-between">
+                              <div>
+                                <p className="text-xs font-semibold text-gray-500">
+                                  Mulai dari
+                                </p>
+                                <p className="text-2xl font-extrabold text-red-600">
+                                  {lowestPrice > 0
+                                    ? formatRupiah(lowestPrice)
+                                    : "Hubungi admin"}
+                                </p>
+                              </div>
 
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/rooms/${room.id}`)}
-                              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
-                            >
-                              Lihat Detail Kamar
-                              <ArrowRight size={18} />
-                            </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  navigate(`/rooms/${room.id}`);
+                                }}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700"
+                              >
+                                Pilih / Detail Kamar
+                                <ArrowRight size={18} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -733,26 +806,6 @@ export default function HotelDetail() {
           </div>
 
           <div className="space-y-6">
-            <div className="sticky top-24 rounded-[1.5rem] border border-gray-100 bg-white p-5 shadow-sm">
-              <div className="mb-4">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Siap pilih kamar?
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Lihat daftar kamar yang tersedia di hotel ini.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleScrollToRooms}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
-              >
-                Lihat Kamar Hotel
-                <ArrowRight size={18} />
-              </button>
-            </div>
-
             <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-green-600">
@@ -802,6 +855,35 @@ export default function HotelDetail() {
           </div>
         </div>
       </section>
+
+      {!roomsVisible && sortedRooms.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-[80] border-t border-gray-100 bg-white/95 px-4 py-3 shadow-[0_-12px_35px_rgba(15,23,42,0.16)] backdrop-blur-xl md:hidden">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                Mulai dari
+              </p>
+              <p className="text-lg font-extrabold leading-tight text-red-600">
+                {cheapestPrice > 0 ? formatRupiah(cheapestPrice) : "Hubungi admin"}
+              </p>
+              {cheapestRoom?.name && (
+                <p className="line-clamp-1 text-[11px] font-medium text-gray-500">
+                  {cheapestRoom.name}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleScrollToRooms}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-200 transition hover:bg-red-700"
+            >
+              Lihat kamar
+              <ArrowRight size={17} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {showGalleryModal && (
         <div className="fixed inset-0 z-[9999] bg-black/90 p-4 text-white">

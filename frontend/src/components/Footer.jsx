@@ -147,20 +147,7 @@ export default function Footer() {
           </div>
 
           {/* CARD INFO */}
-          <div>
-            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 md:p-6">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-red-300/90">
-                Tempat Rehat
-              </p>
-              <h5 className="mt-2 text-2xl font-extrabold leading-tight text-white">
-                Paling Tepat
-              </h5>
-              <p className="mt-3 text-sm leading-7 text-white/60">
-                Lebih dekat, lebih nyaman, dan lebih siap menemani setiap
-                perjalanan.
-              </p>
-            </div>
-          </div>
+          
         </div>
 
         <div className="flex flex-col gap-4 pt-6 text-sm text-white/50 md:flex-row md:items-center md:justify-between">

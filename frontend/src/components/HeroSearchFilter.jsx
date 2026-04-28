@@ -261,7 +261,7 @@ export default function HeroSearchFilter() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-800">
+                  <p className="h-[12px] text-[10px] font-bold uppercase leading-none tracking-wide text-gray-800">
                     Destination
                   </p>
                   <input
@@ -269,7 +269,7 @@ export default function HeroSearchFilter() {
                     onFocus={handleOpenDropdown}
                     onChange={handleDestinationChange}
                     onKeyDown={handleKeyDown}
-                    className="mt-1 w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+                    className="mt-1 w-full bg-transparent text-sm leading-tight text-gray-700 outline-none placeholder:text-gray-400"
                     placeholder="Cari kota atau hotel..."
                   />
                 </div>
@@ -342,10 +342,10 @@ export default function HeroSearchFilter() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-800">
+                  <p className="h-[12px] text-[10px] font-bold uppercase leading-none tracking-wide text-gray-800">
                     Check In
                   </p>
-                  <p className="mt-1 truncate text-sm text-gray-700">
+                  <p className="mt-1 truncate text-sm leading-tight text-gray-700">
                     {displayCheckIn || "Pilih tanggal check-in"}
                   </p>
                 </div>
@@ -412,8 +412,8 @@ export default function HeroSearchFilter() {
                   <MapPin size={10} />
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="text-[6px] font-bold uppercase tracking-wide text-gray-800">
+                <div className="flex min-w-0 flex-1 flex-col justify-center">
+                  <p className="h-[7px] text-[6px] font-bold uppercase leading-none tracking-wide text-gray-800">
                     Destination
                   </p>
                   <input
@@ -421,7 +421,7 @@ export default function HeroSearchFilter() {
                     onFocus={handleOpenDropdown}
                     onChange={handleDestinationChange}
                     onKeyDown={handleKeyDown}
-                    className="mt-0.5 w-full bg-transparent text-[8.5px] text-gray-700 outline-none placeholder:text-gray-400"
+                    className="mt-[3px] w-full bg-transparent text-[8.5px] leading-none text-gray-700 outline-none placeholder:text-gray-400"
                     placeholder="Cari kota"
                   />
                 </div>
@@ -492,11 +492,11 @@ export default function HeroSearchFilter() {
                   <CalendarDays size={10} />
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="text-[6px] font-bold uppercase tracking-wide text-gray-800">
+                <div className="flex min-w-0 flex-1 flex-col justify-center">
+                  <p className="h-[7px] text-[6px] font-bold uppercase leading-none tracking-wide text-gray-800">
                     Check In
                   </p>
-                  <p className="mt-0.5 truncate text-[8.5px] text-gray-700">
+                  <p className="mt-[3px] truncate text-[8.5px] leading-none text-gray-700">
                     {displayCheckIn || "Pilih tanggal"}
                   </p>
                 </div>
