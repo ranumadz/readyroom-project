@@ -672,17 +672,6 @@ export default function HotelDetail() {
                     Kamar termurah otomatis berada di urutan pertama.
                   </p>
                 </div>
-
-                {cheapestPrice > 0 && (
-                  <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-                    <p className="text-xs font-semibold text-red-600">
-                      Mulai dari
-                    </p>
-                    <p className="text-xl font-extrabold text-red-600">
-                      {formatRupiah(cheapestPrice)}
-                    </p>
-                  </div>
-                )}
               </div>
 
               {sortedRooms.length === 0 ? (
