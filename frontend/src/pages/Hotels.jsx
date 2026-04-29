@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -162,14 +162,36 @@ export default function Hotels() {
     });
   }, []);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
+  useLayoutEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
 
-    const scrollTimer = window.setTimeout(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    const timer1 = window.setTimeout(() => {
       window.scrollTo(0, 0);
-    }, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }, 50);
 
-    return () => window.clearTimeout(scrollTimer);
+    const timer2 = window.setTimeout(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timer1);
+      window.clearTimeout(timer2);
+    };
   }, [location.pathname, location.search]);
 
   useEffect(() => {

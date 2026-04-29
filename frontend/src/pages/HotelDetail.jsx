@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import api from "../services/api";
@@ -10,14 +10,12 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Images,
   MapPin,
   MessageCircle,
   Users,
   X,
   BadgeCheck,
-  MoonStar,
 } from "lucide-react";
 
 const BACKEND_BASE_URL =
@@ -25,6 +23,7 @@ const BACKEND_BASE_URL =
 
 export default function HotelDetail() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const roomsRef = useRef(null);
 
@@ -34,6 +33,38 @@ export default function HotelDetail() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
   const [roomsVisible, setRoomsVisible] = useState(false);
+
+  useLayoutEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    const timer1 = window.setTimeout(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }, 50);
+
+    const timer2 = window.setTimeout(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timer1);
+      window.clearTimeout(timer2);
+    };
+  }, [location.pathname, id]);
 
   useEffect(() => {
     fetchHotelDetailAndRooms();
