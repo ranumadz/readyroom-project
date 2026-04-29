@@ -686,10 +686,10 @@ export default function HotelDetail() {
 
                             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
 
-                            <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-red-600 shadow">
-                              <BedDouble size={14} />
-                              {room.type || "Room"}
-                            </div>
+                            <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-gray-700 shadow">
+  <Users size={13} className="text-red-500" />
+  {room.capacity || 0} Orang
+</div>
 
                             {index === 0 && (
                               <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
@@ -718,12 +718,7 @@ export default function HotelDetail() {
                               )}
                             </div>
 
-                            <div className="mb-4 flex flex-wrap gap-2 text-xs font-semibold md:text-sm">
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-3 py-2 text-gray-600">
-                                <Users size={15} className="text-red-500" />
-                                Kapasitas {room.capacity || 0} orang
-                              </span>
-                            </div>
+                            
 
                             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                               <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
