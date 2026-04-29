@@ -546,12 +546,11 @@ export default function HotelDetail() {
                     {hotel.name}
                   </h1>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-gray-500 md:text-base">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     <MapPin size={16} className="shrink-0 text-red-500" />
-                    <span>
-                      {hotel.city?.name || "-"}
-                      {hotel.area ? ` • ${hotel.area}` : ""}
-                    </span>
+                    <span className="text-sm font-bold text-gray-800 md:text-base">
+  {hotel.city?.name || "-"}
+</span>
                   </div>
 
                   {hotel.address && (
@@ -560,16 +559,8 @@ export default function HotelDetail() {
                     </p>
                   )}
 
-                  {hotel?.wa_admin && (
-  <div className="flex items-center gap-2 mt-1">
-    <FaWhatsapp className="text-green-500 text-sm" />
-    <span className="text-sm text-gray-700 font-medium tracking-wide">
-      {hotel.wa_admin}
-    </span>
-  </div>
-)}
+               
                 </div>
-
                 <div>
                   <div className="flex items-center gap-2">
   <FileText size={17} className="text-red-500" />
