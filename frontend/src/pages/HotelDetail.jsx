@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ArrowRight,
   BedDouble,
-  Building2,
   ChevronLeft,
   ChevronRight,
   Images,
@@ -397,14 +396,14 @@ export default function HotelDetail() {
     <div className="min-h-screen bg-[#f5f6f8] pb-24 text-gray-800 md:pb-0">
       <Navbar />
 
-      <section className="bg-white pt-24 md:pt-28">
+      <section className="bg-white pt-[88px] md:pt-28">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
+         <div className="-mt-4 mb-3 flex items-center justify-between gap-3 md:mb-5">
             <button
               onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 md:px-4 md:py-2 md:text-sm"
             >
-              <ArrowLeft size={17} />
+              <ArrowLeft size={15} />
               Kembali
             </button>
 
@@ -414,20 +413,6 @@ export default function HotelDetail() {
             >
               Lihat properti lain
             </Link>
-          </div>
-
-          <div className="mb-4">
-            <h1 className="text-2xl font-extrabold tracking-tight text-gray-950 md:text-4xl">
-              {hotel.name}
-            </h1>
-
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-gray-500 md:text-base">
-              <MapPin size={17} className="text-red-500" />
-              <span>
-                {hotel.city?.name || "-"}
-                {hotel.area ? ` • ${hotel.area}` : ""}
-              </span>
-            </div>
           </div>
 
           <div className="hidden overflow-hidden rounded-[1.35rem] bg-gray-100 md:grid md:h-[430px] md:grid-cols-[1.1fr_1.55fr] md:gap-2">
@@ -489,7 +474,7 @@ export default function HotelDetail() {
               role="button"
               tabIndex={0}
               onClick={() => setShowGalleryModal(true)}
-              className="relative overflow-hidden rounded-[1.25rem] bg-gray-100"
+              className="relative overflow-hidden rounded-[1.1rem] bg-gray-100"
             >
               <img
                 src={activeImage}
@@ -497,7 +482,7 @@ export default function HotelDetail() {
                 onError={(e) => {
                   e.currentTarget.src = "/images/hotel.jpg";
                 }}
-                className="h-[270px] w-full object-cover"
+                className="h-[250px] w-full object-cover"
               />
 
               <button
@@ -506,9 +491,9 @@ export default function HotelDetail() {
                   e.stopPropagation();
                   handlePrevImage();
                 }}
-                className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-lg"
+                className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-lg"
               >
-                <ChevronLeft size={20} />
+                <ChevronLeft size={18} />
               </button>
 
               <button
@@ -517,23 +502,23 @@ export default function HotelDetail() {
                   e.stopPropagation();
                   handleNextImage();
                 }}
-                className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-lg"
+                className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-lg"
               >
-                <ChevronRight size={20} />
+                <ChevronRight size={18} />
               </button>
 
-              <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-3 py-1 text-xs font-bold text-white backdrop-blur-md">
+              <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
                 {activeImageIndex + 1}/{galleryImages.length}
               </div>
             </div>
 
-            <div className="mt-2 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {galleryImages.map((image, index) => (
                 <button
                   key={index}
                   type="button"
                   onClick={() => setActiveImageIndex(index)}
-                  className={`h-16 w-20 shrink-0 overflow-hidden rounded-xl border-2 ${
+                  className={`h-14 w-[72px] shrink-0 overflow-hidden rounded-xl border-2 ${
                     activeImageIndex === index
                       ? "border-red-500"
                       : "border-transparent"
@@ -554,99 +539,102 @@ export default function HotelDetail() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-10">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <div className="overflow-hidden rounded-[1.5rem] border border-gray-100 bg-white shadow-sm">
-              <div className="border-b border-gray-100 p-5 md:p-7">
-                <h2 className="text-lg font-bold text-gray-900 md:text-xl">
-                  Deskripsi Hotel
-                </h2>
-                <p className="mt-3 leading-relaxed text-gray-600">
-                  {hotel.description || "Deskripsi hotel belum tersedia."}
-                </p>
-              </div>
+      <section className="mx-auto max-w-7xl px-4 py-4 md:px-6 md:py-10">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+          <div className="space-y-4 lg:col-span-2 md:space-y-6">
+            <div className="overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm md:rounded-[1.5rem]">
+              <div className="p-4 md:p-7">
+                <div className="mb-4 border-b border-gray-100 pb-4">
+                  <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-gray-950 md:text-4xl">
+                    {hotel.name}
+                  </h1>
 
-              <div className="p-5 md:p-7">
-                <h2 className="text-lg font-bold text-gray-900 md:text-xl">
-                  Fasilitas Hotel
-                </h2>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-gray-500 md:text-base">
+                    <MapPin size={16} className="shrink-0 text-red-500" />
+                    <span>
+                      {hotel.city?.name || "-"}
+                      {hotel.area ? ` • ${hotel.area}` : ""}
+                    </span>
+                  </div>
 
-                {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {hotel.facilities.map((facility) => (
-                      <span
-                        key={facility.id}
-                        className="rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-600"
-                      >
-                        {getFacilityLabel(facility)}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-gray-500">
-                    Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
-                  </div>
-                )}
+                  {hotel.address && (
+                    <p className="mt-1.5 line-clamp-2 pl-6 text-xs leading-relaxed text-gray-500 md:text-sm">
+                      {hotel.address}
+                    </p>
+                  )}
+
+                  {hotel?.wa_admin && (
+  <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
+    <MessageCircle size={14} className="text-green-500" />
+    <span className="font-medium text-gray-600 tracking-wide">
+      {hotel.wa_admin}
+    </span>
+  </div>
+)}
+                </div>
+
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 md:text-xl">
+                    Tentang Hotel Dan Fasilitas
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600 md:text-base">
+                    {hotel.description || "Deskripsi hotel belum tersedia."}
+                  </p>
+
+                  {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {hotel.facilities.map((facility) => (
+                        <span
+                          key={facility.id}
+                          className="rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 md:text-sm"
+                        >
+                          {getFacilityLabel(facility)}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-gray-500">
+                      Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-5 shadow-sm md:p-7">
-              <div className="mb-4 rounded-2xl border border-red-100 bg-red-50/50 p-4">
+            <div className="rounded-[1.35rem] border border-gray-100 bg-white p-4 shadow-sm md:rounded-[1.5rem] md:p-7">
+              <div className="mb-3 flex items-start gap-3">
                 <div className="flex items-start gap-3">
-                  <MapPin size={18} className="mt-1 shrink-0 text-red-600" />
-                  <div>
-                    <p className="font-semibold text-gray-800">Alamat Hotel</p>
-                    <p className="mt-1 leading-relaxed text-gray-600">
-                      {hotel.address || "Alamat hotel belum tersedia."}
-                    </p>
-                  </div>
+                  <MapPin size={18} className="mt-1 text-red-500" />
+
+<div>
+  <p className="font-semibold text-gray-800">
+    Alamat Hotel
+  </p>
+  <p className="mt-1 text-sm text-gray-500">
+    {hotel.address || "Alamat hotel belum tersedia."}
+  </p>
+</div>
                 </div>
               </div>
 
               {embedMapUrl ? (
-                <>
-                  <div className="h-[320px] w-full overflow-hidden rounded-2xl border border-gray-100 md:h-[380px]">
-                    <iframe
-                      title={`Map ${hotel.name}`}
-                      width="100%"
-                      height="100%"
-                      loading="lazy"
-                      allowFullScreen
-                      src={embedMapUrl}
-                      referrerPolicy="no-referrer-when-downgrade"
-                      className="h-full w-full"
-                    />
-                  </div>
-
-                  {googleMapsUrl && (
-                    <a
-                      href={googleMapsUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 font-semibold text-white transition hover:bg-black"
-                    >
-                      <MapPin size={18} />
-                      Buka di Google Maps
-                    </a>
-                  )}
-                </>
+                <div className="h-[265px] w-full overflow-hidden rounded-2xl border border-gray-100 md:h-[380px]">
+                  <iframe
+                    title={`Map ${hotel.name}`}
+                    width="100%"
+                    height="100%"
+                    loading="lazy"
+                    allowFullScreen
+                    src={embedMapUrl}
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="h-full w-full"
+                  />
+                </div>
               ) : googleMapsUrl ? (
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
                   <p className="leading-relaxed text-gray-600">
-                    Peta embed belum tersedia, tapi lokasi hotel sudah bisa dibuka
-                    langsung lewat Google Maps.
+                    Peta embed belum tersedia, tapi lokasi hotel sudah tersimpan.
                   </p>
-
-                  <a
-                    href={googleMapsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 font-semibold text-white transition hover:bg-black"
-                  >
-                    <MapPin size={18} />
-                    Buka di Google Maps
-                  </a>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
@@ -657,9 +645,9 @@ export default function HotelDetail() {
 
             <div
               ref={roomsRef}
-              className="scroll-mt-24 rounded-[1.5rem] border border-gray-100 bg-white p-4 shadow-sm md:p-7"
+              className="scroll-mt-24 rounded-[1.35rem] border border-gray-100 bg-white p-4 shadow-sm md:rounded-[1.5rem] md:p-7"
             >
-              <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div className="mb-4 flex flex-col gap-3 md:mb-5 md:flex-row md:items-end md:justify-between">
                 <div>
                   <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
                     <BedDouble size={14} />
@@ -683,10 +671,10 @@ export default function HotelDetail() {
                     return (
                       <div
                         key={room.id}
-                        className="overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg md:rounded-[1.7rem]"
+                        className="overflow-hidden rounded-[1.25rem] border border-gray-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg md:rounded-[1.7rem]"
                       >
-                        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr]">
-                          <div className="relative min-h-[210px] bg-gray-100 md:min-h-[260px]">
+                        <div className="grid grid-cols-1 md:grid-cols-[250px_1fr]">
+                          <div className="relative h-[205px] bg-gray-100 md:h-full md:min-h-[260px]">
                             <img
                               src={buildImageUrl(getRoomImage(room), "/images/hotel.jpg")}
                               alt={room.name}
@@ -706,14 +694,14 @@ export default function HotelDetail() {
                             {index === 0 && (
                               <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
                                 <BadgeCheck size={13} />
-                                Termurah di hotel ini
+                                Termurah
                               </div>
                             )}
                           </div>
 
                           <div className="p-4 md:p-5">
-                            <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                              <div>
+                            <div className="mb-4 flex items-start justify-between gap-3">
+                              <div className="min-w-0">
                                 <h3 className="text-lg font-extrabold leading-tight text-gray-900 md:text-2xl">
                                   {room.name}
                                 </h3>
@@ -724,8 +712,8 @@ export default function HotelDetail() {
                               </div>
 
                               {index === 0 && (
-                                <span className="w-fit rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-600">
-                                  Rekomendasi Hemat
+                                <span className="hidden shrink-0 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-600 sm:inline-flex">
+                                  Hemat
                                 </span>
                               )}
                             </div>
@@ -738,33 +726,33 @@ export default function HotelDetail() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                              <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-3">
-                                <p className="text-[10px] font-bold uppercase text-red-500">
+                              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
+                                <p className="text-[10px] font-bold uppercase text-gray-400">
                                   Transit 3 Jam
                                 </p>
-                                <p className="mt-1 text-sm font-extrabold text-red-700">
+                                <p className="mt-1 text-sm font-extrabold text-gray-900">
                                   {Number(room.price_transit_3h || 0) > 0
                                     ? formatRupiah(room.price_transit_3h)
                                     : "-"}
                                 </p>
                               </div>
 
-                              <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-3">
-                                <p className="text-[10px] font-bold uppercase text-orange-500">
+                              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
+                                <p className="text-[10px] font-bold uppercase text-gray-400">
                                   Transit 6 Jam
                                 </p>
-                                <p className="mt-1 text-sm font-extrabold text-orange-700">
+                                <p className="mt-1 text-sm font-extrabold text-gray-900">
                                   {Number(room.price_transit_6h || 0) > 0
                                     ? formatRupiah(room.price_transit_6h)
                                     : "-"}
                                 </p>
                               </div>
 
-                              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3">
-                                <p className="text-[10px] font-bold uppercase text-amber-600">
+                              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
+                                <p className="text-[10px] font-bold uppercase text-gray-400">
                                   Transit 12 Jam
                                 </p>
-                                <p className="mt-1 text-sm font-extrabold text-amber-700">
+                                <p className="mt-1 text-sm font-extrabold text-gray-900">
                                   {Number(room.price_transit_12h || 0) > 0
                                     ? formatRupiah(room.price_transit_12h)
                                     : "-"}
@@ -783,9 +771,9 @@ export default function HotelDetail() {
                               </div>
                             </div>
 
-                            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3 md:flex-row md:items-center md:justify-between">
+                            <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm md:flex md:items-center md:justify-between md:gap-4">
                               <div>
-                                <p className="text-xs font-semibold text-gray-500">
+                                <p className="text-xs font-semibold text-gray-400">
                                   Mulai dari
                                 </p>
                                 <p className="text-2xl font-extrabold text-red-600">
@@ -802,9 +790,9 @@ export default function HotelDetail() {
                                   e.stopPropagation();
                                   handleOpenRoomDetail(room.id);
                                 }}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700"
+                                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700 md:mt-0 md:w-auto"
                               >
-                                Pilih / Detail Kamar
+                                Pilih Kamar
                                 <ArrowRight size={18} />
                               </button>
                             </div>
@@ -818,8 +806,8 @@ export default function HotelDetail() {
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="space-y-4 md:space-y-6">
+            <div className="rounded-[1.35rem] border border-gray-100 bg-white p-5 shadow-sm md:rounded-[1.5rem] md:p-6">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-green-600">
                   <MessageCircle size={20} />
