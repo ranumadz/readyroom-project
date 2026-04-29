@@ -240,6 +240,8 @@ export default function HeroSearchFilter() {
     ? formatDateForDisplay(parseDateString(checkIn))
     : "";
 
+  const isSearchReady = destination.trim() && checkIn;
+
   return (
     <div data-aos="fade-up" className="relative z-50 mx-auto w-full max-w-[980px]">
       {/* DESKTOP / TABLET */}
@@ -370,7 +372,11 @@ export default function HeroSearchFilter() {
               <button
                 type="button"
                 onClick={handleSearch}
-                className="flex h-[54px] w-full items-center justify-center gap-2 rounded-[0.95rem] bg-red-400 px-3 text-sm font-semibold text-white shadow-md transition hover:bg-red-500"
+                className={`flex h-[54px] w-full items-center justify-center gap-2 rounded-[0.95rem] px-3 text-sm font-semibold text-white shadow-md transition ${
+                  isSearchReady
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-red-400 hover:bg-red-500"
+                }`}
               >
                 <Search size={17} />
                 Cari
@@ -522,7 +528,11 @@ export default function HeroSearchFilter() {
               <button
                 type="button"
                 onClick={handleSearch}
-                className="flex h-[42px] w-full flex-col items-center justify-center gap-0.5 rounded-[0.7rem] bg-red-400 px-1 text-[8.5px] font-semibold text-white shadow-md transition hover:bg-red-500"
+                className={`flex h-[42px] w-full flex-col items-center justify-center gap-0.5 rounded-[0.7rem] px-1 text-[8.5px] font-semibold text-white shadow-md transition ${
+                  isSearchReady
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-red-400 hover:bg-red-500"
+                }`}
               >
                 <Search size={11} />
                 Cari
