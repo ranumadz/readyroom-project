@@ -16,6 +16,7 @@ import {
   Users,
   X,
   BadgeCheck,
+  FileText,
 } from "lucide-react";
 
 const BACKEND_BASE_URL =
@@ -471,72 +472,67 @@ export default function HotelDetail() {
           </div>
 
           <div className="md:hidden">
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => setShowGalleryModal(true)}
-              className="relative overflow-hidden rounded-[1.1rem] bg-gray-100"
-            >
-              <img
-                src={activeImage}
-                alt={hotel.name}
-                onError={(e) => {
-                  e.currentTarget.src = "/images/hotel.jpg";
-                }}
-                className="h-[250px] w-full object-cover"
-              />
+  <div
+    onScroll={(e) => {
+      const scrollLeft = e.currentTarget.scrollLeft;
+      const itemWidth = e.currentTarget.clientWidth + 12;
+      const nextIndex = Math.round(scrollLeft / itemWidth);
 
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrevImage();
-                }}
-                className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-lg"
-              >
-                <ChevronLeft size={18} />
-              </button>
+      if (nextIndex !== activeImageIndex) {
+        setActiveImageIndex(nextIndex);
+      }
+    }}
+    className="flex snap-x snap-mandatory gap-3 overflow-x-auto rounded-[1.1rem] scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+  >
+    {galleryImages.map((image, index) => (
+      <div
+        key={index}
+        onClick={() => {
+          setActiveImageIndex(index);
+          setShowGalleryModal(true);
+        }}
+        className="relative h-[250px] w-full shrink-0 snap-center overflow-hidden rounded-[1.1rem] bg-gray-100"
+      >
+        <img
+          src={image}
+          alt={`${hotel.name} ${index + 1}`}
+          onError={(e) => {
+            e.currentTarget.src = "/images/hotel.jpg";
+          }}
+          className="h-full w-full object-cover"
+        />
 
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNextImage();
-                }}
-                className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-lg"
-              >
-                <ChevronRight size={18} />
-              </button>
+        <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
+          {index + 1}/{galleryImages.length}
+        </div>
+      </div>
+    ))}
+  </div>
 
-              <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-                {activeImageIndex + 1}/{galleryImages.length}
-              </div>
-            </div>
-
-            <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {galleryImages.map((image, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => setActiveImageIndex(index)}
-                  className={`h-14 w-[72px] shrink-0 overflow-hidden rounded-xl border-2 ${
-                    activeImageIndex === index
-                      ? "border-red-500"
-                      : "border-transparent"
-                  }`}
-                >
-                  <img
-                    src={image}
-                    alt={`${hotel.name} ${index + 1}`}
-                    onError={(e) => {
-                      e.currentTarget.src = "/images/hotel.jpg";
-                    }}
-                    className="h-full w-full object-cover"
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
+  <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    {galleryImages.map((image, index) => (
+      <button
+        key={index}
+        type="button"
+        onClick={() => setActiveImageIndex(index)}
+        className={`h-14 w-[72px] shrink-0 overflow-hidden rounded-xl border-2 transition ${
+          activeImageIndex === index
+            ? "border-red-500"
+            : "border-transparent"
+        }`}
+      >
+        <img
+          src={image}
+          alt={`${hotel.name} ${index + 1}`}
+          onError={(e) => {
+            e.currentTarget.src = "/images/hotel.jpg";
+          }}
+          className="h-full w-full object-cover"
+        />
+      </button>
+    ))}
+  </div>
+</div>
         </div>
       </section>
 
@@ -575,9 +571,12 @@ export default function HotelDetail() {
                 </div>
 
                 <div>
-                  <h2 className="text-base font-bold text-gray-900 md:text-xl">
-                    Tentang Hotel Dan Fasilitas
-                  </h2>
+                  <div className="flex items-center gap-2">
+  <FileText size={17} className="text-red-500" />
+  <h2 className="text-base font-bold text-gray-900 md:text-xl">
+    Deskripsi & Fasilitas Hotel
+  </h2>
+</div>
                   <p className="mt-2 text-sm leading-relaxed text-gray-600 md:text-base">
                     {hotel.description || "Deskripsi hotel belum tersedia."}
                   </p>
