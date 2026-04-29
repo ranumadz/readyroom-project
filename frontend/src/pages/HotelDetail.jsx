@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { FaWhatsapp } from "react-icons/fa";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import api from "../services/api";
@@ -564,9 +565,9 @@ export default function HotelDetail() {
                   )}
 
                   {hotel?.wa_admin && (
-  <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-    <MessageCircle size={14} className="text-green-500" />
-    <span className="font-medium text-gray-600 tracking-wide">
+  <div className="flex items-center gap-2 mt-1">
+    <FaWhatsapp className="text-green-500 text-sm" />
+    <span className="text-sm text-gray-700 font-medium tracking-wide">
       {hotel.wa_admin}
     </span>
   </div>
