@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -7,10 +7,8 @@ import Footer from "../components/Footer";
 import api from "../services/api";
 import {
   ArrowLeft,
-  BedDouble,
   Building2,
   Clock3,
-  Hotel,
   MoonStar,
   Users,
   FileText,
@@ -30,6 +28,7 @@ import {
   Bath,
   Tv,
   Snowflake,
+  X,
 } from "lucide-react";
 
 const BACKEND_BASE_URL =
@@ -40,6 +39,7 @@ const FULL_DAY_MIN_HOUR = 14;
 export default function RoomDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const mobileGalleryRef = useRef(null);
 
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,6 @@ export default function RoomDetail() {
   });
 
   const [submittingBooking, setSubmittingBooking] = useState(false);
-
   const [bookingSuccess, setBookingSuccess] = useState({
     open: false,
     bookingCode: "",
@@ -93,7 +92,6 @@ export default function RoomDetail() {
         localStorage.getItem("customerUser");
 
       let parsedUser = null;
-
       if (possibleUserRaw) {
         try {
           parsedUser = JSON.parse(possibleUserRaw);
@@ -116,7 +114,6 @@ export default function RoomDetail() {
       setLoading(true);
       const res = await api.get(`/rooms/${id}`);
       const roomData = res.data?.data || null;
-
       setRoom(roomData);
 
       const imageList = buildGallery(roomData);
@@ -133,20 +130,13 @@ export default function RoomDetail() {
     if (!path) return fallback;
 
     const rawPath = String(path).trim();
-
     if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
       return rawPath;
     }
 
     const cleanPath = rawPath.replace(/^\/+/, "");
-
-    if (cleanPath.startsWith("images/")) {
-      return `/${cleanPath}`;
-    }
-
-    if (cleanPath.startsWith("storage/")) {
-      return `${BACKEND_BASE_URL}/${cleanPath}`;
-    }
+    if (cleanPath.startsWith("images/")) return `/${cleanPath}`;
+    if (cleanPath.startsWith("storage/")) return `${BACKEND_BASE_URL}/${cleanPath}`;
 
     return `${BACKEND_BASE_URL}/storage/${cleanPath}`;
   };
@@ -167,17 +157,12 @@ export default function RoomDetail() {
           const imagePath = img.image_path || img.path || img.image;
           if (imagePath) {
             const finalUrl = buildImageUrl(imagePath);
-            if (!gallery.includes(finalUrl)) {
-              gallery.push(finalUrl);
-            }
+            if (!gallery.includes(finalUrl)) gallery.push(finalUrl);
           }
         });
     }
 
-    if (gallery.length === 0) {
-      gallery.push("/images/hotel.jpg");
-    }
-
+    if (gallery.length === 0) gallery.push("/images/hotel.jpg");
     return gallery;
   };
 
@@ -188,74 +173,70 @@ export default function RoomDetail() {
     return idx >= 0 ? idx : 0;
   }, [galleryImages, activeImage]);
 
+  const setGalleryImageByIndex = (index, shouldScroll = false) => {
+    const safeImage = galleryImages[index];
+    if (!safeImage) return;
+
+    setActiveImage(safeImage);
+
+    if (shouldScroll && mobileGalleryRef.current) {
+      mobileGalleryRef.current.scrollTo({
+        left: index * (mobileGalleryRef.current.clientWidth + 12),
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const handlePrevImage = () => {
+    if (!galleryImages.length) return;
+    const prevIndex = activeImageIndex === 0 ? galleryImages.length - 1 : activeImageIndex - 1;
+    setGalleryImageByIndex(prevIndex, true);
+  };
+
+  const handleNextImage = () => {
+    if (!galleryImages.length) return;
+    const nextIndex = (activeImageIndex + 1) % galleryImages.length;
+    setGalleryImageByIndex(nextIndex, true);
+  };
+
   const parseDateTimeLocalValue = (value) => {
     if (!value) return null;
-
     const [datePart, timePart] = value.split(" ");
     if (!datePart || !timePart) return null;
-
     const [year, month, day] = datePart.split("-").map(Number);
     const [hour, minute, second] = timePart.split(":").map(Number);
-
-    return new Date(
-      year,
-      (month || 1) - 1,
-      day || 1,
-      hour || 0,
-      minute || 0,
-      second || 0
-    );
+    return new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, second || 0);
   };
 
   const formatDateTimeLocalValue = (date) => {
     if (!date) return "";
-
     const pad = (num) => String(num).padStart(2, "0");
-
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-      date.getDate()
-    )} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
   };
 
   const formatDateOnlyValue = (date) => {
     if (!date) return "";
-
     const pad = (num) => String(num).padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-      date.getDate()
-    )}`;
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   };
 
   const parseDateOnlyValue = (value) => {
     if (!value) return null;
-
     const [year, month, day] = String(value).split("-").map(Number);
     if (!year || !month || !day) return null;
-
     return new Date(year, month - 1, day, 0, 0, 0, 0);
   };
 
   const selectedCheckInDate = useMemo(() => {
-    return bookingForm.check_in
-      ? parseDateTimeLocalValue(bookingForm.check_in)
-      : null;
+    return bookingForm.check_in ? parseDateTimeLocalValue(bookingForm.check_in) : null;
   }, [bookingForm.check_in]);
 
   const selectedOvernightEndDate = useMemo(() => {
-    return bookingForm.overnight_end_date
-      ? parseDateOnlyValue(bookingForm.overnight_end_date)
-      : null;
+    return bookingForm.overnight_end_date ? parseDateOnlyValue(bookingForm.overnight_end_date) : null;
   }, [bookingForm.overnight_end_date]);
 
-  const hourOptions = useMemo(
-    () => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")),
-    []
-  );
-
-  const minuteOptions = useMemo(
-    () => Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")),
-    []
-  );
+  const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")), []);
+  const minuteOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")), []);
 
   const selectedHour = useMemo(() => {
     if (!selectedCheckInDate) return "";
@@ -269,11 +250,9 @@ export default function RoomDetail() {
 
   const overnightMinimumCheckoutDate = useMemo(() => {
     if (!selectedCheckInDate) return null;
-
     const checkIn = new Date(selectedCheckInDate);
     const noonBoundary = new Date(checkIn);
     noonBoundary.setHours(12, 0, 0, 0);
-
     const minimumDate = new Date(checkIn);
 
     if (checkIn < noonBoundary) {
@@ -288,7 +267,6 @@ export default function RoomDetail() {
 
   const overnightMinimumCheckoutDateOnly = useMemo(() => {
     if (!overnightMinimumCheckoutDate) return null;
-
     return new Date(
       overnightMinimumCheckoutDate.getFullYear(),
       overnightMinimumCheckoutDate.getMonth(),
@@ -303,101 +281,50 @@ export default function RoomDetail() {
   const selectedOvernightCheckOutDateTime = useMemo(() => {
     if (bookingMode !== "overnight") return null;
     if (!selectedCheckInDate) return null;
-
-    if (!selectedOvernightEndDate && overnightMinimumCheckoutDate) {
-      return new Date(overnightMinimumCheckoutDate);
-    }
-
+    if (!selectedOvernightEndDate && overnightMinimumCheckoutDate) return new Date(overnightMinimumCheckoutDate);
     if (!selectedOvernightEndDate) return null;
 
     const checkout = new Date(selectedOvernightEndDate);
     checkout.setHours(12, 0, 0, 0);
 
-    if (
-      overnightMinimumCheckoutDate &&
-      checkout.getTime() < overnightMinimumCheckoutDate.getTime()
-    ) {
+    if (overnightMinimumCheckoutDate && checkout.getTime() < overnightMinimumCheckoutDate.getTime()) {
       return new Date(overnightMinimumCheckoutDate);
     }
 
     return checkout;
-  }, [
-    bookingMode,
-    selectedCheckInDate,
-    selectedOvernightEndDate,
-    overnightMinimumCheckoutDate,
-  ]);
+  }, [bookingMode, selectedCheckInDate, selectedOvernightEndDate, overnightMinimumCheckoutDate]);
 
   const overnightDurationDays = useMemo(() => {
     if (bookingMode !== "overnight") return 1;
     if (!selectedCheckInDate) return 1;
     if (!selectedOvernightCheckOutDateTime) return 1;
 
-    const start = new Date(
-      selectedCheckInDate.getFullYear(),
-      selectedCheckInDate.getMonth(),
-      selectedCheckInDate.getDate(),
-      0,
-      0,
-      0,
-      0
-    );
-
-    const end = new Date(
-      selectedOvernightCheckOutDateTime.getFullYear(),
-      selectedOvernightCheckOutDateTime.getMonth(),
-      selectedOvernightCheckOutDateTime.getDate(),
-      0,
-      0,
-      0,
-      0
-    );
-
-    const diffMs = end.getTime() - start.getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
+    const start = new Date(selectedCheckInDate.getFullYear(), selectedCheckInDate.getMonth(), selectedCheckInDate.getDate(), 0, 0, 0, 0);
+    const end = new Date(selectedOvernightCheckOutDateTime.getFullYear(), selectedOvernightCheckOutDateTime.getMonth(), selectedOvernightCheckOutDateTime.getDate(), 0, 0, 0, 0);
+    const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     return diffDays <= 0 ? 1 : diffDays;
   }, [bookingMode, selectedCheckInDate, selectedOvernightCheckOutDateTime]);
 
   const updateCheckInTimePart = (type, value) => {
     if (!selectedCheckInDate) {
-      if (isCustomerLoggedIn) {
-        setBookingError("Pilih tanggal terlebih dahulu.");
-      } else {
-        setGuestError("Pilih tanggal terlebih dahulu.");
-      }
+      if (isCustomerLoggedIn) setBookingError("Pilih tanggal terlebih dahulu.");
+      else setGuestError("Pilih tanggal terlebih dahulu.");
       return;
     }
 
-    if (isFullDayMode && type === "hour" && Number(value) < FULL_DAY_MIN_HOUR) {
-      return;
-    }
+    if (isFullDayMode && type === "hour" && Number(value) < FULL_DAY_MIN_HOUR) return;
 
     const nextDate = new Date(selectedCheckInDate);
-
-    if (type === "hour") {
-      nextDate.setHours(Number(value));
-    }
-
-    if (type === "minute") {
-      nextDate.setMinutes(Number(value));
-    }
-
+    if (type === "hour") nextDate.setHours(Number(value));
+    if (type === "minute") nextDate.setMinutes(Number(value));
     nextDate.setSeconds(0, 0);
 
     if (isFullDayMode && nextDate.getHours() < FULL_DAY_MIN_HOUR) {
       nextDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
     }
 
-    setBookingForm((prev) => ({
-      ...prev,
-      check_in: formatDateTimeLocalValue(nextDate),
-    }));
-
-    if (type === "minute") {
-      setShowTimePanel(false);
-    }
-
+    setBookingForm((prev) => ({ ...prev, check_in: formatDateTimeLocalValue(nextDate) }));
+    if (type === "minute") setShowTimePanel(false);
     setBookingError("");
     setGuestError("");
   };
@@ -408,10 +335,7 @@ export default function RoomDetail() {
     if (!overnightMinimumCheckoutDateOnly) return;
 
     if (!selectedOvernightEndDate) {
-      setBookingForm((prev) => ({
-        ...prev,
-        overnight_end_date: formatDateOnlyValue(overnightMinimumCheckoutDateOnly),
-      }));
+      setBookingForm((prev) => ({ ...prev, overnight_end_date: formatDateOnlyValue(overnightMinimumCheckoutDateOnly) }));
       return;
     }
 
@@ -426,29 +350,16 @@ export default function RoomDetail() {
     );
 
     if (chosenEndDate.getTime() < overnightMinimumCheckoutDateOnly.getTime()) {
-      setBookingForm((prev) => ({
-        ...prev,
-        overnight_end_date: formatDateOnlyValue(overnightMinimumCheckoutDateOnly),
-      }));
+      setBookingForm((prev) => ({ ...prev, overnight_end_date: formatDateOnlyValue(overnightMinimumCheckoutDateOnly) }));
     }
-  }, [
-    bookingMode,
-    selectedCheckInDate,
-    selectedOvernightEndDate,
-    overnightMinimumCheckoutDateOnly,
-  ]);
+  }, [bookingMode, selectedCheckInDate, selectedOvernightEndDate, overnightMinimumCheckoutDateOnly]);
 
   useEffect(() => {
     if (!isFullDayMode || !selectedCheckInDate) return;
-
     if (selectedCheckInDate.getHours() < FULL_DAY_MIN_HOUR) {
       const adjustedDate = new Date(selectedCheckInDate);
       adjustedDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
-
-      setBookingForm((prev) => ({
-        ...prev,
-        check_in: formatDateTimeLocalValue(adjustedDate),
-      }));
+      setBookingForm((prev) => ({ ...prev, check_in: formatDateTimeLocalValue(adjustedDate) }));
     }
   }, [isFullDayMode, selectedCheckInDate]);
 
@@ -465,10 +376,8 @@ export default function RoomDetail() {
     } else {
       const sameDayNoon = new Date(checkIn);
       sameDayNoon.setHours(12, 0, 0, 0);
-
-      if (checkIn < sameDayNoon) {
-        checkOut.setTime(sameDayNoon.getTime());
-      } else {
+      if (checkIn < sameDayNoon) checkOut.setTime(sameDayNoon.getTime());
+      else {
         sameDayNoon.setDate(sameDayNoon.getDate() + 1);
         checkOut.setTime(sameDayNoon.getTime());
       }
@@ -481,85 +390,27 @@ export default function RoomDetail() {
       hour: "2-digit",
       minute: "2-digit",
     });
-  }, [
-    selectedCheckInDate,
-    bookingMode,
-    transitDuration,
-    selectedOvernightCheckOutDateTime,
-  ]);
+  }, [selectedCheckInDate, bookingMode, transitDuration, selectedOvernightCheckOutDateTime]);
 
   useEffect(() => {
     if (!galleryImages.length) return;
-
-    if (!activeImage || !galleryImages.includes(activeImage)) {
-      setActiveImage(galleryImages[0]);
-    }
+    if (!activeImage || !galleryImages.includes(activeImage)) setActiveImage(galleryImages[0]);
   }, [galleryImages, activeImage]);
-
-  useEffect(() => {
-    if (galleryImages.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setActiveImage((prev) => {
-        const currentIndex = galleryImages.findIndex((image) => image === prev);
-        const safeIndex = currentIndex >= 0 ? currentIndex : 0;
-        const nextIndex = (safeIndex + 1) % galleryImages.length;
-        return galleryImages[nextIndex];
-      });
-    }, 3500);
-
-    return () => clearInterval(interval);
-  }, [galleryImages]);
-
-  const handlePrevImage = () => {
-    if (!galleryImages.length) return;
-
-    const prevIndex =
-      activeImageIndex === 0 ? galleryImages.length - 1 : activeImageIndex - 1;
-    setActiveImage(galleryImages[prevIndex]);
-  };
-
-  const handleNextImage = () => {
-    if (!galleryImages.length) return;
-
-    const nextIndex = (activeImageIndex + 1) % galleryImages.length;
-    setActiveImage(galleryImages[nextIndex]);
-  };
 
   const handleCheckInDateChange = (date) => {
     if (!date) {
-      setBookingForm((prev) => ({
-        ...prev,
-        check_in: "",
-        ...(bookingMode === "overnight" ? { overnight_end_date: "" } : {}),
-      }));
+      setBookingForm((prev) => ({ ...prev, check_in: "", ...(bookingMode === "overnight" ? { overnight_end_date: "" } : {}) }));
       setBookingError("");
       setGuestError("");
       return;
     }
 
     const nextDate = new Date(date);
+    if (!selectedCheckInDate) nextDate.setHours(isFullDayMode ? FULL_DAY_MIN_HOUR : 12, 0, 0, 0);
+    else nextDate.setHours(selectedCheckInDate.getHours(), selectedCheckInDate.getMinutes(), 0, 0);
+    if (isFullDayMode && nextDate.getHours() < FULL_DAY_MIN_HOUR) nextDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
 
-    if (!selectedCheckInDate) {
-      nextDate.setHours(isFullDayMode ? FULL_DAY_MIN_HOUR : 12, 0, 0, 0);
-    } else {
-      nextDate.setHours(
-        selectedCheckInDate.getHours(),
-        selectedCheckInDate.getMinutes(),
-        0,
-        0
-      );
-    }
-
-    if (isFullDayMode && nextDate.getHours() < FULL_DAY_MIN_HOUR) {
-      nextDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
-    }
-
-    setBookingForm((prev) => ({
-      ...prev,
-      check_in: formatDateTimeLocalValue(nextDate),
-    }));
-
+    setBookingForm((prev) => ({ ...prev, check_in: formatDateTimeLocalValue(nextDate) }));
     setShowDatePanel(false);
     setShowTimePanel(true);
     setBookingError("");
@@ -568,34 +419,17 @@ export default function RoomDetail() {
 
   const handleOvernightRangeChange = (dates) => {
     const [start, end] = dates || [];
-
     if (!start) {
-      setBookingForm((prev) => ({
-        ...prev,
-        check_in: "",
-        overnight_end_date: "",
-      }));
+      setBookingForm((prev) => ({ ...prev, check_in: "", overnight_end_date: "" }));
       setBookingError("");
       setGuestError("");
       return;
     }
 
     const nextStart = new Date(start);
-
-    if (!selectedCheckInDate) {
-      nextStart.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
-    } else {
-      nextStart.setHours(
-        selectedCheckInDate.getHours(),
-        selectedCheckInDate.getMinutes(),
-        0,
-        0
-      );
-    }
-
-    if (nextStart.getHours() < FULL_DAY_MIN_HOUR) {
-      nextStart.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
-    }
+    if (!selectedCheckInDate) nextStart.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
+    else nextStart.setHours(selectedCheckInDate.getHours(), selectedCheckInDate.getMinutes(), 0, 0);
+    if (nextStart.getHours() < FULL_DAY_MIN_HOUR) nextStart.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
 
     setBookingForm((prev) => ({
       ...prev,
@@ -614,20 +448,13 @@ export default function RoomDetail() {
 
   const handleOvernightEndDateChange = (date) => {
     if (!date) {
-      setBookingForm((prev) => ({
-        ...prev,
-        overnight_end_date: "",
-      }));
+      setBookingForm((prev) => ({ ...prev, overnight_end_date: "" }));
       setBookingError("");
       setGuestError("");
       return;
     }
 
-    setBookingForm((prev) => ({
-      ...prev,
-      overnight_end_date: formatDateOnlyValue(date),
-    }));
-
+    setBookingForm((prev) => ({ ...prev, overnight_end_date: formatDateOnlyValue(date) }));
     setBookingError("");
     setGuestError("");
   };
@@ -644,15 +471,8 @@ export default function RoomDetail() {
   const normalizePhone = (phone) => {
     const cleaned = String(phone || "").replace(/\D/g, "");
     if (!cleaned) return "";
-
-    if (cleaned.startsWith("0")) {
-      return `62${cleaned.slice(1)}`;
-    }
-
-    if (cleaned.startsWith("62")) {
-      return cleaned;
-    }
-
+    if (cleaned.startsWith("0")) return `62${cleaned.slice(1)}`;
+    if (cleaned.startsWith("62")) return cleaned;
     return `62${cleaned}`;
   };
 
@@ -678,14 +498,8 @@ export default function RoomDetail() {
   const waAdminLink = useMemo(() => {
     const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
     if (!rawWa) return null;
-
-    const normalizedWa = rawWa.startsWith("0")
-      ? `62${rawWa.slice(1)}`
-      : rawWa;
-
-    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi kamar.\n\nHotel: ${
-      room?.hotel?.name || "-"
-    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${
+    const normalizedWa = rawWa.startsWith("0") ? `62${rawWa.slice(1)}` : rawWa;
+    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi kamar.\n\nHotel: ${room?.hotel?.name || "-"}\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${
       selectedCheckInDate
         ? selectedCheckInDate.toLocaleString("id-ID", {
             day: "2-digit",
@@ -695,29 +509,15 @@ export default function RoomDetail() {
             minute: "2-digit",
           })
         : "-"
-    }\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
-      mainPrice
-    )}\n\nMohon info ketersediaannya ya.`;
-
+    }\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(mainPrice)}\n\nMohon info ketersediaannya ya.`;
     return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
-  }, [
-    room,
-    bookingLabelText,
-    mainPrice,
-    selectedCheckInDate,
-    estimatedCheckOutText,
-  ]);
+  }, [room, bookingLabelText, mainPrice, selectedCheckInDate, estimatedCheckOutText]);
 
   const guestWaLink = useMemo(() => {
     const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
     if (!rawWa) return null;
-
-    const normalizedAdminWa = rawWa.startsWith("0")
-      ? `62${rawWa.slice(1)}`
-      : rawWa;
-
+    const normalizedAdminWa = rawWa.startsWith("0") ? `62${rawWa.slice(1)}` : rawWa;
     const normalizedGuestPhone = normalizePhone(guestForm.guest_phone);
-
     const checkInText = selectedCheckInDate
       ? selectedCheckInDate.toLocaleString("id-ID", {
           day: "2-digit",
@@ -727,60 +527,32 @@ export default function RoomDetail() {
           minute: "2-digit",
         })
       : "-";
-
-    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi manual.\n\nNama: ${
-      guestForm.guest_name || "-"
-    }\nNo. WhatsApp: ${normalizedGuestPhone || guestForm.guest_phone || "-"}\nHotel: ${
-      room?.hotel?.name || "-"
-    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${checkInText}\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
-      mainPrice
-    )}\n\nMohon dibantu cek ketersediaan dan konfirmasi reservasinya ya.`;
-
+    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi manual.\n\nNama: ${guestForm.guest_name || "-"}\nNo. WhatsApp: ${normalizedGuestPhone || guestForm.guest_phone || "-"}\nHotel: ${room?.hotel?.name || "-"}\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${checkInText}\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(mainPrice)}\n\nMohon dibantu cek ketersediaan dan konfirmasi reservasinya ya.`;
     return `https://wa.me/${normalizedAdminWa}?text=${encodeURIComponent(text)}`;
-  }, [
-    room,
-    bookingLabelText,
-    mainPrice,
-    guestForm.guest_name,
-    guestForm.guest_phone,
-    selectedCheckInDate,
-    estimatedCheckOutText,
-  ]);
+  }, [room, bookingLabelText, mainPrice, guestForm.guest_name, guestForm.guest_phone, selectedCheckInDate, estimatedCheckOutText]);
 
   const roomFacilities = useMemo(() => {
     if (Array.isArray(room?.facilities) && room.facilities.length > 0) {
       return room.facilities.map((facility) => facility?.name || facility).filter(Boolean);
     }
-
     return ["AC", "WiFi", "TV", "Kamar mandi"];
   }, [room]);
 
   const roomFacilityIcon = (facilityName) => {
     const lower = String(facilityName || "").toLowerCase();
-
     if (lower.includes("wifi")) return Wifi;
     if (lower.includes("tv")) return Tv;
     if (lower.includes("mandi") || lower.includes("bath")) return Bath;
     if (lower.includes("ac")) return Snowflake;
-
     return CheckCircle2;
   };
 
-  const closeSuccessModal = () => {
-    setBookingSuccess({
-      open: false,
-      bookingCode: "",
-    });
-  };
+  const closeSuccessModal = () => setBookingSuccess({ open: false, bookingCode: "" });
 
   const resolveCustomerUserId = () => {
     if (customerUser?.id) return customerUser.id;
-
     try {
-      const fallbackId =
-        localStorage.getItem("user_id") ||
-        localStorage.getItem("customer_id");
-
+      const fallbackId = localStorage.getItem("user_id") || localStorage.getItem("customer_id");
       return fallbackId ? Number(fallbackId) : null;
     } catch {
       return null;
@@ -789,12 +561,7 @@ export default function RoomDetail() {
 
   const handleGuestInputChange = (e) => {
     const { name, value } = e.target;
-
-    setGuestForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
+    setGuestForm((prev) => ({ ...prev, [name]: value }));
     setGuestError("");
   };
 
@@ -803,33 +570,27 @@ export default function RoomDetail() {
       setGuestError("Nama tamu wajib diisi.");
       return false;
     }
-
     if (!guestForm.guest_phone.trim()) {
       setGuestError("Nomor WhatsApp wajib diisi.");
       return false;
     }
-
     if (!bookingForm.check_in) {
       setGuestError("Silakan pilih tanggal / jam check-in terlebih dahulu.");
       return false;
     }
-
     if (bookingMode === "overnight" && !selectedOvernightCheckOutDateTime) {
       setGuestError("Silakan pilih tanggal checkout untuk full day.");
       return false;
     }
-
     if (!room?.hotel?.wa_admin) {
       setGuestError("WhatsApp admin hotel belum tersedia.");
       return false;
     }
-
     return true;
   };
 
   const handleManualGuestBooking = () => {
     if (!validateGuestManualBooking()) return;
-
     window.open(guestWaLink, "_blank", "noopener,noreferrer");
   };
 
@@ -837,9 +598,7 @@ export default function RoomDetail() {
     const userId = resolveCustomerUserId();
 
     if (!userId) {
-      setBookingError(
-        "User login tidak terdeteksi. Silakan login ulang dulu ya."
-      );
+      setBookingError("User login tidak terdeteksi. Silakan login ulang dulu ya.");
       return;
     }
 
@@ -862,10 +621,8 @@ export default function RoomDetail() {
         hotel_id: room.hotel_id || room.hotel?.id,
         room_id: room.id,
         booking_type: bookingMode,
-        duration_hours:
-          bookingMode === "transit" ? Number(transitDuration) : null,
-        duration_days:
-          bookingMode === "overnight" ? Number(overnightDurationDays) : null,
+        duration_hours: bookingMode === "transit" ? Number(transitDuration) : null,
+        duration_days: bookingMode === "overnight" ? Number(overnightDurationDays) : null,
         check_in: bookingForm.check_in,
         check_out:
           bookingMode === "overnight" && selectedOvernightCheckOutDateTime
@@ -876,25 +633,16 @@ export default function RoomDetail() {
       const res = await api.post("/bookings", payload);
       const bookingCode = res.data?.data?.booking_code || "-";
 
-      setBookingForm({
-        check_in: "",
-        overnight_end_date: "",
-      });
-
-      setBookingSuccess({
-        open: true,
-        bookingCode,
-      });
+      setBookingForm({ check_in: "", overnight_end_date: "" });
+      setBookingSuccess({ open: true, bookingCode });
     } catch (error) {
       console.error("SUBMIT BOOKING ERROR:", error.response?.data || error);
-
       const message =
         error.response?.data?.message ||
         error.response?.data?.errors?.check_in?.[0] ||
         error.response?.data?.errors?.check_out?.[0] ||
         error.response?.data?.errors?.user_id?.[0] ||
         "Booking gagal dibuat. Silakan coba lagi.";
-
       setBookingError(message);
     } finally {
       setSubmittingBooking(false);
@@ -937,7 +685,6 @@ export default function RoomDetail() {
             <p className="text-gray-500 mb-6">
               Data kamar belum tersedia atau sudah tidak aktif.
             </p>
-
             <button
               onClick={() => navigate(-1)}
               className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-semibold hover:bg-red-700 transition"
@@ -955,10 +702,7 @@ export default function RoomDetail() {
   return (
     <>
       <style>{`
-        .readyroom-datepicker-compact {
-          width: 100% !important;
-        }
-
+        .readyroom-datepicker-compact { width: 100% !important; }
         .readyroom-datepicker-compact .react-datepicker {
           width: 100% !important;
           border: 1px solid #fecaca !important;
@@ -968,30 +712,20 @@ export default function RoomDetail() {
           font-family: inherit !important;
           background: #ffffff !important;
         }
-
-        .readyroom-datepicker-compact .react-datepicker__month-container {
-          float: none !important;
-          width: 100% !important;
-        }
-
+        .readyroom-datepicker-compact .react-datepicker__month-container { float: none !important; width: 100% !important; }
         .readyroom-datepicker-compact .react-datepicker__header {
           background: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%) !important;
           border-bottom: none !important;
           padding-top: 12px !important;
           padding-bottom: 10px !important;
         }
-
         .readyroom-datepicker-compact .react-datepicker__current-month,
         .readyroom-datepicker-compact .react-datepicker-year-header {
           color: #ffffff !important;
           font-weight: 800 !important;
           font-size: 13px !important;
         }
-
-        .readyroom-datepicker-compact .react-datepicker__day-names {
-          margin-top: 6px !important;
-        }
-
+        .readyroom-datepicker-compact .react-datepicker__day-names { margin-top: 6px !important; }
         .readyroom-datepicker-compact .react-datepicker__day-name {
           color: rgba(255, 255, 255, 0.92) !important;
           font-weight: 700 !important;
@@ -1000,26 +734,13 @@ export default function RoomDetail() {
           margin: 0.1rem !important;
           font-size: 10px !important;
         }
-
-        .readyroom-datepicker-compact .react-datepicker__navigation {
-          top: 11px !important;
-        }
-
+        .readyroom-datepicker-compact .react-datepicker__navigation { top: 11px !important; }
         .readyroom-datepicker-compact .react-datepicker__navigation-icon::before {
           border-color: #ffffff !important;
           border-width: 2px 2px 0 0 !important;
         }
-
-        .readyroom-datepicker-compact .react-datepicker__month {
-          margin: 0 !important;
-          padding: 12px 10px 14px !important;
-        }
-
-        .readyroom-datepicker-compact .react-datepicker__week {
-          display: flex !important;
-          justify-content: space-between !important;
-        }
-
+        .readyroom-datepicker-compact .react-datepicker__month { margin: 0 !important; padding: 12px 10px 14px !important; }
+        .readyroom-datepicker-compact .react-datepicker__week { display: flex !important; justify-content: space-between !important; }
         .readyroom-datepicker-compact .react-datepicker__day {
           width: 2rem !important;
           line-height: 2rem !important;
@@ -1030,18 +751,8 @@ export default function RoomDetail() {
           transition: all 0.2s ease !important;
           font-size: 11px !important;
         }
-
-        .readyroom-datepicker-compact .react-datepicker__day:hover {
-          background-color: #fee2e2 !important;
-          color: #dc2626 !important;
-        }
-
-        .readyroom-datepicker-compact .react-datepicker__day--today {
-          background: #fff1f2 !important;
-          color: #dc2626 !important;
-          font-weight: 800 !important;
-        }
-
+        .readyroom-datepicker-compact .react-datepicker__day:hover { background-color: #fee2e2 !important; color: #dc2626 !important; }
+        .readyroom-datepicker-compact .react-datepicker__day--today { background: #fff1f2 !important; color: #dc2626 !important; font-weight: 800 !important; }
         .readyroom-datepicker-compact .react-datepicker__day--selected,
         .readyroom-datepicker-compact .react-datepicker__day--keyboard-selected,
         .readyroom-datepicker-compact .react-datepicker__day--range-start,
@@ -1050,36 +761,17 @@ export default function RoomDetail() {
           color: #ffffff !important;
           font-weight: 800 !important;
         }
-
-        .readyroom-datepicker-compact .react-datepicker__day--in-range {
-          background: #fee2e2 !important;
-          color: #dc2626 !important;
-          font-weight: 700 !important;
-        }
-
-        .readyroom-datepicker-compact .react-datepicker__day--outside-month {
-          color: #cbd5e1 !important;
-        }
-
-        .readyroom-time-scroll::-webkit-scrollbar {
-          width: 7px;
-          height: 7px;
-        }
-
-        .readyroom-time-scroll::-webkit-scrollbar-thumb {
-          background: #fecaca;
-          border-radius: 999px;
-        }
-
-        .readyroom-time-scroll::-webkit-scrollbar-track {
-          background: #fff5f5;
-        }
+        .readyroom-datepicker-compact .react-datepicker__day--in-range { background: #fee2e2 !important; color: #dc2626 !important; font-weight: 700 !important; }
+        .readyroom-datepicker-compact .react-datepicker__day--outside-month { color: #cbd5e1 !important; }
+        .readyroom-time-scroll::-webkit-scrollbar { width: 7px; height: 7px; }
+        .readyroom-time-scroll::-webkit-scrollbar-thumb { background: #fecaca; border-radius: 999px; }
+        .readyroom-time-scroll::-webkit-scrollbar-track { background: #fff5f5; }
       `}</style>
 
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
 
-        <section className="max-w-7xl mx-auto px-4 md:px-6 pt-20 sm:pt-24 md:pt-10 pb-10">
+        <section className="max-w-7xl mx-auto px-4 md:px-6 pt-20 sm:pt-24 md:pt-10 pb-32 md:pb-10">
           <div className="mb-4 sm:mb-6">
             <button
               onClick={() => navigate(-1)}
@@ -1091,631 +783,645 @@ export default function RoomDetail() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-  <div>
-    <div
-      onScroll={(e) => {
-        const scrollLeft = e.currentTarget.scrollLeft;
-        const itemWidth = e.currentTarget.clientWidth + 12;
-        const nextIndex = Math.round(scrollLeft / itemWidth);
-
-        if (galleryImages[nextIndex]) {
-          setActiveImage(galleryImages[nextIndex]);
-        }
-      }}
-      className="flex snap-x snap-mandatory gap-3 overflow-x-auto rounded-3xl scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-    >
-      {galleryImages.map((image, index) => (
-        <div
-          key={`${image}-${index}`}
-          onClick={() => {
-            setActiveImage(image);
-            setShowGalleryModal(true);
-          }}
-          className="relative h-[255px] w-full shrink-0 snap-center overflow-hidden rounded-3xl bg-white shadow-sm sm:h-[380px]"
-        >
-          <img
-            src={image || "/images/hotel.jpg"}
-            alt={`${room.name} ${index + 1}`}
-            onError={(e) => {
-              e.currentTarget.src = "/images/hotel.jpg";
-            }}
-            className="h-full w-full object-cover"
-          />
-
-          <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-            {index + 1}/{galleryImages.length}
-          </div>
-        </div>
-      ))}
-    </div>
-
-    <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:gap-3 sm:overflow-visible sm:pb-0">
-      {galleryImages.map((image, index) => (
-        <button
-          key={`${image}-${index}`}
-          type="button"
-          onClick={() => setActiveImage(image)}
-          className={`relative h-16 w-20 shrink-0 overflow-hidden rounded-2xl border-2 transition-all duration-300 sm:h-24 sm:w-auto ${
-            activeImage === image
-              ? "border-red-500 shadow-lg scale-[1.02]"
-              : "border-transparent hover:border-red-200 hover:shadow-md"
-          }`}
-        >
-          <img
-            src={image}
-            alt={`Gallery ${index + 1}`}
-            onError={(e) => {
-              e.currentTarget.src = "/images/hotel.jpg";
-            }}
-            className="h-full w-full object-cover"
-          />
-
-          {activeImage === image && (
-            <div className="absolute inset-0 ring-2 ring-red-500 rounded-2xl" />
-          )}
-        </button>
-      ))}
-    </div>
-  </div>
-
-  <div>
-    <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-      {room.name}
-    </h1>
-
-    <div className="flex flex-wrap items-center gap-4 mt-3 text-gray-600">
-      <div className="inline-flex items-center gap-2">
-        <Building2 size={16} className="text-red-500" />
-        {room.hotel?.name || "-"}
-      </div>
-
-      <div className="inline-flex items-center gap-2">
-        <Users size={16} className="text-red-500" />
-        Kapasitas {room.capacity || 0} orang
-      </div>
-    </div>
-
-    <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
-          <FileText size={20} />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-800">
-            Deskripsi & Fasilitas Kamar
-          </h2>
-          <p className="text-sm text-gray-500">
-            Informasi singkat mengenai kamar
-          </p>
-        </div>
-      </div>
-
-      <p className="text-gray-700 leading-relaxed">
-        {room.description || "Deskripsi kamar belum tersedia."}
-      </p>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {roomFacilities.map((facility) => {
-          const FacilityIcon = roomFacilityIcon(facility);
-
-          return (
-            <span
-              key={facility}
-              className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600"
-            >
-              <FacilityIcon size={13} />
-              {facility}
-            </span>
-          );
-        })}
-      </div>
-    </div>
-
-    <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-      <h2 className="text-lg font-bold text-gray-800 mb-4">
-        Pilih Tipe Booking
-      </h2>
-
-      <div className="relative w-full rounded-2xl bg-gray-100 p-1 flex">
-        <div
-          className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-2xl bg-red-600 transition-all duration-300 ${
-            bookingMode === "transit" ? "left-1" : "left-1/2"
-          }`}
-        />
-        <button
-          type="button"
-          onClick={() => setBookingMode("transit")}
-          className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition ${
-            bookingMode === "transit" ? "text-white" : "text-gray-600"
-          }`}
-        >
-          Transit
-        </button>
-        <button
-          type="button"
-          onClick={() => setBookingMode("overnight")}
-          className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition ${
-            bookingMode === "overnight" ? "text-white" : "text-gray-600"
-          }`}
-        >
-          Full Day
-        </button>
-      </div>
-
-      {bookingMode === "transit" && (
-        <div className="mt-4">
-          <div className="flex flex-wrap gap-3">
-            {["3", "6", "12"].map((hour) => (
-              <button
-                key={hour}
-                type="button"
-                onClick={() => setTransitDuration(hour)}
-                className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
-                  transitDuration === hour
-                    ? "bg-red-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                {hour} Jam
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-            <Clock3 size={16} className="text-red-500" />
-            Pilih durasi transit yang kamu butuhkan
-          </div>
-        </div>
-      )}
-
-      {bookingMode === "overnight" && (
-        <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          <MoonStar size={16} className="mt-0.5 shrink-0" />
-          <p>
-            Untuk booking full day, check-in hanya bisa mulai pukul
-            14.00 dan checkout tetap mengikuti aturan hotel maksimal
-            pukul 12.00 siang. Sekarang kamu juga bisa pilih lebih dari
-            1 hari.
-          </p>
-        </div>
-      )}
-
-      <div className="mt-5 rounded-2xl bg-red-50 border border-red-100 px-4 py-4">
-        <p className="text-xs font-semibold text-red-600 mb-1">
-          Harga{" "}
-          {bookingMode === "transit"
-            ? `Transit ${transitDuration} Jam`
-            : `Full Day ${overnightDurationDays} Hari`}
-        </p>
-        <p className="text-2xl font-bold text-gray-800">
-          {formatRupiah(mainPrice)}
-        </p>
-
-        {bookingMode === "overnight" && (
-          <p className="mt-2 text-xs text-gray-500">
-            {formatRupiah(overnightUnitPrice)} x {overnightDurationDays} hari
-          </p>
-        )}
-      </div>
-    </div>
-
-    <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 overflow-visible">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
-          <CalendarDays size={20} />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-800">
-            Pilih Tanggal & Jam Booking
-          </h2>
-          <p className="text-sm text-gray-500">
-            Pilih tanggal dan jam check-in secara ringkas
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setShowDatePanel((prev) => !prev);
-              setShowTimePanel(false);
-            }}
-            className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
-              showDatePanel || selectedCheckInDate
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-          >
             <div>
-              <p className="text-sm font-bold">Pilih Tanggal</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {selectedCheckInDate
-                  ? selectedCheckInDate.toLocaleDateString("id-ID", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })
-                  : "Belum dipilih"}
-              </p>
-            </div>
-            <CalendarDays size={20} />
-          </button>
+              <div
+                ref={mobileGalleryRef}
+                onScroll={(e) => {
+                  const scrollLeft = e.currentTarget.scrollLeft;
+                  const itemWidth = e.currentTarget.clientWidth + 12;
+                  const nextIndex = Math.round(scrollLeft / itemWidth);
+                  if (galleryImages[nextIndex] && galleryImages[nextIndex] !== activeImage) {
+                    setActiveImage(galleryImages[nextIndex]);
+                  }
+                }}
+                className="flex snap-x snap-mandatory gap-3 overflow-x-auto rounded-3xl scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {galleryImages.map((image, index) => (
+                  <div
+                    key={`${image}-${index}`}
+                    onClick={() => {
+                      setActiveImage(image);
+                      setShowGalleryModal(true);
+                    }}
+                    className="relative h-[255px] w-full shrink-0 snap-center overflow-hidden rounded-3xl bg-white shadow-sm sm:h-[380px]"
+                  >
+                    <img
+                      src={image || "/images/hotel.jpg"}
+                      alt={`${room.name} ${index + 1}`}
+                      onError={(e) => {
+                        e.currentTarget.src = "/images/hotel.jpg";
+                      }}
+                      className="h-full w-full object-cover"
+                    />
 
-          {showDatePanel && (
-            <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[20px] border border-red-100 bg-white p-2 shadow-2xl">
-              <div className="readyroom-datepicker-compact">
-                {bookingMode === "transit" ? (
-                  <DatePicker
-                    selected={selectedCheckInDate}
-                    onChange={handleCheckInDateChange}
-                    minDate={new Date()}
-                    inline
-                    calendarClassName="readyroom-datepicker-compact"
-                  />
-                ) : (
-                  <DatePicker
-                    selected={selectedCheckInDate}
-                    startDate={selectedCheckInDate}
-                    endDate={selectedOvernightEndDate}
-                    onChange={handleOvernightRangeChange}
-                    minDate={new Date()}
-                    selectsRange
-                    monthsShown={1}
-                    inline
-                    calendarClassName="readyroom-datepicker-compact"
-                  />
-                )}
+                    <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
+                      {index + 1}/{galleryImages.length}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:gap-3 sm:overflow-visible sm:pb-0">
+                {galleryImages.map((image, index) => (
+                  <button
+                    key={`${image}-${index}`}
+                    type="button"
+                    onClick={() => {
+                      setGalleryImageByIndex(index, true);
+                    }}
+                    className={`relative h-16 w-20 shrink-0 overflow-hidden rounded-2xl border-2 transition-all duration-300 sm:h-24 sm:w-auto ${
+                      activeImage === image
+                        ? "border-red-500 shadow-lg scale-[1.02]"
+                        : "border-transparent hover:border-red-200 hover:shadow-md"
+                    }`}
+                  >
+                    <img
+                      src={image}
+                      alt={`Gallery ${index + 1}`}
+                      onError={(e) => {
+                        e.currentTarget.src = "/images/hotel.jpg";
+                      }}
+                      className="h-full w-full object-cover"
+                    />
+                    {activeImage === image && (
+                      <div className="absolute inset-0 ring-2 ring-red-500 rounded-2xl" />
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
-        </div>
 
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setShowTimePanel((prev) => !prev);
-              setShowDatePanel(false);
-            }}
-            className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
-              showTimePanel || selectedCheckInDate
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-          >
             <div>
-              <p className="text-sm font-bold">Pilih Jam</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {selectedCheckInDate
-                  ? selectedCheckInDate.toLocaleTimeString("id-ID", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "Belum dipilih"}
-              </p>
-            </div>
-            <Clock3 size={20} />
-          </button>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
+                {room.name}
+              </h1>
 
-          {showTimePanel && (
-            <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[20px] border border-red-100 bg-white p-4 shadow-2xl">
-              <h3 className="font-semibold text-gray-800 mb-1">
-                Waktu Check-in
-              </h3>
-              <p className="text-xs text-gray-500 mb-4">
-                Pilih jam dan menit check-in
-              </p>
-
-              {!selectedCheckInDate && (
-                <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                  Silakan pilih tanggal terlebih dahulu sebelum pilih jam.
+              <div className="flex flex-wrap items-center gap-4 mt-3 text-gray-600">
+                <div className="inline-flex items-center gap-2">
+                  <Building2 size={16} className="text-red-500" />
+                  {room.hotel?.name || "-"}
                 </div>
-              )}
+                <div className="inline-flex items-center gap-2">
+                  <Users size={16} className="text-red-500" />
+                  Kapasitas {room.capacity || 0} orang
+                </div>
+              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
-                    Jam
-                  </label>
-                  <div className="readyroom-time-scroll h-36 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      {hourOptions.map((hour) => {
-                        const isDisabledHour =
-                          isFullDayMode && Number(hour) < FULL_DAY_MIN_HOUR;
-
-                        return (
-                          <button
-                            key={hour}
-                            type="button"
-                            disabled={isDisabledHour}
-                            onClick={() =>
-                              updateCheckInTimePart("hour", hour)
-                            }
-                            className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                              isDisabledHour
-                                ? "cursor-not-allowed bg-gray-200 text-gray-400"
-                                : selectedHour === hour
-                                ? "bg-red-600 text-white shadow"
-                                : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
-                            }`}
-                          >
-                            {hour}
-                          </button>
-                        );
-                      })}
-                    </div>
+              <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-800">
+                      Deskripsi & Fasilitas Kamar
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      Informasi singkat mengenai kamar
+                    </p>
                   </div>
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
-                    Menit
-                  </label>
-                  <div className="readyroom-time-scroll h-36 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      {minuteOptions.map((minute) => (
+                <p className="text-gray-700 leading-relaxed">
+                  {room.description || "Deskripsi kamar belum tersedia."}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {roomFacilities.map((facility) => {
+                    const FacilityIcon = roomFacilityIcon(facility);
+                    return (
+                      <span
+                        key={facility}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600"
+                      >
+                        <FacilityIcon size={13} />
+                        {facility}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
+                <h2 className="text-lg font-bold text-gray-800 mb-4">
+                  Pilih Tipe Booking
+                </h2>
+
+                <div className="relative w-full rounded-2xl bg-gray-100 p-1 flex">
+                  <div
+                    className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-2xl bg-red-600 transition-all duration-300 ${
+                      bookingMode === "transit" ? "left-1" : "left-1/2"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setBookingMode("transit")}
+                    className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition ${
+                      bookingMode === "transit" ? "text-white" : "text-gray-600"
+                    }`}
+                  >
+                    Transit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBookingMode("overnight")}
+                    className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition ${
+                      bookingMode === "overnight" ? "text-white" : "text-gray-600"
+                    }`}
+                  >
+                    Full Day
+                  </button>
+                </div>
+
+                {bookingMode === "transit" && (
+                  <div className="mt-4">
+                    <div className="flex flex-wrap gap-3">
+                      {["3", "6", "12"].map((hour) => (
                         <button
-                          key={minute}
+                          key={hour}
                           type="button"
-                          onClick={() =>
-                            updateCheckInTimePart("minute", minute)
-                          }
-                          className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                            selectedMinute === minute
-                              ? "bg-red-600 text-white shadow"
-                              : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => setTransitDuration(hour)}
+                          className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+                            transitDuration === hour
+                              ? "bg-red-600 text-white"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                           }`}
                         >
-                          {minute}
+                          {hour} Jam
                         </button>
                       ))}
                     </div>
+
+                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                      <Clock3 size={16} className="text-red-500" />
+                      Pilih durasi transit yang kamu butuhkan
+                    </div>
+                  </div>
+                )}
+
+                {bookingMode === "overnight" && (
+                  <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                    <MoonStar size={16} className="mt-0.5 shrink-0" />
+                    <p>
+                      Untuk booking full day, check-in hanya bisa mulai pukul 14.00 dan checkout tetap mengikuti aturan hotel maksimal pukul 12.00 siang. Sekarang kamu juga bisa pilih lebih dari 1 hari.
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-5 rounded-2xl bg-red-50 border border-red-100 px-4 py-4">
+                  <p className="text-xs font-semibold text-red-600 mb-1">
+                    Harga {bookingMode === "transit" ? `Transit ${transitDuration} Jam` : `Full Day ${overnightDurationDays} Hari`}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-800">
+                    {formatRupiah(mainPrice)}
+                  </p>
+                  {bookingMode === "overnight" && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      {formatRupiah(overnightUnitPrice)} x {overnightDurationDays} hari
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 overflow-visible">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                    <CalendarDays size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-800">
+                      Pilih Tanggal & Jam Booking
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      Pilih tanggal dan jam check-in secara ringkas
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {isFullDayMode && (
-                <p className="mt-3 text-xs text-gray-500">
-                  Untuk full day, jam 00:00–13:55 tidak bisa dipilih.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDatePanel((prev) => !prev);
+                        setShowTimePanel(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
+                        showDatePanel || selectedCheckInDate
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div>
+                        <p className="text-sm font-bold">Pilih Tanggal</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {selectedCheckInDate
+                            ? selectedCheckInDate.toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "long",
+                                year: "numeric",
+                              })
+                            : "Belum dipilih"}
+                        </p>
+                      </div>
+                      <CalendarDays size={20} />
+                    </button>
 
-      {bookingMode === "overnight" && selectedCheckInDate && (
-        <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-          <p className="text-xs font-semibold text-red-600 mb-1">
-            Checkout Minimum Otomatis
-          </p>
-          <p className="text-sm font-semibold text-gray-800">
-            {overnightMinimumCheckoutDate
-              ? overnightMinimumCheckoutDate.toLocaleString("id-ID", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "-"}
-          </p>
+                    {showDatePanel && (
+                      <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[20px] border border-red-100 bg-white p-2 shadow-2xl">
+                        <div className="readyroom-datepicker-compact">
+                          {bookingMode === "transit" ? (
+                            <DatePicker
+                              selected={selectedCheckInDate}
+                              onChange={handleCheckInDateChange}
+                              minDate={new Date()}
+                              inline
+                              calendarClassName="readyroom-datepicker-compact"
+                            />
+                          ) : (
+                            <DatePicker
+                              selected={selectedCheckInDate}
+                              startDate={selectedCheckInDate}
+                              endDate={selectedOvernightEndDate}
+                              onChange={handleOvernightRangeChange}
+                              minDate={new Date()}
+                              selectsRange
+                              monthsShown={1}
+                              inline
+                              calendarClassName="readyroom-datepicker-compact"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
-          <div className="mt-3">
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
-              Tanggal Checkout
-            </label>
-            <DatePicker
-              selected={selectedOvernightEndDate}
-              onChange={handleOvernightEndDateChange}
-              minDate={overnightMinimumCheckoutDateOnly || new Date()}
-              dateFormat="dd MMM yyyy"
-              placeholderText="Pilih tanggal checkout"
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-800 outline-none focus:border-red-300"
-            />
-          </div>
-        </div>
-      )}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTimePanel((prev) => !prev);
+                        setShowDatePanel(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
+                        showTimePanel || selectedCheckInDate
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div>
+                        <p className="text-sm font-bold">Pilih Jam</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {selectedCheckInDate
+                            ? selectedCheckInDate.toLocaleTimeString("id-ID", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "Belum dipilih"}
+                        </p>
+                      </div>
+                      <Clock3 size={20} />
+                    </button>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-          <p className="text-xs font-semibold text-gray-500 mb-1">
-            Check-in Dipilih
-          </p>
-          <p className="text-sm font-semibold text-gray-800">
-            {selectedCheckInDate
-              ? selectedCheckInDate.toLocaleString("id-ID", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "-"}
-          </p>
-        </div>
+                    {showTimePanel && (
+                      <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[20px] border border-red-100 bg-white p-4 shadow-2xl">
+                        <h3 className="font-semibold text-gray-800 mb-1">Waktu Check-in</h3>
+                        <p className="text-xs text-gray-500 mb-4">Pilih jam dan menit check-in</p>
 
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-          <p className="text-xs font-semibold text-amber-700 mb-1">
-            Estimasi Checkout
-          </p>
-          <p className="text-sm font-bold text-amber-800">
-            {estimatedCheckOutText}
-          </p>
-        </div>
-      </div>
+                        {!selectedCheckInDate && (
+                          <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                            Silakan pilih tanggal terlebih dahulu sebelum pilih jam.
+                          </div>
+                        )}
 
-      {bookingMode === "overnight" && (
-        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-          <p className="text-sm font-medium text-emerald-800">
-            Total durasi full day: <span className="font-bold">{overnightDurationDays} hari</span>
-          </p>
-        </div>
-      )}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">Jam</label>
+                            <div className="readyroom-time-scroll h-36 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                {hourOptions.map((hour) => {
+                                  const isDisabledHour = isFullDayMode && Number(hour) < FULL_DAY_MIN_HOUR;
+                                  return (
+                                    <button
+                                      key={hour}
+                                      type="button"
+                                      disabled={isDisabledHour}
+                                      onClick={() => updateCheckInTimePart("hour", hour)}
+                                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                                        isDisabledHour
+                                          ? "cursor-not-allowed bg-gray-200 text-gray-400"
+                                          : selectedHour === hour
+                                          ? "bg-red-600 text-white shadow"
+                                          : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                                      }`}
+                                    >
+                                      {hour}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
 
-      {isCustomerLoggedIn ? (
-        <div className="mt-5 space-y-5">
-          <div className="rounded-2xl bg-red-50 border border-red-100 p-4">
-            <p className="text-sm text-red-600 font-semibold mb-1">
-              Ringkasan Pilihan
-            </p>
-            <p className="font-bold text-gray-800">{room.name}</p>
-            <p className="text-sm text-gray-600">
-              {bookingLabelText} • {formatRupiah(mainPrice)}
-            </p>
-          </div>
+                          <div>
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">Menit</label>
+                            <div className="readyroom-time-scroll h-36 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                {minuteOptions.map((minute) => (
+                                  <button
+                                    key={minute}
+                                    type="button"
+                                    onClick={() => updateCheckInTimePart("minute", minute)}
+                                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                                      selectedMinute === minute
+                                        ? "bg-red-600 text-white shadow"
+                                        : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                                    }`}
+                                  >
+                                    {minute}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
 
-          <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
-            <div className="flex gap-3">
-              <ShieldCheck
-                className="text-emerald-600 mt-0.5 shrink-0"
-                size={18}
-              />
-              <p className="text-sm text-gray-700">
-                Booking akan masuk sebagai <b>pending</b> dan menunggu admin.
-              </p>
-            </div>
-          </div>
-
-          {bookingError && (
-            <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <AlertCircle
-                  size={18}
-                  className="mt-0.5 shrink-0 text-red-600"
-                />
-                <p className="text-sm text-red-700">{bookingError}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={handleSubmitBooking}
-              disabled={submittingBooking}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-4 text-white font-semibold hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {submittingBooking ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Memproses Booking...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 size={18} />
-                  Konfirmasi Booking
-                </>
-              )}
-            </button>
-
-            {waAdminLink ? (
-              <a
-                href={waAdminLink}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-700 font-semibold hover:bg-green-100 transition"
-              >
-                <MessageCircle size={18} />
-                Chat WhatsApp Admin
-              </a>
-            ) : (
-              <div className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-gray-400 font-semibold">
-                <MessageCircle size={18} />
-                WhatsApp Admin Belum Tersedia
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="mt-5 space-y-5">
-          <div className="rounded-3xl border border-dashed border-red-200 bg-red-50/60 p-5">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">
-              Informasi Tamu
-            </h3>
-            <p className="text-sm text-gray-600 leading-relaxed mb-5">
-              Lengkapi data untuk melanjutkan reservasi
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-red-600">
-                  Nama Tamu
-                </label>
-                <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
-                  <User size={18} className="text-gray-400" />
-                  <input
-                    type="text"
-                    name="guest_name"
-                    value={guestForm.guest_name}
-                    onChange={handleGuestInputChange}
-                    placeholder="Masukkan nama tamu"
-                    className="w-full bg-transparent text-gray-800 outline-none"
-                  />
+                        {isFullDayMode && (
+                          <p className="mt-3 text-xs text-gray-500">Untuk full day, jam 00:00–13:55 tidak bisa dipilih.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-red-600">
-                  No. WhatsApp
-                </label>
-                <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
-                  <Phone size={18} className="text-gray-400" />
-                  <input
-                    type="text"
-                    name="guest_phone"
-                    value={guestForm.guest_phone}
-                    onChange={handleGuestInputChange}
-                    placeholder="08xxxx / 628xxxx"
-                    className="w-full bg-transparent text-gray-800 outline-none"
-                  />
+                {bookingMode === "overnight" && selectedCheckInDate && (
+                  <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                    <p className="text-xs font-semibold text-red-600 mb-1">Checkout Minimum Otomatis</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {overnightMinimumCheckoutDate
+                        ? overnightMinimumCheckoutDate.toLocaleString("id-ID", {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "-"}
+                    </p>
+
+                    <div className="mt-3">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">Tanggal Checkout</label>
+                      <DatePicker
+                        selected={selectedOvernightEndDate}
+                        onChange={handleOvernightEndDateChange}
+                        minDate={overnightMinimumCheckoutDateOnly || new Date()}
+                        dateFormat="dd MMM yyyy"
+                        placeholderText="Pilih tanggal checkout"
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-800 outline-none focus:border-red-300"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 mb-1">Check-in Dipilih</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {selectedCheckInDate
+                        ? selectedCheckInDate.toLocaleString("id-ID", {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "-"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                    <p className="text-xs font-semibold text-amber-700 mb-1">Estimasi Checkout</p>
+                    <p className="text-sm font-bold text-amber-800">{estimatedCheckOutText}</p>
+                  </div>
                 </div>
+
+                {bookingMode === "overnight" && (
+                  <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                    <p className="text-sm font-medium text-emerald-800">
+                      Total durasi full day: <span className="font-bold">{overnightDurationDays} hari</span>
+                    </p>
+                  </div>
+                )}
+
+                {isCustomerLoggedIn ? (
+                  <div className="mt-5 space-y-5">
+                    <div className="rounded-2xl bg-red-50 border border-red-100 p-4">
+                      <p className="text-sm text-red-600 font-semibold mb-1">Ringkasan Pilihan</p>
+                      <p className="font-bold text-gray-800">{room.name}</p>
+                      <p className="text-sm text-gray-600">{bookingLabelText} • {formatRupiah(mainPrice)}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
+                      <div className="flex gap-3">
+                        <ShieldCheck className="text-emerald-600 mt-0.5 shrink-0" size={18} />
+                        <p className="text-sm text-gray-700">Booking akan masuk sebagai <b>pending</b> dan menunggu admin.</p>
+                      </div>
+                    </div>
+
+                    {bookingError && (
+                      <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
+                          <p className="text-sm text-red-700">{bookingError}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={handleSubmitBooking}
+                        disabled={submittingBooking}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-4 text-white font-semibold hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {submittingBooking ? (
+                          <>
+                            <Loader2 size={18} className="animate-spin" />
+                            Memproses Booking...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 size={18} />
+                            Konfirmasi Booking
+                          </>
+                        )}
+                      </button>
+
+                      {waAdminLink ? (
+                        <a
+                          href={waAdminLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-700 font-semibold hover:bg-green-100 transition"
+                        >
+                          <MessageCircle size={18} />
+                          Chat WhatsApp Admin
+                        </a>
+                      ) : (
+                        <div className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-gray-400 font-semibold">
+                          <MessageCircle size={18} />
+                          WhatsApp Admin Belum Tersedia
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-5 space-y-5">
+                    <div className="rounded-3xl border border-dashed border-red-200 bg-red-50/60 p-5">
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">Informasi Tamu</h3>
+                      <p className="text-sm text-gray-600 leading-relaxed mb-5">Lengkapi data untuk melanjutkan reservasi</p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-red-600">Nama Tamu</label>
+                          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
+                            <User size={18} className="text-gray-400" />
+                            <input
+                              type="text"
+                              name="guest_name"
+                              value={guestForm.guest_name}
+                              onChange={handleGuestInputChange}
+                              placeholder="Masukkan nama tamu"
+                              className="w-full bg-transparent text-gray-800 outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-red-600">No. WhatsApp</label>
+                          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
+                            <Phone size={18} className="text-gray-400" />
+                            <input
+                              type="text"
+                              name="guest_phone"
+                              value={guestForm.guest_phone}
+                              onChange={handleGuestInputChange}
+                              placeholder="08xxxx / 628xxxx"
+                              className="w-full bg-transparent text-gray-800 outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {guestError && (
+                        <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
+                            <p className="text-sm text-red-700">{guestError}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={handleManualGuestBooking}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3.5 text-white font-semibold hover:bg-green-700 transition"
+                        >
+                          <MessageCircle size={18} />
+                          Reservasi Manual via WhatsApp
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => navigate("/login")}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-red-600 font-semibold hover:bg-red-50 transition"
+                        >
+                          <LogIn size={18} />
+                          Login Jika Mau
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
 
-            {guestError && (
-              <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <AlertCircle
-                    size={18}
-                    className="mt-0.5 shrink-0 text-red-600"
-                  />
-                  <p className="text-sm text-red-700">{guestError}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={handleManualGuestBooking}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3.5 text-white font-semibold hover:bg-green-700 transition"
-              >
-                <MessageCircle size={18} />
-                Reservasi Manual via WhatsApp
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-red-600 font-semibold hover:bg-red-50 transition"
-              >
-                <LogIn size={18} />
-                Login Jika Mau
-              </button>
+              <p className="text-xs text-gray-400 mt-4 text-center">Semua reservasi tetap akan ditindaklanjuti admin terlebih dahulu.</p>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  </div>
-</div>
         </section>
 
         <Footer />
       </div>
+
+      {showGalleryModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/90 p-4 text-white">
+          <button
+            type="button"
+            onClick={() => setShowGalleryModal(false)}
+            className="absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
+          >
+            <X size={24} />
+          </button>
+
+          {galleryImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={handlePrevImage}
+                className="absolute left-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
+              >
+                <ChevronLeft size={28} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNextImage}
+                className="absolute right-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
+              >
+                <ChevronRight size={28} />
+              </button>
+            </>
+          )}
+
+          <div className="flex h-full flex-col items-center justify-center gap-4">
+            <div className="text-sm font-semibold text-white/80">
+              {activeImageIndex + 1} / {galleryImages.length}
+            </div>
+
+            <img
+              src={activeImage}
+              alt={`${room.name} preview`}
+              onError={(e) => {
+                e.currentTarget.src = "/images/hotel.jpg";
+              }}
+              className="max-h-[78vh] w-full max-w-[980px] rounded-2xl object-contain"
+            />
+
+            <div className="flex max-w-full gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {galleryImages.map((image, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setGalleryImageByIndex(index, true)}
+                  className={`h-16 w-20 shrink-0 overflow-hidden rounded-xl border-2 ${
+                    activeImage === image ? "border-red-500" : "border-white/20"
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`${room.name} ${index + 1}`}
+                    onError={(e) => {
+                      e.currentTarget.src = "/images/hotel.jpg";
+                    }}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {bookingSuccess.open && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4">
@@ -1728,37 +1434,27 @@ export default function RoomDetail() {
               <p className="inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
                 Booking Berhasil Dibuat
               </p>
-
               <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 leading-tight mt-5">
                 Yeay, pesananmu berhasil masuk
               </h2>
-
               <p className="mt-3 text-gray-500 leading-relaxed">
-                Booking kamu sudah berhasil dibuat dan sekarang sedang
-                menunggu persetujuan admin ReadyRoom.
+                Booking kamu sudah berhasil dibuat dan sekarang sedang menunggu persetujuan admin ReadyRoom.
               </p>
             </div>
 
             <div className="mt-6 rounded-3xl border border-red-100 bg-gradient-to-br from-red-50 to-rose-50 p-5">
-              <p className="text-sm text-red-600 font-semibold mb-2">
-                Kode Booking Kamu
-              </p>
+              <p className="text-sm text-red-600 font-semibold mb-2">Kode Booking Kamu</p>
               <p className="text-2xl font-extrabold tracking-wide text-gray-800">
                 {bookingSuccess.bookingCode || "-"}
               </p>
               <p className="mt-2 text-xs text-gray-500">
-                Simpan kode ini ya, nanti bisa dipakai untuk konfirmasi ke hotel
-                saat booking sudah disetujui.
+                Simpan kode ini ya, nanti bisa dipakai untuk konfirmasi ke hotel saat booking sudah disetujui.
               </p>
             </div>
 
             <div className="mt-6 rounded-3xl border border-gray-100 bg-gray-50 p-5">
-              <p className="text-sm font-semibold text-gray-800 mb-2">
-                Sambil menunggu approval admin
-              </p>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Yuk cek booking kamu di halaman daftar booking customer.
-              </p>
+              <p className="text-sm font-semibold text-gray-800 mb-2">Sambil menunggu approval admin</p>
+              <p className="text-sm text-gray-600 leading-relaxed">Yuk cek booking kamu di halaman daftar booking customer.</p>
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">

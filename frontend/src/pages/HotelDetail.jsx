@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { FaWhatsapp } from "react-icons/fa";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import api from "../services/api";
@@ -27,6 +26,7 @@ export default function HotelDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const roomsRef = useRef(null);
+  const mobileGalleryRef = useRef(null);
 
   const [hotel, setHotel] = useState(null);
   const [rooms, setRooms] = useState([]);
@@ -400,7 +400,7 @@ export default function HotelDetail() {
 
       <section className="bg-white pt-[88px] md:pt-28">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
-         <div className="-mt-4 mb-3 flex items-center justify-between gap-3 md:mb-5">
+          <div className="-mt-4 mb-3 flex items-center justify-between gap-3 md:mb-5">
             <button
               onClick={() => navigate(-1)}
               className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 md:px-4 md:py-2 md:text-sm"
@@ -472,67 +472,74 @@ export default function HotelDetail() {
           </div>
 
           <div className="md:hidden">
-  <div
-    onScroll={(e) => {
-      const scrollLeft = e.currentTarget.scrollLeft;
-      const itemWidth = e.currentTarget.clientWidth + 12;
-      const nextIndex = Math.round(scrollLeft / itemWidth);
+            <div
+              ref={mobileGalleryRef}
+              onScroll={(e) => {
+                const scrollLeft = e.currentTarget.scrollLeft;
+                const itemWidth = e.currentTarget.clientWidth + 12;
+                const nextIndex = Math.round(scrollLeft / itemWidth);
 
-      if (nextIndex !== activeImageIndex) {
-        setActiveImageIndex(nextIndex);
-      }
-    }}
-    className="flex snap-x snap-mandatory gap-3 overflow-x-auto rounded-[1.1rem] scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-  >
-    {galleryImages.map((image, index) => (
-      <div
-        key={index}
-        onClick={() => {
-          setActiveImageIndex(index);
-          setShowGalleryModal(true);
-        }}
-        className="relative h-[250px] w-full shrink-0 snap-center overflow-hidden rounded-[1.1rem] bg-gray-100"
-      >
-        <img
-          src={image}
-          alt={`${hotel.name} ${index + 1}`}
-          onError={(e) => {
-            e.currentTarget.src = "/images/hotel.jpg";
-          }}
-          className="h-full w-full object-cover"
-        />
+                if (galleryImages[nextIndex] && nextIndex !== activeImageIndex) {
+                  setActiveImageIndex(nextIndex);
+                }
+              }}
+              className="flex snap-x snap-mandatory gap-3 overflow-x-auto rounded-[1.1rem] scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {galleryImages.map((image, index) => (
+                <div
+                  key={index}
+                  onClick={() => {
+                    setActiveImageIndex(index);
+                    setShowGalleryModal(true);
+                  }}
+                  className="relative h-[250px] w-full shrink-0 snap-center overflow-hidden rounded-[1.1rem] bg-gray-100"
+                >
+                  <img
+                    src={image}
+                    alt={`${hotel.name} ${index + 1}`}
+                    onError={(e) => {
+                      e.currentTarget.src = "/images/hotel.jpg";
+                    }}
+                    className="h-full w-full object-cover"
+                  />
 
-        <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-          {index + 1}/{galleryImages.length}
-        </div>
-      </div>
-    ))}
-  </div>
+                  <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
+                    {index + 1}/{galleryImages.length}
+                  </div>
+                </div>
+              ))}
+            </div>
 
-  <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-    {galleryImages.map((image, index) => (
-      <button
-        key={index}
-        type="button"
-        onClick={() => setActiveImageIndex(index)}
-        className={`h-14 w-[72px] shrink-0 overflow-hidden rounded-xl border-2 transition ${
-          activeImageIndex === index
-            ? "border-red-500"
-            : "border-transparent"
-        }`}
-      >
-        <img
-          src={image}
-          alt={`${hotel.name} ${index + 1}`}
-          onError={(e) => {
-            e.currentTarget.src = "/images/hotel.jpg";
-          }}
-          className="h-full w-full object-cover"
-        />
-      </button>
-    ))}
-  </div>
-</div>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {galleryImages.map((image, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => {
+                    setActiveImageIndex(index);
+                    mobileGalleryRef.current?.scrollTo({
+                      left: index * (mobileGalleryRef.current.clientWidth + 12),
+                      behavior: "smooth",
+                    });
+                  }}
+                  className={`h-14 w-[72px] shrink-0 overflow-hidden rounded-xl border-2 transition ${
+                    activeImageIndex === index
+                      ? "border-red-500"
+                      : "border-transparent"
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`${hotel.name} ${index + 1}`}
+                    onError={(e) => {
+                      e.currentTarget.src = "/images/hotel.jpg";
+                    }}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -547,10 +554,10 @@ export default function HotelDetail() {
                   </h1>
 
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <MapPin size={16} className="shrink-0 text-red-500" />
-                    <span className="text-sm font-bold text-gray-800 md:text-base">
-  {hotel.city?.name || "-"}
-</span>
+                    <MapPin size={17} className="shrink-0 text-red-500" />
+                    <span className="text-base font-bold text-gray-800 md:text-xl">
+                      {hotel.city?.name || "-"}
+                    </span>
                   </div>
 
                   {hotel.address && (
@@ -558,16 +565,16 @@ export default function HotelDetail() {
                       {hotel.address}
                     </p>
                   )}
-
-               
                 </div>
+
                 <div>
                   <div className="flex items-center gap-2">
-  <FileText size={17} className="text-red-500" />
-  <h2 className="text-base font-bold text-gray-900 md:text-xl">
-    Deskripsi & Fasilitas Hotel
-  </h2>
-</div>
+                    <FileText size={17} className="text-red-500" />
+                    <h2 className="text-base font-bold text-gray-900 md:text-xl">
+                      Deskripsi & Fasilitas Hotel
+                    </h2>
+                  </div>
+
                   <p className="mt-2 text-sm leading-relaxed text-gray-600 md:text-base">
                     {hotel.description || "Deskripsi hotel belum tersedia."}
                   </p>
@@ -597,12 +604,11 @@ export default function HotelDetail() {
                 <div className="flex items-start gap-3">
                   <MapPin size={18} className="mt-1 text-red-500" />
 
-<div>
-  <p className="font-semibold text-gray-800">
-    Lihat di Google Maps
-  </p>
-  
-</div>
+                  <div>
+                    <p className="font-semibold text-gray-800">
+                      Lihat di Google Maps
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -676,9 +682,9 @@ export default function HotelDetail() {
                             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
 
                             <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-gray-700 shadow">
-  <Users size={13} className="text-red-500" />
-  {room.capacity || 0} Orang
-</div>
+                              <Users size={13} className="text-red-500" />
+                              {room.capacity || 0} Orang
+                            </div>
 
                             {index === 0 && (
                               <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
@@ -706,8 +712,6 @@ export default function HotelDetail() {
                                 </span>
                               )}
                             </div>
-
-                            
 
                             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                               <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
@@ -756,8 +760,6 @@ export default function HotelDetail() {
                             </div>
 
                             <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm md:flex md:items-center md:justify-between md:gap-4">
-                              
-
                               <button
                                 type="button"
                                 onClick={(e) => {
