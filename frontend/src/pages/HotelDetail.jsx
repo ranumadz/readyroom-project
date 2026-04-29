@@ -668,9 +668,6 @@ export default function HotelDetail() {
                   <h2 className="text-xl font-bold text-gray-900 md:text-2xl">
                     Pilih kamar sesuai kebutuhanmu
                   </h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Kamar termurah otomatis berada di urutan pertama.
-                  </p>
                 </div>
               </div>
 
