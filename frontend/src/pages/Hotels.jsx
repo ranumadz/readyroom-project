@@ -365,19 +365,15 @@ export default function Hotels() {
 
                   
 
-                  <div className="mt-auto flex items-center justify-between border-t border-white/20 pt-2 sm:pt-4">
-                    <span className="text-[10.5px] font-semibold text-white sm:text-sm">
-                      Detail
-                    </span>
-
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[9.5px] font-bold text-red-600 transition group-hover:translate-x-0.5 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs">
-                      Explore
-                      <ArrowRight
-                        size={11}
-                        className="sm:h-[14px] sm:w-[14px]"
-                      />
-                    </span>
-                  </div>
+                  <div className="mt-auto flex items-center justify-start border-t border-white/20 pt-2 sm:pt-4">
+  <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[9.5px] font-bold text-red-600 transition group-hover:translate-x-0.5 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs">
+    Explore
+    <ArrowRight
+      size={11}
+      className="sm:h-[14px] sm:w-[14px]"
+    />
+  </span>
+</div>
                 </div>
               </Link>
             ))}

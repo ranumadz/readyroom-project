@@ -1042,14 +1042,17 @@ export default function RoomDetail() {
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
 
-        <section className="max-w-7xl mx-auto px-4 md:px-6 py-10">
-          <button
-            onClick={() => navigate(-1)}
-            className="mb-6 inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2 text-gray-700 font-medium shadow-sm hover:bg-gray-50 transition"
-          >
-            <ArrowLeft size={18} />
-            Kembali
-          </button>
+        <section className="max-w-7xl mx-auto px-4 md:px-6 pt-20 sm:pt-24 md:pt-10 pb-10">
+  <div className="mb-4 sm:mb-6">
+    <button
+      onClick={() => navigate(-1)}
+      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/95 px-3.5 py-2 text-xs sm:text-sm text-gray-700 font-semibold shadow-sm backdrop-blur hover:bg-gray-50 transition"
+    >
+      <ArrowLeft size={16} />
+      Kembali
+    </button>
+  </div>
+  
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>
