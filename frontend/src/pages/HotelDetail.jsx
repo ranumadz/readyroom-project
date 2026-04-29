@@ -608,11 +608,9 @@ export default function HotelDetail() {
 
 <div>
   <p className="font-semibold text-gray-800">
-    Alamat Hotel
+    Lihat di Google Maps
   </p>
-  <p className="mt-1 text-sm text-gray-500">
-    {hotel.address || "Alamat hotel belum tersedia."}
-  </p>
+  
 </div>
                 </div>
               </div>
@@ -694,7 +692,7 @@ export default function HotelDetail() {
                             {index === 0 && (
                               <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
                                 <BadgeCheck size={13} />
-                                Termurah
+                                Termurah di hotel ini
                               </div>
                             )}
                           </div>
@@ -767,16 +765,7 @@ export default function HotelDetail() {
                             </div>
 
                             <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm md:flex md:items-center md:justify-between md:gap-4">
-                              <div>
-                                <p className="text-xs font-semibold text-gray-400">
-                                  Mulai dari
-                                </p>
-                                <p className="text-2xl font-extrabold text-red-600">
-                                  {lowestPrice > 0
-                                    ? formatRupiah(lowestPrice)
-                                    : "Hubungi admin"}
-                                </p>
-                              </div>
+                              
 
                               <button
                                 type="button"
