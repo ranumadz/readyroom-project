@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import HeroSearchFilter from "../components/HeroSearchFilter";
@@ -147,6 +147,7 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
 }
 
 export default function Hotels() {
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   const [hotels, setHotels] = useState([]);
@@ -160,6 +161,16 @@ export default function Hotels() {
       once: true,
     });
   }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+
+    const scrollTimer = window.setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 0);
+
+    return () => window.clearTimeout(scrollTimer);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     fetchHotels();
@@ -255,23 +266,23 @@ export default function Hotels() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-[#fff8f8] to-[#f8f8f8] text-gray-800">
       <Navbar />
-<section className="relative overflow-visible bg-gradient-to-b from-[#fff1f1] via-white to-white pt-20 pb-12 sm:pt-24 sm:pb-16 md:pt-28 md:pb-20">
-  <div className="pointer-events-none absolute inset-0 overflow-hidden">
-    <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-transparent via-red-400/50 to-transparent" />
-    <div className="absolute -top-24 right-[-80px] h-64 w-64 rounded-full bg-red-200/25 blur-3xl" />
-    <div className="absolute left-[-90px] bottom-[-120px] h-72 w-72 rounded-full bg-rose-100/50 blur-3xl" />
 
-    {/* ornamen lingkaran halus, BUKAN wrapper search */}
-    <div className="absolute right-[-34px] top-[74px] h-28 w-28 rounded-full border-[18px] border-red-300/20 md:right-[90px] md:top-[105px] md:h-40 md:w-40 md:border-[26px]" />
-    <div className="absolute left-[-42px] top-[112px] h-24 w-24 rounded-full border-[16px] border-red-200/20 md:left-[90px] md:top-[130px] md:h-36 md:w-36 md:border-[24px]" />
-  </div>
+      <section className="relative overflow-visible bg-gradient-to-b from-[#fff1f1] via-white to-white pt-20 pb-12 sm:pt-24 sm:pb-16 md:pt-28 md:pb-20">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-transparent via-red-400/50 to-transparent" />
+          <div className="absolute -top-24 right-[-80px] h-64 w-64 rounded-full bg-red-200/25 blur-3xl" />
+          <div className="absolute left-[-90px] bottom-[-120px] h-72 w-72 rounded-full bg-rose-100/50 blur-3xl" />
 
-  <div className="relative z-20 mx-auto max-w-7xl px-4 pt-3 md:px-6 md:pt-6">
-    <div className="relative z-[100] mx-auto max-w-6xl">
-      <HeroSearchFilter />
-    </div>
-  </div>
-</section>
+          <div className="absolute right-[-34px] top-[74px] h-28 w-28 rounded-full border-[18px] border-red-300/20 md:right-[90px] md:top-[105px] md:h-40 md:w-40 md:border-[26px]" />
+          <div className="absolute left-[-42px] top-[112px] h-24 w-24 rounded-full border-[16px] border-red-200/20 md:left-[90px] md:top-[130px] md:h-36 md:w-36 md:border-[24px]" />
+        </div>
+
+        <div className="relative z-20 mx-auto max-w-7xl px-4 pt-3 md:px-6 md:pt-6">
+          <div className="relative z-[100] mx-auto max-w-6xl">
+            <HeroSearchFilter />
+          </div>
+        </div>
+      </section>
 
       <section
         id="hotel-results-section"
@@ -363,17 +374,15 @@ export default function Hotels() {
                     </span>
                   </div>
 
-                  
-
                   <div className="mt-auto flex items-center justify-start border-t border-white/20 pt-2 sm:pt-4">
-  <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[9.5px] font-bold text-red-600 transition group-hover:translate-x-0.5 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs">
-    Explore
-    <ArrowRight
-      size={11}
-      className="sm:h-[14px] sm:w-[14px]"
-    />
-  </span>
-</div>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[9.5px] font-bold text-red-600 transition group-hover:translate-x-0.5 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs">
+                      Explore
+                      <ArrowRight
+                        size={11}
+                        className="sm:h-[14px] sm:w-[14px]"
+                      />
+                    </span>
+                  </div>
                 </div>
               </Link>
             ))}

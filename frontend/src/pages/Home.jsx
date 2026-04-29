@@ -12,7 +12,6 @@ import {
   Wifi,
   Car,
   Coffee,
-  ArrowRight,
   Building2,
   Award,
   History,
@@ -58,8 +57,17 @@ export default function Home() {
     return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
+  const forceNextPageStartFromTop = () => {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      sessionStorage.setItem("readyroom_force_scroll_top", "1");
+    } catch (error) {
+      console.error("FORCE SCROLL TOP ERROR:", error);
+    }
+  };
+
   const handleHotelCardOpen = () => {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    forceNextPageStartFromTop();
   };
 
   const fetchPopularHotels = async () => {
@@ -437,13 +445,11 @@ export default function Home() {
         </div>
 
         <div className="absolute left-0 right-0 bottom-[-29px] z-30 px-3 sm:bottom-[-44px] md:px-6">
-          <div className="mb-3 hidden justify-center md:flex">
-            
-          </div>
+          <div className="mb-3 hidden justify-center md:flex" />
 
           <div className="mx-auto w-full max-w-[680px] sm:max-w-[760px] md:max-w-[980px] lg:max-w-[1180px]">
-            <HeroSearchFilter />
-          </div>
+  <HeroSearchFilter />
+</div>
         </div>
       </section>
 
@@ -457,30 +463,31 @@ export default function Home() {
           </p>
         </div>
 
-       <ScrollRow className="pr-20 md:pr-0">
-  {cityItems.map((city, i) => (
-    <Link
-      draggable={false}
-      to={`/hotels?destination=${encodeURIComponent(city.name)}`}
-      key={i}
-      data-aos="zoom-in"
-className="group relative block min-w-[104px] w-[29%] shrink-0 overflow-hidden rounded-[0.9rem] shadow-sm sm:min-w-[150px] md:w-[31.5%] md:min-w-[280px] md:rounded-[1.75rem] lg:min-w-[360px]"
-    >
-      <img
-        draggable={false}
-        src={city.img}
-        alt={city.name}
-        className="h-24 w-full object-cover transition duration-500 group-hover:scale-110 sm:h-32 md:h-52"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 p-2 md:p-4">
-        <h4 className="text-xs font-bold text-white md:text-xl">
-          {city.name}
-        </h4>
-      </div>
-    </Link>
-  ))}
-</ScrollRow>
+        <ScrollRow className="pr-20 md:pr-0">
+          {cityItems.map((city, i) => (
+            <Link
+              draggable={false}
+              to={`/hotels?destination=${encodeURIComponent(city.name)}`}
+              onClick={forceNextPageStartFromTop}
+              key={i}
+              data-aos="zoom-in"
+              className="group relative block min-w-[104px] w-[29%] shrink-0 overflow-hidden rounded-[0.9rem] shadow-sm sm:min-w-[150px] md:w-[31.5%] md:min-w-[280px] md:rounded-[1.75rem] lg:min-w-[360px]"
+            >
+              <img
+                draggable={false}
+                src={city.img}
+                alt={city.name}
+                className="h-24 w-full object-cover transition duration-500 group-hover:scale-110 sm:h-32 md:h-52"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-2 md:p-4">
+                <h4 className="text-xs font-bold text-white md:text-xl">
+                  {city.name}
+                </h4>
+              </div>
+            </Link>
+          ))}
+        </ScrollRow>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-7 md:px-6 md:py-16">
@@ -557,6 +564,7 @@ className="group relative block min-w-[104px] w-[29%] shrink-0 overflow-hidden r
 
             <Link
               to="/hotels"
+              onClick={forceNextPageStartFromTop}
               className="shrink-0 text-[11px] font-semibold text-red-600 hover:underline md:text-base"
             >
               Jelajahi Semua
@@ -592,6 +600,7 @@ className="group relative block min-w-[104px] w-[29%] shrink-0 overflow-hidden r
 
           <Link
             to="/hotels"
+            onClick={forceNextPageStartFromTop}
             className="shrink-0 text-[11px] font-semibold text-red-600 hover:underline md:text-base"
           >
             View All
@@ -629,6 +638,7 @@ className="group relative block min-w-[104px] w-[29%] shrink-0 overflow-hidden r
 
           <Link
             to="/hotels"
+            onClick={forceNextPageStartFromTop}
             className="shrink-0 text-[11px] font-semibold text-red-600 hover:underline md:text-base"
           >
             Explore More
@@ -670,6 +680,7 @@ className="group relative block min-w-[104px] w-[29%] shrink-0 overflow-hidden r
             <div className="mt-5 flex flex-wrap gap-2.5 md:mt-8 md:gap-4">
               <Link
                 to="/hotels"
+                onClick={forceNextPageStartFromTop}
                 className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 md:px-6 md:py-3 md:text-base"
               >
                 Lihat Properti
@@ -860,6 +871,7 @@ className="group relative block min-w-[104px] w-[29%] shrink-0 overflow-hidden r
               <div className="flex flex-wrap gap-2.5 md:gap-4">
                 <Link
                   to="/hotels"
+                  onClick={forceNextPageStartFromTop}
                   className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-gray-100 md:px-6 md:py-3 md:text-base"
                 >
                   Explore Rooms
