@@ -203,7 +203,9 @@ export default function AddHotel() {
 
       return {
         ...prev,
-        gallery_images: prev.gallery_images.filter((_, i) => i !== indexToRemove),
+        gallery_images: prev.gallery_images.filter(
+          (_, i) => i !== indexToRemove
+        ),
       };
     });
   };
@@ -260,11 +262,11 @@ export default function AddHotel() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.city_id || !form.name.trim() || !form.area.trim() || !form.address.trim()) {
+    if (!form.city_id || !form.name.trim() || !form.address.trim()) {
       return Swal.fire({
         icon: "warning",
         title: "Data belum lengkap",
-        text: "Kota, nama hotel, area, dan alamat wajib diisi",
+        text: "Kota, nama hotel, dan alamat wajib diisi",
         confirmButtonColor: "#dc2626",
       });
     }
@@ -298,7 +300,7 @@ export default function AddHotel() {
       const payload = new FormData();
       payload.append("city_id", form.city_id);
       payload.append("name", form.name);
-      payload.append("area", form.area);
+      payload.append("area", "");
       payload.append("address", form.address);
       payload.append("wa_admin", form.wa_admin || "");
       payload.append("map_link", form.map_link || "");
@@ -397,8 +399,8 @@ export default function AddHotel() {
                 Add Hotel
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500 md:text-base">
-                Tambahkan cabang hotel baru ke sistem ReadyRoom dengan informasi utama,
-                fasilitas, thumbnail, hero image, dan gallery hotel.
+                Tambahkan cabang hotel baru ke sistem ReadyRoom dengan informasi
+                utama, fasilitas, thumbnail, hero image, dan gallery hotel.
               </p>
             </div>
 
@@ -500,21 +502,6 @@ export default function AddHotel() {
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
                         />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-semibold text-gray-700">
-                        Area
-                      </label>
-
-                      <input
-                        type="text"
-                        name="area"
-                        value={form.area}
-                        onChange={handleChange}
-                        placeholder="Contoh: Melawai"
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                      />
                     </div>
 
                     <div>
@@ -635,7 +622,9 @@ export default function AddHotel() {
                     </div>
 
                     {loadingFacilities ? (
-                      <p className="text-sm text-gray-500">Memuat fasilitas...</p>
+                      <p className="text-sm text-gray-500">
+                        Memuat fasilitas...
+                      </p>
                     ) : facilities.length === 0 ? (
                       <p className="text-sm text-gray-500">
                         Belum ada fasilitas aktif di sistem
@@ -643,7 +632,9 @@ export default function AddHotel() {
                     ) : (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {facilities.map((facility) => {
-                          const selected = form.facility_ids.includes(facility.id);
+                          const selected = form.facility_ids.includes(
+                            facility.id
+                          );
 
                           return (
                             <label
@@ -657,7 +648,9 @@ export default function AddHotel() {
                               <input
                                 type="checkbox"
                                 checked={selected}
-                                onChange={() => handleFacilityToggle(facility.id)}
+                                onChange={() =>
+                                  handleFacilityToggle(facility.id)
+                                }
                                 className="mt-1 h-4 w-4 accent-red-600"
                               />
 
@@ -714,7 +707,10 @@ export default function AddHotel() {
                             />
                           ) : (
                             <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
-                              <ImageIcon size={30} className="mb-3 text-red-500" />
+                              <ImageIcon
+                                size={30}
+                                className="mb-3 text-red-500"
+                              />
                               <p className="font-semibold text-gray-700">
                                 Upload Thumbnail Hotel
                               </p>
@@ -748,7 +744,10 @@ export default function AddHotel() {
                             />
                           ) : (
                             <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
-                              <ImageIcon size={30} className="mb-3 text-red-500" />
+                              <ImageIcon
+                                size={30}
+                                className="mb-3 text-red-500"
+                              />
                               <p className="font-semibold text-gray-700">
                                 Upload Hero Image
                               </p>
@@ -782,8 +781,8 @@ export default function AddHotel() {
                           Upload Banyak Gambar Hotel
                         </p>
                         <p className="mt-2 max-w-xl text-sm leading-6 text-gray-500">
-                          Gunakan gallery ini untuk foto lobby, kamar umum, lorong,
-                          parkiran, area depan, dan suasana hotel.
+                          Gunakan gallery ini untuk foto lobby, kamar umum,
+                          lorong, parkiran, area depan, dan suasana hotel.
                         </p>
                         <p className="mt-2 text-xs font-medium text-red-500">
                           Bisa pilih lebih dari satu gambar sekaligus
@@ -829,7 +828,8 @@ export default function AddHotel() {
 
                                 <div className="px-3 py-2">
                                   <p className="truncate text-xs font-medium text-gray-600">
-                                    {form.gallery_images[index]?.name || `Image ${index + 1}`}
+                                    {form.gallery_images[index]?.name ||
+                                      `Image ${index + 1}`}
                                   </p>
                                 </div>
                               </div>
@@ -866,16 +866,9 @@ export default function AddHotel() {
                         Kota
                       </p>
                       <p className="mt-2 font-semibold text-gray-800">
-                        {cities.find((city) => String(city.id) === String(form.city_id))?.name || "-"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        Area
-                      </p>
-                      <p className="mt-2 font-semibold text-gray-800">
-                        {form.area || "-"}
+                        {cities.find(
+                          (city) => String(city.id) === String(form.city_id)
+                        )?.name || "-"}
                       </p>
                     </div>
 
@@ -884,8 +877,14 @@ export default function AddHotel() {
                         Media
                       </p>
                       <div className="mt-3 space-y-2 text-sm text-gray-700">
-                        <p>Thumbnail: {form.thumbnail ? "Sudah dipilih" : "Belum"}</p>
-                        <p>Hero Image: {form.hero_image ? "Sudah dipilih" : "Belum"}</p>
+                        <p>
+                          Thumbnail:{" "}
+                          {form.thumbnail ? "Sudah dipilih" : "Belum"}
+                        </p>
+                        <p>
+                          Hero Image:{" "}
+                          {form.hero_image ? "Sudah dipilih" : "Belum"}
+                        </p>
                         <p>Gallery: {form.gallery_images.length} gambar</p>
                       </div>
                     </div>
@@ -913,8 +912,8 @@ export default function AddHotel() {
                         Catatan
                       </p>
                       <p className="mt-2 text-sm leading-6 text-red-600">
-                        Thumbnail dan hero image tetap dipakai. Gallery hotel dipakai
-                        untuk banyak foto di halaman detail hotel.
+                        Thumbnail dan hero image tetap dipakai. Gallery hotel
+                        dipakai untuk banyak foto di halaman detail hotel.
                       </p>
                     </div>
 
@@ -967,7 +966,9 @@ export default function AddHotel() {
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-800">Tambah Kota Baru</h3>
+                <h3 className="text-xl font-bold text-gray-800">
+                  Tambah Kota Baru
+                </h3>
                 <p className="mt-1 text-sm text-gray-500">
                   Tambahkan kota baru agar bisa langsung dipilih di form hotel.
                 </p>

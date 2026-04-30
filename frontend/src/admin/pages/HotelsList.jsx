@@ -6,7 +6,6 @@ import Topbar from "../components/Topbar";
 import Swal from "sweetalert2";
 import {
   Building2,
-  MapPin,
   CheckCircle2,
   CircleOff,
   Pencil,
@@ -321,16 +320,11 @@ export default function HotelsList() {
 
     if (!selectedHotel) return;
 
-    if (
-      !editForm.city_id ||
-      !editForm.name.trim() ||
-      !editForm.area.trim() ||
-      !editForm.address.trim()
-    ) {
+    if (!editForm.city_id || !editForm.name.trim() || !editForm.address.trim()) {
       return Swal.fire({
         icon: "warning",
         title: "Data belum lengkap",
-        text: "Kota, nama hotel, area, dan alamat wajib diisi",
+        text: "Kota, nama hotel, dan alamat wajib diisi",
         confirmButtonColor: "#dc2626",
       });
     }
@@ -360,7 +354,7 @@ export default function HotelsList() {
       payload.append("_method", "PUT");
       payload.append("city_id", editForm.city_id);
       payload.append("name", editForm.name);
-      payload.append("area", editForm.area);
+      payload.append("area", selectedHotel?.area || "");
       payload.append("address", editForm.address);
       payload.append("wa_admin", editForm.wa_admin || "");
       payload.append("map_link", editForm.map_link || "");
@@ -404,6 +398,7 @@ export default function HotelsList() {
           err.response?.data?.message ||
           err.response?.data?.errors?.map_link?.[0] ||
           err.response?.data?.errors?.name?.[0] ||
+          err.response?.data?.errors?.address?.[0] ||
           "Hotel gagal diupdate",
         confirmButtonColor: "#dc2626",
       });
@@ -461,7 +456,8 @@ export default function HotelsList() {
                   Belum ada data hotel
                 </h3>
                 <p className="mb-5 mt-2 text-gray-500">
-                  Tambahkan cabang hotel pertama untuk mulai mengelola room dan booking.
+                  Tambahkan cabang hotel pertama untuk mulai mengelola room dan
+                  booking.
                 </p>
                 <button
                   onClick={() => navigate("/admin/hotels/add")}
@@ -473,17 +469,30 @@ export default function HotelsList() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1280px]">
+                <table className="w-full min-w-[1180px]">
                   <thead>
                     <tr className="border-b border-gray-200 text-left">
-                      <th className="py-4 text-sm font-semibold text-gray-600">#</th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">Hotel</th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">Kota</th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">Area</th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">Alamat</th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">Fasilitas</th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">Status</th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">Aksi</th>
+                      <th className="py-4 text-sm font-semibold text-gray-600">
+                        #
+                      </th>
+                      <th className="py-4 text-sm font-semibold text-gray-600">
+                        Hotel
+                      </th>
+                      <th className="py-4 text-sm font-semibold text-gray-600">
+                        Kota
+                      </th>
+                      <th className="py-4 text-sm font-semibold text-gray-600">
+                        Alamat
+                      </th>
+                      <th className="py-4 text-sm font-semibold text-gray-600">
+                        Fasilitas
+                      </th>
+                      <th className="py-4 text-sm font-semibold text-gray-600">
+                        Status
+                      </th>
+                      <th className="py-4 text-sm font-semibold text-gray-600">
+                        Aksi
+                      </th>
                     </tr>
                   </thead>
 
@@ -516,31 +525,27 @@ export default function HotelsList() {
                           {hotel.city?.name || hotel.city_name || "-"}
                         </td>
 
-                        <td className="py-4 text-gray-700">
-                          <div className="inline-flex items-center gap-2">
-                            <MapPin size={15} className="text-gray-400" />
-                            {hotel.area || "-"}
-                          </div>
-                        </td>
-
-                        <td className="max-w-[280px] py-4 text-gray-600">
+                        <td className="max-w-[320px] py-4 text-gray-600">
                           <p className="truncate">{hotel.address || "-"}</p>
                         </td>
 
                         <td className="max-w-[320px] py-4">
-                          {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
+                          {Array.isArray(hotel.facilities) &&
+                          hotel.facilities.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
                               {hotel.facilities.map((facility) => (
                                 <span
                                   key={facility.id}
-                                  className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 border border-red-100"
+                                  className="inline-flex items-center rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700"
                                 >
                                   {facility.name}
                                 </span>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-sm text-gray-400">Belum ada fasilitas</span>
+                            <span className="text-sm text-gray-400">
+                              Belum ada fasilitas
+                            </span>
                           )}
                         </td>
 
@@ -570,7 +575,9 @@ export default function HotelsList() {
                         <td className="py-4">
                           <div className="flex flex-wrap items-center gap-2">
                             <button
-                              onClick={() => navigate(`/admin/hotels/${hotel.id}/rooms`)}
+                              onClick={() =>
+                                navigate(`/admin/hotels/${hotel.id}/rooms`)
+                              }
                               className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-600 transition hover:bg-emerald-100"
                             >
                               <BedDouble size={16} />
@@ -609,7 +616,9 @@ export default function HotelsList() {
           <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
               <div>
-                <h2 className="text-2xl font-bold text-gray-800">{modalTitle}</h2>
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {modalTitle}
+                </h2>
                 <p className="mt-1 text-sm text-gray-500">
                   Update data hotel tanpa pindah halaman
                 </p>
@@ -672,45 +681,23 @@ export default function HotelsList() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Area
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        name="area"
-                        value={editForm.area}
-                        onChange={handleEditChange}
-                        placeholder="Contoh: Veteran"
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                      />
-                      <MapPin
-                        size={18}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Nomor WhatsApp Admin Cabang
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        name="wa_admin"
-                        value={editForm.wa_admin}
-                        onChange={handleEditChange}
-                        placeholder="Contoh: 081234567890"
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                      />
-                      <MessageCircle
-                        size={18}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-                    </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Nomor WhatsApp Admin Cabang
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="wa_admin"
+                      value={editForm.wa_admin}
+                      onChange={handleEditChange}
+                      placeholder="Contoh: 081234567890"
+                      className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                    />
+                    <MessageCircle
+                      size={18}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
                   </div>
                 </div>
 
@@ -762,7 +749,9 @@ export default function HotelsList() {
                     </div>
 
                     {loadingFacilities ? (
-                      <p className="text-sm text-gray-500">Memuat fasilitas...</p>
+                      <p className="text-sm text-gray-500">
+                        Memuat fasilitas...
+                      </p>
                     ) : facilities.length === 0 ? (
                       <p className="text-sm text-gray-500">
                         Belum ada fasilitas aktif di sistem
@@ -770,7 +759,9 @@ export default function HotelsList() {
                     ) : (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {facilities.map((facility) => {
-                          const selected = editForm.facility_ids.includes(facility.id);
+                          const selected = editForm.facility_ids.includes(
+                            facility.id
+                          );
 
                           return (
                             <label
@@ -784,7 +775,9 @@ export default function HotelsList() {
                               <input
                                 type="checkbox"
                                 checked={selected}
-                                onChange={() => handleFacilityToggle(facility.id)}
+                                onChange={() =>
+                                  handleFacilityToggle(facility.id)
+                                }
                                 className="mt-1 h-4 w-4 accent-red-600"
                               />
 
@@ -807,7 +800,8 @@ export default function HotelsList() {
                     )}
 
                     <p className="mt-4 text-xs text-gray-400">
-                      Fasilitas yang dipilih akan ikut tersimpan saat hotel diupdate.
+                      Fasilitas yang dipilih akan ikut tersimpan saat hotel
+                      diupdate.
                     </p>
                   </div>
                 </div>
