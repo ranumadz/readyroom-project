@@ -233,6 +233,93 @@ export default function Hotels() {
     return `${BACKEND_BASE_URL}/storage/${cleanPath}`;
   };
 
+  const formatRupiah = (value) => {
+    const amount = Number(value || 0);
+
+    if (!amount || Number.isNaN(amount)) return "-";
+
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const getHotelStartingPrice = (hotel) => {
+    const directPrice =
+      Number(hotel?.lowest_price || 0) ||
+      Number(hotel?.min_price || 0) ||
+      Number(hotel?.starting_price || 0) ||
+      Number(hotel?.start_price || 0);
+
+    if (directPrice > 0) {
+      return {
+        price: directPrice,
+        label: hotel?.lowest_price_label || hotel?.starting_price_label || "3 Jam",
+      };
+    }
+
+    const rooms = Array.isArray(hotel?.rooms)
+      ? hotel.rooms
+      : Array.isArray(hotel?.room)
+      ? hotel.room
+      : Array.isArray(hotel?.active_rooms)
+      ? hotel.active_rooms
+      : [];
+
+    if (!rooms.length) {
+      return {
+        price: 0,
+        label: "",
+      };
+    }
+
+    const transit3Prices = rooms
+      .map((room) => Number(room?.price_transit_3h || room?.price_3h || 0))
+      .filter((price) => price > 0);
+
+    if (transit3Prices.length > 0) {
+      return {
+        price: Math.min(...transit3Prices),
+        label: "3 Jam",
+      };
+    }
+
+    const fallbackPrices = [];
+
+    rooms.forEach((room) => {
+      const priceOptions = [
+        {
+          price: Number(room?.price_transit_6h || room?.price_6h || 0),
+          label: "6 Jam",
+        },
+        {
+          price: Number(room?.price_transit_12h || room?.price_12h || 0),
+          label: "12 Jam",
+        },
+        {
+          price: Number(room?.price_per_night || room?.price_night || 0),
+          label: "Full Day",
+        },
+      ];
+
+      priceOptions.forEach((item) => {
+        if (item.price > 0) fallbackPrices.push(item);
+      });
+    });
+
+    if (fallbackPrices.length === 0) {
+      return {
+        price: 0,
+        label: "",
+      };
+    }
+
+    return fallbackPrices.reduce((lowest, current) =>
+      current.price < lowest.price ? current : lowest
+    );
+  };
+
   const getFacilityIcon = (iconName) => {
     switch (iconName) {
       case "wifi":
@@ -340,45 +427,72 @@ export default function Hotels() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
-            {filteredHotels.map((hotel) => (
-              <Link
-                to={`/hotels/${hotel.id}`}
-                key={hotel.id}
-                className="group block overflow-hidden rounded-[16px] border border-red-100 bg-white shadow-[0_6px_18px_rgba(0,0,0,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(239,68,68,0.14)] sm:rounded-[28px]"
-              >
-                <HotelImageSlider hotel={hotel} buildImageUrl={buildImageUrl} />
+            {filteredHotels.map((hotel) => {
+              const startingPrice = getHotelStartingPrice(hotel);
 
-                <div className="flex min-h-[150px] flex-col bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-2.5 pb-2.5 pt-2.5 text-white sm:min-h-[260px] sm:px-5 sm:pb-5 sm:pt-4">
-                  <div className="mb-1.5 flex items-start justify-between gap-2 sm:mb-3 sm:gap-3">
-                    <div className="min-w-0">
-                      <h3 className="line-clamp-2 min-h-[34px] text-[14px] font-extrabold leading-[1.18] tracking-tight sm:min-h-0 sm:line-clamp-1 sm:text-[1.7rem]">
-                        {hotel.name || "Hotel"}
-                      </h3>
+              return (
+                <Link
+                  to={`/hotels/${hotel.id}`}
+                  key={hotel.id}
+                  className="group block overflow-hidden rounded-[16px] border border-red-100 bg-white shadow-[0_6px_18px_rgba(0,0,0,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(239,68,68,0.14)] sm:rounded-[28px]"
+                >
+                  <HotelImageSlider hotel={hotel} buildImageUrl={buildImageUrl} />
+
+                  <div className="flex min-h-[170px] flex-col bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-2.5 pb-2.5 pt-2.5 text-white sm:min-h-[280px] sm:px-5 sm:pb-5 sm:pt-4">
+                    <div className="mb-1.5 flex items-start justify-between gap-2 sm:mb-3 sm:gap-3">
+                      <div className="min-w-0">
+                        <h3 className="line-clamp-2 min-h-[34px] text-[14px] font-extrabold leading-[1.18] tracking-tight sm:min-h-0 sm:line-clamp-1 sm:text-[1.7rem]">
+                          {hotel.name || "Hotel"}
+                        </h3>
+                      </div>
+                    </div>
+
+                    <div className="mb-2 flex items-start gap-1.5 text-[10.5px] text-red-50 sm:mb-4 sm:min-h-[48px] sm:gap-2 sm:text-sm">
+                      <MapPin
+                        size={12}
+                        className="mt-0.5 shrink-0 text-white sm:h-[15px] sm:w-[15px]"
+                      />
+                      <span className="line-clamp-2 sm:line-clamp-3">
+                        {hotel.address || "Alamat hotel belum tersedia."}
+                      </span>
+                    </div>
+
+                    <div className="mt-auto border-t border-white/20 pt-2 sm:pt-4">
+                      <div className="flex items-end justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/70 sm:text-[10px]">
+                            Harga mulai dari
+                          </p>
+
+                          {startingPrice.price > 0 ? (
+                            <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+                              <p className="text-[14px] font-extrabold leading-none text-white sm:text-xl">
+                                {formatRupiah(startingPrice.price)}
+                              </p>
+                              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[9px] font-bold text-white/90 ring-1 ring-white/15 sm:text-[10px]">
+                                {startingPrice.label}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-[12px] font-bold text-white sm:text-sm">
+                              Tersedia di detail
+                            </p>
+                          )}
+                        </div>
+
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-red-600 transition group-hover:translate-x-0.5 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs">
+                          Explore
+                          <ArrowRight
+                            size={11}
+                            className="sm:h-[14px] sm:w-[14px]"
+                          />
+                        </span>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="mb-2 flex items-start gap-1.5 text-[10.5px] text-red-50 sm:mb-4 sm:min-h-[48px] sm:gap-2 sm:text-sm">
-                    <MapPin
-                      size={12}
-                      className="mt-0.5 shrink-0 text-white sm:h-[15px] sm:w-[15px]"
-                    />
-                    <span className="line-clamp-2 sm:line-clamp-3">
-                      {hotel.address || "Alamat hotel belum tersedia."}
-                    </span>
-                  </div>
-
-                  <div className="mt-auto flex items-center justify-start border-t border-white/20 pt-2 sm:pt-4">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[9.5px] font-bold text-red-600 transition group-hover:translate-x-0.5 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs">
-                      Explore
-                      <ArrowRight
-                        size={11}
-                        className="sm:h-[14px] sm:w-[14px]"
-                      />
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>

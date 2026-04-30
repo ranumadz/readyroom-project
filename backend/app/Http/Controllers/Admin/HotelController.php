@@ -108,7 +108,11 @@ class HotelController extends Controller
         $request->validate([
             'city_id' => 'required|exists:cities,id',
             'name' => 'required|string|max:255',
-            'area' => 'required|string|max:255',
+
+            // ✅ AREA SUDAH TIDAK WAJIB
+            // Frontend AddHotel sudah tidak menampilkan field area.
+            'area' => 'nullable|string|max:255',
+
             'address' => 'required|string',
             'wa_admin' => 'nullable|string|max:30',
             'latitude' => 'nullable|string|max:50',
@@ -138,7 +142,10 @@ class HotelController extends Controller
         $hotel = Hotel::create([
             'city_id' => $request->city_id,
             'name' => $request->name,
-            'area' => $request->area,
+
+            // ✅ Tetap isi string kosong supaya aman kalau kolom DB area masih NOT NULL
+            'area' => $request->area ?? '',
+
             'address' => $request->address,
             'wa_admin' => $request->wa_admin,
             'latitude' => $request->latitude,
@@ -177,7 +184,10 @@ class HotelController extends Controller
         $request->validate([
             'city_id' => 'required|exists:cities,id',
             'name' => 'required|string|max:255',
-            'area' => 'required|string|max:255',
+
+            // ✅ AREA SUDAH TIDAK WAJIB DI EDIT HOTEL JUGA
+            'area' => 'nullable|string|max:255',
+
             'address' => 'required|string',
             'wa_admin' => 'nullable|string|max:30',
             'latitude' => 'nullable|string|max:50',
@@ -196,7 +206,11 @@ class HotelController extends Controller
         $data = [
             'city_id' => $request->city_id,
             'name' => $request->name,
-            'area' => $request->area,
+
+            // ✅ Kalau request area kosong/null, pertahankan area lama.
+            // Kalau area lama juga kosong, isi string kosong.
+            'area' => $request->area ?? ($hotel->area ?? ''),
+
             'address' => $request->address,
             'wa_admin' => $request->wa_admin,
             'latitude' => $request->latitude,
