@@ -418,59 +418,58 @@ export default function Home() {
   };
 
   const HotelCard = ({
-    hotel,
-    i,
-    variant = "popular",
-    borderClass = "border-gray-100",
-  }) => {
-    const image =
-      variant === "recommended"
-        ? hotel.hero_image || hotel.thumbnail
-        : hotel.thumbnail || hotel.hero_image;
+  hotel,
+  i,
+  variant = "popular",
+  borderClass = "border-gray-100",
+}) => {
+  const image =
+    variant === "recommended"
+      ? hotel.hero_image || hotel.thumbnail
+      : hotel.thumbnail || hotel.hero_image;
 
-    const badgeText =
-      variant === "recent"
-        ? "Baru Dilihat"
-        : variant === "recommended"
-        ? "Pilihan Kurasi"
-        : "Popular Choice";
+  const badgeText =
+    variant === "recent"
+      ? "Baru Dilihat"
+      : variant === "recommended"
+      ? "Pilihan Kurasi"
+      : "Popular Choice";
 
-    const BadgeIcon =
-      variant === "recommended"
-        ? Award
-        : variant === "recent"
-        ? Eye
-        : BadgeCheck;
+  const BadgeIcon =
+    variant === "recommended"
+      ? Award
+      : variant === "recent"
+      ? Eye
+      : BadgeCheck;
 
-    const startingPrice = getHotelStartingPrice(hotel);
+  const startingPrice = getHotelStartingPrice(hotel);
 
-    
+  return (
+    <Link
+      draggable={false}
+      to={`/hotels/${hotel.id}`}
+      onClick={handleHotelCardOpen}
+      key={hotel.id}
+      data-aos="fade-up"
+      data-aos-delay={i * 80}
+      className={`group block w-[230px] shrink-0 overflow-hidden rounded-[1.05rem] border ${borderClass} bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:w-[250px] md:w-[270px] lg:w-[282px]`}
+    >
+      <div className="relative">
+        <img
+          draggable={false}
+          src={buildImageUrl(image, "/images/hotel.jpg")}
+          alt={hotel.name}
+          className="h-32 w-full object-cover transition duration-500 group-hover:scale-[1.03] sm:h-36 md:h-40"
+        />
 
-    return (
-      <Link
-        draggable={false}
-        to={`/hotels/${hotel.id}`}
-        onClick={handleHotelCardOpen}
-        key={hotel.id}
-        data-aos="fade-up"
-        data-aos-delay={i * 80}
-        className={`group block w-[230px] shrink-0 overflow-hidden rounded-[1.05rem] border ${borderClass} bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:w-[250px] md:w-[270px] lg:w-[282px]`}
-      >
-        <div className="relative">
-          <img
-            draggable={false}
-            src={buildImageUrl(image, "/images/hotel.jpg")}
-            alt={hotel.name}
-            className="h-32 w-full object-cover transition duration-500 group-hover:scale-[1.03] sm:h-36 md:h-40"
-          />
-
-          <div className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[9px] font-semibold text-gray-800 shadow md:text-[10px]">
-            <BadgeIcon size={10} className="text-red-500" />
-            {badgeText}
-          </div>
+        <div className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[9px] font-semibold text-gray-800 shadow md:text-[10px]">
+          <BadgeIcon size={10} className="text-red-500" />
+          {badgeText}
         </div>
+      </div>
 
-        <div className="p-2.5 md:p-3">
+      <div className="flex min-h-[205px] flex-col p-2.5 md:min-h-[218px] md:p-3">
+        <div>
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-semibold text-red-600 md:text-[10px]">
               {hotel.city?.name || "ReadyRoom"}
@@ -488,48 +487,48 @@ export default function Home() {
             {hotel.name}
           </h4>
 
-          <div className="mt-1 flex items-start gap-1.5 text-[11px] text-gray-500 md:text-xs">
+          <div className="mt-1 flex min-h-[54px] items-start gap-1.5 text-[11px] text-gray-500 md:min-h-[58px] md:text-xs">
             <MapPin size={12} className="mt-0.5 shrink-0 text-red-500" />
-            <span className="line-clamp-1">
-              {hotel.city?.name || "Lokasi hotel"}
-            </span>
+
+            <div className="min-w-0 flex-1">
+              <span className="block line-clamp-1">
+                {hotel.city?.name || "Lokasi hotel"}
+              </span>
+
+              <p className="mt-0.5 line-clamp-2 text-[10px] leading-[1.45] text-gray-500 md:text-[11px]">
+                {hotel.address || "Alamat belum tersedia"}
+              </p>
+            </div>
           </div>
-
-          <p className="mt-1.5 line-clamp-2 min-h-[30px] text-[10px] leading-relaxed text-gray-500 md:text-[11px]">
-            {hotel.address || "Alamat belum tersedia"}
-          </p>
-
-          <div className="mt-3 overflow-hidden rounded-[1.05rem] border border-red-100 bg-white shadow-[0_10px_26px_rgba(239,68,68,0.08)] transition duration-300 group-hover:border-red-200 group-hover:shadow-[0_16px_34px_rgba(239,68,68,0.14)]">
-  <div className="mt-3 rounded-2xl border border-red-100 bg-white px-3 py-2.5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-300 group-hover:border-red-200 group-hover:shadow-[0_12px_28px_rgba(239,68,68,0.10)]">
-  <div className="flex items-center justify-between gap-2">
-    <div className="min-w-0 flex-1">
-      <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-red-500">
-        Harga Mulai
-      </p>
-
-      {startingPrice?.price > 0 ? (
-        <p className="mt-1 truncate text-[14px] font-black leading-none text-gray-950 md:text-[18px]">
-          {formatRupiah(startingPrice.price)}
-        </p>
-      ) : (
-        <p className="mt-1 truncate text-[11px] font-extrabold leading-tight text-gray-950 md:text-[13px]">
-          Tersedia di detail
-        </p>
-      )}
-    </div>
-
-    <div className="shrink-0 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-extrabold text-white shadow-[0_8px_18px_rgba(239,68,68,0.28)] transition group-hover:bg-red-700 md:px-3 md:py-1.5 md:text-[10px]">
-      Booking
-    </div>
-  </div>
-</div>
-</div>
-
-          
         </div>
-      </Link>
-    );
-  };
+
+        <div className="mt-auto rounded-2xl border border-red-100 bg-white px-3 py-2.5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-300 group-hover:border-red-200 group-hover:shadow-[0_12px_28px_rgba(239,68,68,0.10)]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-red-500">
+                Harga Mulai
+              </p>
+
+              {startingPrice?.price > 0 ? (
+                <p className="mt-1 truncate text-[16px] font-black leading-none text-gray-950 md:text-[18px]">
+                  {formatRupiah(startingPrice.price)}
+                </p>
+              ) : (
+                <p className="mt-1 truncate text-[11px] font-extrabold leading-tight text-gray-950 md:text-[13px]">
+                  Tersedia di detail
+                </p>
+              )}
+            </div>
+
+            <div className="shrink-0 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-extrabold text-white shadow-[0_8px_18px_rgba(239,68,68,0.28)] transition group-hover:bg-red-700 md:px-3 md:py-1.5 md:text-[10px]">
+              Booking
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+};
 
   const HorizontalHotelSection = ({
     children,
