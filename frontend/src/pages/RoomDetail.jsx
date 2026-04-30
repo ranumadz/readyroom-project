@@ -601,7 +601,7 @@ export default function RoomDetail() {
     const nextDate = new Date(date);
 
     if (!selectedCheckInDate) {
-      nextDate.setHours(isFullDayMode ? FULL_DAY_MIN_HOUR : 12, 0, 0, 0);
+      nextDate.setHours(isFullDayMode ? FULL_DAY_MIN_HOUR : 0, 0, 0, 0);
     } else {
       nextDate.setHours(
         selectedCheckInDate.getHours(),
@@ -1121,7 +1121,7 @@ export default function RoomDetail() {
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
 
-        <section className="max-w-7xl mx-auto px-4 md:px-6 pt-20 sm:pt-24 md:pt-10 pb-32 md:pb-10">
+        <section className="max-w-7xl mx-auto px-4 md:px-6 pt-20 sm:pt-24 md:pt-10 pb-6 md:pb-10">
           <div className="mb-4 sm:mb-6">
             <button
               onClick={() => navigate(-1)}
@@ -1227,17 +1227,15 @@ export default function RoomDetail() {
 
               <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
                     <FileText size={20} />
                   </div>
 
                   <div>
-                    <h2 className="text-lg font-bold text-gray-800">
+                    <h1 className="text-lg font-bold text-gray-800">
                       Deskripsi & Fasilitas Kamar
-                    </h2>
-                    <p className="text-sm text-gray-500">
-                      Informasi singkat mengenai kamar
-                    </p>
+                    </h1>
+                    
                   </div>
                 </div>
 
@@ -1339,17 +1337,15 @@ export default function RoomDetail() {
 
               <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 overflow-visible">
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
                     <CalendarDays size={20} />
                   </div>
 
                   <div>
-                    <h2 className="text-lg font-bold text-gray-800">
+                    <h3 className="text-lg font-bold text-gray-800">
                       Pilih Tanggal & Jam Booking
-                    </h2>
-                    <p className="text-sm text-gray-500">
-                      Pilih tanggal dan jam check-in secara ringkas
-                    </p>
+                    </h3>
+                    
                   </div>
                 </div>
 
