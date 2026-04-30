@@ -310,23 +310,11 @@ export default function Hotels() {
         id="hotel-results-section"
         className="relative z-10 mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-14 md:px-6"
       >
-        <div className="mb-3 sm:mb-8 sm:flex sm:flex-col sm:gap-4 sm:rounded-[28px] sm:border sm:border-red-100 sm:bg-white/90 sm:p-6 sm:shadow-[0_10px_40px_rgba(255,0,0,0.05)] sm:backdrop-blur-sm md:flex-row md:items-end md:justify-between">
-          <div>
+        
             <div className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 sm:mb-3 sm:text-sm">
               <Building2 size={14} />
               Daftar Hotel ReadyRoom
             </div>
-
-            <h2 className="hidden text-3xl font-extrabold tracking-tight text-gray-900 sm:block md:text-4xl">
-              Semua Hotel
-            </h2>
-
-            <p className="mt-2 hidden text-base leading-relaxed text-gray-500 sm:block">
-              {filteredHotels.length} hotel ditemukan dari data hotel aktif
-              ReadyRoom.
-            </p>
-          </div>
-        </div>
 
         {loading ? (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
@@ -381,9 +369,7 @@ export default function Hotels() {
                       </p>
                     </div>
 
-                    <div className="hidden shrink-0 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm sm:block">
-                      ReadyRoom
-                    </div>
+                    
                   </div>
 
                   <div className="mb-2 flex items-start gap-1.5 text-[10.5px] text-red-50 sm:mb-4 sm:min-h-[48px] sm:gap-2 sm:text-sm">
