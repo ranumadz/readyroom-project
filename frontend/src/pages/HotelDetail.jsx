@@ -572,35 +572,35 @@ export default function HotelDetail() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-[18px_1fr] items-start gap-2">
-  <FileText size={14} className="mt-0.5 shrink-0 text-red-500" />
+               <div className="grid grid-cols-[24px_1fr] items-start gap-2.5">
+                <FileText size={14} className="mt-0.5 shrink-0 text-red-500" />
 
   <div className="min-w-0">
-    <h2 className="text-sm font-extrabold leading-tight text-gray-900 md:text-lg">
-      Deskripsi & Fasilitas Hotel
-    </h2>
+  <h1 className="text-base font-extrabold leading-tight text-gray-900 md:text-xl">
+    Deskripsi & Fasilitas Hotel
+  </h1>
 
-    <p className="mt-2 text-xs font-medium leading-relaxed text-gray-600 md:text-sm">
-      {hotel.description || "Deskripsi hotel belum tersedia."}
-    </p>
+       <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500 md:text-base">
+    {hotel.description || "Deskripsi hotel belum tersedia."}
+      </p>
 
-    {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {hotel.facilities.map((facility) => (
-          <span
-            key={facility.id}
-            className="rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-red-600 md:text-xs"
-          >
-            {getFacilityLabel(facility)}
-          </span>
-        ))}
-      </div>
-    ) : (
-      <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-gray-500">
-        Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
-      </div>
-    )}
-  </div>
+  {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
+    <div className="mt-4 flex flex-wrap gap-1.5 md:gap-2">
+      {hotel.facilities.map((facility) => (
+        <span
+          key={facility.id}
+          className="rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-red-600 md:px-3 md:py-1.5 md:text-xs"
+        >
+          {getFacilityLabel(facility)}
+        </span>
+      ))}
+    </div>
+  ) : (
+    <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-gray-500">
+      Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
+    </div>
+  )}
+</div>
 </div>
               </div>
             </div>
