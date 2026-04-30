@@ -640,7 +640,7 @@ export default function RoomsList() {
                     Catatan
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-blue-700">
-                    Perubahan data room akan langsung tersimpan ke backend.
+                    Perubahan data room akan langsung tersimpan ke database
                     Pastikan harga transit dan full day sudah sesuai sebelum
                     menekan tombol Simpan.
                   </p>
