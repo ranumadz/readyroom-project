@@ -109,9 +109,94 @@ export default function Home() {
     const cleanPath = rawPath.replace(/^\/+/, "");
 
     if (cleanPath.startsWith("images/")) return `/${cleanPath}`;
-    if (cleanPath.startsWith("storage/")) return `${BACKEND_BASE_URL}/${cleanPath}`;
+    if (cleanPath.startsWith("storage/"))
+      return `${BACKEND_BASE_URL}/${cleanPath}`;
 
     return `${BACKEND_BASE_URL}/storage/${cleanPath}`;
+  };
+
+  const formatRupiah = (value) => {
+    const amount = Number(value || 0);
+
+    if (!amount || Number.isNaN(amount)) return "-";
+
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const getHotelStartingPrice = (hotel) => {
+    const directPrice =
+      Number(hotel?.lowest_price || 0) ||
+      Number(hotel?.min_price || 0) ||
+      Number(hotel?.starting_price || 0) ||
+      Number(hotel?.start_price || 0);
+
+    if (directPrice > 0) {
+      return {
+        price: directPrice,
+        label:
+          hotel?.lowest_price_label ||
+          hotel?.starting_price_label ||
+          hotel?.min_price_label ||
+          "3 Jam",
+      };
+    }
+
+    const rooms = Array.isArray(hotel?.rooms)
+      ? hotel.rooms
+      : Array.isArray(hotel?.room)
+      ? hotel.room
+      : Array.isArray(hotel?.active_rooms)
+      ? hotel.active_rooms
+      : [];
+
+    if (!rooms.length) {
+      return {
+        price: 0,
+        label: "",
+      };
+    }
+
+    const priceOptions = [];
+
+    rooms.forEach((room) => {
+      const options = [
+        {
+          price: Number(room?.price_transit_3h || room?.price_3h || 0),
+          label: "3 Jam",
+        },
+        {
+          price: Number(room?.price_transit_6h || room?.price_6h || 0),
+          label: "6 Jam",
+        },
+        {
+          price: Number(room?.price_transit_12h || room?.price_12h || 0),
+          label: "12 Jam",
+        },
+        {
+          price: Number(room?.price_per_night || room?.price_night || 0),
+          label: "Full Day",
+        },
+      ];
+
+      options.forEach((item) => {
+        if (item.price > 0) priceOptions.push(item);
+      });
+    });
+
+    if (!priceOptions.length) {
+      return {
+        price: 0,
+        label: "",
+      };
+    }
+
+    return priceOptions.reduce((lowest, current) =>
+      current.price < lowest.price ? current : lowest
+    );
   };
 
   const getCustomerStorageKey = () => {
@@ -133,14 +218,46 @@ export default function Home() {
     }
   };
 
-  const loadRecentHotels = () => {
+  const loadRecentHotels = async () => {
     try {
       const storageKey = getCustomerStorageKey();
       const storedRecent = JSON.parse(localStorage.getItem(storageKey) || "[]");
-      setRecentHotels(Array.isArray(storedRecent) ? storedRecent : []);
+
+      if (!Array.isArray(storedRecent) || storedRecent.length === 0) {
+        setRecentHotels([]);
+        return;
+      }
+
+      const res = await api.get("/hotels");
+      const freshHotels = Array.isArray(res.data?.data) ? res.data.data : [];
+
+      const mergedRecent = storedRecent.map((storedHotel) => {
+        const freshHotel = freshHotels.find(
+          (hotel) => String(hotel.id) === String(storedHotel.id)
+        );
+
+        return freshHotel
+          ? {
+              ...storedHotel,
+              ...freshHotel,
+            }
+          : storedHotel;
+      });
+
+      setRecentHotels(mergedRecent);
+
+      localStorage.setItem(storageKey, JSON.stringify(mergedRecent));
     } catch (error) {
       console.error("LOAD RECENT HOTELS ERROR:", error);
-      setRecentHotels([]);
+
+      try {
+        const storageKey = getCustomerStorageKey();
+        const storedRecent = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        setRecentHotels(Array.isArray(storedRecent) ? storedRecent : []);
+      } catch (fallbackError) {
+        console.error("LOAD RECENT HOTELS FALLBACK ERROR:", fallbackError);
+        setRecentHotels([]);
+      }
     }
   };
 
@@ -214,7 +331,10 @@ export default function Home() {
     websiteContent?.info_description ||
     "Nikmati pengalaman booking hotel yang lebih cepat, aman, dan nyaman untuk kebutuhan harian maupun perjalanan bisnis.";
 
-  const infoImage = buildImageUrl(websiteContent?.info_image, "/images/hotel.jpg");
+  const infoImage = buildImageUrl(
+    websiteContent?.info_image,
+    "/images/hotel.jpg"
+  );
 
   const promo2Title = websiteContent?.promo2_title || "Promo Tambahan ReadyRoom";
 
@@ -316,7 +436,15 @@ export default function Home() {
         : "Popular Choice";
 
     const BadgeIcon =
-      variant === "recommended" ? Award : variant === "recent" ? Eye : BadgeCheck;
+      variant === "recommended"
+        ? Award
+        : variant === "recent"
+        ? Eye
+        : BadgeCheck;
+
+    const startingPrice = getHotelStartingPrice(hotel);
+
+    
 
     return (
       <Link
@@ -345,7 +473,7 @@ export default function Home() {
         <div className="p-2.5 md:p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-semibold text-red-600 md:text-[10px]">
-              {hotel.area || "Hotel"}
+              {hotel.city?.name || "ReadyRoom"}
             </span>
 
             {variant !== "recent" && (
@@ -360,24 +488,44 @@ export default function Home() {
             {hotel.name}
           </h4>
 
-          <p className="mt-0.5 text-[11px] text-gray-500 md:text-xs">
-            {hotel.city?.name || "-"}
-            {hotel.area ? ` • ${hotel.area}` : ""}
-          </p>
-
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {renderFacilityBadges(hotel)}
-          </div>
-
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <p className="line-clamp-1 text-[10px] text-gray-500 md:text-[11px]">
-              {hotel.address || "Alamat belum tersedia"}
-            </p>
-
-            <span className="shrink-0 text-[10px] font-semibold text-red-600 md:text-[11px]">
-              {variant === "recent" ? "Lihat Lagi" : "Lihat Detail"}
+          <div className="mt-1 flex items-start gap-1.5 text-[11px] text-gray-500 md:text-xs">
+            <MapPin size={12} className="mt-0.5 shrink-0 text-red-500" />
+            <span className="line-clamp-1">
+              {hotel.city?.name || "Lokasi hotel"}
             </span>
           </div>
+
+          <p className="mt-1.5 line-clamp-2 min-h-[30px] text-[10px] leading-relaxed text-gray-500 md:text-[11px]">
+            {hotel.address || "Alamat belum tersedia"}
+          </p>
+
+          <div className="mt-3 overflow-hidden rounded-[1.05rem] border border-red-100 bg-white shadow-[0_10px_26px_rgba(239,68,68,0.08)] transition duration-300 group-hover:border-red-200 group-hover:shadow-[0_16px_34px_rgba(239,68,68,0.14)]">
+  <div className="mt-3 rounded-2xl border border-red-100 bg-white px-3 py-2.5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-300 group-hover:border-red-200 group-hover:shadow-[0_12px_28px_rgba(239,68,68,0.10)]">
+  <div className="flex items-center justify-between gap-2">
+    <div className="min-w-0 flex-1">
+      <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-red-500">
+        Harga Mulai
+      </p>
+
+      {startingPrice?.price > 0 ? (
+        <p className="mt-1 truncate text-[14px] font-black leading-none text-gray-950 md:text-[18px]">
+          {formatRupiah(startingPrice.price)}
+        </p>
+      ) : (
+        <p className="mt-1 truncate text-[11px] font-extrabold leading-tight text-gray-950 md:text-[13px]">
+          Tersedia di detail
+        </p>
+      )}
+    </div>
+
+    <div className="shrink-0 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-extrabold text-white shadow-[0_8px_18px_rgba(239,68,68,0.28)] transition group-hover:bg-red-700 md:px-3 md:py-1.5 md:text-[10px]">
+      Booking
+    </div>
+  </div>
+</div>
+</div>
+
+          
         </div>
       </Link>
     );
@@ -448,8 +596,8 @@ export default function Home() {
           <div className="mb-3 hidden justify-center md:flex" />
 
           <div className="mx-auto w-full max-w-[680px] sm:max-w-[760px] md:max-w-[980px] lg:max-w-[1180px]">
-  <HeroSearchFilter />
-</div>
+            <HeroSearchFilter />
+          </div>
         </div>
       </section>
 
@@ -686,9 +834,7 @@ export default function Home() {
                 Lihat Properti
               </Link>
 
-              <button className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10 md:px-6 md:py-3 md:text-base">
-                Lihat Detail
-              </button>
+              
             </div>
           </div>
 

@@ -7,6 +7,7 @@ use App\Models\City;
 use App\Models\Hotel;
 use App\Models\Facility;
 use App\Models\HotelImage;
+use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -22,6 +23,82 @@ class HotelController extends Controller
             'cleaning',
             'completed',
         ];
+    }
+
+    private function getHotelStartingPrice(int $hotelId): array
+    {
+        $rooms = Room::where('hotel_id', $hotelId)
+            ->where('status', true)
+            ->get([
+                'id',
+                'hotel_id',
+                'price_transit_3h',
+                'price_transit_6h',
+                'price_transit_12h',
+                'price_per_night',
+            ]);
+
+        $priceOptions = [];
+
+        foreach ($rooms as $room) {
+            if ((float) ($room->price_transit_3h ?? 0) > 0) {
+                $priceOptions[] = [
+                    'price' => (float) $room->price_transit_3h,
+                    'label' => '3 Jam',
+                ];
+            }
+
+            if ((float) ($room->price_transit_6h ?? 0) > 0) {
+                $priceOptions[] = [
+                    'price' => (float) $room->price_transit_6h,
+                    'label' => '6 Jam',
+                ];
+            }
+
+            if ((float) ($room->price_transit_12h ?? 0) > 0) {
+                $priceOptions[] = [
+                    'price' => (float) $room->price_transit_12h,
+                    'label' => '12 Jam',
+                ];
+            }
+
+            if ((float) ($room->price_per_night ?? 0) > 0) {
+                $priceOptions[] = [
+                    'price' => (float) $room->price_per_night,
+                    'label' => 'Full Day',
+                ];
+            }
+        }
+
+        if (count($priceOptions) === 0) {
+            return [
+                'price' => null,
+                'label' => null,
+            ];
+        }
+
+        usort($priceOptions, function ($a, $b) {
+            return $a['price'] <=> $b['price'];
+        });
+
+        return [
+            'price' => $priceOptions[0]['price'],
+            'label' => $priceOptions[0]['label'],
+        ];
+    }
+
+    private function attachStartingPrice($hotel)
+    {
+        $startingPrice = $this->getHotelStartingPrice((int) $hotel->id);
+
+        $hotel->starting_price = $startingPrice['price'];
+        $hotel->starting_price_label = $startingPrice['label'];
+
+        // Alias supaya aman dengan frontend Hotels.jsx yang sudah kita buat.
+        $hotel->lowest_price = $startingPrice['price'];
+        $hotel->lowest_price_label = $startingPrice['label'];
+
+        return $hotel;
     }
 
     public function index()
@@ -44,7 +121,10 @@ class HotelController extends Controller
             ->where('status', true)
             ->orderByDesc('valid_booking_count')
             ->orderByDesc('id')
-            ->get();
+            ->get()
+            ->map(function ($hotel) {
+                return $this->attachStartingPrice($hotel);
+            });
 
         return response()->json([
             'message' => 'Daftar hotel berhasil diambil',
@@ -64,6 +144,8 @@ class HotelController extends Controller
             ])
             ->where('status', true)
             ->findOrFail($id);
+
+        $hotel = $this->attachStartingPrice($hotel);
 
         return response()->json([
             'message' => 'Detail hotel berhasil diambil',
@@ -108,11 +190,7 @@ class HotelController extends Controller
         $request->validate([
             'city_id' => 'required|exists:cities,id',
             'name' => 'required|string|max:255',
-
-            // ✅ AREA SUDAH TIDAK WAJIB
-            // Frontend AddHotel sudah tidak menampilkan field area.
             'area' => 'nullable|string|max:255',
-
             'address' => 'required|string',
             'wa_admin' => 'nullable|string|max:30',
             'latitude' => 'nullable|string|max:50',
@@ -142,10 +220,7 @@ class HotelController extends Controller
         $hotel = Hotel::create([
             'city_id' => $request->city_id,
             'name' => $request->name,
-
-            // ✅ Tetap isi string kosong supaya aman kalau kolom DB area masih NOT NULL
             'area' => $request->area ?? '',
-
             'address' => $request->address,
             'wa_admin' => $request->wa_admin,
             'latitude' => $request->latitude,
@@ -184,10 +259,7 @@ class HotelController extends Controller
         $request->validate([
             'city_id' => 'required|exists:cities,id',
             'name' => 'required|string|max:255',
-
-            // ✅ AREA SUDAH TIDAK WAJIB DI EDIT HOTEL JUGA
             'area' => 'nullable|string|max:255',
-
             'address' => 'required|string',
             'wa_admin' => 'nullable|string|max:30',
             'latitude' => 'nullable|string|max:50',
@@ -206,11 +278,7 @@ class HotelController extends Controller
         $data = [
             'city_id' => $request->city_id,
             'name' => $request->name,
-
-            // ✅ Kalau request area kosong/null, pertahankan area lama.
-            // Kalau area lama juga kosong, isi string kosong.
             'area' => $request->area ?? ($hotel->area ?? ''),
-
             'address' => $request->address,
             'wa_admin' => $request->wa_admin,
             'latitude' => $request->latitude,

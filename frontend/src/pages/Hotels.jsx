@@ -461,7 +461,7 @@ export default function Hotels() {
                       <div className="flex items-end justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/70 sm:text-[10px]">
-                            Harga mulai dari
+                            Harga mulai
                           </p>
 
                           {startingPrice.price > 0 ? (
@@ -469,9 +469,6 @@ export default function Hotels() {
                               <p className="text-[14px] font-extrabold leading-none text-white sm:text-xl">
                                 {formatRupiah(startingPrice.price)}
                               </p>
-                              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[9px] font-bold text-white/90 ring-1 ring-white/15 sm:text-[10px]">
-                                {startingPrice.label}
-                              </span>
                             </div>
                           ) : (
                             <p className="mt-1 text-[12px] font-bold text-white sm:text-sm">
