@@ -100,6 +100,16 @@ Route::prefix('admin')->group(function () {
     Route::get('/rooms/create', [RoomController::class, 'create']);
     Route::post('/rooms', [RoomController::class, 'store']);
 
+    // ✅ FIX EDIT ROOM MODAL
+    // Dipakai frontend RoomsList.jsx saat edit room:
+    // PUT  /api/admin/rooms/{id}
+    // POST /api/admin/rooms/{id} dengan _method=PUT
+    Route::put('/rooms/{id}', [RoomController::class, 'update']);
+    Route::post('/rooms/{id}', [RoomController::class, 'update']);
+
+    // Optional aman untuk nanti kalau butuh hapus room dari admin.
+    Route::delete('/rooms/{id}', [RoomController::class, 'destroy']);
+
     // =========================
     // Facilities
     // =========================
