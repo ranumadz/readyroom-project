@@ -75,6 +75,13 @@ export default function AddHotel() {
     [form.facility_ids]
   );
 
+  const selectedCityName = useMemo(() => {
+    return (
+      cities.find((city) => String(city.id) === String(form.city_id))?.name ||
+      "-"
+    );
+  }, [cities, form.city_id]);
+
   const fetchFormData = async (selectedCityId = null) => {
     try {
       setLoadingCities(true);
@@ -289,7 +296,7 @@ export default function AddHotel() {
       return Swal.fire({
         icon: "warning",
         title: "Link Google Maps belum valid",
-        text: "Masukkan link Google Maps yang valid",
+        text: "Buka Google Maps, cari nama cabang hotelnya, klik Share, lalu paste link tempat tersebut.",
         confirmButtonColor: "#dc2626",
       });
     }
@@ -494,7 +501,7 @@ export default function AddHotel() {
                           name="name"
                           value={form.name}
                           onChange={handleChange}
-                          placeholder="Contoh: ReadyRoom Melawai"
+                          placeholder="Contoh: ReadyRoom Gancit"
                           className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                         />
                         <Building2
@@ -514,7 +521,7 @@ export default function AddHotel() {
                         value={form.address}
                         onChange={handleChange}
                         rows={3}
-                        placeholder="Masukkan alamat lengkap hotel"
+                        placeholder="Masukkan alamat lengkap hotel, contoh: Jl. Bungur No.20"
                         className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                       />
                     </div>
@@ -541,13 +548,13 @@ export default function AddHotel() {
                         </div>
 
                         <p className="mt-2 text-xs text-gray-400">
-                          Nomor resmi admin cabang hotel
+                          Nomor resmi admin cabang hotel.
                         </p>
                       </div>
 
                       <div>
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Link Google Maps
+                          Link Google Maps Tempat Hotel
                         </label>
 
                         <div className="relative">
@@ -556,7 +563,7 @@ export default function AddHotel() {
                             name="map_link"
                             value={form.map_link}
                             onChange={handleChange}
-                            placeholder="https://maps.app.goo.gl/xxxxx"
+                            placeholder="Cari nama hotel di Maps → Share → Copy link"
                             className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                           />
                           <LinkIcon
@@ -565,9 +572,7 @@ export default function AddHotel() {
                           />
                         </div>
 
-                        <p className="mt-2 text-xs text-gray-400">
-                          Paste link Google Maps hotel
-                        </p>
+                        
                       </div>
                     </div>
 
@@ -866,9 +871,20 @@ export default function AddHotel() {
                         Kota
                       </p>
                       <p className="mt-2 font-semibold text-gray-800">
-                        {cities.find(
-                          (city) => String(city.id) === String(form.city_id)
-                        )?.name || "-"}
+                        {selectedCityName}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Google Maps
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-gray-800">
+                        {form.map_link ? "Link tempat sudah diisi" : "Belum diisi"}
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-gray-500">
+                        Pastikan link berasal dari tombol Share pada pin hotel,
+                        bukan dari pencarian alamat umum.
                       </p>
                     </div>
 

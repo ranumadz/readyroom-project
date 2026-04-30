@@ -338,11 +338,16 @@ export default function HotelsList() {
       });
     }
 
-    if (editForm.map_link && !/^https?:\/\/.+/i.test(editForm.map_link.trim())) {
+    if (
+      editForm.map_link &&
+      !/^https?:\/\/(www\.)?(google\.[^\/]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.com)/i.test(
+        editForm.map_link.trim()
+      )
+    ) {
       return Swal.fire({
         icon: "warning",
-        title: "Link map belum valid",
-        text: "Masukkan link Google Maps yang valid",
+        title: "Link Google Maps belum valid",
+        text: "Buka Google Maps, cari nama cabang hotelnya, klik Share, lalu paste link tempat tersebut.",
         confirmButtonColor: "#dc2626",
       });
     }
@@ -675,7 +680,7 @@ export default function HotelsList() {
                       name="name"
                       value={editForm.name}
                       onChange={handleEditChange}
-                      placeholder="Contoh: ReadyRoom Veteran"
+                      placeholder="Contoh: ReadyRoom Gancit"
                       className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                     />
                   </div>
@@ -717,7 +722,7 @@ export default function HotelsList() {
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Link Google Maps
+                    Link Google Maps Tempat Hotel
                   </label>
                   <div className="relative">
                     <input
@@ -725,7 +730,7 @@ export default function HotelsList() {
                       name="map_link"
                       value={editForm.map_link}
                       onChange={handleEditChange}
-                      placeholder="https://maps.app.goo.gl/... atau https://www.google.com/maps/..."
+                      placeholder="Cari nama hotel di Maps → Share → Copy link"
                       className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                     />
                     <LinkIcon
@@ -733,6 +738,8 @@ export default function HotelsList() {
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
                     />
                   </div>
+
+                  
                 </div>
 
                 <div>
