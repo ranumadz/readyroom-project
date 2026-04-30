@@ -472,42 +472,44 @@ export default function HotelDetail() {
           </div>
 
           <div className="md:hidden">
-            <div
-              ref={mobileGalleryRef}
-              onScroll={(e) => {
-                const scrollLeft = e.currentTarget.scrollLeft;
-                const itemWidth = e.currentTarget.clientWidth + 12;
-                const nextIndex = Math.round(scrollLeft / itemWidth);
+            <div className="relative">
+              <div
+                ref={mobileGalleryRef}
+                onScroll={(e) => {
+                  const scrollLeft = e.currentTarget.scrollLeft;
+                  const itemWidth = e.currentTarget.clientWidth + 12;
+                  const nextIndex = Math.round(scrollLeft / itemWidth);
 
-                if (galleryImages[nextIndex] && nextIndex !== activeImageIndex) {
-                  setActiveImageIndex(nextIndex);
-                }
-              }}
-              className="flex snap-x snap-mandatory gap-3 overflow-x-auto rounded-[1.1rem] scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {galleryImages.map((image, index) => (
-                <div
-                  key={index}
-                  onClick={() => {
-                    setActiveImageIndex(index);
-                    setShowGalleryModal(true);
-                  }}
-                  className="relative h-[250px] w-full shrink-0 snap-center overflow-hidden rounded-[1.1rem] bg-gray-100"
-                >
-                  <img
-                    src={image}
-                    alt={`${hotel.name} ${index + 1}`}
-                    onError={(e) => {
-                      e.currentTarget.src = "/images/hotel.jpg";
+                  if (galleryImages[nextIndex] && nextIndex !== activeImageIndex) {
+                    setActiveImageIndex(nextIndex);
+                  }
+                }}
+                className="flex snap-x snap-mandatory gap-3 overflow-x-auto rounded-[1.1rem] scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {galleryImages.map((image, index) => (
+                  <div
+                    key={index}
+                    onClick={() => {
+                      setActiveImageIndex(index);
+                      setShowGalleryModal(true);
                     }}
-                    className="h-full w-full object-cover"
-                  />
-
-                  <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-                    {index + 1}/{galleryImages.length}
+                    className="relative h-[250px] w-full shrink-0 snap-center overflow-hidden rounded-[1.1rem] bg-gray-100"
+                  >
+                    <img
+                      src={image}
+                      alt={`${hotel.name} ${index + 1}`}
+                      onError={(e) => {
+                        e.currentTarget.src = "/images/hotel.jpg";
+                      }}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              <div className="pointer-events-none absolute bottom-3 right-3 z-20 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white shadow-lg backdrop-blur-md">
+                {activeImageIndex + 1}/{galleryImages.length}
+              </div>
             </div>
 
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -548,54 +550,58 @@ export default function HotelDetail() {
           <div className="space-y-4 lg:col-span-2 md:space-y-6">
             <div className="overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm md:rounded-[1.5rem]">
               <div className="p-4 md:p-7">
-                <div className="mb-4 border-b border-gray-100 pb-4">
+                <div className="mb-5 border-b border-gray-100 pb-5">
                   <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-gray-950 md:text-4xl">
                     {hotel.name}
                   </h1>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <MapPin size={17} className="shrink-0 text-red-500" />
-                    <span className="text-base font-bold text-gray-800 md:text-xl">
-                      {hotel.city?.name || "-"}
-                    </span>
-                  </div>
+                  <div className="mt-4 grid grid-cols-[22px_1fr] items-start gap-2.5">
+                    <MapPin size={18} className="mt-0.5 shrink-0 text-red-500" />
 
-                  {hotel.address && (
-                    <p className="mt-1.5 line-clamp-2 pl-6 text-xs leading-relaxed text-gray-500 md:text-sm">
-                      {hotel.address}
-                    </p>
-                  )}
+                    <div className="min-w-0">
+                      <p className="text-base font-extrabold leading-tight text-gray-900 md:text-xl">
+                        {hotel.city?.name || "-"}
+                      </p>
+
+                      {hotel.address && (
+                        <p className="mt-1.5 line-clamp-2 text-sm font-semibold leading-relaxed text-gray-500 md:text-base">
+                          {hotel.address}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <div className="flex items-center gap-2">
-                    <FileText size={17} className="text-red-500" />
-                    <h2 className="text-base font-bold text-gray-900 md:text-xl">
-                      Deskripsi & Fasilitas Hotel
-                    </h2>
-                  </div>
+                <div className="grid grid-cols-[18px_1fr] items-start gap-2">
+  <FileText size={14} className="mt-0.5 shrink-0 text-red-500" />
 
-                  <p className="mt-2 text-sm leading-relaxed text-gray-600 md:text-base">
-                    {hotel.description || "Deskripsi hotel belum tersedia."}
-                  </p>
+  <div className="min-w-0">
+    <h2 className="text-sm font-extrabold leading-tight text-gray-900 md:text-lg">
+      Deskripsi & Fasilitas Hotel
+    </h2>
 
-                  {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {hotel.facilities.map((facility) => (
-                        <span
-                          key={facility.id}
-                          className="rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 md:text-sm"
-                        >
-                          {getFacilityLabel(facility)}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-gray-500">
-                      Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
-                    </div>
-                  )}
-                </div>
+    <p className="mt-2 text-xs font-medium leading-relaxed text-gray-600 md:text-sm">
+      {hotel.description || "Deskripsi hotel belum tersedia."}
+    </p>
+
+    {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {hotel.facilities.map((facility) => (
+          <span
+            key={facility.id}
+            className="rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-red-600 md:text-xs"
+          >
+            {getFacilityLabel(facility)}
+          </span>
+        ))}
+      </div>
+    ) : (
+      <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-gray-500">
+        Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
+      </div>
+    )}
+  </div>
+</div>
               </div>
             </div>
 

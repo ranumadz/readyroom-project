@@ -9,7 +9,6 @@ import {
   ArrowLeft,
   Building2,
   Clock3,
-  MoonStar,
   Users,
   FileText,
   LogIn,
@@ -29,12 +28,16 @@ import {
   Tv,
   Snowflake,
   X,
+  Minus,
+  Plus,
 } from "lucide-react";
 
 const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
 
 const FULL_DAY_MIN_HOUR = 14;
+const FULL_DAY_MIN_DAYS = 1;
+const FULL_DAY_MAX_DAYS = 30;
 
 export default function RoomDetail() {
   const { id } = useParams();
@@ -46,6 +49,7 @@ export default function RoomDetail() {
   const [activeImage, setActiveImage] = useState("");
   const [bookingMode, setBookingMode] = useState("transit");
   const [transitDuration, setTransitDuration] = useState("3");
+  const [fullDayDuration, setFullDayDuration] = useState(1);
 
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
   const [customerUser, setCustomerUser] = useState(null);
@@ -70,6 +74,8 @@ export default function RoomDetail() {
   const [guestError, setGuestError] = useState("");
   const [showDatePanel, setShowDatePanel] = useState(false);
   const [showTimePanel, setShowTimePanel] = useState(false);
+  const [showFullDayDurationPanel, setShowFullDayDurationPanel] =
+    useState(false);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
 
   useEffect(() => {
@@ -136,7 +142,9 @@ export default function RoomDetail() {
 
     const cleanPath = rawPath.replace(/^\/+/, "");
     if (cleanPath.startsWith("images/")) return `/${cleanPath}`;
-    if (cleanPath.startsWith("storage/")) return `${BACKEND_BASE_URL}/${cleanPath}`;
+    if (cleanPath.startsWith("storage/")) {
+      return `${BACKEND_BASE_URL}/${cleanPath}`;
+    }
 
     return `${BACKEND_BASE_URL}/storage/${cleanPath}`;
   };
@@ -189,54 +197,94 @@ export default function RoomDetail() {
 
   const handlePrevImage = () => {
     if (!galleryImages.length) return;
-    const prevIndex = activeImageIndex === 0 ? galleryImages.length - 1 : activeImageIndex - 1;
-    setGalleryImageByIndex(prevIndex, true);
+    const prevIndex =
+      activeImageIndex === 0 ? galleryImages.length - 1 : activeImageIndex - 1;
+
+    setGalleryImageByIndex(prevIndex, false);
   };
 
   const handleNextImage = () => {
     if (!galleryImages.length) return;
     const nextIndex = (activeImageIndex + 1) % galleryImages.length;
-    setGalleryImageByIndex(nextIndex, true);
+
+    setGalleryImageByIndex(nextIndex, false);
   };
 
   const parseDateTimeLocalValue = (value) => {
     if (!value) return null;
     const [datePart, timePart] = value.split(" ");
     if (!datePart || !timePart) return null;
+
     const [year, month, day] = datePart.split("-").map(Number);
     const [hour, minute, second] = timePart.split(":").map(Number);
-    return new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, second || 0);
+
+    return new Date(
+      year,
+      (month || 1) - 1,
+      day || 1,
+      hour || 0,
+      minute || 0,
+      second || 0
+    );
   };
 
   const formatDateTimeLocalValue = (date) => {
     if (!date) return "";
     const pad = (num) => String(num).padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
   };
 
   const formatDateOnlyValue = (date) => {
     if (!date) return "";
     const pad = (num) => String(num).padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )}`;
   };
 
   const parseDateOnlyValue = (value) => {
     if (!value) return null;
     const [year, month, day] = String(value).split("-").map(Number);
     if (!year || !month || !day) return null;
+
     return new Date(year, month - 1, day, 0, 0, 0, 0);
   };
 
+  const getFullDayCheckoutDateByDuration = (checkInDate, durationDays) => {
+    if (!checkInDate) return null;
+
+    const checkout = new Date(checkInDate);
+    checkout.setDate(checkout.getDate() + Number(durationDays || 1));
+    checkout.setHours(12, 0, 0, 0);
+
+    return checkout;
+  };
+
   const selectedCheckInDate = useMemo(() => {
-    return bookingForm.check_in ? parseDateTimeLocalValue(bookingForm.check_in) : null;
+    return bookingForm.check_in
+      ? parseDateTimeLocalValue(bookingForm.check_in)
+      : null;
   }, [bookingForm.check_in]);
 
   const selectedOvernightEndDate = useMemo(() => {
-    return bookingForm.overnight_end_date ? parseDateOnlyValue(bookingForm.overnight_end_date) : null;
+    return bookingForm.overnight_end_date
+      ? parseDateOnlyValue(bookingForm.overnight_end_date)
+      : null;
   }, [bookingForm.overnight_end_date]);
 
-  const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")), []);
-  const minuteOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")), []);
+  const hourOptions = useMemo(
+    () => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")),
+    []
+  );
+
+  const minuteOptions = useMemo(
+    () => Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")),
+    []
+  );
 
   const selectedHour = useMemo(() => {
     if (!selectedCheckInDate) return "";
@@ -250,9 +298,11 @@ export default function RoomDetail() {
 
   const overnightMinimumCheckoutDate = useMemo(() => {
     if (!selectedCheckInDate) return null;
+
     const checkIn = new Date(selectedCheckInDate);
     const noonBoundary = new Date(checkIn);
     noonBoundary.setHours(12, 0, 0, 0);
+
     const minimumDate = new Date(checkIn);
 
     if (checkIn < noonBoundary) {
@@ -262,11 +312,13 @@ export default function RoomDetail() {
 
     minimumDate.setDate(minimumDate.getDate() + 1);
     minimumDate.setHours(12, 0, 0, 0);
+
     return minimumDate;
   }, [selectedCheckInDate]);
 
   const overnightMinimumCheckoutDateOnly = useMemo(() => {
     if (!overnightMinimumCheckoutDate) return null;
+
     return new Date(
       overnightMinimumCheckoutDate.getFullYear(),
       overnightMinimumCheckoutDate.getMonth(),
@@ -281,29 +333,80 @@ export default function RoomDetail() {
   const selectedOvernightCheckOutDateTime = useMemo(() => {
     if (bookingMode !== "overnight") return null;
     if (!selectedCheckInDate) return null;
-    if (!selectedOvernightEndDate && overnightMinimumCheckoutDate) return new Date(overnightMinimumCheckoutDate);
-    if (!selectedOvernightEndDate) return null;
+
+    if (!selectedOvernightEndDate) {
+      const checkoutByDuration = getFullDayCheckoutDateByDuration(
+        selectedCheckInDate,
+        fullDayDuration
+      );
+
+      return checkoutByDuration || overnightMinimumCheckoutDate;
+    }
 
     const checkout = new Date(selectedOvernightEndDate);
     checkout.setHours(12, 0, 0, 0);
 
-    if (overnightMinimumCheckoutDate && checkout.getTime() < overnightMinimumCheckoutDate.getTime()) {
+    if (
+      overnightMinimumCheckoutDate &&
+      checkout.getTime() < overnightMinimumCheckoutDate.getTime()
+    ) {
       return new Date(overnightMinimumCheckoutDate);
     }
 
     return checkout;
-  }, [bookingMode, selectedCheckInDate, selectedOvernightEndDate, overnightMinimumCheckoutDate]);
+  }, [
+    bookingMode,
+    selectedCheckInDate,
+    selectedOvernightEndDate,
+    overnightMinimumCheckoutDate,
+    fullDayDuration,
+  ]);
 
   const overnightDurationDays = useMemo(() => {
     if (bookingMode !== "overnight") return 1;
-    if (!selectedCheckInDate) return 1;
-    if (!selectedOvernightCheckOutDateTime) return 1;
 
-    const start = new Date(selectedCheckInDate.getFullYear(), selectedCheckInDate.getMonth(), selectedCheckInDate.getDate(), 0, 0, 0, 0);
-    const end = new Date(selectedOvernightCheckOutDateTime.getFullYear(), selectedOvernightCheckOutDateTime.getMonth(), selectedOvernightCheckOutDateTime.getDate(), 0, 0, 0, 0);
-    const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    if (!selectedCheckInDate || !selectedOvernightCheckOutDateTime) {
+      return Number(fullDayDuration || 1);
+    }
+
+    const start = new Date(
+      selectedCheckInDate.getFullYear(),
+      selectedCheckInDate.getMonth(),
+      selectedCheckInDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+
+    const end = new Date(
+      selectedOvernightCheckOutDateTime.getFullYear(),
+      selectedOvernightCheckOutDateTime.getMonth(),
+      selectedOvernightCheckOutDateTime.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+
+    const diffDays = Math.round(
+      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
     return diffDays <= 0 ? 1 : diffDays;
-  }, [bookingMode, selectedCheckInDate, selectedOvernightCheckOutDateTime]);
+  }, [
+    bookingMode,
+    selectedCheckInDate,
+    selectedOvernightCheckOutDateTime,
+    fullDayDuration,
+  ]);
+
+  const syncFullDayCheckoutByDuration = (checkInDate, durationDays) => {
+    const checkout = getFullDayCheckoutDateByDuration(checkInDate, durationDays);
+    if (!checkout) return "";
+
+    return formatDateOnlyValue(checkout);
+  };
 
   const updateCheckInTimePart = (type, value) => {
     if (!selectedCheckInDate) {
@@ -312,19 +415,36 @@ export default function RoomDetail() {
       return;
     }
 
-    if (isFullDayMode && type === "hour" && Number(value) < FULL_DAY_MIN_HOUR) return;
+    if (isFullDayMode && type === "hour" && Number(value) < FULL_DAY_MIN_HOUR) {
+      return;
+    }
 
     const nextDate = new Date(selectedCheckInDate);
+
     if (type === "hour") nextDate.setHours(Number(value));
     if (type === "minute") nextDate.setMinutes(Number(value));
+
     nextDate.setSeconds(0, 0);
 
     if (isFullDayMode && nextDate.getHours() < FULL_DAY_MIN_HOUR) {
       nextDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
     }
 
-    setBookingForm((prev) => ({ ...prev, check_in: formatDateTimeLocalValue(nextDate) }));
+    setBookingForm((prev) => ({
+      ...prev,
+      check_in: formatDateTimeLocalValue(nextDate),
+      ...(isFullDayMode
+        ? {
+            overnight_end_date: syncFullDayCheckoutByDuration(
+              nextDate,
+              fullDayDuration
+            ),
+          }
+        : {}),
+    }));
+
     if (type === "minute") setShowTimePanel(false);
+
     setBookingError("");
     setGuestError("");
   };
@@ -335,7 +455,13 @@ export default function RoomDetail() {
     if (!overnightMinimumCheckoutDateOnly) return;
 
     if (!selectedOvernightEndDate) {
-      setBookingForm((prev) => ({ ...prev, overnight_end_date: formatDateOnlyValue(overnightMinimumCheckoutDateOnly) }));
+      setBookingForm((prev) => ({
+        ...prev,
+        overnight_end_date: syncFullDayCheckoutByDuration(
+          selectedCheckInDate,
+          fullDayDuration
+        ),
+      }));
       return;
     }
 
@@ -350,18 +476,36 @@ export default function RoomDetail() {
     );
 
     if (chosenEndDate.getTime() < overnightMinimumCheckoutDateOnly.getTime()) {
-      setBookingForm((prev) => ({ ...prev, overnight_end_date: formatDateOnlyValue(overnightMinimumCheckoutDateOnly) }));
+      setBookingForm((prev) => ({
+        ...prev,
+        overnight_end_date: formatDateOnlyValue(overnightMinimumCheckoutDateOnly),
+      }));
     }
-  }, [bookingMode, selectedCheckInDate, selectedOvernightEndDate, overnightMinimumCheckoutDateOnly]);
+  }, [
+    bookingMode,
+    selectedCheckInDate,
+    selectedOvernightEndDate,
+    overnightMinimumCheckoutDateOnly,
+    fullDayDuration,
+  ]);
 
   useEffect(() => {
     if (!isFullDayMode || !selectedCheckInDate) return;
+
     if (selectedCheckInDate.getHours() < FULL_DAY_MIN_HOUR) {
       const adjustedDate = new Date(selectedCheckInDate);
       adjustedDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
-      setBookingForm((prev) => ({ ...prev, check_in: formatDateTimeLocalValue(adjustedDate) }));
+
+      setBookingForm((prev) => ({
+        ...prev,
+        check_in: formatDateTimeLocalValue(adjustedDate),
+        overnight_end_date: syncFullDayCheckoutByDuration(
+          adjustedDate,
+          fullDayDuration
+        ),
+      }));
     }
-  }, [isFullDayMode, selectedCheckInDate]);
+  }, [isFullDayMode, selectedCheckInDate, fullDayDuration]);
 
   const estimatedCheckOutText = useMemo(() => {
     if (!selectedCheckInDate) return "-";
@@ -376,6 +520,7 @@ export default function RoomDetail() {
     } else {
       const sameDayNoon = new Date(checkIn);
       sameDayNoon.setHours(12, 0, 0, 0);
+
       if (checkIn < sameDayNoon) checkOut.setTime(sameDayNoon.getTime());
       else {
         sameDayNoon.setDate(sameDayNoon.getDate() + 1);
@@ -390,60 +535,183 @@ export default function RoomDetail() {
       hour: "2-digit",
       minute: "2-digit",
     });
-  }, [selectedCheckInDate, bookingMode, transitDuration, selectedOvernightCheckOutDateTime]);
+  }, [
+    selectedCheckInDate,
+    bookingMode,
+    transitDuration,
+    selectedOvernightCheckOutDateTime,
+  ]);
 
   useEffect(() => {
     if (!galleryImages.length) return;
-    if (!activeImage || !galleryImages.includes(activeImage)) setActiveImage(galleryImages[0]);
+    if (!activeImage || !galleryImages.includes(activeImage)) {
+      setActiveImage(galleryImages[0]);
+    }
   }, [galleryImages, activeImage]);
+
+  const handleBookingModeChange = (mode) => {
+    setBookingMode(mode);
+    setBookingError("");
+    setGuestError("");
+    setShowDatePanel(false);
+    setShowTimePanel(false);
+    setShowFullDayDurationPanel(false);
+
+    if (mode === "transit") {
+      setBookingForm((prev) => ({
+        ...prev,
+        overnight_end_date: "",
+      }));
+      return;
+    }
+
+    if (mode === "overnight" && selectedCheckInDate) {
+      const adjustedDate = new Date(selectedCheckInDate);
+
+      if (adjustedDate.getHours() < FULL_DAY_MIN_HOUR) {
+        adjustedDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
+      }
+
+      setBookingForm((prev) => ({
+        ...prev,
+        check_in: formatDateTimeLocalValue(adjustedDate),
+        overnight_end_date: syncFullDayCheckoutByDuration(
+          adjustedDate,
+          fullDayDuration
+        ),
+      }));
+
+      setShowFullDayDurationPanel(true);
+    }
+  };
 
   const handleCheckInDateChange = (date) => {
     if (!date) {
-      setBookingForm((prev) => ({ ...prev, check_in: "", ...(bookingMode === "overnight" ? { overnight_end_date: "" } : {}) }));
+      setBookingForm((prev) => ({
+        ...prev,
+        check_in: "",
+        ...(bookingMode === "overnight" ? { overnight_end_date: "" } : {}),
+      }));
+      setShowFullDayDurationPanel(false);
       setBookingError("");
       setGuestError("");
       return;
     }
 
     const nextDate = new Date(date);
-    if (!selectedCheckInDate) nextDate.setHours(isFullDayMode ? FULL_DAY_MIN_HOUR : 12, 0, 0, 0);
-    else nextDate.setHours(selectedCheckInDate.getHours(), selectedCheckInDate.getMinutes(), 0, 0);
-    if (isFullDayMode && nextDate.getHours() < FULL_DAY_MIN_HOUR) nextDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
 
-    setBookingForm((prev) => ({ ...prev, check_in: formatDateTimeLocalValue(nextDate) }));
-    setShowDatePanel(false);
-    setShowTimePanel(true);
-    setBookingError("");
-    setGuestError("");
-  };
-
-  const handleOvernightRangeChange = (dates) => {
-    const [start, end] = dates || [];
-    if (!start) {
-      setBookingForm((prev) => ({ ...prev, check_in: "", overnight_end_date: "" }));
-      setBookingError("");
-      setGuestError("");
-      return;
+    if (!selectedCheckInDate) {
+      nextDate.setHours(isFullDayMode ? FULL_DAY_MIN_HOUR : 12, 0, 0, 0);
+    } else {
+      nextDate.setHours(
+        selectedCheckInDate.getHours(),
+        selectedCheckInDate.getMinutes(),
+        0,
+        0
+      );
     }
 
-    const nextStart = new Date(start);
-    if (!selectedCheckInDate) nextStart.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
-    else nextStart.setHours(selectedCheckInDate.getHours(), selectedCheckInDate.getMinutes(), 0, 0);
-    if (nextStart.getHours() < FULL_DAY_MIN_HOUR) nextStart.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
+    if (isFullDayMode && nextDate.getHours() < FULL_DAY_MIN_HOUR) {
+      nextDate.setHours(FULL_DAY_MIN_HOUR, 0, 0, 0);
+    }
 
     setBookingForm((prev) => ({
       ...prev,
-      check_in: formatDateTimeLocalValue(nextStart),
-      overnight_end_date: end ? formatDateOnlyValue(end) : prev.overnight_end_date,
+      check_in: formatDateTimeLocalValue(nextDate),
+      ...(isFullDayMode
+        ? {
+            overnight_end_date: syncFullDayCheckoutByDuration(
+              nextDate,
+              fullDayDuration
+            ),
+          }
+        : {}),
     }));
 
-    if (start && end) {
-      setShowDatePanel(false);
+    setShowDatePanel(false);
+
+    if (isFullDayMode) {
+      setShowFullDayDurationPanel(true);
+      setShowTimePanel(false);
+    } else {
+      setShowFullDayDurationPanel(false);
       setShowTimePanel(true);
     }
 
     setBookingError("");
     setGuestError("");
+  };
+
+  const applyFullDayDuration = (
+    duration,
+    { closePanel = false, openTime = false } = {}
+  ) => {
+    const safeDuration = Math.min(
+      FULL_DAY_MAX_DAYS,
+      Math.max(FULL_DAY_MIN_DAYS, Number(duration || 1))
+    );
+
+    setFullDayDuration(safeDuration);
+
+    if (selectedCheckInDate) {
+      setBookingForm((prev) => ({
+        ...prev,
+        overnight_end_date: syncFullDayCheckoutByDuration(
+          selectedCheckInDate,
+          safeDuration
+        ),
+      }));
+    }
+
+    if (closePanel) setShowFullDayDurationPanel(false);
+    if (openTime) setShowTimePanel(true);
+
+    setBookingError("");
+    setGuestError("");
+  };
+
+  const handleFullDayDurationChange = (duration) => {
+    applyFullDayDuration(duration, {
+      closePanel: true,
+      openTime: true,
+    });
+  };
+
+  const handleFullDayDurationStep = (duration) => {
+    applyFullDayDuration(duration, {
+      closePanel: false,
+      openTime: false,
+    });
+  };
+
+  const handleFullDayDurationInputChange = (e) => {
+    const rawValue = e.target.value;
+
+    if (rawValue === "") {
+      setFullDayDuration("");
+      return;
+    }
+
+    applyFullDayDuration(rawValue, {
+      closePanel: false,
+      openTime: false,
+    });
+  };
+
+  const handleFullDayDurationInputBlur = () => {
+    if (!fullDayDuration || Number(fullDayDuration) < FULL_DAY_MIN_DAYS) {
+      applyFullDayDuration(1, {
+        closePanel: false,
+        openTime: false,
+      });
+    }
+  };
+
+  const handleUseManualDuration = () => {
+    applyFullDayDuration(fullDayDuration || 1, {
+      closePanel: true,
+      openTime: true,
+    });
   };
 
   const handleOvernightEndDateChange = (date) => {
@@ -454,13 +722,18 @@ export default function RoomDetail() {
       return;
     }
 
-    setBookingForm((prev) => ({ ...prev, overnight_end_date: formatDateOnlyValue(date) }));
+    setBookingForm((prev) => ({
+      ...prev,
+      overnight_end_date: formatDateOnlyValue(date),
+    }));
+
     setBookingError("");
     setGuestError("");
   };
 
   const formatRupiah = (value) => {
     const amount = Number(value || 0);
+
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
@@ -470,9 +743,11 @@ export default function RoomDetail() {
 
   const normalizePhone = (phone) => {
     const cleaned = String(phone || "").replace(/\D/g, "");
+
     if (!cleaned) return "";
     if (cleaned.startsWith("0")) return `62${cleaned.slice(1)}`;
     if (cleaned.startsWith("62")) return cleaned;
+
     return `62${cleaned}`;
   };
 
@@ -498,8 +773,12 @@ export default function RoomDetail() {
   const waAdminLink = useMemo(() => {
     const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
     if (!rawWa) return null;
+
     const normalizedWa = rawWa.startsWith("0") ? `62${rawWa.slice(1)}` : rawWa;
-    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi kamar.\n\nHotel: ${room?.hotel?.name || "-"}\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${
+
+    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi kamar.\n\nHotel: ${
+      room?.hotel?.name || "-"
+    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${
       selectedCheckInDate
         ? selectedCheckInDate.toLocaleString("id-ID", {
             day: "2-digit",
@@ -509,15 +788,29 @@ export default function RoomDetail() {
             minute: "2-digit",
           })
         : "-"
-    }\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(mainPrice)}\n\nMohon info ketersediaannya ya.`;
+    }\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
+      mainPrice
+    )}\n\nMohon info ketersediaannya ya.`;
+
     return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
-  }, [room, bookingLabelText, mainPrice, selectedCheckInDate, estimatedCheckOutText]);
+  }, [
+    room,
+    bookingLabelText,
+    mainPrice,
+    selectedCheckInDate,
+    estimatedCheckOutText,
+  ]);
 
   const guestWaLink = useMemo(() => {
     const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
     if (!rawWa) return null;
-    const normalizedAdminWa = rawWa.startsWith("0") ? `62${rawWa.slice(1)}` : rawWa;
+
+    const normalizedAdminWa = rawWa.startsWith("0")
+      ? `62${rawWa.slice(1)}`
+      : rawWa;
+
     const normalizedGuestPhone = normalizePhone(guestForm.guest_phone);
+
     const checkInText = selectedCheckInDate
       ? selectedCheckInDate.toLocaleString("id-ID", {
           day: "2-digit",
@@ -527,32 +820,59 @@ export default function RoomDetail() {
           minute: "2-digit",
         })
       : "-";
-    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi manual.\n\nNama: ${guestForm.guest_name || "-"}\nNo. WhatsApp: ${normalizedGuestPhone || guestForm.guest_phone || "-"}\nHotel: ${room?.hotel?.name || "-"}\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${checkInText}\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(mainPrice)}\n\nMohon dibantu cek ketersediaan dan konfirmasi reservasinya ya.`;
+
+    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi manual.\n\nNama: ${
+      guestForm.guest_name || "-"
+    }\nNo. WhatsApp: ${
+      normalizedGuestPhone || guestForm.guest_phone || "-"
+    }\nHotel: ${room?.hotel?.name || "-"}\nKamar: ${
+      room?.name || "-"
+    }\nTipe Booking: ${bookingLabelText}\nCheck-in: ${checkInText}\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
+      mainPrice
+    )}\n\nMohon dibantu cek ketersediaan dan konfirmasi reservasinya ya.`;
+
     return `https://wa.me/${normalizedAdminWa}?text=${encodeURIComponent(text)}`;
-  }, [room, bookingLabelText, mainPrice, guestForm.guest_name, guestForm.guest_phone, selectedCheckInDate, estimatedCheckOutText]);
+  }, [
+    room,
+    bookingLabelText,
+    mainPrice,
+    guestForm.guest_name,
+    guestForm.guest_phone,
+    selectedCheckInDate,
+    estimatedCheckOutText,
+  ]);
 
   const roomFacilities = useMemo(() => {
     if (Array.isArray(room?.facilities) && room.facilities.length > 0) {
-      return room.facilities.map((facility) => facility?.name || facility).filter(Boolean);
+      return room.facilities
+        .map((facility) => facility?.name || facility)
+        .filter(Boolean);
     }
+
     return ["AC", "WiFi", "TV", "Kamar mandi"];
   }, [room]);
 
   const roomFacilityIcon = (facilityName) => {
     const lower = String(facilityName || "").toLowerCase();
+
     if (lower.includes("wifi")) return Wifi;
     if (lower.includes("tv")) return Tv;
     if (lower.includes("mandi") || lower.includes("bath")) return Bath;
     if (lower.includes("ac")) return Snowflake;
+
     return CheckCircle2;
   };
 
-  const closeSuccessModal = () => setBookingSuccess({ open: false, bookingCode: "" });
+  const closeSuccessModal = () =>
+    setBookingSuccess({ open: false, bookingCode: "" });
 
   const resolveCustomerUserId = () => {
     if (customerUser?.id) return customerUser.id;
+
     try {
-      const fallbackId = localStorage.getItem("user_id") || localStorage.getItem("customer_id");
+      const fallbackId =
+        localStorage.getItem("user_id") || localStorage.getItem("customer_id");
+
       return fallbackId ? Number(fallbackId) : null;
     } catch {
       return null;
@@ -561,6 +881,7 @@ export default function RoomDetail() {
 
   const handleGuestInputChange = (e) => {
     const { name, value } = e.target;
+
     setGuestForm((prev) => ({ ...prev, [name]: value }));
     setGuestError("");
   };
@@ -570,27 +891,33 @@ export default function RoomDetail() {
       setGuestError("Nama tamu wajib diisi.");
       return false;
     }
+
     if (!guestForm.guest_phone.trim()) {
       setGuestError("Nomor WhatsApp wajib diisi.");
       return false;
     }
+
     if (!bookingForm.check_in) {
       setGuestError("Silakan pilih tanggal / jam check-in terlebih dahulu.");
       return false;
     }
+
     if (bookingMode === "overnight" && !selectedOvernightCheckOutDateTime) {
-      setGuestError("Silakan pilih tanggal checkout untuk full day.");
+      setGuestError("Silakan pilih durasi full day terlebih dahulu.");
       return false;
     }
+
     if (!room?.hotel?.wa_admin) {
       setGuestError("WhatsApp admin hotel belum tersedia.");
       return false;
     }
+
     return true;
   };
 
   const handleManualGuestBooking = () => {
     if (!validateGuestManualBooking()) return;
+
     window.open(guestWaLink, "_blank", "noopener,noreferrer");
   };
 
@@ -608,7 +935,7 @@ export default function RoomDetail() {
     }
 
     if (bookingMode === "overnight" && !selectedOvernightCheckOutDateTime) {
-      setBookingError("Silakan pilih tanggal checkout untuk full day.");
+      setBookingError("Silakan pilih durasi full day terlebih dahulu.");
       return;
     }
 
@@ -621,8 +948,10 @@ export default function RoomDetail() {
         hotel_id: room.hotel_id || room.hotel?.id,
         room_id: room.id,
         booking_type: bookingMode,
-        duration_hours: bookingMode === "transit" ? Number(transitDuration) : null,
-        duration_days: bookingMode === "overnight" ? Number(overnightDurationDays) : null,
+        duration_hours:
+          bookingMode === "transit" ? Number(transitDuration) : null,
+        duration_days:
+          bookingMode === "overnight" ? Number(overnightDurationDays) : null,
         check_in: bookingForm.check_in,
         check_out:
           bookingMode === "overnight" && selectedOvernightCheckOutDateTime
@@ -634,15 +963,20 @@ export default function RoomDetail() {
       const bookingCode = res.data?.data?.booking_code || "-";
 
       setBookingForm({ check_in: "", overnight_end_date: "" });
+      setShowDatePanel(false);
+      setShowTimePanel(false);
+      setShowFullDayDurationPanel(false);
       setBookingSuccess({ open: true, bookingCode });
     } catch (error) {
       console.error("SUBMIT BOOKING ERROR:", error.response?.data || error);
+
       const message =
         error.response?.data?.message ||
         error.response?.data?.errors?.check_in?.[0] ||
         error.response?.data?.errors?.check_out?.[0] ||
         error.response?.data?.errors?.user_id?.[0] ||
         "Booking gagal dibuat. Silakan coba lagi.";
+
       setBookingError(message);
     } finally {
       setSubmittingBooking(false);
@@ -653,11 +987,14 @@ export default function RoomDetail() {
     return (
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
+
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-12">
           <div className="animate-pulse space-y-6">
             <div className="h-10 w-40 bg-gray-200 rounded-xl" />
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="h-[380px] bg-gray-200 rounded-3xl" />
+
               <div className="space-y-4">
                 <div className="h-8 w-64 bg-gray-200 rounded-xl" />
                 <div className="h-5 w-40 bg-gray-200 rounded-xl" />
@@ -668,6 +1005,7 @@ export default function RoomDetail() {
             </div>
           </div>
         </div>
+
         <Footer />
       </div>
     );
@@ -677,14 +1015,17 @@ export default function RoomDetail() {
     return (
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
+
         <div className="max-w-4xl mx-auto px-4 md:px-6 py-20">
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-10 text-center">
             <h1 className="text-2xl font-bold text-gray-800 mb-3">
               Detail kamar tidak ditemukan
             </h1>
+
             <p className="text-gray-500 mb-6">
               Data kamar belum tersedia atau sudah tidak aktif.
             </p>
+
             <button
               onClick={() => navigate(-1)}
               className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-semibold hover:bg-red-700 transition"
@@ -694,6 +1035,7 @@ export default function RoomDetail() {
             </button>
           </div>
         </div>
+
         <Footer />
       </div>
     );
@@ -766,6 +1108,14 @@ export default function RoomDetail() {
         .readyroom-time-scroll::-webkit-scrollbar { width: 7px; height: 7px; }
         .readyroom-time-scroll::-webkit-scrollbar-thumb { background: #fecaca; border-radius: 999px; }
         .readyroom-time-scroll::-webkit-scrollbar-track { background: #fff5f5; }
+        input[type="number"].readyroom-duration-input::-webkit-outer-spin-button,
+        input[type="number"].readyroom-duration-input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type="number"].readyroom-duration-input {
+          -moz-appearance: textfield;
+        }
       `}</style>
 
       <div className="min-h-screen bg-gray-100 text-gray-800">
@@ -784,41 +1134,47 @@ export default function RoomDetail() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>
-              <div
-                ref={mobileGalleryRef}
-                onScroll={(e) => {
-                  const scrollLeft = e.currentTarget.scrollLeft;
-                  const itemWidth = e.currentTarget.clientWidth + 12;
-                  const nextIndex = Math.round(scrollLeft / itemWidth);
-                  if (galleryImages[nextIndex] && galleryImages[nextIndex] !== activeImage) {
-                    setActiveImage(galleryImages[nextIndex]);
-                  }
-                }}
-                className="flex snap-x snap-mandatory gap-3 overflow-x-auto rounded-3xl scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-                {galleryImages.map((image, index) => (
-                  <div
-                    key={`${image}-${index}`}
-                    onClick={() => {
-                      setActiveImage(image);
-                      setShowGalleryModal(true);
-                    }}
-                    className="relative h-[255px] w-full shrink-0 snap-center overflow-hidden rounded-3xl bg-white shadow-sm sm:h-[380px]"
-                  >
-                    <img
-                      src={image || "/images/hotel.jpg"}
-                      alt={`${room.name} ${index + 1}`}
-                      onError={(e) => {
-                        e.currentTarget.src = "/images/hotel.jpg";
-                      }}
-                      className="h-full w-full object-cover"
-                    />
+              <div className="relative">
+                <div
+                  ref={mobileGalleryRef}
+                  onScroll={(e) => {
+                    const scrollLeft = e.currentTarget.scrollLeft;
+                    const itemWidth = e.currentTarget.clientWidth + 12;
+                    const nextIndex = Math.round(scrollLeft / itemWidth);
 
-                    <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-                      {index + 1}/{galleryImages.length}
+                    if (
+                      galleryImages[nextIndex] &&
+                      galleryImages[nextIndex] !== activeImage
+                    ) {
+                      setActiveImage(galleryImages[nextIndex]);
+                    }
+                  }}
+                  className="flex snap-x snap-mandatory gap-3 overflow-x-auto rounded-3xl scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                  {galleryImages.map((image, index) => (
+                    <div
+                      key={`${image}-${index}`}
+                      onClick={() => {
+                        setActiveImage(image);
+                        setShowGalleryModal(true);
+                      }}
+                      className="relative h-[255px] w-full shrink-0 snap-center overflow-hidden rounded-3xl bg-white shadow-sm sm:h-[380px]"
+                    >
+                      <img
+                        src={image || "/images/hotel.jpg"}
+                        alt={`${room.name} ${index + 1}`}
+                        onError={(e) => {
+                          e.currentTarget.src = "/images/hotel.jpg";
+                        }}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+
+                <div className="pointer-events-none absolute bottom-3 right-3 z-20 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white shadow-lg backdrop-blur-md">
+                  {activeImageIndex + 1}/{galleryImages.length}
+                </div>
               </div>
 
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:gap-3 sm:overflow-visible sm:pb-0">
@@ -843,6 +1199,7 @@ export default function RoomDetail() {
                       }}
                       className="h-full w-full object-cover"
                     />
+
                     {activeImage === image && (
                       <div className="absolute inset-0 ring-2 ring-red-500 rounded-2xl" />
                     )}
@@ -861,6 +1218,7 @@ export default function RoomDetail() {
                   <Building2 size={16} className="text-red-500" />
                   {room.hotel?.name || "-"}
                 </div>
+
                 <div className="inline-flex items-center gap-2">
                   <Users size={16} className="text-red-500" />
                   Kapasitas {room.capacity || 0} orang
@@ -872,6 +1230,7 @@ export default function RoomDetail() {
                   <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
                     <FileText size={20} />
                   </div>
+
                   <div>
                     <h2 className="text-lg font-bold text-gray-800">
                       Deskripsi & Fasilitas Kamar
@@ -889,6 +1248,7 @@ export default function RoomDetail() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   {roomFacilities.map((facility) => {
                     const FacilityIcon = roomFacilityIcon(facility);
+
                     return (
                       <span
                         key={facility}
@@ -913,20 +1273,24 @@ export default function RoomDetail() {
                       bookingMode === "transit" ? "left-1" : "left-1/2"
                     }`}
                   />
+
                   <button
                     type="button"
-                    onClick={() => setBookingMode("transit")}
+                    onClick={() => handleBookingModeChange("transit")}
                     className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition ${
                       bookingMode === "transit" ? "text-white" : "text-gray-600"
                     }`}
                   >
                     Transit
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => setBookingMode("overnight")}
+                    onClick={() => handleBookingModeChange("overnight")}
                     className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition ${
-                      bookingMode === "overnight" ? "text-white" : "text-gray-600"
+                      bookingMode === "overnight"
+                        ? "text-white"
+                        : "text-gray-600"
                     }`}
                   >
                     Full Day
@@ -959,27 +1323,17 @@ export default function RoomDetail() {
                   </div>
                 )}
 
-                {bookingMode === "overnight" && (
-                  <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    <MoonStar size={16} className="mt-0.5 shrink-0" />
-                    <p>
-                      Untuk booking full day, check-in hanya bisa mulai pukul 14.00 dan checkout tetap mengikuti aturan hotel maksimal pukul 12.00 siang. Sekarang kamu juga bisa pilih lebih dari 1 hari.
-                    </p>
-                  </div>
-                )}
-
                 <div className="mt-5 rounded-2xl bg-red-50 border border-red-100 px-4 py-4">
                   <p className="text-xs font-semibold text-red-600 mb-1">
-                    Harga {bookingMode === "transit" ? `Transit ${transitDuration} Jam` : `Full Day ${overnightDurationDays} Hari`}
+                    Harga{" "}
+                    {bookingMode === "transit"
+                      ? `Transit ${transitDuration} Jam`
+                      : `Full Day ${overnightDurationDays} Hari`}
                   </p>
+
                   <p className="text-2xl font-bold text-gray-800">
                     {formatRupiah(mainPrice)}
                   </p>
-                  {bookingMode === "overnight" && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      {formatRupiah(overnightUnitPrice)} x {overnightDurationDays} hari
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -988,6 +1342,7 @@ export default function RoomDetail() {
                   <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
                     <CalendarDays size={20} />
                   </div>
+
                   <div>
                     <h2 className="text-lg font-bold text-gray-800">
                       Pilih Tanggal & Jam Booking
@@ -998,13 +1353,20 @@ export default function RoomDetail() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  className={`grid grid-cols-1 gap-3 ${
+                    bookingMode === "overnight" && selectedCheckInDate
+                      ? "sm:grid-cols-3"
+                      : "sm:grid-cols-2"
+                  }`}
+                >
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => {
                         setShowDatePanel((prev) => !prev);
                         setShowTimePanel(false);
+                        setShowFullDayDurationPanel(false);
                       }}
                       className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
                         showDatePanel || selectedCheckInDate
@@ -1024,37 +1386,145 @@ export default function RoomDetail() {
                             : "Belum dipilih"}
                         </p>
                       </div>
+
                       <CalendarDays size={20} />
                     </button>
 
                     {showDatePanel && (
                       <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[20px] border border-red-100 bg-white p-2 shadow-2xl">
                         <div className="readyroom-datepicker-compact">
-                          {bookingMode === "transit" ? (
-                            <DatePicker
-                              selected={selectedCheckInDate}
-                              onChange={handleCheckInDateChange}
-                              minDate={new Date()}
-                              inline
-                              calendarClassName="readyroom-datepicker-compact"
-                            />
-                          ) : (
-                            <DatePicker
-                              selected={selectedCheckInDate}
-                              startDate={selectedCheckInDate}
-                              endDate={selectedOvernightEndDate}
-                              onChange={handleOvernightRangeChange}
-                              minDate={new Date()}
-                              selectsRange
-                              monthsShown={1}
-                              inline
-                              calendarClassName="readyroom-datepicker-compact"
-                            />
-                          )}
+                          <DatePicker
+                            selected={selectedCheckInDate}
+                            onChange={handleCheckInDateChange}
+                            minDate={new Date()}
+                            inline
+                            calendarClassName="readyroom-datepicker-compact"
+                          />
                         </div>
                       </div>
                     )}
                   </div>
+
+                  {bookingMode === "overnight" && selectedCheckInDate && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFullDayDurationPanel((prev) => !prev);
+                          setShowDatePanel(false);
+                          setShowTimePanel(false);
+                        }}
+                        className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
+                          showFullDayDurationPanel || fullDayDuration
+                            ? "border-red-200 bg-red-50 text-red-700"
+                            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div>
+                          <p className="text-sm font-bold">Durasi Hari</p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {fullDayDuration
+                              ? `${fullDayDuration} Hari`
+                              : "Belum dipilih"}
+                          </p>
+                        </div>
+
+                        <CalendarDays size={20} />
+                      </button>
+
+                     {showFullDayDurationPanel && (
+  <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[22px] border border-red-100 bg-white p-3 shadow-2xl sm:left-1/2 sm:right-auto sm:w-[320px] sm:-translate-x-1/2">
+    <div className="mb-3">
+      <p className="text-sm font-extrabold text-gray-900">
+        Tentukan durasi menginap
+      </p>
+      <p className="mt-1 text-xs leading-relaxed text-gray-500">
+        Atur jumlah hari secara manual. Checkout full day otomatis pukul 12.00 siang.
+      </p>
+    </div>
+
+    <div className="rounded-[20px] border border-red-100 bg-red-50/60 p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-red-600">
+            Jumlah hari menginap
+          </p>
+          <p className="mt-0.5 text-xs font-medium text-gray-500">
+            Gunakan tombol - / + atau isi angka langsung.
+          </p>
+        </div>
+
+        <span className="shrink-0 rounded-full bg-white px-3 py-1 text-[11px] font-bold text-red-600">
+          Maks. {FULL_DAY_MAX_DAYS}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() =>
+            handleFullDayDurationStep(Number(fullDayDuration || 1) - 1)
+          }
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+        >
+          <Minus size={17} />
+        </button>
+
+        <div className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-2">
+          <input
+            type="number"
+            min={FULL_DAY_MIN_DAYS}
+            max={FULL_DAY_MAX_DAYS}
+            value={fullDayDuration}
+            onChange={handleFullDayDurationInputChange}
+            onBlur={handleFullDayDurationInputBlur}
+            className="readyroom-duration-input w-full bg-transparent text-center text-xl font-extrabold text-gray-900 outline-none"
+          />
+          <p className="text-center text-[11px] font-bold text-gray-400">
+            Hari
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            handleFullDayDurationStep(Number(fullDayDuration || 1) + 1)
+          }
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+        >
+          <Plus size={17} />
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleUseManualDuration}
+        className="mt-3 inline-flex w-full items-center justify-center rounded-2xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-red-100 transition hover:bg-red-700"
+      >
+        Gunakan {fullDayDuration || 1} Hari
+      </button>
+    </div>
+
+    {selectedOvernightCheckOutDateTime && (
+      <div className="mt-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+        <p className="text-xs font-bold text-gray-400">
+          Perkiraan checkout
+        </p>
+        <p className="mt-1 text-sm font-extrabold text-gray-800">
+          {selectedOvernightCheckOutDateTime.toLocaleString("id-ID", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
+      </div>
+    )}
+  </div>
+)}
+                    </div>
+                  )}
 
                   <div className="relative">
                     <button
@@ -1062,6 +1532,7 @@ export default function RoomDetail() {
                       onClick={() => {
                         setShowTimePanel((prev) => !prev);
                         setShowDatePanel(false);
+                        setShowFullDayDurationPanel(false);
                       }}
                       className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
                         showTimePanel || selectedCheckInDate
@@ -1080,33 +1551,47 @@ export default function RoomDetail() {
                             : "Belum dipilih"}
                         </p>
                       </div>
+
                       <Clock3 size={20} />
                     </button>
 
                     {showTimePanel && (
                       <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[20px] border border-red-100 bg-white p-4 shadow-2xl">
-                        <h3 className="font-semibold text-gray-800 mb-1">Waktu Check-in</h3>
-                        <p className="text-xs text-gray-500 mb-4">Pilih jam dan menit check-in</p>
+                        <h3 className="font-semibold text-gray-800 mb-1">
+                          Waktu Check-in
+                        </h3>
+                        <p className="text-xs text-gray-500 mb-4">
+                          Pilih jam dan menit check-in
+                        </p>
 
                         {!selectedCheckInDate && (
                           <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                            Silakan pilih tanggal terlebih dahulu sebelum pilih jam.
+                            Silakan pilih tanggal terlebih dahulu sebelum pilih
+                            jam.
                           </div>
                         )}
 
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">Jam</label>
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                              Jam
+                            </label>
+
                             <div className="readyroom-time-scroll h-36 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
                               <div className="grid grid-cols-2 gap-2">
                                 {hourOptions.map((hour) => {
-                                  const isDisabledHour = isFullDayMode && Number(hour) < FULL_DAY_MIN_HOUR;
+                                  const isDisabledHour =
+                                    isFullDayMode &&
+                                    Number(hour) < FULL_DAY_MIN_HOUR;
+
                                   return (
                                     <button
                                       key={hour}
                                       type="button"
                                       disabled={isDisabledHour}
-                                      onClick={() => updateCheckInTimePart("hour", hour)}
+                                      onClick={() =>
+                                        updateCheckInTimePart("hour", hour)
+                                      }
                                       className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
                                         isDisabledHour
                                           ? "cursor-not-allowed bg-gray-200 text-gray-400"
@@ -1124,14 +1609,19 @@ export default function RoomDetail() {
                           </div>
 
                           <div>
-                            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">Menit</label>
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">
+                              Menit
+                            </label>
+
                             <div className="readyroom-time-scroll h-36 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-2">
                               <div className="grid grid-cols-2 gap-2">
                                 {minuteOptions.map((minute) => (
                                   <button
                                     key={minute}
                                     type="button"
-                                    onClick={() => updateCheckInTimePart("minute", minute)}
+                                    onClick={() =>
+                                      updateCheckInTimePart("minute", minute)
+                                    }
                                     className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
                                       selectedMinute === minute
                                         ? "bg-red-600 text-white shadow"
@@ -1147,45 +1637,21 @@ export default function RoomDetail() {
                         </div>
 
                         {isFullDayMode && (
-                          <p className="mt-3 text-xs text-gray-500">Untuk full day, jam 00:00–13:55 tidak bisa dipilih.</p>
+                          <p className="mt-3 text-xs text-gray-500">
+                            Untuk full day, jam 00:00–13:55 tidak bisa dipilih.
+                          </p>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {bookingMode === "overnight" && selectedCheckInDate && (
-                  <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-                    <p className="text-xs font-semibold text-red-600 mb-1">Checkout Minimum Otomatis</p>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {overnightMinimumCheckoutDate
-                        ? overnightMinimumCheckoutDate.toLocaleString("id-ID", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
-                    </p>
-
-                    <div className="mt-3">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-red-500">Tanggal Checkout</label>
-                      <DatePicker
-                        selected={selectedOvernightEndDate}
-                        onChange={handleOvernightEndDateChange}
-                        minDate={overnightMinimumCheckoutDateOnly || new Date()}
-                        dateFormat="dd MMM yyyy"
-                        placeholderText="Pilih tanggal checkout"
-                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-800 outline-none focus:border-red-300"
-                      />
-                    </div>
-                  </div>
-                )}
-
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                    <p className="text-xs font-semibold text-gray-500 mb-1">Check-in Dipilih</p>
+                    <p className="text-xs font-semibold text-gray-500 mb-1">
+                      Check-in Dipilih
+                    </p>
+
                     <p className="text-sm font-semibold text-gray-800">
                       {selectedCheckInDate
                         ? selectedCheckInDate.toLocaleString("id-ID", {
@@ -1200,15 +1666,23 @@ export default function RoomDetail() {
                   </div>
 
                   <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-                    <p className="text-xs font-semibold text-amber-700 mb-1">Estimasi Checkout</p>
-                    <p className="text-sm font-bold text-amber-800">{estimatedCheckOutText}</p>
+                    <p className="text-xs font-semibold text-amber-700 mb-1">
+                      Estimasi Checkout
+                    </p>
+
+                    <p className="text-sm font-bold text-amber-800">
+                      {estimatedCheckOutText}
+                    </p>
                   </div>
                 </div>
 
                 {bookingMode === "overnight" && (
                   <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                     <p className="text-sm font-medium text-emerald-800">
-                      Total durasi full day: <span className="font-bold">{overnightDurationDays} hari</span>
+                      Total durasi full day:{" "}
+                      <span className="font-bold">
+                        {overnightDurationDays} hari
+                      </span>
                     </p>
                   </div>
                 )}
@@ -1216,23 +1690,41 @@ export default function RoomDetail() {
                 {isCustomerLoggedIn ? (
                   <div className="mt-5 space-y-5">
                     <div className="rounded-2xl bg-red-50 border border-red-100 p-4">
-                      <p className="text-sm text-red-600 font-semibold mb-1">Ringkasan Pilihan</p>
+                      <p className="text-sm text-red-600 font-semibold mb-1">
+                        Ringkasan Pilihan
+                      </p>
+
                       <p className="font-bold text-gray-800">{room.name}</p>
-                      <p className="text-sm text-gray-600">{bookingLabelText} • {formatRupiah(mainPrice)}</p>
+
+                      <p className="text-sm text-gray-600">
+                        {bookingLabelText} • {formatRupiah(mainPrice)}
+                      </p>
                     </div>
 
                     <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
                       <div className="flex gap-3">
-                        <ShieldCheck className="text-emerald-600 mt-0.5 shrink-0" size={18} />
-                        <p className="text-sm text-gray-700">Booking akan masuk sebagai <b>pending</b> dan menunggu admin.</p>
+                        <ShieldCheck
+                          className="text-emerald-600 mt-0.5 shrink-0"
+                          size={18}
+                        />
+
+                        <p className="text-sm text-gray-700">
+                          Booking akan masuk sebagai <b>pending</b> dan menunggu
+                          admin.
+                        </p>
                       </div>
                     </div>
 
                     {bookingError && (
                       <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
                         <div className="flex items-start gap-3">
-                          <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
-                          <p className="text-sm text-red-700">{bookingError}</p>
+                          <AlertCircle
+                            size={18}
+                            className="mt-0.5 shrink-0 text-red-600"
+                          />
+                          <p className="text-sm text-red-700">
+                            {bookingError}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -1278,14 +1770,23 @@ export default function RoomDetail() {
                 ) : (
                   <div className="mt-5 space-y-5">
                     <div className="rounded-3xl border border-dashed border-red-200 bg-red-50/60 p-5">
-                      <h3 className="text-lg font-bold text-gray-800 mb-2">Informasi Tamu</h3>
-                      <p className="text-sm text-gray-600 leading-relaxed mb-5">Lengkapi data untuk melanjutkan reservasi</p>
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">
+                        Informasi Tamu
+                      </h3>
+
+                      <p className="text-sm text-gray-600 leading-relaxed mb-5">
+                        Lengkapi data untuk melanjutkan reservasi
+                      </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="mb-2 block text-sm font-semibold text-red-600">Nama Tamu</label>
+                          <label className="mb-2 block text-sm font-semibold text-red-600">
+                            Nama Tamu
+                          </label>
+
                           <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
                             <User size={18} className="text-gray-400" />
+
                             <input
                               type="text"
                               name="guest_name"
@@ -1298,9 +1799,13 @@ export default function RoomDetail() {
                         </div>
 
                         <div>
-                          <label className="mb-2 block text-sm font-semibold text-red-600">No. WhatsApp</label>
+                          <label className="mb-2 block text-sm font-semibold text-red-600">
+                            No. WhatsApp
+                          </label>
+
                           <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
                             <Phone size={18} className="text-gray-400" />
+
                             <input
                               type="text"
                               name="guest_phone"
@@ -1316,8 +1821,14 @@ export default function RoomDetail() {
                       {guestError && (
                         <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
                           <div className="flex items-start gap-3">
-                            <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
-                            <p className="text-sm text-red-700">{guestError}</p>
+                            <AlertCircle
+                              size={18}
+                              className="mt-0.5 shrink-0 text-red-600"
+                            />
+
+                            <p className="text-sm text-red-700">
+                              {guestError}
+                            </p>
                           </div>
                         </div>
                       )}
@@ -1346,7 +1857,9 @@ export default function RoomDetail() {
                 )}
               </div>
 
-              <p className="text-xs text-gray-400 mt-4 text-center">Semua reservasi tetap akan ditindaklanjuti admin terlebih dahulu.</p>
+              <p className="text-xs text-gray-400 mt-4 text-center">
+                Semua reservasi tetap akan ditindaklanjuti admin terlebih dahulu.
+              </p>
             </div>
           </div>
         </section>
@@ -1403,7 +1916,7 @@ export default function RoomDetail() {
                 <button
                   key={index}
                   type="button"
-                  onClick={() => setGalleryImageByIndex(index, true)}
+                  onClick={() => setGalleryImageByIndex(index, false)}
                   className={`h-16 w-20 shrink-0 overflow-hidden rounded-xl border-2 ${
                     activeImage === image ? "border-red-500" : "border-white/20"
                   }`}
@@ -1434,27 +1947,40 @@ export default function RoomDetail() {
               <p className="inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
                 Booking Berhasil Dibuat
               </p>
+
               <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 leading-tight mt-5">
                 Yeay, pesananmu berhasil masuk
               </h2>
+
               <p className="mt-3 text-gray-500 leading-relaxed">
-                Booking kamu sudah berhasil dibuat dan sekarang sedang menunggu persetujuan admin ReadyRoom.
+                Booking kamu sudah berhasil dibuat dan sekarang sedang menunggu
+                persetujuan admin ReadyRoom.
               </p>
             </div>
 
             <div className="mt-6 rounded-3xl border border-red-100 bg-gradient-to-br from-red-50 to-rose-50 p-5">
-              <p className="text-sm text-red-600 font-semibold mb-2">Kode Booking Kamu</p>
+              <p className="text-sm text-red-600 font-semibold mb-2">
+                Kode Booking Kamu
+              </p>
+
               <p className="text-2xl font-extrabold tracking-wide text-gray-800">
                 {bookingSuccess.bookingCode || "-"}
               </p>
+
               <p className="mt-2 text-xs text-gray-500">
-                Simpan kode ini ya, nanti bisa dipakai untuk konfirmasi ke hotel saat booking sudah disetujui.
+                Simpan kode ini ya, nanti bisa dipakai untuk konfirmasi ke hotel
+                saat booking sudah disetujui.
               </p>
             </div>
 
             <div className="mt-6 rounded-3xl border border-gray-100 bg-gray-50 p-5">
-              <p className="text-sm font-semibold text-gray-800 mb-2">Sambil menunggu approval admin</p>
-              <p className="text-sm text-gray-600 leading-relaxed">Yuk cek booking kamu di halaman daftar booking customer.</p>
+              <p className="text-sm font-semibold text-gray-800 mb-2">
+                Sambil menunggu approval admin
+              </p>
+
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Yuk cek booking kamu di halaman daftar booking customer.
+              </p>
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
