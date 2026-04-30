@@ -91,11 +91,6 @@ function HotelImageSlider({ hotel, buildImageUrl }) {
 
       <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/55 via-black/10 to-transparent sm:h-28" />
 
-      <div className="absolute left-2 top-2 inline-flex max-w-[72px] items-center gap-1 rounded-full bg-white/95 px-1.5 py-0.5 text-[9px] font-semibold text-red-600 shadow-md sm:left-4 sm:top-4 sm:max-w-none sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs">
-        <Building2 size={10} className="shrink-0 sm:h-[14px] sm:w-[14px]" />
-        <span className="truncate">{hotel?.area || "Hotel"}</span>
-      </div>
-
       {images.length > 1 && (
         <>
           <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur-sm sm:right-4 sm:top-4 sm:px-2.5 sm:py-1.5 sm:text-xs">
@@ -273,13 +268,11 @@ export default function Hotels() {
     return hotels.filter((hotel) => {
       const name = String(hotel.name || "").toLowerCase();
       const city = String(hotel.city?.name || "").toLowerCase();
-      const area = String(hotel.area || "").toLowerCase();
       const address = String(hotel.address || "").toLowerCase();
 
       return (
         name.includes(keyword) ||
         city.includes(keyword) ||
-        area.includes(keyword) ||
         address.includes(keyword)
       );
     });
@@ -310,11 +303,10 @@ export default function Hotels() {
         id="hotel-results-section"
         className="relative z-10 mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-14 md:px-6"
       >
-        
-            <div className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 sm:mb-3 sm:text-sm">
-              <Building2 size={14} />
-              Daftar Hotel ReadyRoom
-            </div>
+        <div className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 sm:mb-3 sm:text-sm">
+          <Building2 size={14} />
+          Daftar Hotel ReadyRoom
+        </div>
 
         {loading ? (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
@@ -362,14 +354,7 @@ export default function Hotels() {
                       <h3 className="line-clamp-2 min-h-[34px] text-[14px] font-extrabold leading-[1.18] tracking-tight sm:min-h-0 sm:line-clamp-1 sm:text-[1.7rem]">
                         {hotel.name || "Hotel"}
                       </h3>
-
-                      <p className="mt-1 line-clamp-1 text-[10.5px] font-semibold text-red-50 sm:text-sm">
-                        {hotel.city?.name || "-"}
-                        {hotel.area ? ` • ${hotel.area}` : ""}
-                      </p>
                     </div>
-
-                    
                   </div>
 
                   <div className="mb-2 flex items-start gap-1.5 text-[10.5px] text-red-50 sm:mb-4 sm:min-h-[48px] sm:gap-2 sm:text-sm">
