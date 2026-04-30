@@ -1122,22 +1122,13 @@ export default function RoomDetail() {
         <Navbar />
 
         <section className="max-w-7xl mx-auto px-4 md:px-6 pt-20 sm:pt-24 md:pt-10 pb-6 md:pb-10">
-          <div className="mb-5 flex items-center justify-between">
-  <button
-    type="button"
-    onClick={() => navigate(-1)}
-    className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-  >
-    <ArrowLeft size={17} />
-    Kembali
-  </button>
-</div>
-          <div className="mb-4 sm:mb-6">
+          <div className="mb-4 flex items-center">
             <button
+              type="button"
               onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/95 px-3.5 py-2 text-xs sm:text-sm text-gray-700 font-semibold shadow-sm backdrop-blur hover:bg-gray-50 transition"
+              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/95 px-3.5 py-2 text-xs font-bold text-gray-700 shadow-sm backdrop-blur transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 md:px-4 md:py-2.5 md:text-sm"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={15} />
               Kembali
             </button>
           </div>

@@ -471,16 +471,9 @@ export default function Home() {
       <div className="flex min-h-[205px] flex-col p-2.5 md:min-h-[218px] md:p-3">
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-semibold text-red-600 md:text-[10px]">
-              {hotel.city?.name || "ReadyRoom"}
-            </span>
+            
 
-            {variant !== "recent" && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-semibold text-gray-700">
-                <Eye size={10} />
-                Banyak Dilihat
-              </span>
-            )}
+            
           </div>
 
           <h4 className="line-clamp-1 text-[13px] font-bold text-gray-900 md:text-[15px]">
@@ -502,7 +495,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-auto rounded-2xl border border-red-100 bg-white px-3 py-2.5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-300 group-hover:border-red-200 group-hover:shadow-[0_12px_28px_rgba(239,68,68,0.10)]">
+        <div className="mt-auto translate-y-[-20px] rounded-2xl border border-red-100 bg-white px-3 py-2.5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-300 group-hover:translate-y-[-12px] group-hover:border-red-200 group-hover:shadow-[0_12px_28px_rgba(239,68,68,0.10)]">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
               <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-red-500">

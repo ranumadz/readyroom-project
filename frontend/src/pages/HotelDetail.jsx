@@ -312,26 +312,44 @@ export default function HotelDetail() {
       ? String(hotel.address).trim()
       : null;
 
+  const hotelCityName =
+    hotel?.city?.name && String(hotel.city.name).trim() !== ""
+      ? String(hotel.city.name).trim()
+      : null;
+
   const hasCoordinates = Boolean(hotel?.latitude && hotel?.longitude);
 
+  // Map query sengaja pakai NAMA HOTEL + ALAMAT + KOTA,
+  // supaya label/pin Google Maps lebih condong ke tempat hotel yang didaftarkan
+  // seperti "ReadyRoom Gancit", bukan cuma nama jalan umum.
+  const mapSearchQuery = [hotel?.name, hotelAddress, hotelCityName]
+    .filter(Boolean)
+    .join(", ");
+
+  // Tombol buka maps tetap utamakan link Share dari admin.
+  // Jadi kalau admin paste link ReadyRoom Gancit, klik tombol akan langsung ke pin ReadyRoom Gancit.
   const googleMapsUrl = mapLink
     ? mapLink
+    : mapSearchQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        mapSearchQuery
+      )}`
     : hasCoordinates
-    ? `https://www.google.com/maps?q=${encodeURIComponent(
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
         `${hotel.latitude},${hotel.longitude}`
       )}`
-    : hotelAddress
-    ? `https://www.google.com/maps?q=${encodeURIComponent(hotelAddress)}`
     : null;
 
-  const embedMapUrl = hotelAddress
+  // Iframe tidak memakai link pendek maps.app.goo.gl karena sering tidak stabil untuk embed.
+  // Embed dibuat dari nama hotel + alamat agar label yang muncul lebih spesifik.
+  const embedMapUrl = mapSearchQuery
     ? `https://www.google.com/maps?q=${encodeURIComponent(
-        hotelAddress
-      )}&z=15&output=embed`
+        mapSearchQuery
+      )}&z=17&output=embed`
     : hasCoordinates
     ? `https://www.google.com/maps?q=${encodeURIComponent(
         `${hotel.latitude},${hotel.longitude}`
-      )}&z=15&output=embed`
+      )}&z=17&output=embed`
     : null;
 
   const waAdminLink = useMemo(() => {
@@ -606,7 +624,7 @@ export default function HotelDetail() {
             </div>
 
             <div className="rounded-[1.35rem] border border-gray-100 bg-white p-4 shadow-sm md:rounded-[1.5rem] md:p-7">
-              <div className="mb-3 flex items-start gap-3">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3">
                   <MapPin size={18} className="mt-1 text-red-500" />
 
@@ -614,8 +632,23 @@ export default function HotelDetail() {
                     <p className="font-semibold text-gray-800">
                       Lihat di Google Maps
                     </p>
+                    <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                      Lokasi diarahkan ke nama hotel yang terdaftar, bukan hanya alamat jalan.
+                    </p>
                   </div>
                 </div>
+
+                {googleMapsUrl && (
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-red-100 bg-red-50 px-4 py-2 text-xs font-bold text-red-600 transition hover:border-red-200 hover:bg-red-100 md:text-sm"
+                  >
+                    Buka Maps
+                    <ArrowRight size={15} />
+                  </a>
+                )}
               </div>
 
               {embedMapUrl ? (
@@ -634,7 +667,7 @@ export default function HotelDetail() {
               ) : googleMapsUrl ? (
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
                   <p className="leading-relaxed text-gray-600">
-                    Peta embed belum tersedia, tapi lokasi hotel sudah tersimpan.
+                    Peta embed belum tersedia, tapi lokasi hotel sudah tersimpan. Klik tombol Buka Maps untuk membuka lokasi.
                   </p>
                 </div>
               ) : (
