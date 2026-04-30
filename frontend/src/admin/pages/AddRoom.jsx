@@ -21,6 +21,8 @@ import {
   Images,
 } from "lucide-react";
 
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
+
 export default function AddRoom() {
   const [hotels, setHotels] = useState([]);
   const [loadingHotels, setLoadingHotels] = useState(false);
@@ -74,6 +76,38 @@ export default function AddRoom() {
     }
   };
 
+  const isValidImageFile = (file) => {
+    if (!(file instanceof File)) return false;
+
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+    if (!validTypes.includes(file.type)) {
+      toast.error("File gambar harus JPG, JPEG, PNG, atau WEBP");
+      return false;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error("Ukuran gambar maksimal 4MB");
+      return false;
+    }
+
+    return true;
+  };
+
+  const getBackendErrorMessage = (error) => {
+    const message = error.response?.data?.message;
+
+    const errors = error.response?.data?.errors;
+    if (errors && typeof errors === "object") {
+      const firstKey = Object.keys(errors)[0];
+      const firstError = errors[firstKey]?.[0];
+
+      if (firstError) return firstError;
+    }
+
+    return message || "Gagal menambahkan kamar";
+  };
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -85,10 +119,13 @@ export default function AddRoom() {
 
   const handleCoverChange = (e) => {
     const file = e.target.files?.[0];
+
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      toast.error("Cover harus berupa gambar");
+    if (!isValidImageFile(file)) {
+      if (coverInputRef.current) {
+        coverInputRef.current.value = "";
+      }
       return;
     }
 
@@ -125,11 +162,15 @@ export default function AddRoom() {
 
   const handleGalleryChange = (e) => {
     const selectedFiles = Array.from(e.target.files || []);
+
     if (!selectedFiles.length) return;
 
-    const invalidFile = selectedFiles.find((file) => !file.type.startsWith("image/"));
-    if (invalidFile) {
-      toast.error("Semua file gallery harus berupa gambar");
+    const allValid = selectedFiles.every((file) => isValidImageFile(file));
+
+    if (!allValid) {
+      if (galleryInputRef.current) {
+        galleryInputRef.current.value = "";
+      }
       return;
     }
 
@@ -159,9 +200,11 @@ export default function AddRoom() {
 
     setGalleryPreviews((prev) => {
       const removed = prev[index];
+
       if (removed?.preview) {
         URL.revokeObjectURL(removed.preview);
       }
+
       return prev.filter((_, i) => i !== index);
     });
   };
@@ -227,6 +270,7 @@ export default function AddRoom() {
       setSaving(true);
 
       const payload = new FormData();
+
       payload.append("hotel_id", form.hotel_id);
       payload.append("name", `${form.type} Room`);
       payload.append("type", form.type);
@@ -239,21 +283,27 @@ export default function AddRoom() {
       payload.append("description", form.description || "");
       payload.append("status", form.status ? 1 : 0);
 
-      if (form.thumbnail) {
+      if (form.thumbnail instanceof File) {
         payload.append("thumbnail", form.thumbnail);
       }
 
       form.images.forEach((file) => {
-        payload.append("images[]", file);
+        if (file instanceof File) {
+          payload.append("images[]", file);
+        }
       });
 
-      await api.post("/admin/rooms", payload);
+      await api.post("/admin/rooms", payload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       toast.success("Kamar berhasil ditambahkan");
       resetForm();
     } catch (error) {
       console.error("Gagal menambahkan kamar:", error.response?.data || error);
-      toast.error(error.response?.data?.message || "Gagal menambahkan kamar");
+      toast.error(getBackendErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -523,7 +573,7 @@ export default function AddRoom() {
                     Upload Cover Kamar
                   </h3>
                   <p className="text-sm text-gray-500 mt-2 mb-4">
-                    PNG, JPG, JPEG. Pilih satu gambar utama untuk cover kamar.
+                    PNG, JPG, JPEG, WEBP. Maksimal 4MB.
                   </p>
 
                   <button
@@ -538,7 +588,7 @@ export default function AddRoom() {
                   <input
                     ref={coverInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
                     onChange={handleCoverChange}
                     className="hidden"
                   />
@@ -585,7 +635,7 @@ export default function AddRoom() {
                       <input
                         ref={coverInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
                         onChange={handleCoverChange}
                         className="hidden"
                       />
@@ -632,7 +682,7 @@ export default function AddRoom() {
                 <input
                   ref={galleryInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
                   multiple
                   onChange={handleGalleryChange}
                   className="hidden"
