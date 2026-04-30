@@ -1845,7 +1845,7 @@ export default function RoomDetail() {
                           className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-red-600 font-semibold hover:bg-red-50 transition"
                         >
                           <LogIn size={18} />
-                          Login Jika Mau
+                          Login Akun 
                         </button>
                       </div>
                     </div>
