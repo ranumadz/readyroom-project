@@ -83,6 +83,28 @@ export default function RoomDetail() {
     detectCustomerLogin();
   }, [id]);
 
+  useEffect(() => {
+    if (!customerUser) return;
+
+    setGuestForm((prev) => ({
+      guest_name:
+        prev.guest_name ||
+        customerUser?.name ||
+        customerUser?.full_name ||
+        customerUser?.username ||
+        customerUser?.guest_name ||
+        "",
+      guest_phone:
+        prev.guest_phone ||
+        customerUser?.phone ||
+        customerUser?.phone_number ||
+        customerUser?.whatsapp ||
+        customerUser?.wa ||
+        customerUser?.no_whatsapp ||
+        "",
+    }));
+  }, [customerUser]);
+
   const isFullDayMode = bookingMode === "overnight";
 
   const detectCustomerLogin = () => {
@@ -776,25 +798,47 @@ export default function RoomDetail() {
 
     const normalizedWa = rawWa.startsWith("0") ? `62${rawWa.slice(1)}` : rawWa;
 
-    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi kamar.\n\nHotel: ${
+    const normalizedGuestPhone = normalizePhone(guestForm.guest_phone);
+
+    const guestName =
+      guestForm.guest_name ||
+      customerUser?.name ||
+      customerUser?.full_name ||
+      customerUser?.username ||
+      customerUser?.guest_name ||
+      "Customer ReadyRoom";
+
+    const guestPhone =
+      normalizedGuestPhone ||
+      customerUser?.phone ||
+      customerUser?.phone_number ||
+      customerUser?.whatsapp ||
+      customerUser?.wa ||
+      customerUser?.no_whatsapp ||
+      "-";
+
+    const checkInText = selectedCheckInDate
+      ? selectedCheckInDate.toLocaleString("id-ID", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "-";
+
+    const text = `Halo Admin ${room?.hotel?.name || "Hotel"}, saya ingin reservasi kamar.\n\nNama Tamu: ${guestName}\nNo. WhatsApp: ${guestPhone}\nHotel: ${
       room?.hotel?.name || "-"
-    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${
-      selectedCheckInDate
-        ? selectedCheckInDate.toLocaleString("id-ID", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : "-"
-    }\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
+    }\nKamar: ${room?.name || "-"}\nTipe Booking: ${bookingLabelText}\nCheck-in: ${checkInText}\nEstimasi Checkout: ${estimatedCheckOutText}\nHarga: ${formatRupiah(
       mainPrice
-    )}\n\nMohon info ketersediaannya ya.`;
+    )}\n\nMohon dibantu cek ketersediaan dan konfirmasi reservasinya ya.`;
 
     return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
   }, [
     room,
+    customerUser,
+    guestForm.guest_name,
+    guestForm.guest_phone,
     bookingLabelText,
     mainPrice,
     selectedCheckInDate,
@@ -1671,6 +1715,57 @@ export default function RoomDetail() {
                       <p className="text-sm text-gray-600">
                         {bookingLabelText} • {formatRupiah(mainPrice)}
                       </p>
+                    </div>
+
+                    <div className="rounded-3xl border border-dashed border-red-200 bg-red-50/60 p-5">
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">
+                        Informasi Tamu
+                      </h3>
+
+                      <p className="text-sm text-gray-600 leading-relaxed mb-5">
+                        Data ini dipakai untuk menghubungi admin melalui
+                        WhatsApp. Kamu bisa ubah jika tamu yang datang berbeda.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-red-600">
+                            Nama Tamu
+                          </label>
+
+                          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
+                            <User size={18} className="text-gray-400" />
+
+                            <input
+                              type="text"
+                              name="guest_name"
+                              value={guestForm.guest_name}
+                              onChange={handleGuestInputChange}
+                              placeholder="Masukkan nama tamu"
+                              className="w-full bg-transparent text-gray-800 outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-red-600">
+                            No. WhatsApp
+                          </label>
+
+                          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
+                            <Phone size={18} className="text-gray-400" />
+
+                            <input
+                              type="text"
+                              name="guest_phone"
+                              value={guestForm.guest_phone}
+                              onChange={handleGuestInputChange}
+                              placeholder="08xxxx / 628xxxx"
+                              className="w-full bg-transparent text-gray-800 outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
