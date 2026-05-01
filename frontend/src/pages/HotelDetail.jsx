@@ -632,23 +632,9 @@ export default function HotelDetail() {
                     <p className="font-semibold text-gray-800">
                       Lihat di Google Maps
                     </p>
-                    <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                      Lokasi diarahkan ke nama hotel yang terdaftar, bukan hanya alamat jalan.
-                    </p>
+                    
                   </div>
                 </div>
-
-                {googleMapsUrl && (
-                  <a
-                    href={googleMapsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-red-100 bg-red-50 px-4 py-2 text-xs font-bold text-red-600 transition hover:border-red-200 hover:bg-red-100 md:text-sm"
-                  >
-                    Buka Maps
-                    <ArrowRight size={15} />
-                  </a>
-                )}
               </div>
 
               {embedMapUrl ? (

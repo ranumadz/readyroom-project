@@ -255,7 +255,8 @@ export default function Hotels() {
     if (directPrice > 0) {
       return {
         price: directPrice,
-        label: hotel?.lowest_price_label || hotel?.starting_price_label || "3 Jam",
+        label:
+          hotel?.lowest_price_label || hotel?.starting_price_label || "3 Jam",
       };
     }
 
@@ -317,6 +318,18 @@ export default function Hotels() {
 
     return fallbackPrices.reduce((lowest, current) =>
       current.price < lowest.price ? current : lowest
+    );
+  };
+
+  const getHotelCityName = (hotel) => {
+    return (
+      hotel?.city?.name ||
+      hotel?.city_name ||
+      hotel?.location ||
+      hotel?.area ||
+      hotel?.district ||
+      hotel?.province ||
+      "Lokasi hotel"
     );
   };
 
@@ -429,6 +442,7 @@ export default function Hotels() {
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
             {filteredHotels.map((hotel) => {
               const startingPrice = getHotelStartingPrice(hotel);
+              const cityName = getHotelCityName(hotel);
 
               return (
                 <Link
@@ -436,9 +450,12 @@ export default function Hotels() {
                   key={hotel.id}
                   className="group block overflow-hidden rounded-[16px] border border-red-100 bg-white shadow-[0_6px_18px_rgba(0,0,0,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(239,68,68,0.14)] sm:rounded-[28px]"
                 >
-                  <HotelImageSlider hotel={hotel} buildImageUrl={buildImageUrl} />
+                  <HotelImageSlider
+                    hotel={hotel}
+                    buildImageUrl={buildImageUrl}
+                  />
 
-                  <div className="flex min-h-[170px] flex-col bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-2.5 pb-2.5 pt-2.5 text-white sm:min-h-[280px] sm:px-5 sm:pb-5 sm:pt-4">
+                  <div className="flex min-h-[188px] flex-col bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-2.5 pb-2.5 pt-2.5 text-white sm:min-h-[280px] sm:px-5 sm:pb-5 sm:pt-4">
                     <div className="mb-1.5 flex items-start justify-between gap-2 sm:mb-3 sm:gap-3">
                       <div className="min-w-0">
                         <h3 className="line-clamp-2 min-h-[34px] text-[14px] font-extrabold leading-[1.18] tracking-tight sm:min-h-0 sm:line-clamp-1 sm:text-[1.7rem]">
@@ -447,14 +464,21 @@ export default function Hotels() {
                       </div>
                     </div>
 
-                    <div className="mb-2 flex items-start gap-1.5 text-[10.5px] text-red-50 sm:mb-4 sm:min-h-[48px] sm:gap-2 sm:text-sm">
+                    <div className="mb-2 flex items-start gap-1.5 text-[10.5px] leading-relaxed text-red-50 sm:mb-4 sm:min-h-[54px] sm:gap-2 sm:text-sm">
                       <MapPin
                         size={12}
                         className="mt-0.5 shrink-0 text-white sm:h-[15px] sm:w-[15px]"
                       />
-                      <span className="line-clamp-2 sm:line-clamp-3">
-                        {hotel.address || "Alamat hotel belum tersedia."}
-                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <span className="block font-semibold leading-tight text-white/95">
+                          {cityName}
+                        </span>
+
+                        <p className="mt-0.5 break-words leading-relaxed text-white/85 sm:line-clamp-3">
+                          {hotel.address || "Alamat hotel belum tersedia."}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="mt-auto border-t border-white/20 pt-2 sm:pt-4">
