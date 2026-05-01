@@ -1431,14 +1431,7 @@ export default function RoomDetail() {
 
                      {showFullDayDurationPanel && (
   <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[22px] border border-red-100 bg-white p-3 shadow-2xl sm:left-1/2 sm:right-auto sm:w-[320px] sm:-translate-x-1/2">
-    <div className="mb-3">
-      <p className="text-sm font-extrabold text-gray-900">
-        Tentukan durasi menginap
-      </p>
-      <p className="mt-1 text-xs leading-relaxed text-gray-500">
-        Atur jumlah hari secara manual. Checkout full day otomatis pukul 12.00 siang.
-      </p>
-    </div>
+    
 
     <div className="rounded-[20px] border border-red-100 bg-red-50/60 p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -1554,14 +1547,15 @@ export default function RoomDetail() {
 
                     {showTimePanel && (
                       <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[20px] border border-red-100 bg-white p-4 shadow-2xl">
-                        <h3 className="font-semibold text-gray-800 mb-1">
-                          Pilih jam dan menit check-in
-                        </h3>
-                        {isFullDayMode && (
-                          <p className="mt-3 text-xs text-gray-500">
-                            Untuk full day, jam 00:00–13:55 tidak bisa dipilih.
-                          </p>
-                        )}
+  <h3 className="mb-1 font-semibold text-gray-800">
+    Pilih jam dan menit check-in
+  </h3>
+
+  {isFullDayMode && (
+    <p className="mt-1 text-xs leading-relaxed text-gray-500">
+      Untuk full day, jam 00:00–13:55 tidak bisa dipilih.
+    </p>
+  )}
 
                         {!selectedCheckInDate && (
                           <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
