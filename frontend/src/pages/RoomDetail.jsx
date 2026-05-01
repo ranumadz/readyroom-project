@@ -83,28 +83,6 @@ export default function RoomDetail() {
     detectCustomerLogin();
   }, [id]);
 
-  useEffect(() => {
-    if (!customerUser) return;
-
-    setGuestForm((prev) => ({
-      guest_name:
-        prev.guest_name ||
-        customerUser?.name ||
-        customerUser?.full_name ||
-        customerUser?.username ||
-        customerUser?.guest_name ||
-        "",
-      guest_phone:
-        prev.guest_phone ||
-        customerUser?.phone ||
-        customerUser?.phone_number ||
-        customerUser?.whatsapp ||
-        customerUser?.wa ||
-        customerUser?.no_whatsapp ||
-        "",
-    }));
-  }, [customerUser]);
-
   const isFullDayMode = bookingMode === "overnight";
 
   const detectCustomerLogin = () => {
