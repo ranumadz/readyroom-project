@@ -1555,11 +1555,13 @@ export default function RoomDetail() {
                     {showTimePanel && (
                       <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-[20px] border border-red-100 bg-white p-4 shadow-2xl">
                         <h3 className="font-semibold text-gray-800 mb-1">
-                          Waktu Check-in
-                        </h3>
-                        <p className="text-xs text-gray-500 mb-4">
                           Pilih jam dan menit check-in
-                        </p>
+                        </h3>
+                        {isFullDayMode && (
+                          <p className="mt-3 text-xs text-gray-500">
+                            Untuk full day, jam 00:00–13:55 tidak bisa dipilih.
+                          </p>
+                        )}
 
                         {!selectedCheckInDate && (
                           <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -1633,34 +1635,13 @@ export default function RoomDetail() {
                           </div>
                         </div>
 
-                        {isFullDayMode && (
-                          <p className="mt-3 text-xs text-gray-500">
-                            Untuk full day, jam 00:00–13:55 tidak bisa dipilih.
-                          </p>
-                        )}
+                        
                       </div>
                     )}
                   </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                    <p className="text-xs font-semibold text-gray-500 mb-1">
-                      Check-in Dipilih
-                    </p>
-
-                    <p className="text-sm font-semibold text-gray-800">
-                      {selectedCheckInDate
-                        ? selectedCheckInDate.toLocaleString("id-ID", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
-                    </p>
-                  </div>
 
                   <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
                     <p className="text-xs font-semibold text-amber-700 mb-1">

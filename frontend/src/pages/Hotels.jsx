@@ -451,20 +451,15 @@ export default function Hotels() {
               </div>
             ) : (
               <div className="grid grid-cols-2 items-stretch gap-2.5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
-                {filteredHotels.map((hotel, index) => {
+                {filteredHotels.map((hotel) => {
                   const startingPrice = getHotelStartingPrice(hotel);
                   const cityName = getHotelCityName(hotel);
-                  const isLastOddMobile =
-                    filteredHotels.length % 2 === 1 &&
-                    index === filteredHotels.length - 1;
 
                   return (
                     <Link
                       to={`/hotels/${hotel.id}`}
                       key={hotel.id}
-                      className={`group flex h-full flex-col overflow-hidden rounded-[18px] border border-red-100/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(239,68,68,0.12)] sm:rounded-[28px] ${
-                        isLastOddMobile ? "col-span-2 sm:col-span-1" : ""
-                      }`}
+                      className="group flex h-full flex-col overflow-hidden rounded-[18px] border border-red-100/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(239,68,68,0.12)] sm:rounded-[28px]"
                     >
                       <HotelImageSlider
                         hotel={hotel}
@@ -472,9 +467,9 @@ export default function Hotels() {
                       />
 
                       <div className="flex min-h-[150px] flex-1 flex-col bg-gradient-to-br from-red-600 via-red-500 to-rose-500 px-2.5 pb-2.5 pt-2 text-white sm:min-h-[220px] sm:px-4 sm:pb-4 sm:pt-3.5">
-                        <div className="mb-1.5 flex items-start justify-between gap-2 sm:mb-2.5 sm:gap-3">
+                        <div className="mb-0.5 flex items-start justify-between gap-2 sm:mb-1.5 sm:gap-3">
                           <div className="min-w-0">
-                            <h3 className="line-clamp-2 min-h-[30px] text-[12.8px] font-extrabold leading-[1.2] tracking-tight sm:min-h-0 sm:line-clamp-1 sm:text-[1.45rem]">
+                            <h3 className="line-clamp-2 text-[12.8px] font-extrabold leading-[1.2] tracking-tight sm:line-clamp-1 sm:text-[1.45rem]">
                               {hotel.name || "Hotel"}
                             </h3>
                           </div>
@@ -483,8 +478,8 @@ export default function Hotels() {
                         <div className="mb-2 flex items-start gap-1.5 text-[9.5px] leading-[1.45] text-red-50 sm:mb-3 sm:min-h-[42px] sm:gap-2 sm:text-[13px]">
                           <MapPin
                             size={12}
-                            className="mt-0.5 shrink-0 text-white sm:h-[15px] sm:w-[15px]"
-                          />
+                            className="mt-0 shrink-0 text-white sm:h-[15px] sm:w-[15px]"
+                            />
 
                           <div className="min-w-0 flex-1">
                             <span className="block font-semibold leading-tight text-white/95">
