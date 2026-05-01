@@ -25,6 +25,10 @@ export default function RoomsList() {
 
   const [savingEdit, setSavingEdit] = useState(false);
   const [togglingRoomId, setTogglingRoomId] = useState(null);
+  const [deletingRoomId, setDeletingRoomId] = useState(null);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState(null);
 
   useEffect(() => {
     fetchRooms();
@@ -214,6 +218,22 @@ export default function RoomsList() {
     }
   };
 
+  const deleteRoomRequest = async (roomId) => {
+    try {
+      return await api.delete(`/admin/rooms/${roomId}`);
+    } catch (error) {
+      const statusCode = error?.response?.status;
+
+      if (statusCode === 404 || statusCode === 405) {
+        return await api.post(`/admin/rooms/${roomId}`, {
+          _method: "DELETE",
+        });
+      }
+
+      throw error;
+    }
+  };
+
   const handleSaveEdit = async (e) => {
     e.preventDefault();
 
@@ -287,6 +307,43 @@ export default function RoomsList() {
     }
   };
 
+  const openDeleteModal = (room) => {
+    if (!room?.id) return;
+
+    setRoomToDelete(room);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (deletingRoomId) return;
+
+    setShowDeleteModal(false);
+    setRoomToDelete(null);
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!roomToDelete?.id) return;
+
+    try {
+      setDeletingRoomId(roomToDelete.id);
+
+      await deleteRoomRequest(roomToDelete.id);
+
+      toast.success("Room berhasil dihapus");
+      setShowDeleteModal(false);
+      setRoomToDelete(null);
+      fetchRooms();
+    } catch (error) {
+      console.error("Gagal hapus room:", error.response?.data || error);
+      toast.error(
+        error.response?.data?.message ||
+          "Gagal menghapus room. Jika room sudah punya booking atau room unit, gunakan Disable saja."
+      );
+    } finally {
+      setDeletingRoomId(null);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar />
@@ -315,7 +372,7 @@ export default function RoomsList() {
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr className="text-left text-sm text-gray-600">
                     <th className="px-6 py-4 font-semibold">Room Name</th>
@@ -339,6 +396,7 @@ export default function RoomsList() {
                     rooms.map((room) => {
                       const active = isRoomActive(room);
                       const isToggling = togglingRoomId === room.id;
+                      const isDeleting = deletingRoomId === room.id;
 
                       return (
                         <tr
@@ -385,7 +443,7 @@ export default function RoomsList() {
                             <button
                               type="button"
                               onClick={() => handleToggleStatus(room)}
-                              disabled={isToggling}
+                              disabled={isToggling || isDeleting}
                               className={`px-3 py-1 rounded-full text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                                 active
                                   ? "bg-green-100 text-green-700 hover:bg-green-200"
@@ -405,7 +463,8 @@ export default function RoomsList() {
                               <button
                                 type="button"
                                 onClick={() => openEditModal(room)}
-                                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                disabled={isDeleting}
+                                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 Edit
                               </button>
@@ -413,7 +472,7 @@ export default function RoomsList() {
                               <button
                                 type="button"
                                 onClick={() => handleToggleStatus(room)}
-                                disabled={isToggling}
+                                disabled={isToggling || isDeleting}
                                 className={`rounded-xl px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                                   active
                                     ? "bg-red-50 text-red-600 hover:bg-red-100"
@@ -421,6 +480,15 @@ export default function RoomsList() {
                                 }`}
                               >
                                 {active ? "Disable" : "Enable"}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => openDeleteModal(room)}
+                                disabled={isDeleting || isToggling}
+                                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isDeleting ? "Deleting..." : "Delete"}
                               </button>
                             </div>
                           </td>
@@ -449,9 +517,7 @@ export default function RoomsList() {
           <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
             <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Edit Room
-                </h2>
+                <h2 className="text-2xl font-bold text-gray-900">Edit Room</h2>
                 <p className="mt-1 text-sm text-gray-500">
                   Perbarui data kamar hotel ReadyRoom
                 </p>
@@ -640,7 +706,7 @@ export default function RoomsList() {
                     Catatan
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-blue-700">
-                    Perubahan data room akan langsung tersimpan ke database
+                    Perubahan data room akan langsung tersimpan ke database.
                     Pastikan harga transit dan full day sudah sesuai sebelum
                     menekan tombol Simpan.
                   </p>
@@ -666,6 +732,67 @@ export default function RoomsList() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="border-b border-red-100 bg-gradient-to-br from-red-50 to-white px-6 py-5">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-xl font-black text-red-600">
+                  !
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-extrabold text-gray-900">
+                    Hapus Room?
+                  </h2>
+                  <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                    Kamu akan menghapus data kamar dari sistem ReadyRoom.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-5">
+              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-4">
+                <p className="text-sm font-bold text-red-700">
+                  {roomToDelete?.name || "Room ini"}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-red-600">
+                  Aksi ini dapat menghapus data kamar dari sistem. Jika room ini
+                  sudah punya booking, room unit, atau riwayat transaksi, lebih
+                  aman gunakan tombol <b>Disable</b> saja.
+                </p>
+              </div>
+
+              <p className="mt-4 text-sm leading-relaxed text-gray-500">
+                Pastikan room ini memang tidak digunakan lagi sebelum
+                melanjutkan.
+              </p>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-6 py-5 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={Boolean(deletingRoomId)}
+                className="rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteRoom}
+                disabled={Boolean(deletingRoomId)}
+                className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingRoomId ? "Menghapus..." : "Ya, Hapus Room"}
+              </button>
+            </div>
           </div>
         </div>
       )}
