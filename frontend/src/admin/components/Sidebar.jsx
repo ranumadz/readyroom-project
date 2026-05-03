@@ -48,11 +48,6 @@ const allMenuSections = [
         end: true,
       },
       {
-        name: "Room Units",
-        path: "/admin/room-units",
-        icon: BedDouble,
-      },
-      {
         name: "Facilities",
         path: "/admin/facilities",
         icon: Sparkles,
@@ -61,8 +56,13 @@ const allMenuSections = [
   },
 
   {
-    title: "Bookings",
+    title: "Front Office",
     items: [
+      {
+        name: "Monitoring Kamar",
+        path: "/admin/room-units",
+        icon: BedDouble,
+      },
       {
         name: "Booking List",
         path: "/admin/bookings",
@@ -111,9 +111,23 @@ const allMenuSections = [
 ];
 
 const roleAllowedPaths = {
-  receptionist: ["/admin/bookings", "/admin/bookings/calendar"],
-  admin: ["/admin/bookings", "/admin/bookings/calendar", "/admin/reports"],
-  pengawas: ["/admin/bookings", "/admin/bookings/calendar", "/admin/reports"],
+  receptionist: [
+    "/admin/room-units",
+    "/admin/bookings",
+    "/admin/bookings/calendar",
+  ],
+  admin: [
+    "/admin/room-units",
+    "/admin/bookings",
+    "/admin/bookings/calendar",
+    "/admin/reports",
+  ],
+  pengawas: [
+    "/admin/room-units",
+    "/admin/bookings",
+    "/admin/bookings/calendar",
+    "/admin/reports",
+  ],
   it: [
     "/admin/dashboard",
     "/admin/hotels",
@@ -372,7 +386,11 @@ export default function Sidebar() {
       return allMenuSections;
     }
 
-    const fallbackAllowed = ["/admin/bookings", "/admin/bookings/calendar"];
+    const fallbackAllowed = [
+      "/admin/room-units",
+      "/admin/bookings",
+      "/admin/bookings/calendar",
+    ];
     const allowedPaths = Array.isArray(allowed) ? allowed : fallbackAllowed;
 
     return allMenuSections
@@ -480,6 +498,8 @@ export default function Sidebar() {
               <Crown size={16} />
             ) : currentRole === "it" ? (
               <Wrench size={16} />
+            ) : currentRole === "receptionist" ? (
+              <BellRing size={16} />
             ) : (
               <ShieldCheck size={16} />
             )}
