@@ -123,6 +123,15 @@ Route::prefix('admin')->group(function () {
     // Room Units
     // =========================
     Route::post('/room-units', [RoomUnitController::class, 'store']);
+
+    // ✅ FIX MONITORING KAMAR
+    // Dipakai frontend RoomUnits.jsx saat ubah status kamar fisik:
+    // PUT  /api/admin/room-units/{id}
+    // POST /api/admin/room-units/{id} dengan _method=PUT
+    Route::put('/room-units/{id}', [RoomUnitController::class, 'update']);
+    Route::post('/room-units/{id}', [RoomUnitController::class, 'update']);
+
+    // Tetap dipertahankan untuk ambil daftar unit berdasarkan room_id.
     Route::get('/room-units/{roomId}', [RoomUnitController::class, 'indexByRoom']);
 
     // =========================
