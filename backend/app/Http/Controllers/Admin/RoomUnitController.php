@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use App\Models\RoomUnit;
+use App\Models\Booking;
 
 class RoomUnitController extends Controller
 {
@@ -15,7 +16,9 @@ class RoomUnitController extends Controller
             ->orderByRaw('LENGTH(room_number), room_number')
             ->get()
             ->map(function ($unit) {
-                return $this->formatUnitResponse($unit);
+                $activeBooking = $this->findActiveBookingForUnit($unit->id);
+
+                return $this->formatUnitResponse($unit, $activeBooking);
             });
 
         return response()->json($units);
@@ -56,6 +59,10 @@ class RoomUnitController extends Controller
 
         if (Schema::hasColumn('room_units', 'is_cleaning')) {
             $unit->is_cleaning = false;
+        }
+
+        if (Schema::hasColumn('room_units', 'reason')) {
+            $unit->reason = null;
         }
 
         $unit->save();
@@ -102,16 +109,15 @@ class RoomUnitController extends Controller
         );
 
         /*
-         * Kolom status lama tetap dipertahankan.
+         * Kolom status lama tetap dipertahankan:
          * true  = kamar boleh dipakai
          * false = kamar tidak boleh dipakai
          */
         $unit->status = $operationalStatus === 'available';
 
         /*
-         * Kolom tambahan ini aman:
-         * kalau kolom belum ada di database, tidak akan dipaksa disimpan.
-         * Jadi code lama tetap aman.
+         * Kolom monitoring tambahan.
+         * Semua dicek dulu agar aman kalau ada environment yang belum migrate.
          */
         if (Schema::hasColumn('room_units', 'operational_status')) {
             $unit->operational_status = $operationalStatus;
@@ -177,37 +183,231 @@ class RoomUnitController extends Controller
         return 'available';
     }
 
-    private function formatUnitResponse(RoomUnit $unit)
+    private function formatUnitResponse(RoomUnit $unit, $activeBooking = null)
     {
         $data = $unit->toArray();
 
-        $operationalStatus = 'available';
+        $manualStatus = $this->getManualUnitStatus($unit);
+        $bookingStatus = $this->getBookingUnitStatus($activeBooking);
 
-        if (Schema::hasColumn('room_units', 'operational_status') && !empty($unit->operational_status)) {
-            $operationalStatus = $unit->operational_status;
-        } elseif (Schema::hasColumn('room_units', 'is_maintenance') && $unit->is_maintenance) {
-            $operationalStatus = 'maintenance';
-        } elseif (Schema::hasColumn('room_units', 'is_cleaning') && $unit->is_cleaning) {
-            $operationalStatus = 'cleaning';
-        } elseif (!$unit->status) {
-            $operationalStatus = 'inactive';
-        }
+        /*
+         * Urutan status:
+         * 1. Kalau ada booking aktif/check-in => occupied.
+         * 2. Kalau booking sudah checkout/start cleaning => cleaning.
+         * 3. Kalau tidak ada booking aktif, pakai status manual dari room_units.
+         */
+        $monitoringStatus = $bookingStatus ?: $manualStatus;
 
-        $reason = '';
+        $reason = $this->getManualReason($unit);
 
-        if (Schema::hasColumn('room_units', 'reason') && !empty($unit->reason)) {
-            $reason = $unit->reason;
-        } elseif (Schema::hasColumn('room_units', 'inactive_reason') && !empty($unit->inactive_reason)) {
-            $reason = $unit->inactive_reason;
-        } elseif (Schema::hasColumn('room_units', 'maintenance_reason') && !empty($unit->maintenance_reason)) {
-            $reason = $unit->maintenance_reason;
-        }
-
-        $data['monitoring_status'] = $operationalStatus;
-        $data['is_maintenance'] = $operationalStatus === 'maintenance';
-        $data['is_cleaning'] = $operationalStatus === 'cleaning';
+        $data['manual_status'] = $manualStatus;
+        $data['monitoring_status'] = $monitoringStatus;
+        $data['is_maintenance'] = $monitoringStatus === 'maintenance';
+        $data['is_cleaning'] = $monitoringStatus === 'cleaning';
         $data['reason'] = $reason;
 
+        if ($activeBooking) {
+            $data['current_booking'] = $this->formatBookingSummary($activeBooking);
+            $data['booking_active'] = $bookingStatus === 'occupied';
+        } else {
+            $data['current_booking'] = null;
+            $data['booking_active'] = false;
+        }
+
         return $data;
+    }
+
+    private function getManualUnitStatus(RoomUnit $unit)
+    {
+        if (Schema::hasColumn('room_units', 'operational_status') && !empty($unit->operational_status)) {
+            return strtolower((string) $unit->operational_status);
+        }
+
+        if (Schema::hasColumn('room_units', 'is_maintenance') && $unit->is_maintenance) {
+            return 'maintenance';
+        }
+
+        if (Schema::hasColumn('room_units', 'is_cleaning') && $unit->is_cleaning) {
+            return 'cleaning';
+        }
+
+        if (!$unit->status) {
+            return 'inactive';
+        }
+
+        return 'available';
+    }
+
+    private function getManualReason(RoomUnit $unit)
+    {
+        if (Schema::hasColumn('room_units', 'reason') && !empty($unit->reason)) {
+            return $unit->reason;
+        }
+
+        if (Schema::hasColumn('room_units', 'inactive_reason') && !empty($unit->inactive_reason)) {
+            return $unit->inactive_reason;
+        }
+
+        if (Schema::hasColumn('room_units', 'maintenance_reason') && !empty($unit->maintenance_reason)) {
+            return $unit->maintenance_reason;
+        }
+
+        return '';
+    }
+
+    private function findActiveBookingForUnit($roomUnitId)
+    {
+        if (!Schema::hasTable('bookings')) {
+            return null;
+        }
+
+        if (!Schema::hasColumn('bookings', 'room_unit_id')) {
+            return null;
+        }
+
+        $statusColumn = Schema::hasColumn('bookings', 'status') ? 'status' : null;
+
+        $query = Booking::query()
+            ->where('room_unit_id', $roomUnitId);
+
+        /*
+         * Status yang masih memengaruhi monitoring kamar:
+         * - confirmed/approved/paid/checked_in => merah/occupied
+         * - checked_out/cleaning/start_cleaning => kuning/cleaning
+         *
+         * Status final/cancel tidak ikut supaya setelah checkout selesai/finished
+         * kamar bisa kembali available otomatis.
+         */
+        if ($statusColumn) {
+            $query->whereIn($statusColumn, [
+                'confirmed',
+                'approve',
+                'approved',
+                'paid',
+                'checked_in',
+                'check_in',
+                'checkin',
+                'checked-out',
+                'checked_out',
+                'check_out',
+                'checkout',
+                'cleaning',
+                'start_cleaning',
+                'in_cleaning',
+            ]);
+        }
+
+        $checkOutColumn = $this->getFirstExistingBookingColumn([
+            'check_out',
+            'checkout',
+            'check_out_at',
+            'checkout_at',
+            'end_time',
+            'end_at',
+        ]);
+
+        /*
+         * Kalau ada check_out, buang booking lama yang sudah sangat lewat,
+         * kecuali statusnya memang belum difinalkan.
+         * Buffer 2 hari dibuat aman untuk flow hotel yang belum selalu klik finish.
+         */
+        if ($checkOutColumn) {
+            $query->where(function ($innerQuery) use ($checkOutColumn) {
+                $innerQuery
+                    ->whereNull($checkOutColumn)
+                    ->orWhere($checkOutColumn, '>=', now()->subDays(2));
+            });
+        }
+
+        $orderColumn = $this->getFirstExistingBookingColumn([
+            'check_in',
+            'checkin',
+            'check_in_at',
+            'checkin_at',
+            'start_time',
+            'start_at',
+            'created_at',
+        ]);
+
+        if ($orderColumn) {
+            $query->orderByDesc($orderColumn);
+        } else {
+            $query->orderByDesc('id');
+        }
+
+        return $query->first();
+    }
+
+    private function getBookingUnitStatus($booking)
+    {
+        if (!$booking) {
+            return null;
+        }
+
+        $status = strtolower((string) ($booking->status ?? ''));
+
+        if (in_array($status, [
+            'checked-out',
+            'checked_out',
+            'check_out',
+            'checkout',
+            'cleaning',
+            'start_cleaning',
+            'in_cleaning',
+        ], true)) {
+            return 'cleaning';
+        }
+
+        if (in_array($status, [
+            'confirmed',
+            'approve',
+            'approved',
+            'paid',
+            'checked_in',
+            'check_in',
+            'checkin',
+        ], true)) {
+            return 'occupied';
+        }
+
+        return 'occupied';
+    }
+
+    private function formatBookingSummary($booking)
+    {
+        if (!$booking) {
+            return null;
+        }
+
+        return [
+            'id' => $booking->id ?? null,
+            'booking_code' => $booking->booking_code ?? $booking->code ?? null,
+            'status' => $booking->status ?? null,
+            'customer_name' => $booking->customer_name
+                ?? $booking->guest_name
+                ?? optional($booking->customer ?? null)->name
+                ?? null,
+            'check_in' => $booking->check_in
+                ?? $booking->checkin
+                ?? $booking->check_in_at
+                ?? $booking->checkin_at
+                ?? null,
+            'check_out' => $booking->check_out
+                ?? $booking->checkout
+                ?? $booking->check_out_at
+                ?? $booking->checkout_at
+                ?? null,
+        ];
+    }
+
+    private function getFirstExistingBookingColumn(array $columns)
+    {
+        foreach ($columns as $column) {
+            if (Schema::hasColumn('bookings', $column)) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 }
