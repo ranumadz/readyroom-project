@@ -36,19 +36,16 @@ const allMenuSections = [
     title: "Hotel Management",
     items: [
       {
-        name: "Add Hotel",
-        path: "/admin/hotels/add",
+        name: "Hotels List",
+        path: "/admin/hotels",
         icon: Building2,
+        end: true,
       },
       {
         name: "Rooms List",
         path: "/admin/rooms",
         icon: BedDouble,
-      },
-      {
-        name: "Add Room",
-        path: "/admin/rooms/add",
-        icon: BedDouble,
+        end: true,
       },
       {
         name: "Room Units",
@@ -70,6 +67,7 @@ const allMenuSections = [
         name: "Booking List",
         path: "/admin/bookings",
         icon: ClipboardList,
+        end: true,
       },
       {
         name: "Booking Calendar",
@@ -118,9 +116,8 @@ const roleAllowedPaths = {
   pengawas: ["/admin/bookings", "/admin/bookings/calendar", "/admin/reports"],
   it: [
     "/admin/dashboard",
-    "/admin/hotels/add",
+    "/admin/hotels",
     "/admin/rooms",
-    "/admin/rooms/add",
     "/admin/room-units",
     "/admin/facilities",
     "/admin/users",
@@ -171,7 +168,8 @@ const roleThemes = {
       "w-72 min-h-screen text-white border-r shadow-2xl bg-gradient-to-b from-black via-gray-950 to-black border-white/10",
     logoWrap:
       "w-12 h-12 rounded-2xl overflow-hidden bg-white flex items-center justify-center shadow-lg shadow-red-500/25 border border-white/10 shrink-0",
-    infoBox: "rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm",
+    infoBox:
+      "rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm",
     badge:
       "mt-3 inline-flex rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-red-200",
     sectionTitle: "mb-3 text-xs uppercase tracking-[0.22em] text-gray-500",
@@ -314,7 +312,8 @@ const roleThemes = {
       "w-72 min-h-screen text-white border-r shadow-2xl bg-gradient-to-b from-black via-gray-950 to-black border-white/10",
     logoWrap:
       "w-12 h-12 rounded-2xl overflow-hidden bg-white flex items-center justify-center shadow-lg shadow-red-500/25 border border-white/10 shrink-0",
-    infoBox: "rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm",
+    infoBox:
+      "rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm",
     badge:
       "mt-3 inline-flex rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-red-200",
     sectionTitle: "mb-3 text-xs uppercase tracking-[0.22em] text-gray-500",
@@ -455,6 +454,7 @@ export default function Sidebar() {
                     <NavLink
                       key={item.name}
                       to={item.path}
+                      end={Boolean(item.end)}
                       className={({ isActive }) => getNavClassName(isActive)}
                     >
                       {({ isActive }) => (

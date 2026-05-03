@@ -8,6 +8,11 @@ export default function RoomsList() {
   const [rooms, setRooms] = useState([]);
   const [hotels, setHotels] = useState([]);
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedHotelId, setSelectedHotelId] = useState("all");
+  const [selectedRoomType, setSelectedRoomType] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [editForm, setEditForm] = useState({
@@ -22,6 +27,12 @@ export default function RoomsList() {
     total_rooms: "",
     status: 1,
   });
+
+  const [editCoverFile, setEditCoverFile] = useState(null);
+  const [editCoverPreview, setEditCoverPreview] = useState("");
+  const [editGalleryFiles, setEditGalleryFiles] = useState([]);
+  const [editGalleryPreviews, setEditGalleryPreviews] = useState([]);
+  const [deletedGalleryImageIds, setDeletedGalleryImageIds] = useState([]);
 
   const [savingEdit, setSavingEdit] = useState(false);
   const [togglingRoomId, setTogglingRoomId] = useState(null);
@@ -72,6 +83,129 @@ export default function RoomsList() {
     );
   };
 
+  const formatRupiah = (value) => {
+    const amount = Number(value || 0);
+
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    })
+      .format(amount)
+      .replace(/\u00A0/g, " ");
+  };
+
+  const normalizeImageUrl = (path) => {
+    if (!path) return "";
+
+    const rawPath = String(path).trim();
+    if (!rawPath) return "";
+
+    if (
+      rawPath.startsWith("http://") ||
+      rawPath.startsWith("https://") ||
+      rawPath.startsWith("blob:") ||
+      rawPath.startsWith("data:")
+    ) {
+      return rawPath;
+    }
+
+    const backendUrl = String(import.meta.env.VITE_BACKEND_URL || "").replace(
+      /\/$/,
+      ""
+    );
+
+    if (rawPath.startsWith("/storage/")) {
+      return backendUrl ? `${backendUrl}${rawPath}` : rawPath;
+    }
+
+    if (rawPath.startsWith("storage/")) {
+      return backendUrl ? `${backendUrl}/${rawPath}` : `/${rawPath}`;
+    }
+
+    if (rawPath.startsWith("/")) {
+      return backendUrl ? `${backendUrl}${rawPath}` : rawPath;
+    }
+
+    return backendUrl ? `${backendUrl}/storage/${rawPath}` : `/storage/${rawPath}`;
+  };
+
+  const getRoomCoverUrl = (room) => {
+    return normalizeImageUrl(
+      room?.cover_image ||
+        room?.cover ||
+        room?.thumbnail ||
+        room?.image ||
+        room?.photo ||
+        room?.image_url ||
+        room?.cover_url ||
+        room?.cover_image_url
+    );
+  };
+
+  const getRoomGalleryItems = (room) => {
+    const images = Array.isArray(room?.images)
+      ? room.images
+      : Array.isArray(room?.gallery)
+      ? room.gallery
+      : Array.isArray(room?.room_images)
+      ? room.room_images
+      : [];
+
+    return images
+      .map((image, index) => {
+        if (typeof image === "string") {
+          return {
+            id: null,
+            url: normalizeImageUrl(image),
+            label: `Gallery ${index + 1}`,
+          };
+        }
+
+        return {
+          id: image?.id ?? image?.image_id ?? image?.room_image_id ?? null,
+          url: normalizeImageUrl(
+            image?.image ||
+              image?.image_path ||
+              image?.path ||
+              image?.url ||
+              image?.photo ||
+              image?.file
+          ),
+          label: image?.name || image?.title || `Gallery ${index + 1}`,
+        };
+      })
+      .filter((image) => image.url);
+  };
+
+  const getRoomGalleryImages = (room) => {
+    return getRoomGalleryItems(room).map((image) => image.url);
+  };
+
+  const getVisibleCurrentGalleryItems = (room) => {
+    return getRoomGalleryItems(room).filter((image) => {
+      if (!image.id) return true;
+      return !deletedGalleryImageIds.includes(Number(image.id));
+    });
+  };
+
+  const validateImageFile = (file) => {
+    if (!file) return false;
+
+    if (!String(file.type || "").startsWith("image/")) {
+      toast.error("File harus berupa gambar");
+      return false;
+    }
+
+    const maxSize = 4 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error("Ukuran gambar maksimal 4MB");
+      return false;
+    }
+
+    return true;
+  };
+
   const getRoomTransitPrice = (room, duration) => {
     if (duration === "3h") {
       return room?.price_transit_3h ?? room?.price_3h ?? 0;
@@ -116,6 +250,83 @@ export default function RoomsList() {
     return uniqueHotels;
   }, [hotels, rooms]);
 
+  const roomTypeOptions = useMemo(() => {
+    const types = rooms
+      .map((room) => room?.type)
+      .filter(Boolean)
+      .map((type) => String(type).trim())
+      .filter(Boolean);
+
+    return [...new Set(types)].sort((a, b) => a.localeCompare(b));
+  }, [rooms]);
+
+  const filteredRooms = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+
+    return rooms.filter((room) => {
+      const roomHotelId = Number(room?.hotel_id || room?.hotel?.id || 0);
+      const active = isRoomActive(room);
+
+      const matchHotel =
+        selectedHotelId === "all" || roomHotelId === Number(selectedHotelId);
+
+      const matchType =
+        selectedRoomType === "all" ||
+        String(room?.type || "").toLowerCase() ===
+          String(selectedRoomType).toLowerCase();
+
+      const matchStatus =
+        selectedStatus === "all" ||
+        (selectedStatus === "active" && active) ||
+        (selectedStatus === "inactive" && !active);
+
+      const matchKeyword =
+        !keyword ||
+        String(room?.name || "").toLowerCase().includes(keyword) ||
+        String(room?.type || "").toLowerCase().includes(keyword) ||
+        String(room?.hotel?.name || "").toLowerCase().includes(keyword);
+
+      return matchHotel && matchType && matchStatus && matchKeyword;
+    });
+  }, [rooms, searchTerm, selectedHotelId, selectedRoomType, selectedStatus]);
+
+  const roomStats = useMemo(() => {
+    const activeRooms = rooms.filter((room) => isRoomActive(room)).length;
+    const inactiveRooms = rooms.length - activeRooms;
+    const totalUnits = rooms.reduce(
+      (sum, room) => sum + Number(room?.total_rooms || 0),
+      0
+    );
+
+    const uniqueHotels = new Set(
+      rooms
+        .map((room) => room?.hotel_id || room?.hotel?.id)
+        .filter(Boolean)
+        .map((id) => String(id))
+    );
+
+    return {
+      totalRoomTypes: rooms.length,
+      activeRooms,
+      inactiveRooms,
+      totalUnits,
+      totalBranches: uniqueHotels.size,
+    };
+  }, [rooms]);
+
+  const hasActiveFilters =
+    searchTerm.trim() ||
+    selectedHotelId !== "all" ||
+    selectedRoomType !== "all" ||
+    selectedStatus !== "all";
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setSelectedHotelId("all");
+    setSelectedRoomType("all");
+    setSelectedStatus("all");
+  };
+
   const openEditModal = (room) => {
     setSelectedRoom(room);
 
@@ -132,7 +343,30 @@ export default function RoomsList() {
       status: isRoomActive(room) ? 1 : 0,
     });
 
+    setEditCoverFile(null);
+    setEditCoverPreview(getRoomCoverUrl(room));
+    setEditGalleryFiles([]);
+    setEditGalleryPreviews([]);
+    setDeletedGalleryImageIds([]);
     setShowEditModal(true);
+  };
+
+  const resetEditImageState = () => {
+    editGalleryPreviews.forEach((preview) => {
+      if (String(preview || "").startsWith("blob:")) {
+        URL.revokeObjectURL(preview);
+      }
+    });
+
+    if (String(editCoverPreview || "").startsWith("blob:")) {
+      URL.revokeObjectURL(editCoverPreview);
+    }
+
+    setEditCoverFile(null);
+    setEditCoverPreview("");
+    setEditGalleryFiles([]);
+    setEditGalleryPreviews([]);
+    setDeletedGalleryImageIds([]);
   };
 
   const closeEditModal = () => {
@@ -152,6 +386,85 @@ export default function RoomsList() {
       total_rooms: "",
       status: 1,
     });
+    resetEditImageState();
+  };
+
+  const handleEditCoverChange = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    if (!validateImageFile(file)) {
+      e.target.value = "";
+      return;
+    }
+
+    if (String(editCoverPreview || "").startsWith("blob:")) {
+      URL.revokeObjectURL(editCoverPreview);
+    }
+
+    setEditCoverFile(file);
+    setEditCoverPreview(URL.createObjectURL(file));
+  };
+
+  const handleEditGalleryChange = (e) => {
+    const files = Array.from(e.target.files || []);
+
+    if (!files.length) return;
+
+    const validFiles = files.filter((file) => validateImageFile(file));
+    if (!validFiles.length) {
+      e.target.value = "";
+      return;
+    }
+
+    const nextFiles = [...editGalleryFiles, ...validFiles].slice(0, 10);
+    const nextPreviews = [
+      ...editGalleryPreviews,
+      ...validFiles.map((file) => URL.createObjectURL(file)),
+    ].slice(0, 10);
+
+    setEditGalleryFiles(nextFiles);
+    setEditGalleryPreviews(nextPreviews);
+    e.target.value = "";
+  };
+
+  const removeSelectedGalleryImage = (index) => {
+    const preview = editGalleryPreviews[index];
+
+    if (String(preview || "").startsWith("blob:")) {
+      URL.revokeObjectURL(preview);
+    }
+
+    setEditGalleryFiles((prev) =>
+      prev.filter((_, itemIndex) => itemIndex !== index)
+    );
+    setEditGalleryPreviews((prev) =>
+      prev.filter((_, itemIndex) => itemIndex !== index)
+    );
+  };
+
+  const markCurrentGalleryImageForDelete = (image) => {
+    if (!image?.id) {
+      toast.error("Gambar ini belum punya ID, jadi belum bisa dihapus dari database");
+      return;
+    }
+
+    setDeletedGalleryImageIds((prev) => {
+      const imageId = Number(image.id);
+      if (prev.includes(imageId)) return prev;
+      return [...prev, imageId];
+    });
+
+    toast.success("Gambar ditandai untuk dihapus. Klik Simpan Perubahan untuk menyimpan.");
+  };
+
+  const restoreCurrentGalleryImage = (image) => {
+    if (!image?.id) return;
+
+    setDeletedGalleryImageIds((prev) =>
+      prev.filter((imageId) => Number(imageId) !== Number(image.id))
+    );
   };
 
   const handleEditFormChange = (e) => {
@@ -198,10 +511,51 @@ export default function RoomsList() {
       [price12Key]: Number(formData.price_12h || 0),
       total_rooms: Number(formData.total_rooms || 0),
       status: finalStatus,
+      delete_image_ids: deletedGalleryImageIds,
     };
   };
 
+  const buildUpdateFormData = (payload) => {
+    const formData = new FormData();
+
+    Object.entries(payload).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          formData.append(`${key}[]`, item);
+        });
+        return;
+      }
+
+      formData.append(key, value ?? "");
+    });
+
+    if (editCoverFile) {
+      // Backend RoomController memakai field `thumbnail`.
+      // `cover_image` ikut dikirim sebagai alias aman.
+      formData.append("thumbnail", editCoverFile);
+      formData.append("cover_image", editCoverFile);
+    }
+
+    editGalleryFiles.forEach((file) => {
+      formData.append("images[]", file);
+    });
+
+    formData.append("_method", "PUT");
+
+    return formData;
+  };
+
   const updateRoomRequest = async (roomId, payload) => {
+    const isFormData = payload instanceof FormData;
+
+    if (isFormData) {
+      return await api.post(`/admin/rooms/${roomId}`, payload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    }
+
     try {
       return await api.put(`/admin/rooms/${roomId}`, payload);
     } catch (error) {
@@ -256,7 +610,14 @@ export default function RoomsList() {
       setSavingEdit(true);
 
       const payload = buildUpdatePayload(selectedRoom, editForm);
-      await updateRoomRequest(selectedRoom.id, payload);
+      const hasImageChanges =
+        editCoverFile ||
+        editGalleryFiles.length > 0 ||
+        deletedGalleryImageIds.length > 0;
+
+      const finalPayload = hasImageChanges ? buildUpdateFormData(payload) : payload;
+
+      await updateRoomRequest(selectedRoom.id, finalPayload);
 
       toast.success("Room berhasil diperbarui");
       closeEditModal();
@@ -352,48 +713,218 @@ export default function RoomsList() {
         <Topbar />
 
         <div className="p-6 md:p-8">
-          <div className="mb-8 flex items-center justify-between">
+          <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">
-                Daftar Kamar List
+              <p className="mb-2 inline-flex rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
+                Hotel Management
+              </p>
+
+              <h1 className="text-3xl font-bold text-gray-900">
+                Daftar Kamar
               </h1>
-              <p className="text-gray-500 mt-1">
-                Daftar semua kamar hotel ReadyRoom
+
+              <p className="mt-1 max-w-2xl text-gray-500">
+                Kelola tipe kamar, harga, kapasitas, status, dan jumlah unit
+                kamar berdasarkan cabang hotel ReadyRoom.
               </p>
             </div>
 
             <a
               href="/admin/rooms/add"
-              className="bg-gray-900 text-white px-5 py-3 rounded-xl hover:bg-black transition font-medium"
+              className="inline-flex items-center justify-center rounded-2xl bg-gray-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-gray-200 transition hover:bg-black"
             >
               + Add Room
             </a>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                Total Tipe Kamar
+              </p>
+              <p className="mt-2 text-3xl font-black text-gray-900">
+                {roomStats.totalRoomTypes}
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Semua tipe kamar terdaftar
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-green-100 bg-green-50/70 p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-green-600">
+                Room Aktif
+              </p>
+              <p className="mt-2 text-3xl font-black text-green-700">
+                {roomStats.activeRooms}
+              </p>
+              <p className="mt-1 text-sm text-green-700/70">
+                Tampil untuk operasional
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-red-100 bg-red-50/70 p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-red-600">
+                Room Nonaktif
+              </p>
+              <p className="mt-2 text-3xl font-black text-red-700">
+                {roomStats.inactiveRooms}
+              </p>
+              <p className="mt-1 text-sm text-red-700/70">
+                Disembunyikan sementara
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                Total Unit
+              </p>
+              <p className="mt-2 text-3xl font-black text-gray-900">
+                {roomStats.totalUnits}
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Dari {roomStats.totalBranches} cabang hotel
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-5 overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm">
+            <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-5 py-5 text-white">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-extrabold">
+                    Filter Kamar Cabang
+                  </h2>
+                  <p className="mt-1 text-sm text-white/65">
+                    Pilih cabang hotel terlebih dahulu, lalu saring berdasarkan
+                    tipe kamar, status, atau nama kamar.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white/90">
+                  {filteredRooms.length} dari {rooms.length} data tampil
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 p-5 lg:grid-cols-12">
+              <div className="lg:col-span-3">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Cari Kamar
+                </label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Cari nama kamar / hotel..."
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
+                />
+              </div>
+
+              <div className="lg:col-span-3">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Cabang / Hotel
+                </label>
+                <select
+                  value={selectedHotelId}
+                  onChange={(e) => setSelectedHotelId(e.target.value)}
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
+                >
+                  <option value="all">Semua Cabang</option>
+                  {hotelOptions.map((hotel) => (
+                    <option key={hotel.id} value={hotel.id}>
+                      {hotel.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="lg:col-span-2">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Tipe Kamar
+                </label>
+                <select
+                  value={selectedRoomType}
+                  onChange={(e) => setSelectedRoomType(e.target.value)}
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
+                >
+                  <option value="all">Semua Tipe</option>
+                  {roomTypeOptions.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="lg:col-span-2">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Status
+                </label>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
+                >
+                  <option value="all">Semua Status</option>
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Nonaktif</option>
+                </select>
+              </div>
+
+              <div className="flex items-end lg:col-span-2">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  disabled={!hasActiveFilters}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Reset Filter
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm">
+            <div className="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-extrabold text-gray-900">
+                  Data Kamar
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Daftar kamar yang sesuai dengan filter cabang dan tipe kamar.
+                </p>
+              </div>
+
+              <div className="rounded-full bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600">
+                {filteredRooms.length} data ditemukan
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1200px]">
-                <thead className="bg-gray-50 border-b border-gray-200">
+              <table className="w-full min-w-[1250px]">
+                <thead className="border-b border-gray-200 bg-gray-50">
                   <tr className="text-left text-sm text-gray-600">
-                    <th className="px-6 py-4 font-semibold">Room Name</th>
-                    <th className="px-6 py-4 font-semibold">Hotel</th>
-                    <th className="px-6 py-4 font-semibold">Type</th>
-                    <th className="px-6 py-4 font-semibold">Capacity</th>
-                    <th className="px-6 py-4 font-semibold">Price / Night</th>
-                    <th className="px-6 py-4 font-semibold">Transit 3H</th>
-                    <th className="px-6 py-4 font-semibold">Transit 6H</th>
-                    <th className="px-6 py-4 font-semibold">Transit 12H</th>
-                    <th className="px-6 py-4 font-semibold">Total Rooms</th>
+                    <th className="px-6 py-4 font-semibold">Nama Kamar</th>
+                    <th className="px-6 py-4 font-semibold">Cabang</th>
+                    <th className="px-6 py-4 font-semibold">Tipe</th>
+                    <th className="px-6 py-4 font-semibold">Kapasitas</th>
+                    <th className="px-6 py-4 font-semibold">
+                      Harga Full Day
+                    </th>
+                    <th className="px-6 py-4 font-semibold">Transit 3 Jam</th>
+                    <th className="px-6 py-4 font-semibold">Transit 6 Jam</th>
+                    <th className="px-6 py-4 font-semibold">Transit 12 Jam</th>
+                    <th className="px-6 py-4 font-semibold">Total Unit</th>
                     <th className="px-6 py-4 font-semibold">Status</th>
                     <th className="px-6 py-4 font-semibold text-right">
-                      Action
+                      Aksi
                     </th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {rooms.length > 0 ? (
-                    rooms.map((room) => {
+                  {filteredRooms.length > 0 ? (
+                    filteredRooms.map((room) => {
                       const active = isRoomActive(room);
                       const isToggling = togglingRoomId === room.id;
                       const isDeleting = deletingRoomId === room.id;
@@ -401,38 +932,45 @@ export default function RoomsList() {
                       return (
                         <tr
                           key={room.id}
-                          className="border-b border-gray-100 hover:bg-gray-50 transition"
+                          className="border-b border-gray-100 transition hover:bg-gray-50"
                         >
-                          <td className="px-6 py-4 font-semibold text-gray-800">
-                            {room.name}
+                          <td className="px-6 py-4">
+                            <p className="font-bold text-gray-900">
+                              {room.name || "-"}
+                            </p>
+                            <p className="mt-0.5 text-xs font-medium text-gray-400">
+                              ID: {room.id}
+                            </p>
                           </td>
 
                           <td className="px-6 py-4 text-gray-600">
                             {room.hotel?.name || "-"}
                           </td>
 
-                          <td className="px-6 py-4 text-gray-600">
-                            {room.type || "-"}
+                          <td className="px-6 py-4">
+                            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700">
+                              {room.type || "-"}
+                            </span>
                           </td>
 
                           <td className="px-6 py-4 text-gray-600">
-                            {room.capacity || 0}
+                            {room.capacity || 0} orang
                           </td>
 
-                          <td className="px-6 py-4 text-red-600 font-medium">
-                            Rp{room.price_per_night || 0}
-                          </td>
-
-                          <td className="px-6 py-4 text-gray-600">
-                            Rp{getRoomTransitPrice(room, "3h")}
+                          <td className="px-6 py-4 font-bold text-red-600">
+                            {formatRupiah(room.price_per_night)}
                           </td>
 
                           <td className="px-6 py-4 text-gray-600">
-                            Rp{getRoomTransitPrice(room, "6h")}
+                            {formatRupiah(getRoomTransitPrice(room, "3h"))}
                           </td>
 
                           <td className="px-6 py-4 text-gray-600">
-                            Rp{getRoomTransitPrice(room, "12h")}
+                            {formatRupiah(getRoomTransitPrice(room, "6h"))}
+                          </td>
+
+                          <td className="px-6 py-4 text-gray-600">
+                            {formatRupiah(getRoomTransitPrice(room, "12h"))}
                           </td>
 
                           <td className="px-6 py-4 text-gray-600">
@@ -444,7 +982,7 @@ export default function RoomsList() {
                               type="button"
                               onClick={() => handleToggleStatus(room)}
                               disabled={isToggling || isDeleting}
-                              className={`px-3 py-1 rounded-full text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                              className={`rounded-full px-3 py-1 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                                 active
                                   ? "bg-green-100 text-green-700 hover:bg-green-200"
                                   : "bg-red-100 text-red-700 hover:bg-red-200"
@@ -453,8 +991,8 @@ export default function RoomsList() {
                               {isToggling
                                 ? "Updating..."
                                 : active
-                                ? "Active"
-                                : "Inactive"}
+                                ? "Aktif"
+                                : "Nonaktif"}
                             </button>
                           </td>
 
@@ -499,9 +1037,25 @@ export default function RoomsList() {
                     <tr>
                       <td
                         colSpan="11"
-                        className="px-6 py-10 text-center text-gray-500"
+                        className="px-6 py-14 text-center text-gray-500"
                       >
-                        Belum ada data room.
+                        <div className="mx-auto max-w-md">
+                          <p className="text-lg font-bold text-gray-800">
+                            Tidak ada kamar yang cocok
+                          </p>
+                          <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                            Coba ubah cabang, tipe kamar, status, atau kata
+                            kunci pencarian.
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={resetFilters}
+                            className="mt-5 rounded-2xl bg-gray-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-black"
+                          >
+                            Reset Filter
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -514,7 +1068,7 @@ export default function RoomsList() {
 
       {showEditModal && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+          <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl">
             <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Edit Room</h2>
@@ -535,10 +1089,212 @@ export default function RoomsList() {
 
             <form onSubmit={handleSaveEdit}>
               <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
+                <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-12">
+                  <div className="lg:col-span-5">
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Cover Kamar
+                    </label>
+
+                    <div className="overflow-hidden rounded-3xl border border-gray-200 bg-gray-50">
+                      {editCoverPreview ? (
+                        <img
+                          src={editCoverPreview}
+                          alt="Preview cover kamar"
+                          className="h-56 w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-56 w-full flex-col items-center justify-center px-5 text-center">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-xl font-black text-red-600">
+                            +
+                          </div>
+                          <p className="mt-3 text-sm font-bold text-gray-800">
+                            Belum ada cover kamar
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                            Tambahkan gambar utama supaya room terlihat lebih
+                            profesional di halaman customer.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col gap-3 border-t border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">
+                            {editCoverFile
+                              ? editCoverFile.name
+                              : editCoverPreview
+                              ? "Cover saat ini"
+                              : "Upload cover baru"}
+                          </p>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            PNG, JPG, JPEG, WEBP. Maksimal 4MB.
+                          </p>
+                        </div>
+
+                        <label className="inline-flex cursor-pointer items-center justify-center rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-700">
+                          Ganti Cover
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleEditCoverChange}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-7">
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Gallery Kamar
+                    </label>
+
+                    <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">
+                            Tambah gambar gallery
+                          </p>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            Gambar baru akan dikirim saat tombol Simpan ditekan.
+                          </p>
+                        </div>
+
+                        <label className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-red-100 bg-white px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50">
+                          Tambah Gambar
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleEditGalleryChange}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {getRoomGalleryItems(selectedRoom).length > 0 && (
+                        <div className="mb-4">
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                              Gallery Saat Ini
+                            </p>
+
+                            {deletedGalleryImageIds.length > 0 && (
+                              <p className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
+                                {deletedGalleryImageIds.length} gambar akan dihapus
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                            {getRoomGalleryItems(selectedRoom)
+                              .slice(0, 12)
+                              .map((image, index) => {
+                                const markedDelete =
+                                  image.id &&
+                                  deletedGalleryImageIds.includes(Number(image.id));
+
+                                return (
+                                  <div
+                                    key={`${image.url}-${image.id || index}`}
+                                    className={`group relative overflow-hidden rounded-2xl border bg-white ${
+                                      markedDelete
+                                        ? "border-red-200 opacity-60"
+                                        : "border-gray-200"
+                                    }`}
+                                  >
+                                    <img
+                                      src={image.url}
+                                      alt={image.label || `Gallery kamar ${index + 1}`}
+                                      className="h-24 w-full object-cover"
+                                    />
+
+                                    {markedDelete && (
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/45 px-2 text-center">
+                                        <p className="rounded-full bg-white px-3 py-1 text-xs font-black text-red-600">
+                                          Akan dihapus
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    <div className="absolute inset-x-2 bottom-2 flex justify-end">
+                                      {markedDelete ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => restoreCurrentGalleryImage(image)}
+                                          className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-gray-800 shadow transition hover:bg-gray-100"
+                                        >
+                                          Batal hapus
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            markCurrentGalleryImageForDelete(image)
+                                          }
+                                          className="rounded-full bg-black/75 px-3 py-1.5 text-xs font-bold text-white shadow transition hover:bg-red-600 md:opacity-0 md:group-hover:opacity-100"
+                                        >
+                                          Hapus
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+
+                          <p className="mt-2 text-xs leading-relaxed text-gray-500">
+                            Tombol hapus di sini belum menghapus permanen sampai kamu klik
+                            Simpan Perubahan.
+                          </p>
+                        </div>
+                      )}
+
+                      {editGalleryPreviews.length > 0 ? (
+                        <div>
+                          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+                            Gambar Baru Dipilih
+                          </p>
+                          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                            {editGalleryPreviews.map((preview, index) => (
+                              <div
+                                key={`${preview}-${index}`}
+                                className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white"
+                              >
+                                <img
+                                  src={preview}
+                                  alt={`Preview gallery ${index + 1}`}
+                                  className="h-24 w-full object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeSelectedGalleryImage(index)}
+                                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-sm font-bold text-white opacity-100 transition hover:bg-red-600 md:opacity-0 md:group-hover:opacity-100"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center">
+                          <p className="text-sm font-bold text-gray-800">
+                            Belum ada gambar baru dipilih
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Klik Tambah Gambar kalau ingin menambah gallery room.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Room Name
+                      Nama Kamar
                     </label>
                     <input
                       type="text"
@@ -552,7 +1308,7 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Hotel
+                      Hotel / Cabang
                     </label>
 
                     {hotelOptions.length > 0 ? (
@@ -583,7 +1339,7 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Type
+                      Tipe Kamar
                     </label>
                     <input
                       type="text"
@@ -597,7 +1353,7 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Capacity
+                      Kapasitas
                     </label>
                     <input
                       type="number"
@@ -612,7 +1368,7 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Price / Night
+                      Harga Full Day
                     </label>
                     <input
                       type="number"
@@ -627,7 +1383,7 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Total Rooms
+                      Total Unit
                     </label>
                     <input
                       type="number"
@@ -642,7 +1398,7 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Transit 3H
+                      Transit 3 Jam
                     </label>
                     <input
                       type="number"
@@ -657,7 +1413,7 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Transit 6H
+                      Transit 6 Jam
                     </label>
                     <input
                       type="number"
@@ -672,7 +1428,7 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Transit 12H
+                      Transit 12 Jam
                     </label>
                     <input
                       type="number"
@@ -695,8 +1451,8 @@ export default function RoomsList() {
                       onChange={handleEditFormChange}
                       className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
                     >
-                      <option value={1}>Active</option>
-                      <option value={0}>Inactive</option>
+                      <option value={1}>Aktif</option>
+                      <option value={0}>Nonaktif</option>
                     </select>
                   </div>
                 </div>
@@ -707,8 +1463,9 @@ export default function RoomsList() {
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-blue-700">
                     Perubahan data room akan langsung tersimpan ke database.
-                    Pastikan harga transit dan full day sudah sesuai sebelum
-                    menekan tombol Simpan.
+                    Jika kamu mengganti cover, menambah gallery, atau menghapus
+                    gallery, sistem akan mengirim data menggunakan FormData agar
+                    perubahan gambar ikut terbaca oleh backend.
                   </p>
                 </div>
               </div>
