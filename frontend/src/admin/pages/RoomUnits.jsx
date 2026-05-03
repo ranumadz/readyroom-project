@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 
 export default function RoomUnits() {
   const [rooms, setRooms] = useState([]);
+  const [selectedHotelId, setSelectedHotelId] = useState("all");
   const [selectedRoom, setSelectedRoom] = useState("");
   const [roomNumber, setRoomNumber] = useState("");
   const [units, setUnits] = useState([]);
@@ -45,6 +46,11 @@ export default function RoomUnits() {
 
       if (!selectedRoom && roomList.length > 0) {
         const firstRoomId = String(roomList[0].id);
+        const firstHotelId = String(
+          roomList[0]?.hotel_id || roomList[0]?.hotel?.id || "all"
+        );
+
+        setSelectedHotelId(firstHotelId || "all");
         setSelectedRoom(firstRoomId);
         fetchUnits(firstRoomId);
       }
@@ -94,8 +100,38 @@ export default function RoomUnits() {
       if (!exists) uniqueHotels.push(hotel);
     });
 
-    return uniqueHotels;
+    return uniqueHotels.sort((a, b) =>
+      String(a.name || "").localeCompare(String(b.name || ""))
+    );
   }, [rooms]);
+
+  const selectedHotelData = useMemo(() => {
+    if (selectedHotelId === "all") return null;
+
+    return hotelOptions.find(
+      (hotel) => String(hotel.id) === String(selectedHotelId)
+    );
+  }, [hotelOptions, selectedHotelId]);
+
+  const roomsBySelectedHotel = useMemo(() => {
+    const filteredRooms =
+      selectedHotelId === "all"
+        ? rooms
+        : rooms.filter((room) => {
+            const hotelId = room?.hotel_id || room?.hotel?.id;
+            return String(hotelId) === String(selectedHotelId);
+          });
+
+    return [...filteredRooms].sort((a, b) => {
+      const hotelA = String(a?.hotel?.name || "");
+      const hotelB = String(b?.hotel?.name || "");
+      const hotelCompare = hotelA.localeCompare(hotelB);
+
+      if (hotelCompare !== 0) return hotelCompare;
+
+      return String(a?.name || "").localeCompare(String(b?.name || ""));
+    });
+  }, [rooms, selectedHotelId]);
 
   const statusTabs = [
     { value: "all", label: "Semua" },
@@ -107,7 +143,14 @@ export default function RoomUnits() {
   ];
 
   const getRoomUnitStatus = (unit) => {
+    const monitoringStatus = String(unit?.monitoring_status || "").toLowerCase();
     const rawStatus = String(unit?.status ?? "").toLowerCase();
+
+    if (monitoringStatus === "maintenance") return "maintenance";
+    if (monitoringStatus === "cleaning") return "cleaning";
+    if (monitoringStatus === "occupied" || monitoringStatus === "booked") return "occupied";
+    if (monitoringStatus === "inactive") return "inactive";
+    if (monitoringStatus === "available") return "available";
 
     if (
       rawStatus === "maintenance" ||
@@ -271,6 +314,30 @@ export default function RoomUnits() {
 
     return stats;
   }, [units]);
+
+  const handleHotelChange = (hotelId) => {
+    setSelectedHotelId(hotelId);
+    setSearchUnit("");
+    setSelectedStatus("all");
+
+    const availableRooms =
+      hotelId === "all"
+        ? rooms
+        : rooms.filter((room) => {
+            const roomHotelId = room?.hotel_id || room?.hotel?.id;
+            return String(roomHotelId) === String(hotelId);
+          });
+
+    if (availableRooms.length > 0) {
+      const firstRoomId = String(availableRooms[0].id);
+      setSelectedRoom(firstRoomId);
+      fetchUnits(firstRoomId);
+      return;
+    }
+
+    setSelectedRoom("");
+    setUnits([]);
+  };
 
   const handleRoomChange = (roomId) => {
     setSelectedRoom(roomId);
@@ -534,10 +601,10 @@ export default function RoomUnits() {
             <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-6 py-5 text-white">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <h2 className="text-lg font-black">Pilih Area Monitoring</h2>
+                  <h2 className="text-lg font-black">Filter Monitoring Kamar</h2>
                   <p className="mt-1 text-sm leading-relaxed text-white/65">
-                    Pilih tipe kamar berdasarkan cabang, lalu kelola nomor kamar
-                    fisiknya dari satu halaman.
+                    Pilih cabang terlebih dahulu, lalu tipe kamar hanya akan
+                    menampilkan kamar yang terdaftar di cabang tersebut.
                   </p>
                 </div>
 
@@ -548,24 +615,48 @@ export default function RoomUnits() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 p-6 xl:grid-cols-12">
-              <div className="xl:col-span-5">
+              <div className="xl:col-span-3">
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Tipe Kamar / Cabang
+                  Cabang / Hotel
+                </label>
+
+                <select
+                  value={selectedHotelId}
+                  onChange={(e) => handleHotelChange(e.target.value)}
+                  disabled={loadingRooms}
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="all">Semua Cabang</option>
+                  {hotelOptions.map((hotel) => (
+                    <option key={hotel.id} value={hotel.id}>
+                      {hotel.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="xl:col-span-3">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Tipe Kamar
                 </label>
 
                 <select
                   value={selectedRoom}
                   onChange={(e) => handleRoomChange(e.target.value)}
-                  disabled={loadingRooms}
+                  disabled={loadingRooms || roomsBySelectedHotel.length === 0}
                   className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="">
-                    {loadingRooms ? "Memuat tipe kamar..." : "Pilih Tipe Kamar"}
+                    {loadingRooms
+                      ? "Memuat tipe kamar..."
+                      : roomsBySelectedHotel.length === 0
+                      ? "Belum ada tipe kamar"
+                      : "Pilih Tipe Kamar"}
                   </option>
 
-                  {rooms.map((room) => (
+                  {roomsBySelectedHotel.map((room) => (
                     <option key={room.id} value={room.id}>
-                      {room.name} - {room.hotel?.name || "Tanpa Cabang"}
+                      {room.name} - {room.type || "Tipe"}
                     </option>
                   ))}
                 </select>
@@ -585,27 +676,41 @@ export default function RoomUnits() {
                 />
               </div>
 
-              <div className="xl:col-span-4">
+              <div className="xl:col-span-3">
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
                   Filter Status
                 </label>
 
-                <div className="flex flex-wrap gap-2">
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
+                >
                   {statusTabs.map((tab) => (
-                    <button
-                      key={tab.value}
-                      type="button"
-                      onClick={() => setSelectedStatus(tab.value)}
-                      className={`rounded-2xl px-4 py-3 text-xs font-black transition ${
-                        selectedStatus === tab.value
-                          ? "bg-gray-950 text-white shadow-lg shadow-gray-200"
-                          : "border border-gray-200 bg-white text-gray-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                      }`}
-                    >
+                    <option key={tab.value} value={tab.value}>
                       {tab.label}
-                    </button>
+                    </option>
                   ))}
-                </div>
+                </select>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 px-6 pb-6">
+              <div className="flex flex-wrap gap-2 pt-4">
+                {statusTabs.map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setSelectedStatus(tab.value)}
+                    className={`rounded-full px-4 py-2 text-xs font-black transition ${
+                      selectedStatus === tab.value
+                        ? "bg-gray-950 text-white shadow-lg shadow-gray-200"
+                        : "border border-gray-200 bg-white text-gray-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -616,7 +721,7 @@ export default function RoomUnits() {
                     Hotel / Cabang
                   </p>
                   <p className="mt-1 font-black text-gray-900">
-                    {selectedRoomData?.hotel?.name || "-"}
+                    {selectedHotelData?.name || selectedRoomData?.hotel?.name || "-"}
                   </p>
                 </div>
 
@@ -654,7 +759,7 @@ export default function RoomUnits() {
               </div>
 
               <div className="rounded-full bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600">
-                {selectedRoomData?.name || "Pilih tipe kamar dulu"}
+                {selectedRoomData?.name || "Pilih cabang dan tipe kamar dulu"}
               </div>
             </div>
 
@@ -736,10 +841,10 @@ export default function RoomUnits() {
                 <div className="flex min-h-[220px] items-center justify-center">
                   <div className="max-w-md rounded-3xl border border-dashed border-gray-300 bg-white px-6 py-8 text-center">
                     <p className="text-lg font-black text-gray-900">
-                      Pilih tipe kamar dulu
+                      Pilih cabang dan tipe kamar dulu
                     </p>
                     <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                      Setelah tipe kamar dipilih, daftar kamar fisik akan tampil
+                      Setelah cabang dan tipe kamar dipilih, daftar kamar fisik akan tampil
                       dalam bentuk monitoring.
                     </p>
                   </div>
