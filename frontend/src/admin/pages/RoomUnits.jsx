@@ -23,10 +23,6 @@ export default function RoomUnits() {
   const [statusReason, setStatusReason] = useState("");
   const [savingStatus, setSavingStatus] = useState(false);
 
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [unitToDelete, setUnitToDelete] = useState(null);
-  const [deletingUnit, setDeletingUnit] = useState(false);
-
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingModalUnit, setBookingModalUnit] = useState(null);
 
@@ -137,8 +133,6 @@ export default function RoomUnits() {
       return typeA.localeCompare(typeB);
     });
   }, [rooms, selectedHotelId]);
-
-  
 
   const fetchAllUnitsByHotel = async (hotelId) => {
     if (!hotelId) {
@@ -387,7 +381,8 @@ export default function RoomUnits() {
     if (raw.includes("overnight")) return "Full Day";
     if (raw.includes("daily")) return "Full Day";
 
-    const duration = booking?.duration || booking?.duration_hours || booking?.hours;
+    const duration =
+      booking?.duration || booking?.duration_hours || booking?.hours;
 
     if (duration && Number(duration) <= 12) return "Transit";
 
@@ -415,7 +410,11 @@ export default function RoomUnits() {
       return "Cleaning";
     }
 
-    if (["approved", "approve", "confirmed", "paid", "booked", "reserved"].includes(raw)) {
+    if (
+      ["approved", "approve", "confirmed", "paid", "booked", "reserved"].includes(
+        raw
+      )
+    ) {
       return "Sudah Dibooking";
     }
 
@@ -737,54 +736,6 @@ export default function RoomUnits() {
     }
   };
 
-  const openDeleteModal = (unit) => {
-    const status = getRoomUnitStatus(unit);
-
-    if (status === "occupied") {
-      toast.error("Kamar yang sedang dipakai booking tidak bisa dihapus.");
-      return;
-    }
-
-    setUnitToDelete(unit);
-    setShowDeleteModal(true);
-  };
-
-  const closeDeleteModal = () => {
-    if (deletingUnit) return;
-
-    setUnitToDelete(null);
-    setShowDeleteModal(false);
-  };
-
-  const handleDeleteUnit = async () => {
-    if (!unitToDelete?.id) return;
-
-    const status = getRoomUnitStatus(unitToDelete);
-
-    if (status === "occupied") {
-      toast.error("Kamar yang sedang dipakai booking tidak bisa dihapus.");
-      return;
-    }
-
-    try {
-      setDeletingUnit(true);
-
-      await api.delete(`/admin/room-units/${unitToDelete.id}`);
-
-      toast.success(`Kamar ${unitToDelete.room_number || ""} berhasil dihapus`);
-      closeDeleteModal();
-      reloadCurrentUnits();
-    } catch (error) {
-      console.error("Gagal hapus kamar fisik:", error.response?.data || error);
-      toast.error(
-        error.response?.data?.message ||
-          "Gagal hapus kamar. Pastikan route DELETE dan function destroy sudah ada di backend."
-      );
-    } finally {
-      setDeletingUnit(false);
-    }
-  };
-
   const openBookingModal = (unit) => {
     setBookingModalUnit(unit);
     setShowBookingModal(true);
@@ -798,6 +749,7 @@ export default function RoomUnits() {
   const bookingModalBookings = bookingModalUnit
     ? getAllBookingsForUnit(bookingModalUnit)
     : [];
+
   return (
     <div className="flex min-h-screen bg-[#f4f5f7]">
       <Sidebar />
@@ -1064,7 +1016,8 @@ export default function RoomUnits() {
                     const meta = getStatusMeta(status);
                     const reason = getUnitReason(unit);
                     const activeBookingText = getUnitActiveBookingText(unit);
-                    const currentBooking = unit?.current_booking || unit?.active_booking || null;
+                    const currentBooking =
+                      unit?.current_booking || unit?.active_booking || null;
                     const reservedBookings = getReservedBookings(unit);
                     const primaryBooking = currentBooking || getReservedBooking(unit);
                     const allBookings = getAllBookingsForUnit(unit);
@@ -1087,11 +1040,7 @@ export default function RoomUnits() {
                           />
                         </div>
 
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 text-lg font-black shadow-sm">
-                          🛏
-                        </div>
-
-                        <p className="text-xs font-bold uppercase tracking-wide text-current/55">
+                        <p className="pt-2 text-xs font-bold uppercase tracking-wide text-current/55">
                           Kamar
                         </p>
 
@@ -1202,23 +1151,13 @@ export default function RoomUnits() {
                           )}
 
                           {status === "available" && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => openStatusModal(unit, "maintenance")}
-                                className="rounded-2xl bg-gray-950 px-3 py-2 text-xs font-black text-white transition hover:bg-black"
-                              >
-                                Maintenance
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => openStatusModal(unit, "inactive")}
-                                className="rounded-2xl bg-red-600 px-3 py-2 text-xs font-black text-white transition hover:bg-red-700"
-                              >
-                                Nonaktifkan
-                              </button>
-                            </>
+                            <button
+                              type="button"
+                              onClick={() => openStatusModal(unit, "maintenance")}
+                              className="rounded-2xl bg-gray-950 px-3 py-2 text-xs font-black text-white transition hover:bg-black"
+                            >
+                              Maintenance
+                            </button>
                           )}
 
                           {status === "cleaning" && (
@@ -1240,15 +1179,6 @@ export default function RoomUnits() {
                               Dipakai Booking
                             </button>
                           )}
-
-                          <button
-                            type="button"
-                            onClick={() => openDeleteModal(unit)}
-                            disabled={status === "occupied"}
-                            className="rounded-2xl border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Hapus Kamar
-                          </button>
                         </div>
                       </div>
                     );
@@ -1351,69 +1281,6 @@ export default function RoomUnits() {
                 className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {savingStatus ? "Menyimpan..." : "Simpan Status"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-[30px] bg-white shadow-2xl">
-            <div className="border-b border-red-100 bg-gradient-to-br from-red-700 to-red-950 px-6 py-5 text-white">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-white/60">
-                    Hapus Kamar Fisik
-                  </p>
-                  <h2 className="mt-1 text-2xl font-black">
-                    Kamar {unitToDelete?.room_number || "-"}
-                  </h2>
-                  <p className="mt-2 text-sm leading-relaxed text-white/70">
-                    Data kamar fisik ini akan dihapus dari monitoring kamar.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={closeDeleteModal}
-                  disabled={deletingUnit}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-xl font-black text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-
-            <div className="px-6 py-5">
-              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-4">
-                <p className="text-sm font-black text-red-800">
-                  Yakin mau hapus kamar ini?
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-red-700">
-                  Kalau kamar ini pernah dipakai booking dan backend menolak
-                  penghapusan, gunakan tombol Nonaktifkan saja agar riwayat tetap aman.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-6 py-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeDeleteModal}
-                disabled={deletingUnit}
-                className="rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Batal
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDeleteUnit}
-                disabled={deletingUnit}
-                className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {deletingUnit ? "Menghapus..." : "Ya, Hapus Kamar"}
               </button>
             </div>
           </div>
