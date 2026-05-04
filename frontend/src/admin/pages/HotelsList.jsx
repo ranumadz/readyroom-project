@@ -20,6 +20,8 @@ import {
   Image as ImageIcon,
   FileText,
   CheckSquare,
+  Images,
+  Upload,
 } from "lucide-react";
 
 export default function HotelsList() {
@@ -46,6 +48,8 @@ export default function HotelsList() {
     description: "",
     thumbnail: null,
     hero_image: null,
+    gallery_images: [],
+    remove_gallery_image_ids: [],
     facility_ids: [],
     status: true,
   });
@@ -54,6 +58,41 @@ export default function HotelsList() {
     thumbnail: null,
     hero_image: null,
   });
+
+  const [existingGalleryPreviews, setExistingGalleryPreviews] = useState([]);
+  const [newGalleryPreviews, setNewGalleryPreviews] = useState([]);
+
+  const backendOrigin = useMemo(() => {
+    const candidates = [
+      import.meta.env.VITE_BACKEND_URL,
+      api?.defaults?.baseURL,
+      import.meta.env.VITE_API_URL,
+    ];
+
+    const absoluteUrl = candidates.find((item) =>
+      /^https?:\/\//i.test(String(item || ""))
+    );
+
+    if (absoluteUrl) {
+      return String(absoluteUrl)
+        .replace(/\/api\/?$/i, "")
+        .replace(/\/$/, "");
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1")
+    ) {
+      return "http://127.0.0.1:8000";
+    }
+
+    if (typeof window !== "undefined") {
+      return window.location.origin;
+    }
+
+    return "http://127.0.0.1:8000";
+  }, []);
 
   const fetchHotels = async () => {
     try {
@@ -125,25 +164,122 @@ export default function HotelsList() {
 
     const rawPath = String(path).trim();
 
-    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+    if (!rawPath) return fallback;
+
+    if (
+      rawPath.startsWith("http://") ||
+      rawPath.startsWith("https://") ||
+      rawPath.startsWith("blob:")
+    ) {
       return rawPath;
     }
 
     const cleanPath = rawPath.replace(/^\/+/, "");
 
+    if (cleanPath.startsWith("storage/")) {
+      return `${backendOrigin}/${cleanPath}`;
+    }
+
+    if (cleanPath.startsWith("hotels/")) {
+      return `${backendOrigin}/storage/${cleanPath}`;
+    }
+
     if (cleanPath.startsWith("images/")) {
       return `/${cleanPath}`;
     }
 
-    if (cleanPath.startsWith("storage/")) {
-      return `http://127.0.0.1:8000/${cleanPath}`;
-    }
+    return `${backendOrigin}/storage/${cleanPath}`;
+  };
 
-    return `/storage/${cleanPath}`;
+  const handleImageError = (e, fallback = "/images/hotel.jpg") => {
+    e.currentTarget.onerror = null;
+    e.currentTarget.src = fallback;
+  };
+
+  const normalizeFacilityScope = (facility) => {
+    const raw = String(
+      facility?.usage_scope ||
+        facility?.scope ||
+        facility?.facility_scope ||
+        facility?.facility_type ||
+        facility?.target ||
+        facility?.type_for ||
+        facility?.for ||
+        facility?.used_for ||
+        "hotel"
+    ).toLowerCase();
+
+    if (raw.includes("room") || raw.includes("kamar")) return "room";
+
+    return "hotel";
+  };
+
+  const hotelFacilities = useMemo(() => {
+    return facilities.filter((facility) => {
+      const active =
+        facility?.status === true ||
+        facility?.status === 1 ||
+        String(facility?.status) === "1" ||
+        String(facility?.status).toLowerCase() === "true";
+
+      return active && normalizeFacilityScope(facility) === "hotel";
+    });
+  }, [facilities]);
+
+  const getGalleryImagePath = (image) => {
+    if (!image) return "";
+
+    if (typeof image === "string") return image;
+
+    return (
+      image.image ||
+      image.image_path ||
+      image.path ||
+      image.url ||
+      image.gallery_image ||
+      image.file_path ||
+      image.photo ||
+      image.src ||
+      ""
+    );
+  };
+
+  const normalizeGalleryImages = (hotel) => {
+    const gallerySource = Array.isArray(hotel?.images)
+      ? hotel.images
+      : Array.isArray(hotel?.gallery_images)
+      ? hotel.gallery_images
+      : Array.isArray(hotel?.hotel_images)
+      ? hotel.hotel_images
+      : Array.isArray(hotel?.galleries)
+      ? hotel.galleries
+      : Array.isArray(hotel?.gallery)
+      ? hotel.gallery
+      : [];
+
+    return gallerySource
+      .map((image, index) => {
+        const path = getGalleryImagePath(image);
+
+        if (!path) return null;
+
+        return {
+          id: typeof image === "object" ? image.id || null : null,
+          tempKey: `${path}-${index}`,
+          path,
+          url: buildImageUrl(path),
+        };
+      })
+      .filter(Boolean);
   };
 
   const resetEditState = () => {
+    newGalleryPreviews.forEach((item) => {
+      if (item.preview) URL.revokeObjectURL(item.preview);
+    });
+
     setSelectedHotel(null);
+
     setEditForm({
       city_id: "",
       name: "",
@@ -154,13 +290,19 @@ export default function HotelsList() {
       description: "",
       thumbnail: null,
       hero_image: null,
+      gallery_images: [],
+      remove_gallery_image_ids: [],
       facility_ids: [],
       status: true,
     });
+
     setPreview({
       thumbnail: null,
       hero_image: null,
     });
+
+    setExistingGalleryPreviews([]);
+    setNewGalleryPreviews([]);
   };
 
   const openEditModal = (hotel) => {
@@ -176,6 +318,8 @@ export default function HotelsList() {
       description: hotel.description || "",
       thumbnail: null,
       hero_image: null,
+      gallery_images: [],
+      remove_gallery_image_ids: [],
       facility_ids: Array.isArray(hotel.facilities)
         ? hotel.facilities.map((item) => item.id)
         : [],
@@ -189,6 +333,8 @@ export default function HotelsList() {
         : null,
     });
 
+    setExistingGalleryPreviews(normalizeGalleryImages(hotel));
+    setNewGalleryPreviews([]);
     setShowEditModal(true);
   };
 
@@ -210,6 +356,7 @@ export default function HotelsList() {
 
       if (file) {
         const objectUrl = URL.createObjectURL(file);
+
         setPreview((prev) => ({
           ...prev,
           [name]: objectUrl,
@@ -222,6 +369,98 @@ export default function HotelsList() {
     setEditForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleGalleryChange = (e) => {
+    const files = Array.from(e.target.files || []);
+
+    if (files.length === 0) return;
+
+    const imageFiles = files.filter((file) =>
+      String(file.type || "").startsWith("image/")
+    );
+
+    if (imageFiles.length !== files.length) {
+      Swal.fire({
+        icon: "warning",
+        title: "File tidak valid",
+        text: "Gallery hotel hanya boleh berisi file gambar.",
+        confirmButtonColor: "#dc2626",
+      });
+    }
+
+    if (imageFiles.length === 0) {
+      e.target.value = "";
+      return;
+    }
+
+    const previews = imageFiles.map((file) => ({
+      file,
+      name: file.name,
+      preview: URL.createObjectURL(file),
+    }));
+
+    setEditForm((prev) => ({
+      ...prev,
+      gallery_images: [...prev.gallery_images, ...imageFiles],
+    }));
+
+    setNewGalleryPreviews((prev) => [...prev, ...previews]);
+
+    e.target.value = "";
+  };
+
+  const removeExistingGalleryImage = (galleryItem) => {
+    if (!galleryItem) return;
+
+    if (galleryItem.id) {
+      setEditForm((prev) => ({
+        ...prev,
+        remove_gallery_image_ids: [
+          ...prev.remove_gallery_image_ids,
+          galleryItem.id,
+        ].filter((value, index, array) => array.indexOf(value) === index),
+      }));
+    }
+
+    setExistingGalleryPreviews((prev) =>
+      prev.filter((item) => {
+        if (galleryItem.id) return item.id !== galleryItem.id;
+        return item.tempKey !== galleryItem.tempKey;
+      })
+    );
+  };
+
+  const removeNewGalleryImage = (index) => {
+    setNewGalleryPreviews((prev) => {
+      const removed = prev[index];
+
+      if (removed?.preview) {
+        URL.revokeObjectURL(removed.preview);
+      }
+
+      return prev.filter((_, itemIndex) => itemIndex !== index);
+    });
+
+    setEditForm((prev) => ({
+      ...prev,
+      gallery_images: prev.gallery_images.filter(
+        (_, itemIndex) => itemIndex !== index
+      ),
+    }));
+  };
+
+  const clearNewGalleryImages = () => {
+    newGalleryPreviews.forEach((item) => {
+      if (item.preview) URL.revokeObjectURL(item.preview);
+    });
+
+    setNewGalleryPreviews([]);
+
+    setEditForm((prev) => ({
+      ...prev,
+      gallery_images: [],
     }));
   };
 
@@ -278,6 +517,7 @@ export default function HotelsList() {
   const toggleStatus = async (hotel) => {
     try {
       const payload = new FormData();
+
       payload.append("_method", "PUT");
       payload.append("city_id", hotel.city_id || "");
       payload.append("name", hotel.name || "");
@@ -356,10 +596,11 @@ export default function HotelsList() {
       setSavingEdit(true);
 
       const payload = new FormData();
+
       payload.append("_method", "PUT");
       payload.append("city_id", editForm.city_id);
       payload.append("name", editForm.name);
-      payload.append("area", selectedHotel?.area || "");
+      payload.append("area", editForm.area || selectedHotel?.area || "");
       payload.append("address", editForm.address);
       payload.append("wa_admin", editForm.wa_admin || "");
       payload.append("map_link", editForm.map_link || "");
@@ -377,6 +618,14 @@ export default function HotelsList() {
       if (editForm.hero_image) {
         payload.append("hero_image", editForm.hero_image);
       }
+
+      editForm.gallery_images.forEach((file, index) => {
+        payload.append(`gallery_images[${index}]`, file);
+      });
+
+      editForm.remove_gallery_image_ids.forEach((imageId, index) => {
+        payload.append(`remove_gallery_image_ids[${index}]`, imageId);
+      });
 
       await api.post(`/admin/hotels/${selectedHotel.id}`, payload, {
         headers: {
@@ -404,6 +653,9 @@ export default function HotelsList() {
           err.response?.data?.errors?.map_link?.[0] ||
           err.response?.data?.errors?.name?.[0] ||
           err.response?.data?.errors?.address?.[0] ||
+          err.response?.data?.errors?.gallery_images?.[0] ||
+          err.response?.data?.errors?.["gallery_images.0"]?.[0] ||
+          err.response?.data?.errors?.remove_gallery_image_ids?.[0] ||
           "Hotel gagal diupdate",
         confirmButtonColor: "#dc2626",
       });
@@ -457,13 +709,16 @@ export default function HotelsList() {
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                   <Building2 size={28} />
                 </div>
+
                 <h3 className="text-lg font-semibold text-gray-800">
                   Belum ada data hotel
                 </h3>
+
                 <p className="mb-5 mt-2 text-gray-500">
                   Tambahkan cabang hotel pertama untuk mulai mengelola room dan
                   booking.
                 </p>
+
                 <button
                   onClick={() => navigate("/admin/hotels/add")}
                   className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
@@ -675,6 +930,7 @@ export default function HotelsList() {
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Nama Hotel / Cabang
                     </label>
+
                     <input
                       type="text"
                       name="name"
@@ -690,6 +946,7 @@ export default function HotelsList() {
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Nomor WhatsApp Admin Cabang
                   </label>
+
                   <div className="relative">
                     <input
                       type="text"
@@ -699,6 +956,7 @@ export default function HotelsList() {
                       placeholder="Contoh: 081234567890"
                       className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                     />
+
                     <MessageCircle
                       size={18}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -710,6 +968,7 @@ export default function HotelsList() {
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Alamat
                   </label>
+
                   <textarea
                     name="address"
                     value={editForm.address}
@@ -724,6 +983,7 @@ export default function HotelsList() {
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Link Google Maps Tempat Hotel
                   </label>
+
                   <div className="relative">
                     <input
                       type="text"
@@ -733,13 +993,12 @@ export default function HotelsList() {
                       placeholder="Cari nama hotel di Maps → Share → Copy link"
                       className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                     />
+
                     <LinkIcon
                       size={18}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
                     />
                   </div>
-
-                  
                 </div>
 
                 <div>
@@ -759,13 +1018,13 @@ export default function HotelsList() {
                       <p className="text-sm text-gray-500">
                         Memuat fasilitas...
                       </p>
-                    ) : facilities.length === 0 ? (
+                    ) : hotelFacilities.length === 0 ? (
                       <p className="text-sm text-gray-500">
-                        Belum ada fasilitas aktif di sistem
+                        Belum ada fasilitas hotel aktif di sistem
                       </p>
                     ) : (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {facilities.map((facility) => {
+                        {hotelFacilities.map((facility) => {
                           const selected = editForm.facility_ids.includes(
                             facility.id
                           );
@@ -817,6 +1076,7 @@ export default function HotelsList() {
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Deskripsi
                   </label>
+
                   <div className="relative">
                     <textarea
                       name="description"
@@ -826,6 +1086,7 @@ export default function HotelsList() {
                       placeholder="Deskripsi singkat hotel"
                       className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 pr-11 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                     />
+
                     <FileText
                       size={18}
                       className="absolute right-4 top-4 text-gray-400"
@@ -844,6 +1105,7 @@ export default function HotelsList() {
                         <img
                           src={preview.thumbnail}
                           alt="Preview Thumbnail"
+                          onError={(e) => handleImageError(e)}
                           className="h-48 w-full object-cover"
                         />
                       ) : (
@@ -878,6 +1140,7 @@ export default function HotelsList() {
                         <img
                           src={preview.hero_image}
                           alt="Preview Hero"
+                          onError={(e) => handleImageError(e)}
                           className="h-48 w-full object-cover"
                         />
                       ) : (
@@ -900,6 +1163,155 @@ export default function HotelsList() {
                         className="hidden"
                       />
                     </label>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Gallery Hotel
+                      </label>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Tambahkan foto lobby, kamar umum, lorong, parkiran,
+                        area depan, atau suasana hotel.
+                      </p>
+                    </div>
+
+                    {newGalleryPreviews.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearNewGalleryImages}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                      >
+                        <Trash2 size={16} />
+                        Hapus Upload Baru
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4 md:p-5">
+                    {existingGalleryPreviews.length > 0 && (
+                      <div className="mb-5">
+                        <div className="mb-3 flex items-center gap-2">
+                          <Images size={18} className="text-red-500" />
+                          <p className="text-sm font-bold text-gray-800">
+                            Gallery yang sudah tersimpan
+                          </p>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-gray-500">
+                            {existingGalleryPreviews.length} foto
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                          {existingGalleryPreviews.map((item, index) => (
+                            <div
+                              key={item.id || item.tempKey || index}
+                              className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+                            >
+                              <div className="relative">
+                                <img
+                                  src={item.url}
+                                  alt={`Gallery hotel ${index + 1}`}
+                                  onError={(e) => handleImageError(e)}
+                                  className="h-28 w-full object-cover"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() => removeExistingGalleryImage(item)}
+                                  className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-lg transition hover:bg-red-700"
+                                >
+                                  <Trash2 size={13} />
+                                  Hapus
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <p className="mt-3 text-xs text-gray-400">
+                          Foto yang dihapus di sini baru permanen setelah klik
+                          Simpan Perubahan.
+                        </p>
+                      </div>
+                    )}
+
+                    <label className="flex min-h-[180px] w-full cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-red-200 bg-red-50/40 px-5 py-8 text-center transition hover:border-red-400 hover:bg-red-50">
+                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-red-600 shadow-sm">
+                        <Upload size={24} />
+                      </div>
+
+                      <p className="font-bold text-gray-800">
+                        Upload Tambahan Gallery Hotel
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Bisa pilih lebih dari satu gambar sekaligus.
+                      </p>
+                      <p className="mt-2 text-xs font-semibold text-red-600">
+                        JPG, PNG, WEBP
+                      </p>
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleGalleryChange}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {newGalleryPreviews.length > 0 && (
+                      <div className="mt-5">
+                        <div className="mb-3 flex items-center gap-2">
+                          <Images size={18} className="text-red-500" />
+                          <p className="text-sm font-bold text-gray-800">
+                            Foto baru yang akan ditambahkan
+                          </p>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-gray-500">
+                            {newGalleryPreviews.length} foto
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                          {newGalleryPreviews.map((item, index) => (
+                            <div
+                              key={`${item.name}-${index}`}
+                              className="overflow-hidden rounded-2xl border border-red-100 bg-white shadow-sm"
+                            >
+                              <div className="relative">
+                                <img
+                                  src={item.preview}
+                                  alt={`Preview gallery baru ${index + 1}`}
+                                  className="h-28 w-full object-cover"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() => removeNewGalleryImage(index)}
+                                  className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-red-600 shadow-sm transition hover:bg-red-50"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+
+                              <div className="px-3 py-2">
+                                <p className="truncate text-xs font-semibold text-gray-600">
+                                  {item.name}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {existingGalleryPreviews.length === 0 &&
+                      newGalleryPreviews.length === 0 && (
+                        <p className="mt-4 text-center text-xs text-gray-400">
+                          Belum ada gallery hotel yang tampil di modal edit ini.
+                        </p>
+                      )}
                   </div>
                 </div>
 

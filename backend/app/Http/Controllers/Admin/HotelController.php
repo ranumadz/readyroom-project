@@ -9,6 +9,7 @@ use App\Models\Facility;
 use App\Models\HotelImage;
 use App\Models\Room;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class HotelController extends Controller
@@ -94,11 +95,105 @@ class HotelController extends Controller
         $hotel->starting_price = $startingPrice['price'];
         $hotel->starting_price_label = $startingPrice['label'];
 
-        // Alias supaya aman dengan frontend Hotels.jsx yang sudah kita buat.
+        // Alias supaya aman dengan frontend Hotels.jsx yang sudah dibuat.
         $hotel->lowest_price = $startingPrice['price'];
         $hotel->lowest_price_label = $startingPrice['label'];
 
         return $hotel;
+    }
+
+    private function normalizeFacilityScope($facility): string
+    {
+        $raw = strtolower((string) (
+            $facility->usage_scope ??
+            $facility->scope ??
+            $facility->facility_scope ??
+            $facility->facility_type ??
+            $facility->target ??
+            $facility->type_for ??
+            $facility->used_for ??
+            'hotel'
+        ));
+
+        if (str_contains($raw, 'room') || str_contains($raw, 'kamar')) {
+            return 'room';
+        }
+
+        return 'hotel';
+    }
+
+    private function hotelFacilities()
+    {
+        $query = Facility::where('status', true);
+
+        if (Schema::hasColumn('facilities', 'usage_scope')) {
+            $query->where(function ($facilityQuery) {
+                $facilityQuery
+                    ->whereNull('usage_scope')
+                    ->orWhere('usage_scope', '')
+                    ->orWhere('usage_scope', 'hotel')
+                    ->orWhere('usage_scope', 'all')
+                    ->orWhere('usage_scope', 'both')
+                    ->orWhere('usage_scope', 'semua');
+            });
+        }
+
+        return $query->orderBy('name')->get();
+    }
+
+    private function galleryFilesFromRequest(Request $request): array
+    {
+        if ($request->hasFile('gallery_images')) {
+            return is_array($request->file('gallery_images'))
+                ? $request->file('gallery_images')
+                : [$request->file('gallery_images')];
+        }
+
+        // Alias cadangan, supaya aman kalau frontend lama/baru kirim key berbeda.
+        if ($request->hasFile('images')) {
+            return is_array($request->file('images'))
+                ? $request->file('images')
+                : [$request->file('images')];
+        }
+
+        return [];
+    }
+
+    private function storeGalleryImages(int $hotelId, array $images): void
+    {
+        foreach ($images as $image) {
+            if (!$image) {
+                continue;
+            }
+
+            $path = $image->store('hotels/gallery', 'public');
+
+            HotelImage::create([
+                'hotel_id' => $hotelId,
+                'image' => $path,
+            ]);
+        }
+    }
+
+    private function deleteSelectedGalleryImages(Hotel $hotel, Request $request): void
+    {
+        $removeIds = $request->input('remove_gallery_image_ids', []);
+
+        if (!is_array($removeIds) || count($removeIds) === 0) {
+            return;
+        }
+
+        $images = HotelImage::where('hotel_id', $hotel->id)
+            ->whereIn('id', $removeIds)
+            ->get();
+
+        foreach ($images as $image) {
+            if ($image->image && Storage::disk('public')->exists($image->image)) {
+                Storage::disk('public')->delete($image->image);
+            }
+
+            $image->delete();
+        }
     }
 
     public function index()
@@ -159,7 +254,7 @@ class HotelController extends Controller
             ->orderBy('name')
             ->get();
 
-        $facilities = Facility::where('status', true)->get();
+        $facilities = $this->hotelFacilities();
 
         return response()->json([
             'cities' => $cities,
@@ -176,7 +271,7 @@ class HotelController extends Controller
 
         $city = City::create([
             'name' => trim($validated['name']),
-            'status' => $request->status ?? true,
+            'status' => $request->has('status') ? $request->boolean('status') : true,
         ]);
 
         return response()->json([
@@ -199,7 +294,10 @@ class HotelController extends Controller
             'description' => 'nullable|string',
             'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'gallery_images' => 'nullable|array',
             'gallery_images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'images' => 'nullable|array',
+            'images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'rating' => 'nullable|numeric|min:0|max:5',
             'status' => 'nullable|boolean',
             'facility_ids' => 'nullable|array',
@@ -230,21 +328,12 @@ class HotelController extends Controller
             'thumbnail' => $thumbnailPath,
             'hero_image' => $heroImagePath,
             'rating' => $request->rating ?? 0,
-            'status' => $request->status ?? true,
+            'status' => $request->has('status') ? $request->boolean('status') : true,
         ]);
 
         $hotel->facilities()->sync($request->facility_ids ?? []);
 
-        if ($request->hasFile('gallery_images')) {
-            foreach ($request->file('gallery_images') as $image) {
-                $path = $image->store('hotels/gallery', 'public');
-
-                HotelImage::create([
-                    'hotel_id' => $hotel->id,
-                    'image' => $path,
-                ]);
-            }
-        }
+        $this->storeGalleryImages($hotel->id, $this->galleryFilesFromRequest($request));
 
         return response()->json([
             'message' => 'Hotel berhasil ditambahkan',
@@ -268,7 +357,12 @@ class HotelController extends Controller
             'description' => 'nullable|string',
             'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'hero_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'gallery_images' => 'nullable|array',
             'gallery_images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'images' => 'nullable|array',
+            'images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'remove_gallery_image_ids' => 'nullable|array',
+            'remove_gallery_image_ids.*' => 'nullable|integer',
             'rating' => 'nullable|numeric|min:0|max:5',
             'status' => 'nullable|boolean',
             'facility_ids' => 'nullable|array',
@@ -286,7 +380,7 @@ class HotelController extends Controller
             'map_link' => $request->map_link,
             'description' => $request->description,
             'rating' => $request->rating ?? $hotel->rating,
-            'status' => $request->status ?? $hotel->status,
+            'status' => $request->has('status') ? $request->boolean('status') : $hotel->status,
         ];
 
         if ($request->hasFile('thumbnail')) {
@@ -309,28 +403,17 @@ class HotelController extends Controller
 
         $hotel->facilities()->sync($request->facility_ids ?? []);
 
-        if ($request->hasFile('gallery_images')) {
-            foreach ($hotel->images as $oldImage) {
-                if ($oldImage->image && Storage::disk('public')->exists($oldImage->image)) {
-                    Storage::disk('public')->delete($oldImage->image);
-                }
-            }
-
-            $hotel->images()->delete();
-
-            foreach ($request->file('gallery_images') as $image) {
-                $path = $image->store('hotels/gallery', 'public');
-
-                HotelImage::create([
-                    'hotel_id' => $hotel->id,
-                    'image' => $path,
-                ]);
-            }
-        }
+        /*
+         * Penting:
+         * Dulu saat update gallery, semua gallery lama dihapus lalu diganti.
+         * Sekarang gallery baru ditambahkan saja supaya foto lama tidak hilang.
+         */
+        $this->deleteSelectedGalleryImages($hotel, $request);
+        $this->storeGalleryImages($hotel->id, $this->galleryFilesFromRequest($request));
 
         return response()->json([
             'message' => 'Hotel berhasil diupdate',
-            'data' => $hotel->load(['city', 'facilities', 'images'])
+            'data' => $hotel->fresh()->load(['city', 'facilities', 'images'])
         ]);
     }
 

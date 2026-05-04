@@ -138,10 +138,7 @@ export default function RoomUnits() {
     });
   }, [rooms, selectedHotelId]);
 
-  const selectedRoomData = useMemo(() => {
-    if (!selectedRoom || selectedRoom === "all") return null;
-    return rooms.find((room) => String(room.id) === String(selectedRoom));
-  }, [rooms, selectedRoom]);
+  
 
   const fetchAllUnitsByHotel = async (hotelId) => {
     if (!hotelId) {
@@ -801,17 +798,6 @@ export default function RoomUnits() {
   const bookingModalBookings = bookingModalUnit
     ? getAllBookingsForUnit(bookingModalUnit)
     : [];
-
-  const selectedTypeText =
-    selectedRoom === "all"
-      ? "Semua tipe kamar"
-      : selectedRoomData?.type || selectedRoomData?.name || "-";
-
-  const selectedCapacityText =
-    selectedRoom === "all"
-      ? "-"
-      : `${selectedRoomData?.capacity || 0} Orang`;
-
   return (
     <div className="flex min-h-screen bg-[#f4f5f7]">
       <Sidebar />
@@ -994,37 +980,6 @@ export default function RoomUnits() {
                 ))}
               </div>
             </div>
-
-            {selectedHotelData && (
-              <div className="grid grid-cols-1 gap-3 border-t border-gray-100 bg-red-50/50 px-6 py-4 text-sm md:grid-cols-3">
-                <div className="rounded-2xl border border-red-100 bg-white px-4 py-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                    Hotel / Cabang
-                  </p>
-                  <p className="mt-1 font-black text-gray-900">
-                    {selectedHotelData?.name || "-"}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-red-100 bg-white px-4 py-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                    Tipe Kamar
-                  </p>
-                  <p className="mt-1 font-black text-gray-900">
-                    {selectedTypeText}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-red-100 bg-white px-4 py-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                    Kapasitas
-                  </p>
-                  <p className="mt-1 font-black text-gray-900">
-                    {selectedCapacityText}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">
