@@ -20,13 +20,63 @@ import {
   Image as ImageIcon,
   Images,
   DoorOpen,
+  Wifi,
+  Car,
+  Tv,
+  Bath,
+  Coffee,
+  Dumbbell,
+  Waves,
+  AirVent,
+  UtensilsCrossed,
+  CheckCircle2,
+  ShieldCheck,
 } from "lucide-react";
 
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 
+const facilityIconOptions = [
+  { value: "wifi", icon: Wifi },
+  { value: "car", icon: Car },
+  { value: "tv", icon: Tv },
+  { value: "bath", icon: Bath },
+  { value: "coffee", icon: Coffee },
+  { value: "dumbbell", icon: Dumbbell },
+  { value: "waves", icon: Waves },
+  { value: "air-vent", icon: AirVent },
+  { value: "utensils-crossed", icon: UtensilsCrossed },
+  { value: "bed-double", icon: BedDouble },
+];
+
+const getFacilityIconComponent = (iconName) => {
+  const found = facilityIconOptions.find((item) => item.value === iconName);
+  return found ? found.icon : ShieldCheck;
+};
+
+const normalizeFacilityScope = (facility) => {
+  const raw = String(
+    facility?.usage_scope ||
+      facility?.scope ||
+      facility?.facility_scope ||
+      facility?.facility_type ||
+      facility?.target ||
+      facility?.type_for ||
+      facility?.for ||
+      facility?.used_for ||
+      "hotel"
+  ).toLowerCase();
+
+  if (raw.includes("room") || raw.includes("kamar")) return "room";
+
+  return "hotel";
+};
+
 export default function AddRoom() {
   const [hotels, setHotels] = useState([]);
+  const [facilities, setFacilities] = useState([]);
+
   const [loadingHotels, setLoadingHotels] = useState(false);
+  const [loadingFacilities, setLoadingFacilities] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [coverPreview, setCoverPreview] = useState(null);
@@ -45,6 +95,7 @@ export default function AddRoom() {
     price_transit_12h: "",
     total_rooms: "",
     room_numbers: "",
+    facility_ids: [],
     description: "",
     thumbnail: null,
     images: [],
@@ -53,6 +104,7 @@ export default function AddRoom() {
 
   useEffect(() => {
     fetchHotels();
+    fetchFacilities();
   }, []);
 
   const fetchHotels = async () => {
@@ -77,6 +129,41 @@ export default function AddRoom() {
       setLoadingHotels(false);
     }
   };
+
+  const fetchFacilities = async () => {
+    try {
+      setLoadingFacilities(true);
+
+      const res = await api.get("/admin/facilities");
+
+      const facilityData = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data?.facilities)
+        ? res.data.facilities
+        : Array.isArray(res.data)
+        ? res.data
+        : [];
+
+      setFacilities(facilityData);
+    } catch (error) {
+      console.error("Gagal mengambil data fasilitas kamar:", error);
+      toast.error("Gagal mengambil data fasilitas kamar");
+    } finally {
+      setLoadingFacilities(false);
+    }
+  };
+
+  const roomFacilities = facilities.filter((facility) => {
+    const isActive =
+      facility?.status === true ||
+      facility?.status === 1 ||
+      String(facility?.status) === "1" ||
+      String(facility?.status).toLowerCase() === "true";
+
+    return isActive && normalizeFacilityScope(facility) === "room";
+  });
+
+  const selectedFacilityCount = form.facility_ids.length;
 
   const isValidImageFile = (file) => {
     if (!(file instanceof File)) return false;
@@ -126,6 +213,38 @@ export default function AddRoom() {
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleToggleFacility = (facilityId) => {
+    setForm((prev) => {
+      const id = Number(facilityId);
+      const currentIds = prev.facility_ids.map((item) => Number(item));
+
+      const isSelected = currentIds.includes(id);
+
+      return {
+        ...prev,
+        facility_ids: isSelected
+          ? currentIds.filter((item) => item !== id)
+          : [...currentIds, id],
+      };
+    });
+  };
+
+  const handleSelectAllFacilities = () => {
+    const allIds = roomFacilities.map((facility) => Number(facility.id));
+
+    setForm((prev) => ({
+      ...prev,
+      facility_ids: allIds,
+    }));
+  };
+
+  const handleClearFacilities = () => {
+    setForm((prev) => ({
+      ...prev,
+      facility_ids: [],
     }));
   };
 
@@ -257,6 +376,7 @@ export default function AddRoom() {
       price_transit_12h: "",
       total_rooms: "",
       room_numbers: "",
+      facility_ids: [],
       description: "",
       thumbnail: null,
       images: [],
@@ -347,6 +467,12 @@ export default function AddRoom() {
 
       roomNumberList.forEach((roomNumber) => {
         payload.append("room_numbers[]", roomNumber);
+      });
+
+      form.facility_ids.forEach((facilityId) => {
+        payload.append("facility_ids[]", facilityId);
+        payload.append("room_facility_ids[]", facilityId);
+        payload.append("facilities[]", facilityId);
       });
 
       if (form.thumbnail instanceof File) {
@@ -583,6 +709,122 @@ export default function AddRoom() {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
+              <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800">
+                    Fasilitas Kamar
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Pilih fasilitas yang tersedia khusus untuk tipe kamar ini.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {roomFacilities.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleSelectAllFacilities}
+                        className="rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+                      >
+                        Pilih Semua
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleClearFacilities}
+                        className="rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-100"
+                      >
+                        Bersihkan
+                      </button>
+                    </>
+                  )}
+
+                  <span className="rounded-full border border-red-100 bg-red-50 px-4 py-2 text-xs font-bold text-red-700">
+                    {selectedFacilityCount} dipilih
+                  </span>
+                </div>
+              </div>
+
+              {loadingFacilities ? (
+                <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-6 py-8 text-center">
+                  <p className="text-sm font-bold text-gray-700">
+                    Memuat fasilitas kamar...
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Mohon tunggu sebentar.
+                  </p>
+                </div>
+              ) : roomFacilities.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-6 py-8 text-center">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-red-600 shadow-sm">
+                    <ShieldCheck size={24} />
+                  </div>
+
+                  <p className="text-base font-bold text-gray-800">
+                    Belum ada fasilitas kamar
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                    Tambahkan fasilitas dengan kategori Kamar dari halaman Facilities terlebih dahulu.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {roomFacilities.map((facility) => {
+                    const FacilityIcon = getFacilityIconComponent(facility.icon);
+                    const isSelected = form.facility_ids
+                      .map((item) => Number(item))
+                      .includes(Number(facility.id));
+
+                    return (
+                      <button
+                        key={facility.id}
+                        type="button"
+                        onClick={() => handleToggleFacility(facility.id)}
+                        className={`flex items-center justify-between gap-4 rounded-2xl border px-4 py-4 text-left transition ${
+                          isSelected
+                            ? "border-red-200 bg-red-50 shadow-sm"
+                            : "border-gray-200 bg-gray-50 hover:border-red-100 hover:bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                              isSelected
+                                ? "bg-red-600 text-white"
+                                : "bg-white text-red-600"
+                            }`}
+                          >
+                            <FacilityIcon size={19} />
+                          </div>
+
+                          <div>
+                            <p className="text-sm font-black text-gray-900">
+                              {facility.name}
+                            </p>
+                            <p className="text-xs font-semibold text-gray-400">
+                              Icon: {facility.icon || "-"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          className={`flex h-7 w-7 items-center justify-center rounded-full border ${
+                            isSelected
+                              ? "border-red-600 bg-red-600 text-white"
+                              : "border-gray-200 bg-white text-transparent"
+                          }`}
+                        >
+                          <CheckCircle2 size={16} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
