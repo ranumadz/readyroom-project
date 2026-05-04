@@ -19,6 +19,7 @@ import {
   Trash2,
   Image as ImageIcon,
   Images,
+  DoorOpen,
 } from "lucide-react";
 
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
@@ -43,6 +44,7 @@ export default function AddRoom() {
     price_transit_6h: "",
     price_transit_12h: "",
     total_rooms: "",
+    room_numbers: "",
     description: "",
     thumbnail: null,
     images: [],
@@ -107,6 +109,16 @@ export default function AddRoom() {
 
     return message || "Gagal menambahkan kamar";
   };
+
+  const parseRoomNumbers = (value) => {
+    return String(value || "")
+      .split(/[\n,;]+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .filter((item, index, array) => array.indexOf(item) === index);
+  };
+
+  const roomNumberList = parseRoomNumbers(form.room_numbers);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -244,6 +256,7 @@ export default function AddRoom() {
       price_transit_6h: "",
       price_transit_12h: "",
       total_rooms: "",
+      room_numbers: "",
       description: "",
       thumbnail: null,
       images: [],
@@ -257,6 +270,51 @@ export default function AddRoom() {
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   };
 
+  const getCreatedRoomId = (responseData) => {
+    return (
+      responseData?.data?.id ||
+      responseData?.room?.id ||
+      responseData?.id ||
+      responseData?.data?.room?.id ||
+      responseData?.data?.data?.id ||
+      null
+    );
+  };
+
+  const createPhysicalRoomUnits = async (roomId, numbers) => {
+    if (!roomId || numbers.length === 0) return;
+
+    const results = await Promise.allSettled(
+      numbers.map((roomNumber) =>
+        api.post("/admin/room-units", {
+          room_id: roomId,
+          room_number: roomNumber,
+          status: true,
+        })
+      )
+    );
+
+    const successCount = results.filter((item) => item.status === "fulfilled").length;
+    const failedCount = results.length - successCount;
+
+    if (successCount > 0 && failedCount === 0) {
+      toast.success(`${successCount} kamar fisik berhasil ditambahkan`);
+      return;
+    }
+
+    if (successCount > 0 && failedCount > 0) {
+      toast.success(`${successCount} kamar fisik berhasil ditambahkan`);
+      toast.error(`${failedCount} kamar fisik gagal ditambahkan`);
+      return;
+    }
+
+    if (failedCount > 0) {
+      toast.error(
+        "Tipe kamar berhasil dibuat, tapi kamar fisik gagal dibuat. Cek nomor kamar atau tambahkan dari monitoring."
+      );
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -265,6 +323,10 @@ export default function AddRoom() {
     if (!form.capacity) return toast.error("Kapasitas wajib diisi");
     if (!form.total_rooms) return toast.error("Total kamar wajib diisi");
     if (!form.price_per_night) return toast.error("Harga per malam wajib diisi");
+
+    if (roomNumberList.length > Number(form.total_rooms || 0)) {
+      return toast.error("Jumlah nomor kamar fisik lebih banyak dari total kamar");
+    }
 
     try {
       setSaving(true);
@@ -283,6 +345,10 @@ export default function AddRoom() {
       payload.append("description", form.description || "");
       payload.append("status", form.status ? 1 : 0);
 
+      roomNumberList.forEach((roomNumber) => {
+        payload.append("room_numbers[]", roomNumber);
+      });
+
       if (form.thumbnail instanceof File) {
         payload.append("thumbnail", form.thumbnail);
       }
@@ -293,13 +359,26 @@ export default function AddRoom() {
         }
       });
 
-      await api.post("/admin/rooms", payload, {
+      const res = await api.post("/admin/rooms", payload, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
+      const createdRoomId = getCreatedRoomId(res.data);
+
       toast.success("Kamar berhasil ditambahkan");
+
+      if (roomNumberList.length > 0) {
+        if (createdRoomId) {
+          await createPhysicalRoomUnits(createdRoomId, roomNumberList);
+        } else {
+          toast.error(
+            "Kamar berhasil dibuat, tapi ID kamar tidak terbaca untuk membuat kamar fisik otomatis."
+          );
+        }
+      }
+
       resetForm();
     } catch (error) {
       console.error("Gagal menambahkan kamar:", error.response?.data || error);
@@ -333,7 +412,6 @@ export default function AddRoom() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* INFO KAMAR */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
               <div className="mb-6">
                 <h2 className="text-lg font-bold text-gray-800">
@@ -451,7 +529,62 @@ export default function AddRoom() {
               </div>
             </div>
 
-            {/* HARGA */}
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
+              <div className="mb-6">
+                <h2 className="text-lg font-bold text-gray-800">
+                  Kamar Fisik / Nomor Kamar
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Isi nomor kamar fisik yang akan langsung dibuat untuk monitoring kamar.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nomor Kamar Fisik
+                </label>
+
+                <div className="relative">
+                  <textarea
+                    name="room_numbers"
+                    value={form.room_numbers}
+                    onChange={handleChange}
+                    rows={4}
+                    placeholder="Contoh: 101, 102, 103 atau tulis per baris"
+                    className={`${inputClass} pl-12 resize-none`}
+                  />
+                  <DoorOpen
+                    size={18}
+                    className="absolute left-4 top-4 text-red-500"
+                  />
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-blue-800">
+                    {roomNumberList.length > 0
+                      ? `${roomNumberList.length} nomor kamar siap dibuat`
+                      : "Belum ada nomor kamar fisik yang diisi"}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-blue-700">
+                    Pisahkan nomor kamar dengan koma atau enter. Contoh: 101, 102, 201, A01.
+                  </p>
+                </div>
+
+                {roomNumberList.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {roomNumberList.map((number) => (
+                      <span
+                        key={number}
+                        className="rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-bold text-red-700"
+                      >
+                        Kamar {number}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
               <div className="mb-6">
                 <h2 className="text-lg font-bold text-gray-800">
@@ -552,7 +685,6 @@ export default function AddRoom() {
               </div>
             </div>
 
-            {/* COVER */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
               <div className="mb-6">
                 <h2 className="text-lg font-bold text-gray-800">
@@ -645,7 +777,6 @@ export default function AddRoom() {
               )}
             </div>
 
-            {/* GALLERY */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
               <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
@@ -739,7 +870,6 @@ export default function AddRoom() {
               )}
             </div>
 
-            {/* DESKRIPSI */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
               <div className="mb-6">
                 <h2 className="text-lg font-bold text-gray-800">
@@ -757,7 +887,6 @@ export default function AddRoom() {
               />
             </div>
 
-            {/* STATUS + SUBMIT */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">

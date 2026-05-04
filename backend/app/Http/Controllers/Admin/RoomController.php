@@ -115,6 +115,15 @@ class RoomController extends Controller
             'description' => 'nullable|string',
             'status' => 'required|boolean',
 
+            /*
+             * Nomor kamar fisik dari AddRoom.jsx.
+             * Ini diterima agar request Add Kamar aman.
+             * Pembuatan room unit tetap dilakukan frontend lewat /admin/room-units
+             * supaya tidak double input.
+             */
+            'room_numbers' => 'nullable|array',
+            'room_numbers.*' => 'nullable|string|max:50',
+
             // Cover room. thumbnail = nama field utama, cover/cover_image = alias aman.
             'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
             'cover' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
@@ -149,9 +158,17 @@ class RoomController extends Controller
 
         $this->storeGalleryImages($request, $room);
 
+        $freshRoom = $room->fresh()->load(['hotel.city', 'hotel.facilities', 'images', 'units']);
+
         return response()->json([
             'message' => 'Kamar berhasil ditambahkan',
-            'data' => $room->load(['hotel.city', 'hotel.facilities', 'images', 'units']),
+
+            // Tambahan aman supaya frontend lebih mudah membaca ID room baru.
+            'room_id' => $freshRoom->id,
+            'room' => $freshRoom,
+
+            // Data lama tetap dipertahankan agar code yang sudah jalan tidak rusak.
+            'data' => $freshRoom,
         ], 201);
     }
 
@@ -185,6 +202,10 @@ class RoomController extends Controller
             'total_rooms' => 'required|integer|min:1',
             'description' => 'nullable|string',
             'status' => 'required|boolean',
+
+            // Opsional aman jika nanti frontend edit room mengirim field ini.
+            'room_numbers' => 'nullable|array',
+            'room_numbers.*' => 'nullable|string|max:50',
 
             // Cover room. thumbnail = nama field utama, cover/cover_image = alias aman.
             'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
