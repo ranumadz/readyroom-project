@@ -844,15 +844,7 @@ export default function RoomUnits() {
                   }
                   className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <option value="">
-                    {loadingRooms
-                      ? "Memuat tipe kamar..."
-                      : !selectedHotelId
-                      ? "Pilih cabang terlebih dahulu"
-                      : roomsBySelectedHotel.length === 0
-                      ? "Belum ada tipe kamar"
-                      : "Pilih Tipe Kamar"}
-                  </option>
+                  
 
                   {selectedHotelId && roomsBySelectedHotel.length > 0 && (
                     <option value="all">Semua Tipe Kamar</option>
@@ -904,32 +896,6 @@ export default function RoomUnits() {
                     </option>
                   ))}
                 </select>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-100 px-6 pb-6">
-              <div className="flex flex-wrap gap-2 pt-4">
-                {statusTabs.map((tab) => (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    onClick={() => {
-                      if (!selectedHotelId) {
-                        toast.error("Pilih cabang terlebih dahulu");
-                        return;
-                      }
-
-                      setSelectedStatus(tab.value);
-                    }}
-                    className={`rounded-full px-4 py-2 text-xs font-black transition ${
-                      selectedStatus === tab.value
-                        ? "bg-gray-950 text-white shadow-lg shadow-gray-200"
-                        : "border border-gray-200 bg-white text-gray-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
               </div>
             </div>
           </div>
@@ -1015,13 +981,7 @@ export default function RoomUnits() {
                     const status = getRoomUnitStatus(unit);
                     const meta = getStatusMeta(status);
                     const reason = getUnitReason(unit);
-                    const activeBookingText = getUnitActiveBookingText(unit);
-                    const currentBooking =
-                      unit?.current_booking || unit?.active_booking || null;
-                    const reservedBookings = getReservedBookings(unit);
-                    const primaryBooking = currentBooking || getReservedBooking(unit);
                     const allBookings = getAllBookingsForUnit(unit);
-                    const extraBookingCount = Math.max(allBookings.length - 1, 0);
                     const unitRoomType =
                       unit?.room_type_name ||
                       unit?.room?.type ||
@@ -1062,75 +1022,14 @@ export default function RoomUnits() {
                           </span>
                         </div>
 
-                        {primaryBooking && (
-                          <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50/90 px-3 py-3 text-xs leading-relaxed text-blue-800">
-                            <div className="mb-2 flex flex-wrap items-center gap-2">
-                              <p className="font-black text-blue-900">
-                                {currentBooking
-                                  ? "Sedang Dipakai Sekarang"
-                                  : "Sudah Ada Booking"}
-                              </p>
-
-                              <span
-                                className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${getBookingTypeBadgeClass(
-                                  primaryBooking
-                                )}`}
-                              >
-                                {getBookingTypeText(primaryBooking)}
-                              </span>
-                            </div>
-
-                            <p className="font-semibold">
-                              <span className="font-black">Kode:</span>{" "}
-                              {getBookingCode(primaryBooking)}
-                            </p>
-
-                            <p className="font-semibold">
-                              <span className="font-black">Tamu:</span>{" "}
-                              {getBookingGuestName(primaryBooking)}
-                            </p>
-
-                            <p className="font-semibold">
-                              <span className="font-black">Jam:</span>{" "}
-                              {getBookingTimeText(primaryBooking)}
-                            </p>
-
-                            {extraBookingCount > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => openBookingModal(unit)}
-                                className="mt-3 w-full rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-blue-700"
-                              >
-                                +{extraBookingCount} Booking Lagi
-                              </button>
-                            )}
-
-                            {extraBookingCount === 0 && allBookings.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => openBookingModal(unit)}
-                                className="mt-3 w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-50"
-                              >
-                                Lihat Detail Booking
-                              </button>
-                            )}
-                          </div>
-                        )}
-
-                        {!primaryBooking && reservedBookings.length > 0 && (
+                        {allBookings.length > 0 && (
                           <button
                             type="button"
                             onClick={() => openBookingModal(unit)}
-                            className="mt-3 w-full rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100"
+                            className="mt-4 w-full rounded-2xl border border-blue-100 bg-blue-600 px-3 py-3 text-xs font-black text-white shadow-sm transition hover:bg-blue-700"
                           >
-                            Lihat Semua Booking
+                            Lihat Detail Booking
                           </button>
-                        )}
-
-                        {activeBookingText && !primaryBooking && (
-                          <p className="mt-3 line-clamp-2 text-xs font-semibold leading-relaxed text-current/70">
-                            {activeBookingText}
-                          </p>
                         )}
 
                         {reason && (
