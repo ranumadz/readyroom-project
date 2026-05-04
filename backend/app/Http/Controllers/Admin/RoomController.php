@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use App\Models\Room;
 use App\Models\RoomImage;
+use App\Models\Facility;
 
 class RoomController extends Controller
 {
@@ -18,6 +21,8 @@ class RoomController extends Controller
         $rooms = Room::with(['hotel.city', 'hotel.facilities', 'images', 'units'])
             ->orderByDesc('id')
             ->get();
+
+        $this->attachRoomFacilitiesToRooms($rooms);
 
         return response()->json($rooms);
     }
@@ -35,6 +40,8 @@ class RoomController extends Controller
             })
             ->orderByDesc('id')
             ->get();
+
+        $this->attachRoomFacilitiesToRooms($rooms);
 
         return response()->json([
             'message' => 'All active rooms fetched successfully',
@@ -55,6 +62,8 @@ class RoomController extends Controller
             })
             ->get();
 
+        $this->attachRoomFacilitiesToRooms($rooms);
+
         return response()->json([
             'message' => 'Rooms by hotel fetched successfully',
             'data' => $rooms,
@@ -72,6 +81,8 @@ class RoomController extends Controller
                 $query->where('status', true);
             })
             ->findOrFail($id);
+
+        $this->attachRoomFacilitiesToRoom($room);
 
         return response()->json([
             'message' => 'Room detail fetched successfully',
@@ -124,6 +135,23 @@ class RoomController extends Controller
             'room_numbers' => 'nullable|array',
             'room_numbers.*' => 'nullable|string|max:50',
 
+            /*
+             * Fasilitas kamar.
+             * Dibuat fleksibel supaya aman dengan beberapa kemungkinan nama field frontend:
+             * - room_facility_ids[]
+             * - room_facilities[]
+             * - facility_ids[]
+             * - facilities[]
+             */
+            'room_facility_ids' => 'nullable|array',
+            'room_facility_ids.*' => 'nullable',
+            'room_facilities' => 'nullable|array',
+            'room_facilities.*' => 'nullable',
+            'facility_ids' => 'nullable|array',
+            'facility_ids.*' => 'nullable',
+            'facilities' => 'nullable|array',
+            'facilities.*' => 'nullable',
+
             // Cover room. thumbnail = nama field utama, cover/cover_image = alias aman.
             'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
             'cover' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
@@ -156,9 +184,11 @@ class RoomController extends Controller
             'status' => $request->boolean('status'),
         ]);
 
+        $this->syncRoomFacilities($room, $this->getRoomFacilityIdsFromRequest($request));
         $this->storeGalleryImages($request, $room);
 
         $freshRoom = $room->fresh()->load(['hotel.city', 'hotel.facilities', 'images', 'units']);
+        $this->attachRoomFacilitiesToRoom($freshRoom);
 
         return response()->json([
             'message' => 'Kamar berhasil ditambahkan',
@@ -206,6 +236,20 @@ class RoomController extends Controller
             // Opsional aman jika nanti frontend edit room mengirim field ini.
             'room_numbers' => 'nullable|array',
             'room_numbers.*' => 'nullable|string|max:50',
+
+            /*
+             * Fasilitas kamar.
+             * Kalau field ini dikirim saat update, backend akan sinkron ulang fasilitas kamar.
+             * Kalau tidak dikirim, fasilitas lama tetap aman.
+             */
+            'room_facility_ids' => 'nullable|array',
+            'room_facility_ids.*' => 'nullable',
+            'room_facilities' => 'nullable|array',
+            'room_facilities.*' => 'nullable',
+            'facility_ids' => 'nullable|array',
+            'facility_ids.*' => 'nullable',
+            'facilities' => 'nullable|array',
+            'facilities.*' => 'nullable',
 
             // Cover room. thumbnail = nama field utama, cover/cover_image = alias aman.
             'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
@@ -261,6 +305,10 @@ class RoomController extends Controller
             'status' => $request->boolean('status'),
         ]);
 
+        if ($this->requestHasRoomFacilityPayload($request)) {
+            $this->syncRoomFacilities($room, $this->getRoomFacilityIdsFromRequest($request));
+        }
+
         if ($request->boolean('replace_gallery')) {
             $this->deleteAllGalleryImages($room);
         }
@@ -271,9 +319,12 @@ class RoomController extends Controller
 
         $this->storeGalleryImages($request, $room);
 
+        $freshRoom = $room->fresh()->load(['hotel.city', 'hotel.facilities', 'images', 'units']);
+        $this->attachRoomFacilitiesToRoom($freshRoom);
+
         return response()->json([
             'message' => 'Kamar berhasil diperbarui',
-            'data' => $room->fresh()->load(['hotel.city', 'hotel.facilities', 'images', 'units']),
+            'data' => $freshRoom,
         ]);
     }
 
@@ -290,6 +341,8 @@ class RoomController extends Controller
             $this->deleteStorageFile($image->image_path);
             $image->delete();
         }
+
+        $this->clearRoomFacilities($room);
 
         $room->delete();
 
@@ -420,6 +473,263 @@ class RoomController extends Controller
         foreach ($images as $image) {
             $this->deleteStorageFile($image->image_path);
             $image->delete();
+        }
+    }
+
+    /**
+     * Cek apakah request membawa payload fasilitas kamar.
+     * Supaya update lama yang tidak kirim fasilitas tidak menghapus fasilitas yang sudah tersimpan.
+     */
+    private function requestHasRoomFacilityPayload(Request $request): bool
+    {
+        return $request->has('room_facility_ids')
+            || $request->has('room_facilities')
+            || $request->has('facility_ids')
+            || $request->has('facilities');
+    }
+
+    /**
+     * Ambil IDs fasilitas kamar dari request dengan beberapa nama field yang mungkin.
+     */
+    private function getRoomFacilityIdsFromRequest(Request $request): array
+    {
+        $fields = [
+            'room_facility_ids',
+            'room_facilities',
+            'facility_ids',
+            'facilities',
+        ];
+
+        $rawValues = [];
+
+        foreach ($fields as $field) {
+            if (!$request->has($field)) {
+                continue;
+            }
+
+            $value = $request->input($field, []);
+
+            if (!is_array($value)) {
+                $value = [$value];
+            }
+
+            $rawValues = array_merge($rawValues, $value);
+        }
+
+        $ids = [];
+
+        foreach ($rawValues as $item) {
+            if (is_array($item)) {
+                $candidate = $item['id'] ?? $item['facility_id'] ?? null;
+            } else {
+                $candidate = $item;
+            }
+
+            if (is_numeric($candidate) && (int) $candidate > 0) {
+                $ids[] = (int) $candidate;
+            }
+        }
+
+        $ids = array_values(array_unique($ids));
+
+        return $this->filterRoomFacilityIds($ids);
+    }
+
+    /**
+     * Filter fasilitas khusus kamar supaya fasilitas hotel tidak ikut masuk ke detail kamar.
+     * Tetap support data lama kalau kolom usage_scope belum ada.
+     */
+    private function filterRoomFacilityIds(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        $query = Facility::whereIn('id', $ids);
+
+        if (Schema::hasColumn('facilities', 'usage_scope')) {
+            $query->where(function ($scopeQuery) {
+                $scopeQuery
+                    ->where('usage_scope', 'room')
+                    ->orWhere('usage_scope', 'kamar')
+                    ->orWhere('usage_scope', 'both')
+                    ->orWhere('usage_scope', 'all')
+                    ->orWhere('usage_scope', 'semua')
+                    ->orWhereNull('usage_scope')
+                    ->orWhere('usage_scope', '');
+            });
+        }
+
+        return $query->pluck('id')->map(function ($id) {
+            return (int) $id;
+        })->values()->toArray();
+    }
+
+    /**
+     * Deteksi nama table pivot room-facility.
+     * Dibuat fleksibel supaya tidak merusak kalau nama table kamu berbeda.
+     */
+    private function roomFacilityPivotTable(): ?string
+    {
+        $candidates = [
+            'facility_room',
+            'room_facility',
+            'room_facilities',
+        ];
+
+        foreach ($candidates as $table) {
+            if (
+                Schema::hasTable($table) &&
+                Schema::hasColumn($table, 'room_id') &&
+                Schema::hasColumn($table, 'facility_id')
+            ) {
+                return $table;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Sinkron fasilitas kamar ke pivot table.
+     * Kalau pivot belum ada, function ini tidak akan bikin error.
+     */
+    private function syncRoomFacilities(Room $room, array $facilityIds): void
+    {
+        $table = $this->roomFacilityPivotTable();
+
+        if (!$table) {
+            return;
+        }
+
+        DB::table($table)
+            ->where('room_id', $room->id)
+            ->delete();
+
+        if (empty($facilityIds)) {
+            return;
+        }
+
+        $now = now();
+
+        $hasCreatedAt = Schema::hasColumn($table, 'created_at');
+        $hasUpdatedAt = Schema::hasColumn($table, 'updated_at');
+
+        $rows = [];
+
+        foreach ($facilityIds as $facilityId) {
+            $row = [
+                'room_id' => $room->id,
+                'facility_id' => $facilityId,
+            ];
+
+            if ($hasCreatedAt) {
+                $row['created_at'] = $now;
+            }
+
+            if ($hasUpdatedAt) {
+                $row['updated_at'] = $now;
+            }
+
+            $rows[] = $row;
+        }
+
+        DB::table($table)->insert($rows);
+    }
+
+    /**
+     * Hapus pivot fasilitas saat room dihapus.
+     */
+    private function clearRoomFacilities(Room $room): void
+    {
+        $table = $this->roomFacilityPivotTable();
+
+        if (!$table) {
+            return;
+        }
+
+        DB::table($table)
+            ->where('room_id', $room->id)
+            ->delete();
+    }
+
+    /**
+     * Ambil fasilitas kamar dari pivot.
+     */
+    private function getRoomFacilities(Room $room)
+    {
+        $table = $this->roomFacilityPivotTable();
+
+        if (!$table) {
+            return collect([]);
+        }
+
+        $facilityIds = DB::table($table)
+            ->where('room_id', $room->id)
+            ->pluck('facility_id')
+            ->map(function ($id) {
+                return (int) $id;
+            })
+            ->unique()
+            ->values()
+            ->toArray();
+
+        if (empty($facilityIds)) {
+            return collect([]);
+        }
+
+        $query = Facility::whereIn('id', $facilityIds)
+            ->where(function ($statusQuery) {
+                $statusQuery
+                    ->where('status', true)
+                    ->orWhere('status', 1);
+            });
+
+        if (Schema::hasColumn('facilities', 'usage_scope')) {
+            $query->where(function ($scopeQuery) {
+                $scopeQuery
+                    ->where('usage_scope', 'room')
+                    ->orWhere('usage_scope', 'kamar')
+                    ->orWhere('usage_scope', 'both')
+                    ->orWhere('usage_scope', 'all')
+                    ->orWhere('usage_scope', 'semua')
+                    ->orWhereNull('usage_scope')
+                    ->orWhere('usage_scope', '');
+            });
+        }
+
+        return $query->orderBy('name')->get();
+    }
+
+    /**
+     * Tempelkan fasilitas kamar ke object room supaya frontend bisa baca:
+     * - room.room_facilities
+     * - room.room_facility_ids
+     * - room.facilities
+     */
+    private function attachRoomFacilitiesToRoom(Room $room): Room
+    {
+        $roomFacilities = $this->getRoomFacilities($room)->values();
+
+        $room->setAttribute('room_facilities', $roomFacilities);
+        $room->setAttribute('room_facility_ids', $roomFacilities->pluck('id')->values());
+
+        /*
+         * Ini sengaja ikut dikirim supaya RoomDetail.jsx yang baca room.facilities
+         * juga langsung dapat fasilitas kamar, bukan fasilitas hotel.
+         */
+        $room->setAttribute('facilities', $roomFacilities);
+
+        return $room;
+    }
+
+    /**
+     * Tempelkan fasilitas kamar ke banyak room.
+     */
+    private function attachRoomFacilitiesToRooms($rooms): void
+    {
+        foreach ($rooms as $room) {
+            $this->attachRoomFacilitiesToRoom($room);
         }
     }
 }

@@ -864,23 +864,123 @@ export default function RoomDetail() {
     estimatedCheckOutText,
   ]);
 
-  const roomFacilities = useMemo(() => {
-    if (Array.isArray(room?.facilities) && room.facilities.length > 0) {
-      return room.facilities
-        .map((facility) => facility?.name || facility)
-        .filter(Boolean);
+  const getFacilityName = (facility) => {
+    if (!facility) return "";
+
+    if (typeof facility === "string" || typeof facility === "number") {
+      return String(facility).trim();
     }
 
-    return ["AC", "WiFi", "TV", "Kamar mandi"];
+    return String(
+      facility.name ||
+        facility.facility_name ||
+        facility.title ||
+        facility.label ||
+        facility.value ||
+        ""
+    ).trim();
+  };
+
+  const getFacilityIconText = (facility) => {
+    if (!facility || typeof facility !== "object") return "";
+
+    return String(
+      facility.icon ||
+        facility.icon_name ||
+        facility.iconKey ||
+        facility.icon_key ||
+        ""
+    ).toLowerCase();
+  };
+
+  const normalizeFacilityScope = (facility) => {
+    if (!facility || typeof facility !== "object") return "room";
+
+    const raw = String(
+      facility.usage_scope ||
+        facility.scope ||
+        facility.facility_scope ||
+        facility.facility_type ||
+        facility.target ||
+        facility.type_for ||
+        facility.used_for ||
+        "room"
+    ).toLowerCase();
+
+    if (raw.includes("hotel")) return "hotel";
+    if (raw.includes("room") || raw.includes("kamar")) return "room";
+
+    return "room";
+  };
+
+  const normalizeFacilityList = (list) => {
+    if (!Array.isArray(list)) return [];
+
+    return list
+      .map((facility) => {
+        const name = getFacilityName(facility);
+        if (!name) return null;
+
+        return {
+          id:
+            typeof facility === "object"
+              ? facility.id || facility.facility_id || facility.pivot?.facility_id || null
+              : null,
+          name,
+          icon: getFacilityIconText(facility),
+          scope: normalizeFacilityScope(facility),
+        };
+      })
+      .filter(Boolean);
+  };
+
+  const roomFacilities = useMemo(() => {
+    const candidateLists = [
+      room?.room_facilities,
+      room?.roomFacilities,
+      room?.facilities,
+      room?.facility,
+      room?.amenities,
+      room?.room_amenities,
+      room?.roomAmenities,
+      room?.facility_items,
+      room?.facilityItems,
+    ];
+
+    const merged = candidateLists.flatMap((list) => normalizeFacilityList(list));
+
+    const onlyRoomFacilities = merged.filter((facility) => {
+      return facility.scope !== "hotel";
+    });
+
+    const uniqueMap = new Map();
+
+    onlyRoomFacilities.forEach((facility) => {
+      const key = String(facility.id || facility.name).toLowerCase();
+      if (!uniqueMap.has(key)) uniqueMap.set(key, facility);
+    });
+
+    return Array.from(uniqueMap.values());
   }, [room]);
 
-  const roomFacilityIcon = (facilityName) => {
-    const lower = String(facilityName || "").toLowerCase();
+  const roomFacilityIcon = (facility) => {
+    const iconText = getFacilityIconText(facility);
+    const nameText = getFacilityName(facility);
+    const lower = `${iconText} ${nameText}`.toLowerCase();
 
-    if (lower.includes("wifi")) return Wifi;
-    if (lower.includes("tv")) return Tv;
-    if (lower.includes("mandi") || lower.includes("bath")) return Bath;
-    if (lower.includes("ac")) return Snowflake;
+    if (lower.includes("wifi") || lower.includes("wi-fi")) return Wifi;
+    if (lower.includes("tv") || lower.includes("televisi")) return Tv;
+    if (
+      lower.includes("mandi") ||
+      lower.includes("bath") ||
+      lower.includes("toilet") ||
+      lower.includes("shower")
+    ) {
+      return Bath;
+    }
+    if (lower.includes("ac") || lower.includes("air conditioner")) {
+      return Snowflake;
+    }
 
     return CheckCircle2;
   };
@@ -1265,21 +1365,28 @@ export default function RoomDetail() {
                   {room.description || "Deskripsi kamar belum tersedia."}
                 </p>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {roomFacilities.map((facility) => {
-                    const FacilityIcon = roomFacilityIcon(facility);
+                {roomFacilities.length > 0 ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {roomFacilities.map((facility, index) => {
+                      const FacilityIcon = roomFacilityIcon(facility);
+                      const facilityName = getFacilityName(facility);
 
-                    return (
-                      <span
-                        key={facility}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600"
-                      >
-                        <FacilityIcon size={13} />
-                        {facility}
-                      </span>
-                    );
-                  })}
-                </div>
+                      return (
+                        <span
+                          key={`${facility.id || facilityName}-${index}`}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600"
+                        >
+                          <FacilityIcon size={13} />
+                          {facilityName}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-500">
+                    Fasilitas kamar belum tersedia.
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">

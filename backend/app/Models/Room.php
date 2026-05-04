@@ -51,4 +51,18 @@ class Room extends Model
     {
         return $this->hasMany(RoomUnit::class);
     }
+
+    // Relasi fasilitas kamar
+    public function facilities()
+    {
+        return $this->belongsToMany(Facility::class, 'room_facilities', 'room_id', 'facility_id')
+            ->withTimestamps();
+    }
+
+    // Alias aman kalau frontend/backend lain baca room_facilities
+    public function roomFacilities()
+    {
+        return $this->belongsToMany(Facility::class, 'room_facilities', 'room_id', 'facility_id')
+            ->withTimestamps();
+    }
 }

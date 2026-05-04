@@ -7,6 +7,8 @@ import toast from "react-hot-toast";
 export default function RoomsList() {
   const [rooms, setRooms] = useState([]);
   const [hotels, setHotels] = useState([]);
+  const [facilities, setFacilities] = useState([]);
+  const [loadingFacilities, setLoadingFacilities] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedHotelId, setSelectedHotelId] = useState("all");
@@ -26,6 +28,7 @@ export default function RoomsList() {
     price_12h: "",
     total_rooms: "",
     status: 1,
+    room_facility_ids: [],
   });
 
   const [editCoverFile, setEditCoverFile] = useState(null);
@@ -44,6 +47,7 @@ export default function RoomsList() {
   useEffect(() => {
     fetchRooms();
     fetchHotels();
+    fetchFacilities();
   }, []);
 
   const normalizeArrayResponse = (payload) => {
@@ -52,6 +56,7 @@ export default function RoomsList() {
     if (Array.isArray(payload?.data)) return payload.data;
     if (Array.isArray(payload?.rooms)) return payload.rooms;
     if (Array.isArray(payload?.hotels)) return payload.hotels;
+    if (Array.isArray(payload?.facilities)) return payload.facilities;
     return [];
   };
 
@@ -74,6 +79,19 @@ export default function RoomsList() {
     }
   };
 
+  const fetchFacilities = async () => {
+    try {
+      setLoadingFacilities(true);
+      const response = await api.get("/admin/facilities");
+      setFacilities(normalizeArrayResponse(response.data));
+    } catch (error) {
+      console.warn("Data fasilitas kamar belum bisa diambil:", error);
+      setFacilities([]);
+    } finally {
+      setLoadingFacilities(false);
+    }
+  };
+
   const isRoomActive = (room) => {
     return (
       room?.status === true ||
@@ -81,6 +99,102 @@ export default function RoomsList() {
       room?.status === "1" ||
       String(room?.status || "").toLowerCase() === "active"
     );
+  };
+
+  const isFacilityActive = (facility) => {
+    return (
+      facility?.status === true ||
+      facility?.status === 1 ||
+      facility?.status === "1" ||
+      String(facility?.status || "").toLowerCase() === "true" ||
+      String(facility?.status || "").toLowerCase() === "active"
+    );
+  };
+
+  const normalizeFacilityScope = (facility) => {
+    const raw = String(
+      facility?.usage_scope ||
+        facility?.scope ||
+        facility?.facility_scope ||
+        facility?.facility_type ||
+        facility?.target ||
+        facility?.type_for ||
+        facility?.for ||
+        facility?.used_for ||
+        "room"
+    ).toLowerCase();
+
+    if (raw.includes("hotel")) return "hotel";
+    if (raw.includes("room") || raw.includes("kamar")) return "room";
+    if (raw.includes("both") || raw.includes("all") || raw.includes("semua")) {
+      return "room";
+    }
+
+    return "room";
+  };
+
+  const roomFacilityOptions = useMemo(() => {
+    return facilities
+      .filter((facility) => {
+        return isFacilityActive(facility) && normalizeFacilityScope(facility) === "room";
+      })
+      .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+  }, [facilities]);
+
+  const getRoomFacilitySource = (room) => {
+    if (Array.isArray(room?.room_facilities)) return room.room_facilities;
+    if (Array.isArray(room?.roomFacilities)) return room.roomFacilities;
+    if (Array.isArray(room?.facilities)) return room.facilities;
+    if (Array.isArray(room?.amenities)) return room.amenities;
+    if (Array.isArray(room?.room_facility_ids)) return room.room_facility_ids;
+    if (Array.isArray(room?.facility_ids)) return room.facility_ids;
+    return [];
+  };
+
+  const getRoomFacilityIds = (room) => {
+    const source = getRoomFacilitySource(room);
+
+    return source
+      .map((item) => {
+        if (typeof item === "object" && item !== null) {
+          return item.id || item.facility_id || item.value || null;
+        }
+
+        return item;
+      })
+      .filter((value) => value !== null && value !== undefined && value !== "")
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0)
+      .filter((value, index, array) => array.indexOf(value) === index);
+  };
+
+  const getSelectedRoomFacilityNames = (room) => {
+    const ids = getRoomFacilityIds(room);
+
+    if (ids.length === 0) return [];
+
+    return roomFacilityOptions
+      .filter((facility) => ids.includes(Number(facility.id)))
+      .map((facility) => facility.name);
+  };
+
+  const handleRoomFacilityToggle = (facilityId) => {
+    const numericId = Number(facilityId);
+
+    setEditForm((prev) => {
+      const currentIds = Array.isArray(prev.room_facility_ids)
+        ? prev.room_facility_ids.map(Number)
+        : [];
+
+      const exists = currentIds.includes(numericId);
+
+      return {
+        ...prev,
+        room_facility_ids: exists
+          ? currentIds.filter((id) => id !== numericId)
+          : [...currentIds, numericId],
+      };
+    });
   };
 
   const formatRupiah = (value) => {
@@ -280,15 +394,27 @@ export default function RoomsList() {
         (selectedStatus === "active" && active) ||
         (selectedStatus === "inactive" && !active);
 
+      const selectedFacilityNames = getSelectedRoomFacilityNames(room)
+        .join(" ")
+        .toLowerCase();
+
       const matchKeyword =
         !keyword ||
         String(room?.name || "").toLowerCase().includes(keyword) ||
         String(room?.type || "").toLowerCase().includes(keyword) ||
-        String(room?.hotel?.name || "").toLowerCase().includes(keyword);
+        String(room?.hotel?.name || "").toLowerCase().includes(keyword) ||
+        selectedFacilityNames.includes(keyword);
 
       return matchHotel && matchType && matchStatus && matchKeyword;
     });
-  }, [rooms, searchTerm, selectedHotelId, selectedRoomType, selectedStatus]);
+  }, [
+    rooms,
+    searchTerm,
+    selectedHotelId,
+    selectedRoomType,
+    selectedStatus,
+    roomFacilityOptions,
+  ]);
 
   const roomStats = useMemo(() => {
     const activeRooms = rooms.filter((room) => isRoomActive(room)).length;
@@ -341,6 +467,7 @@ export default function RoomsList() {
       price_12h: getRoomTransitPrice(room, "12h"),
       total_rooms: room?.total_rooms || "",
       status: isRoomActive(room) ? 1 : 0,
+      room_facility_ids: getRoomFacilityIds(room),
     });
 
     setEditCoverFile(null);
@@ -385,6 +512,7 @@ export default function RoomsList() {
       price_12h: "",
       total_rooms: "",
       status: 1,
+      room_facility_ids: [],
     });
     resetEditImageState();
   };
@@ -498,7 +626,7 @@ export default function RoomsList() {
         ? Number(statusOverride)
         : Number(formData.status ?? (isRoomActive(room) ? 1 : 0));
 
-    return {
+    const payload = {
       name: formData.name ?? room?.name ?? "",
       hotel_id:
         Number(formData.hotel_id || room?.hotel_id || room?.hotel?.id || 0) ||
@@ -513,6 +641,14 @@ export default function RoomsList() {
       status: finalStatus,
       delete_image_ids: deletedGalleryImageIds,
     };
+
+    if (Array.isArray(formData.room_facility_ids)) {
+      payload.room_facility_ids = formData.room_facility_ids
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+    }
+
+    return payload;
   };
 
   const buildUpdateFormData = (payload) => {
@@ -520,6 +656,11 @@ export default function RoomsList() {
 
     Object.entries(payload).forEach(([key, value]) => {
       if (Array.isArray(value)) {
+        if (key === "room_facility_ids" && value.length === 0) {
+          formData.append("room_facility_ids[]", "");
+          return;
+        }
+
         value.forEach((item) => {
           formData.append(`${key}[]`, item);
         });
@@ -704,6 +845,10 @@ export default function RoomsList() {
       setDeletingRoomId(null);
     }
   };
+
+  const selectedFacilityCount = Array.isArray(editForm.room_facility_ids)
+    ? editForm.room_facility_ids.length
+    : 0;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -1457,15 +1602,88 @@ export default function RoomsList() {
                   </div>
                 </div>
 
+                <div className="mt-6 rounded-3xl border border-red-100 bg-red-50/40 p-5">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-base font-black text-gray-900">
+                        Fasilitas Kamar
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Pilih fasilitas yang tampil di detail kamar customer.
+                      </p>
+                    </div>
+
+                    <div className="rounded-full bg-white px-4 py-2 text-xs font-black text-red-600 shadow-sm">
+                      {selectedFacilityCount} dipilih
+                    </div>
+                  </div>
+
+                  {loadingFacilities ? (
+                    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-5 text-sm font-semibold text-gray-500">
+                      Memuat fasilitas kamar...
+                    </div>
+                  ) : roomFacilityOptions.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-red-200 bg-white px-4 py-5">
+                      <p className="text-sm font-black text-gray-800">
+                        Belum ada fasilitas kamar aktif
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                        Tambahkan master fasilitas dengan kategori Kamar dari menu
+                        Facilities terlebih dahulu.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {roomFacilityOptions.map((facility) => {
+                        const checked = editForm.room_facility_ids
+                          .map(Number)
+                          .includes(Number(facility.id));
+
+                        return (
+                          <button
+                            key={facility.id}
+                            type="button"
+                            onClick={() => handleRoomFacilityToggle(facility.id)}
+                            className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                              checked
+                                ? "border-red-300 bg-white text-red-700 shadow-sm ring-4 ring-red-50"
+                                : "border-gray-200 bg-white text-gray-700 hover:border-red-200 hover:bg-red-50"
+                            }`}
+                          >
+                            <span
+                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs font-black ${
+                                checked
+                                  ? "border-red-500 bg-red-600 text-white"
+                                  : "border-gray-300 bg-white text-transparent"
+                              }`}
+                            >
+                              ✓
+                            </span>
+
+                            <span className="min-w-0">
+                              <span className="block font-black">
+                                {facility.name}
+                              </span>
+                              <span className="mt-0.5 block text-xs text-gray-400">
+                                Icon: {facility.icon || "-"}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4">
                   <p className="text-sm font-semibold text-blue-800">
                     Catatan
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-blue-700">
                     Perubahan data room akan langsung tersimpan ke database.
-                    Jika kamu mengganti cover, menambah gallery, atau menghapus
-                    gallery, sistem akan mengirim data menggunakan FormData agar
-                    perubahan gambar ikut terbaca oleh backend.
+                    Jika kamu mengganti cover, menambah gallery, menghapus
+                    gallery, atau mengubah fasilitas kamar, sistem akan mengirim
+                    data ke backend agar halaman customer ikut ter-update.
                   </p>
                 </div>
               </div>
