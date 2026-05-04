@@ -131,6 +131,10 @@ Route::prefix('admin')->group(function () {
     Route::put('/room-units/{id}', [RoomUnitController::class, 'update']);
     Route::post('/room-units/{id}', [RoomUnitController::class, 'update']);
 
+    // ✅ HAPUS KAMAR FISIK / ROOM UNIT
+    // Dipakai frontend RoomUnits.jsx untuk hapus kamar 101, 102, A01, dll.
+    Route::delete('/room-units/{id}', [RoomUnitController::class, 'destroy']);
+
     // Tetap dipertahankan untuk ambil daftar unit berdasarkan room_id.
     Route::get('/room-units/{roomId}', [RoomUnitController::class, 'indexByRoom']);
 

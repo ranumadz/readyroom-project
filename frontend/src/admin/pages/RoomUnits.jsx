@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 
 export default function RoomUnits() {
   const [rooms, setRooms] = useState([]);
-  const [selectedHotelId, setSelectedHotelId] = useState("all");
+  const [selectedHotelId, setSelectedHotelId] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("");
   const [roomNumber, setRoomNumber] = useState("");
   const [units, setUnits] = useState([]);
@@ -17,12 +17,20 @@ export default function RoomUnits() {
 
   const [searchUnit, setSearchUnit] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [roomSelectWarning, setRoomSelectWarning] = useState("");
 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [statusAction, setStatusAction] = useState("");
   const [statusReason, setStatusReason] = useState("");
   const [savingStatus, setSavingStatus] = useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [unitToDelete, setUnitToDelete] = useState(null);
+  const [deletingUnit, setDeletingUnit] = useState(false);
+
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingModalUnit, setBookingModalUnit] = useState(null);
 
   useEffect(() => {
     fetchRooms();
@@ -42,18 +50,11 @@ export default function RoomUnits() {
       setLoadingRooms(true);
       const res = await api.get("/admin/rooms");
       const roomList = normalizeArrayResponse(res.data);
+
       setRooms(roomList);
-
-      if (!selectedRoom && roomList.length > 0) {
-        const firstRoomId = String(roomList[0].id);
-        const firstHotelId = String(
-          roomList[0]?.hotel_id || roomList[0]?.hotel?.id || "all"
-        );
-
-        setSelectedHotelId(firstHotelId || "all");
-        setSelectedRoom(firstRoomId);
-        fetchUnits(firstRoomId);
-      }
+      setSelectedHotelId("");
+      setSelectedRoom("");
+      setUnits([]);
     } catch (error) {
       console.error("Gagal mengambil data rooms:", error);
       toast.error("Gagal mengambil data tipe kamar");
@@ -106,7 +107,7 @@ export default function RoomUnits() {
   }, [rooms]);
 
   const selectedHotelData = useMemo(() => {
-    if (selectedHotelId === "all") return null;
+    if (!selectedHotelId) return null;
 
     return hotelOptions.find(
       (hotel) => String(hotel.id) === String(selectedHotelId)
@@ -114,13 +115,12 @@ export default function RoomUnits() {
   }, [hotelOptions, selectedHotelId]);
 
   const roomsBySelectedHotel = useMemo(() => {
-    const filteredRooms =
-      selectedHotelId === "all"
-        ? rooms
-        : rooms.filter((room) => {
-            const hotelId = room?.hotel_id || room?.hotel?.id;
-            return String(hotelId) === String(selectedHotelId);
-          });
+    if (!selectedHotelId) return [];
+
+    const filteredRooms = rooms.filter((room) => {
+      const hotelId = room?.hotel_id || room?.hotel?.id;
+      return String(hotelId) === String(selectedHotelId);
+    });
 
     return [...filteredRooms].sort((a, b) => {
       const hotelA = String(a?.hotel?.name || "");
@@ -148,7 +148,8 @@ export default function RoomUnits() {
 
     if (monitoringStatus === "maintenance") return "maintenance";
     if (monitoringStatus === "cleaning") return "cleaning";
-    if (monitoringStatus === "occupied" || monitoringStatus === "booked") return "occupied";
+    if (monitoringStatus === "occupied" || monitoringStatus === "booked")
+      return "occupied";
     if (monitoringStatus === "inactive") return "inactive";
     if (monitoringStatus === "available") return "available";
 
@@ -201,30 +202,27 @@ export default function RoomUnits() {
     const map = {
       available: {
         label: "Tersedia",
-        shortLabel: "Available",
+        shortLabel: "Tersedia",
         cardClass:
           "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-800",
         badgeClass: "bg-emerald-100 text-emerald-700",
         dotClass: "bg-emerald-500",
-        buttonClass: "bg-emerald-600 text-white hover:bg-emerald-700",
       },
       occupied: {
         label: "Terisi",
-        shortLabel: "Occupied",
+        shortLabel: "Sedang Dipakai",
         cardClass:
           "border-red-200 bg-gradient-to-br from-red-50 to-white text-red-800",
         badgeClass: "bg-red-100 text-red-700",
         dotClass: "bg-red-500",
-        buttonClass: "bg-red-600 text-white hover:bg-red-700",
       },
       cleaning: {
         label: "Cleaning",
-        shortLabel: "Cleaning",
+        shortLabel: "Perlu Dibersihkan",
         cardClass:
           "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-800",
         badgeClass: "bg-amber-100 text-amber-700",
         dotClass: "bg-amber-500",
-        buttonClass: "bg-amber-500 text-white hover:bg-amber-600",
       },
       maintenance: {
         label: "Maintenance",
@@ -233,16 +231,14 @@ export default function RoomUnits() {
           "border-slate-300 bg-gradient-to-br from-slate-100 to-white text-slate-800",
         badgeClass: "bg-slate-200 text-slate-700",
         dotClass: "bg-slate-500",
-        buttonClass: "bg-slate-800 text-white hover:bg-slate-900",
       },
       inactive: {
         label: "Nonaktif",
-        shortLabel: "Inactive",
+        shortLabel: "Nonaktif",
         cardClass:
           "border-gray-200 bg-gradient-to-br from-gray-100 to-white text-gray-700 opacity-75",
         badgeClass: "bg-gray-200 text-gray-600",
         dotClass: "bg-gray-400",
-        buttonClass: "bg-gray-700 text-white hover:bg-gray-800",
       },
     };
 
@@ -260,6 +256,193 @@ export default function RoomUnits() {
     );
   };
 
+  const getReservedBookings = (unit) => {
+    const list =
+      unit?.reserved_bookings ||
+      unit?.upcoming_bookings ||
+      unit?.next_bookings ||
+      unit?.booking_reserved_list ||
+      null;
+
+    if (Array.isArray(list)) return list.filter(Boolean);
+
+    const single =
+      unit?.reserved_booking ||
+      unit?.upcoming_booking ||
+      unit?.next_booking ||
+      unit?.booking_reserved ||
+      null;
+
+    return single ? [single] : [];
+  };
+
+  const getReservedBooking = (unit) => {
+    return getReservedBookings(unit)[0] || null;
+  };
+
+  const getAllBookingsForUnit = (unit) => {
+    const current = unit?.current_booking || unit?.active_booking || null;
+    const reserved = getReservedBookings(unit);
+
+    const combined = current ? [current, ...reserved] : [...reserved];
+    const seen = new Set();
+
+    return combined.filter((booking) => {
+      const key = String(
+        booking?.id ||
+          booking?.booking_code ||
+          booking?.code ||
+          `${getBookingGuestName(booking)}-${getBookingTimeText(booking)}`
+      );
+
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  const getBookingCode = (booking) => {
+    return (
+      booking?.booking_code ||
+      booking?.code ||
+      booking?.bookingCode ||
+      booking?.id ||
+      "-"
+    );
+  };
+
+  const getBookingGuestName = (booking) => {
+    return (
+      booking?.customer_name ||
+      booking?.guest_name ||
+      booking?.name ||
+      booking?.customer?.name ||
+      booking?.user?.name ||
+      "-"
+    );
+  };
+
+  const getBookingTypeText = (booking) => {
+    const raw = String(
+      booking?.booking_type ||
+        booking?.type ||
+        booking?.stay_type ||
+        booking?.room_booking_type ||
+        booking?.duration_type ||
+        ""
+    ).toLowerCase();
+
+    if (raw.includes("transit")) return "Transit";
+    if (raw.includes("full")) return "Full Day";
+    if (raw.includes("overnight")) return "Full Day";
+    if (raw.includes("daily")) return "Full Day";
+
+    const duration = booking?.duration || booking?.duration_hours || booking?.hours;
+
+    if (duration && Number(duration) <= 12) return "Transit";
+
+    return "Booking";
+  };
+
+  const getBookingStatusText = (booking) => {
+    const raw = String(booking?.status || "").toLowerCase();
+
+    if (["checked_in", "check_in", "checkin"].includes(raw)) {
+      return "Sedang Dipakai";
+    }
+
+    if (
+      [
+        "checked-out",
+        "checked_out",
+        "check_out",
+        "checkout",
+        "cleaning",
+        "start_cleaning",
+        "in_cleaning",
+      ].includes(raw)
+    ) {
+      return "Cleaning";
+    }
+
+    if (["approved", "approve", "confirmed", "paid", "booked", "reserved"].includes(raw)) {
+      return "Sudah Dibooking";
+    }
+
+    if (raw === "pending") return "Menunggu Approval";
+
+    return raw ? raw : "Booking";
+  };
+
+  const getBookingTypeBadgeClass = (booking) => {
+    const type = getBookingTypeText(booking).toLowerCase();
+
+    if (type.includes("transit")) {
+      return "border-blue-100 bg-blue-50 text-blue-700";
+    }
+
+    if (type.includes("full")) {
+      return "border-purple-100 bg-purple-50 text-purple-700";
+    }
+
+    return "border-gray-100 bg-gray-50 text-gray-600";
+  };
+
+  const formatTimeOnly = (value) => {
+    if (!value) return "";
+
+    const text = String(value);
+
+    const timeMatch = text.match(/(\d{2}):(\d{2})/);
+    if (timeMatch) {
+      return `${timeMatch[1]}:${timeMatch[2]}`;
+    }
+
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    }
+
+    return text;
+  };
+
+  const getBookingTimeText = (booking) => {
+    const start =
+      booking?.check_in ||
+      booking?.checkin ||
+      booking?.check_in_at ||
+      booking?.checkin_at ||
+      booking?.start_time ||
+      booking?.start_at ||
+      booking?.booking_start ||
+      booking?.from_time ||
+      "";
+
+    const end =
+      booking?.check_out ||
+      booking?.checkout ||
+      booking?.check_out_at ||
+      booking?.checkout_at ||
+      booking?.end_time ||
+      booking?.end_at ||
+      booking?.booking_end ||
+      booking?.to_time ||
+      "";
+
+    const startText = formatTimeOnly(start);
+    const endText = formatTimeOnly(end);
+
+    if (startText && endText) return `${startText} - ${endText}`;
+    if (startText) return `Mulai ${startText}`;
+    if (endText) return `Sampai ${endText}`;
+
+    return "-";
+  };
+
   const getUnitActiveBookingText = (unit) => {
     const booking = unit?.current_booking || unit?.active_booking || null;
 
@@ -272,9 +455,9 @@ export default function RoomUnits() {
       booking?.end_time ||
       booking?.check_out_time;
 
-    if (code && checkout) return `${code} • sampai ${checkout}`;
+    if (code && checkout) return `${code} • sampai ${formatTimeOnly(checkout)}`;
     if (code) return `Booking ${code}`;
-    if (checkout) return `Terisi sampai ${checkout}`;
+    if (checkout) return `Terisi sampai ${formatTimeOnly(checkout)}`;
 
     return "Sedang terisi";
   };
@@ -286,67 +469,84 @@ export default function RoomUnits() {
       const status = getRoomUnitStatus(unit);
       const roomNumberText = String(unit?.room_number || "").toLowerCase();
       const reasonText = getUnitReason(unit).toLowerCase();
+      const allBookings = getAllBookingsForUnit(unit);
+
+      const bookingText = allBookings
+        .map((booking) => {
+          return [
+            getBookingCode(booking),
+            getBookingGuestName(booking),
+            getBookingTimeText(booking),
+            getBookingTypeText(booking),
+          ].join(" ");
+        })
+        .join(" ")
+        .toLowerCase();
 
       const matchStatus = selectedStatus === "all" || selectedStatus === status;
       const matchKeyword =
         !keyword ||
         roomNumberText.includes(keyword) ||
-        reasonText.includes(keyword);
+        reasonText.includes(keyword) ||
+        bookingText.includes(keyword);
 
       return matchStatus && matchKeyword;
     });
   }, [units, searchUnit, selectedStatus]);
 
-  const unitStats = useMemo(() => {
-    const stats = {
-      total: units.length,
-      available: 0,
-      occupied: 0,
-      cleaning: 0,
-      maintenance: 0,
-      inactive: 0,
-    };
-
-    units.forEach((unit) => {
-      const status = getRoomUnitStatus(unit);
-      stats[status] = (stats[status] || 0) + 1;
-    });
-
-    return stats;
-  }, [units]);
-
   const handleHotelChange = (hotelId) => {
     setSelectedHotelId(hotelId);
-    setSearchUnit("");
-    setSelectedStatus("all");
-
-    const availableRooms =
-      hotelId === "all"
-        ? rooms
-        : rooms.filter((room) => {
-            const roomHotelId = room?.hotel_id || room?.hotel?.id;
-            return String(roomHotelId) === String(hotelId);
-          });
-
-    if (availableRooms.length > 0) {
-      const firstRoomId = String(availableRooms[0].id);
-      setSelectedRoom(firstRoomId);
-      fetchUnits(firstRoomId);
-      return;
-    }
-
     setSelectedRoom("");
     setUnits([]);
+    setSearchUnit("");
+    setSelectedStatus("all");
+    setRoomSelectWarning("");
+
+    if (!hotelId) return;
+
+    const availableRooms = rooms.filter((room) => {
+      const roomHotelId = room?.hotel_id || room?.hotel?.id;
+      return String(roomHotelId) === String(hotelId);
+    });
+
+    if (availableRooms.length === 0) {
+      setRoomSelectWarning("Cabang ini belum memiliki tipe kamar.");
+    }
   };
 
   const handleRoomChange = (roomId) => {
+    if (!selectedHotelId) {
+      const message = "Silakan pilih hotel / cabang terlebih dahulu.";
+      setRoomSelectWarning(message);
+      toast.error(message);
+      return;
+    }
+
+    setRoomSelectWarning("");
     setSelectedRoom(roomId);
     setSearchUnit("");
     setSelectedStatus("all");
+
+    if (!roomId) {
+      setUnits([]);
+      return;
+    }
+
     fetchUnits(roomId);
   };
 
+  const handleRoomSelectMouseDown = (event) => {
+    if (!selectedHotelId) {
+      event.preventDefault();
+
+      const message = "Silakan pilih hotel / cabang terlebih dahulu.";
+      setRoomSelectWarning(message);
+      toast.error(message);
+    }
+  };
+
   const handleAdd = async () => {
+    if (!selectedHotelId) return toast.error("Pilih hotel / cabang terlebih dahulu");
     if (!selectedRoom) return toast.error("Pilih tipe kamar terlebih dahulu");
     if (!roomNumber.trim()) return toast.error("Isi nomor kamar");
 
@@ -484,11 +684,69 @@ export default function RoomUnits() {
       console.error("Gagal update status kamar:", error.response?.data || error);
       toast.error(
         error.response?.data?.message ||
-          "Backend belum support update status room unit. Kirim RoomUnitController.php untuk Step B."
+          "Backend belum support update status room unit."
       );
     } finally {
       setSavingStatus(false);
     }
+  };
+
+  const openDeleteModal = (unit) => {
+    const status = getRoomUnitStatus(unit);
+
+    if (status === "occupied") {
+      toast.error("Kamar yang sedang dipakai booking tidak bisa dihapus.");
+      return;
+    }
+
+    setUnitToDelete(unit);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (deletingUnit) return;
+
+    setUnitToDelete(null);
+    setShowDeleteModal(false);
+  };
+
+  const handleDeleteUnit = async () => {
+    if (!unitToDelete?.id) return;
+
+    const status = getRoomUnitStatus(unitToDelete);
+
+    if (status === "occupied") {
+      toast.error("Kamar yang sedang dipakai booking tidak bisa dihapus.");
+      return;
+    }
+
+    try {
+      setDeletingUnit(true);
+
+      await api.delete(`/admin/room-units/${unitToDelete.id}`);
+
+      toast.success(`Kamar ${unitToDelete.room_number || ""} berhasil dihapus`);
+      closeDeleteModal();
+      fetchUnits(selectedRoom);
+    } catch (error) {
+      console.error("Gagal hapus kamar fisik:", error.response?.data || error);
+      toast.error(
+        error.response?.data?.message ||
+          "Gagal hapus kamar. Pastikan route DELETE dan function destroy sudah ada di backend."
+      );
+    } finally {
+      setDeletingUnit(false);
+    }
+  };
+
+  const openBookingModal = (unit) => {
+    setBookingModalUnit(unit);
+    setShowBookingModal(true);
+  };
+
+  const closeBookingModal = () => {
+    setBookingModalUnit(null);
+    setShowBookingModal(false);
   };
 
   const handleKeyDownAdd = (event) => {
@@ -497,6 +755,10 @@ export default function RoomUnits() {
       handleAdd();
     }
   };
+
+  const bookingModalBookings = bookingModalUnit
+    ? getAllBookingsForUnit(bookingModalUnit)
+    : [];
 
   return (
     <div className="flex min-h-screen bg-[#f4f5f7]">
@@ -535,68 +797,6 @@ export default function RoomUnits() {
             </div>
           </div>
 
-          <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                Total Unit
-              </p>
-              <p className="mt-2 text-3xl font-black text-gray-950">
-                {unitStats.total}
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                Pada tipe kamar terpilih
-              </p>
-            </div>
-
-            <div className="rounded-[26px] border border-emerald-100 bg-emerald-50/70 p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-emerald-600">
-                Tersedia
-              </p>
-              <p className="mt-2 text-3xl font-black text-emerald-700">
-                {unitStats.available}
-              </p>
-              <p className="mt-1 text-sm text-emerald-700/70">
-                Siap dipilih booking
-              </p>
-            </div>
-
-            <div className="rounded-[26px] border border-red-100 bg-red-50/70 p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-red-600">
-                Terisi
-              </p>
-              <p className="mt-2 text-3xl font-black text-red-700">
-                {unitStats.occupied}
-              </p>
-              <p className="mt-1 text-sm text-red-700/70">
-                Dari booking aktif
-              </p>
-            </div>
-
-            <div className="rounded-[26px] border border-amber-100 bg-amber-50/70 p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-amber-600">
-                Cleaning
-              </p>
-              <p className="mt-2 text-3xl font-black text-amber-700">
-                {unitStats.cleaning}
-              </p>
-              <p className="mt-1 text-sm text-amber-700/70">
-                Belum siap dipakai
-              </p>
-            </div>
-
-            <div className="rounded-[26px] border border-slate-200 bg-slate-50 p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                Nonaktif
-              </p>
-              <p className="mt-2 text-3xl font-black text-slate-700">
-                {unitStats.inactive + unitStats.maintenance}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Rusak / maintenance
-              </p>
-            </div>
-          </div>
-
           <div className="mb-5 overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">
             <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-6 py-5 text-white">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -609,7 +809,7 @@ export default function RoomUnits() {
                 </div>
 
                 <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-bold text-white/90">
-                  {selectedRoomData?.hotel?.name || "Belum pilih cabang"}
+                  {selectedHotelData?.name || "Belum pilih cabang"}
                 </div>
               </div>
             </div>
@@ -626,7 +826,10 @@ export default function RoomUnits() {
                   disabled={loadingRooms}
                   className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <option value="all">Semua Cabang</option>
+                  <option value="">
+                    {loadingRooms ? "Memuat cabang..." : "Pilih Cabang / Hotel"}
+                  </option>
+
                   {hotelOptions.map((hotel) => (
                     <option key={hotel.id} value={hotel.id}>
                       {hotel.name}
@@ -642,13 +845,19 @@ export default function RoomUnits() {
 
                 <select
                   value={selectedRoom}
+                  onMouseDown={handleRoomSelectMouseDown}
                   onChange={(e) => handleRoomChange(e.target.value)}
-                  disabled={loadingRooms || roomsBySelectedHotel.length === 0}
+                  disabled={
+                    loadingRooms ||
+                    Boolean(selectedHotelId && roomsBySelectedHotel.length === 0)
+                  }
                   className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="">
                     {loadingRooms
                       ? "Memuat tipe kamar..."
+                      : !selectedHotelId
+                      ? "Pilih cabang terlebih dahulu"
                       : roomsBySelectedHotel.length === 0
                       ? "Belum ada tipe kamar"
                       : "Pilih Tipe Kamar"}
@@ -660,19 +869,26 @@ export default function RoomUnits() {
                     </option>
                   ))}
                 </select>
+
+                {roomSelectWarning && (
+                  <p className="mt-2 text-xs font-bold text-red-600">
+                    {roomSelectWarning}
+                  </p>
+                )}
               </div>
 
               <div className="xl:col-span-3">
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Cari Nomor Kamar
+                  Cari Nomor / Tamu / Kode Booking
                 </label>
 
                 <input
                   type="text"
                   value={searchUnit}
                   onChange={(e) => setSearchUnit(e.target.value)}
-                  placeholder="Cari 101, 202, A01..."
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
+                  placeholder="Cari 101, Andika, RR-..."
+                  disabled={!selectedRoom}
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
@@ -684,7 +900,8 @@ export default function RoomUnits() {
                 <select
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
+                  disabled={!selectedRoom}
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {statusTabs.map((tab) => (
                     <option key={tab.value} value={tab.value}>
@@ -701,7 +918,14 @@ export default function RoomUnits() {
                   <button
                     key={tab.value}
                     type="button"
-                    onClick={() => setSelectedStatus(tab.value)}
+                    onClick={() => {
+                      if (!selectedRoom) {
+                        toast.error("Pilih cabang dan tipe kamar terlebih dahulu");
+                        return;
+                      }
+
+                      setSelectedStatus(tab.value);
+                    }}
                     className={`rounded-full px-4 py-2 text-xs font-black transition ${
                       selectedStatus === tab.value
                         ? "bg-gray-950 text-white shadow-lg shadow-gray-200"
@@ -868,6 +1092,11 @@ export default function RoomUnits() {
                     const meta = getStatusMeta(status);
                     const reason = getUnitReason(unit);
                     const activeBookingText = getUnitActiveBookingText(unit);
+                    const currentBooking = unit?.current_booking || unit?.active_booking || null;
+                    const reservedBookings = getReservedBookings(unit);
+                    const primaryBooking = currentBooking || getReservedBooking(unit);
+                    const allBookings = getAllBookingsForUnit(unit);
+                    const extraBookingCount = Math.max(allBookings.length - 1, 0);
 
                     return (
                       <div
@@ -900,7 +1129,72 @@ export default function RoomUnits() {
                           </span>
                         </div>
 
-                        {activeBookingText && (
+                        {primaryBooking && (
+                          <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50/90 px-3 py-3 text-xs leading-relaxed text-blue-800">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                              <p className="font-black text-blue-900">
+                                {currentBooking
+                                  ? "Sedang Dipakai Sekarang"
+                                  : "Sudah Ada Booking"}
+                              </p>
+
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${getBookingTypeBadgeClass(
+                                  primaryBooking
+                                )}`}
+                              >
+                                {getBookingTypeText(primaryBooking)}
+                              </span>
+                            </div>
+
+                            <p className="font-semibold">
+                              <span className="font-black">Kode:</span>{" "}
+                              {getBookingCode(primaryBooking)}
+                            </p>
+
+                            <p className="font-semibold">
+                              <span className="font-black">Tamu:</span>{" "}
+                              {getBookingGuestName(primaryBooking)}
+                            </p>
+
+                            <p className="font-semibold">
+                              <span className="font-black">Jam:</span>{" "}
+                              {getBookingTimeText(primaryBooking)}
+                            </p>
+
+                            {extraBookingCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => openBookingModal(unit)}
+                                className="mt-3 w-full rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-blue-700"
+                              >
+                                +{extraBookingCount} Booking Lagi
+                              </button>
+                            )}
+
+                            {extraBookingCount === 0 && allBookings.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => openBookingModal(unit)}
+                                className="mt-3 w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-50"
+                              >
+                                Lihat Detail Booking
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {!primaryBooking && reservedBookings.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => openBookingModal(unit)}
+                            className="mt-3 w-full rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100"
+                          >
+                            Lihat Semua Booking
+                          </button>
+                        )}
+
+                        {activeBookingText && !primaryBooking && (
                           <p className="mt-3 line-clamp-2 text-xs font-semibold leading-relaxed text-current/70">
                             {activeBookingText}
                           </p>
@@ -962,6 +1256,15 @@ export default function RoomUnits() {
                               Dipakai Booking
                             </button>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => openDeleteModal(unit)}
+                            disabled={status === "occupied"}
+                            className="rounded-2xl border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Hapus Kamar
+                          </button>
                         </div>
                       </div>
                     );
@@ -1064,6 +1367,205 @@ export default function RoomUnits() {
                 className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {savingStatus ? "Menyimpan..." : "Simpan Status"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-[30px] bg-white shadow-2xl">
+            <div className="border-b border-red-100 bg-gradient-to-br from-red-700 to-red-950 px-6 py-5 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-white/60">
+                    Hapus Kamar Fisik
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black">
+                    Kamar {unitToDelete?.room_number || "-"}
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-white/70">
+                    Data kamar fisik ini akan dihapus dari monitoring kamar.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  disabled={deletingUnit}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-xl font-black text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-5">
+              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-4">
+                <p className="text-sm font-black text-red-800">
+                  Yakin mau hapus kamar ini?
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-red-700">
+                  Kalau kamar ini pernah dipakai booking dan backend menolak
+                  penghapusan, gunakan tombol Nonaktifkan saja agar riwayat tetap aman.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-6 py-5 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deletingUnit}
+                className="rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteUnit}
+                disabled={deletingUnit}
+                className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingUnit ? "Menghapus..." : "Ya, Hapus Kamar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBookingModal && bookingModalUnit && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl overflow-hidden rounded-[30px] bg-white shadow-2xl">
+            <div className="border-b border-gray-100 bg-gradient-to-br from-gray-950 to-blue-950 px-6 py-5 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-white/50">
+                    Detail Booking Kamar
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black">
+                    Kamar {bookingModalUnit?.room_number || "-"}
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-white/65">
+                    Daftar booking yang terhubung dengan kamar ini.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeBookingModal}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-xl font-black text-white transition hover:bg-white/20"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+              {bookingModalBookings.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
+                  <p className="text-sm font-black text-gray-800">
+                    Belum ada booking untuk kamar ini.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {bookingModalBookings.map((booking, index) => {
+                    const isCurrent =
+                      String(booking?.id || "") ===
+                        String(
+                          bookingModalUnit?.current_booking?.id ||
+                            bookingModalUnit?.active_booking?.id ||
+                            ""
+                        ) ||
+                      ["checked_in", "check_in", "checkin"].includes(
+                        String(booking?.status || "").toLowerCase()
+                      );
+
+                    return (
+                      <div
+                        key={`${getBookingCode(booking)}-${index}`}
+                        className={`rounded-2xl border px-4 py-4 ${
+                          isCurrent
+                            ? "border-red-100 bg-red-50"
+                            : "border-blue-100 bg-blue-50/70"
+                        }`}
+                      >
+                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-black ${
+                              isCurrent
+                                ? "bg-red-100 text-red-700"
+                                : "bg-blue-100 text-blue-700"
+                            }`}
+                          >
+                            {isCurrent
+                              ? "Sedang Dipakai Sekarang"
+                              : getBookingStatusText(booking)}
+                          </span>
+
+                          <span
+                            className={`rounded-full border px-3 py-1 text-xs font-black ${getBookingTypeBadgeClass(
+                              booking
+                            )}`}
+                          >
+                            {getBookingTypeText(booking)}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                          <div className="rounded-xl bg-white/80 px-3 py-3">
+                            <p className="text-xs font-bold uppercase text-gray-400">
+                              Kode Booking
+                            </p>
+                            <p className="mt-1 font-black text-gray-900">
+                              {getBookingCode(booking)}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-white/80 px-3 py-3">
+                            <p className="text-xs font-bold uppercase text-gray-400">
+                              Tamu
+                            </p>
+                            <p className="mt-1 font-black text-gray-900">
+                              {getBookingGuestName(booking)}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-white/80 px-3 py-3">
+                            <p className="text-xs font-bold uppercase text-gray-400">
+                              Jam
+                            </p>
+                            <p className="mt-1 font-black text-gray-900">
+                              {getBookingTimeText(booking)}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-white/80 px-3 py-3">
+                            <p className="text-xs font-bold uppercase text-gray-400">
+                              Status
+                            </p>
+                            <p className="mt-1 font-black text-gray-900">
+                              {getBookingStatusText(booking)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end border-t border-gray-100 bg-gray-50 px-6 py-5">
+              <button
+                type="button"
+                onClick={closeBookingModal}
+                className="rounded-2xl bg-gray-950 px-5 py-3 text-sm font-black text-white transition hover:bg-black"
+              >
+                Tutup
               </button>
             </div>
           </div>

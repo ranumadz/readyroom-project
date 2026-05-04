@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\QueryException;
 use App\Models\RoomUnit;
 use App\Models\Booking;
 
@@ -18,7 +19,17 @@ class RoomUnitController extends Controller
             ->map(function ($unit) {
                 $activeBooking = $this->findActiveBookingForUnit($unit->id);
 
-                return $this->formatUnitResponse($unit, $activeBooking);
+                /*
+                 * Booking approved/paid/confirmed yang belum check-in
+                 * hanya jadi label "Sudah Ada Booking",
+                 * tidak membuat kamar merah.
+                 *
+                 * Sekarang dibuat banyak data supaya kamar yang punya beberapa
+                 * booking di jam berbeda bisa tampil di modal frontend.
+                 */
+                $reservedBookings = $this->findReservedBookingsForUnit($unit->id);
+
+                return $this->formatUnitResponse($unit, $activeBooking, $reservedBookings);
             });
 
         return response()->json($units);
@@ -151,6 +162,45 @@ class RoomUnitController extends Controller
         ]);
     }
 
+    public function destroy($id)
+    {
+        try {
+            $unit = RoomUnit::findOrFail($id);
+
+            /*
+             * Hapus kamar fisik dibuat aman.
+             * Walaupun monitoring hanya merah saat check-in,
+             * data kamar tetap tidak boleh dihapus kalau masih punya booking belum final.
+             */
+            if ($this->hasBlockingBookingForDelete($unit->id)) {
+                return response()->json([
+                    'message' => 'Kamar ini masih terhubung dengan booking aktif atau booking yang belum selesai, tidak bisa dihapus. Gunakan Nonaktifkan saja agar riwayat tetap aman.',
+                ], 422);
+            }
+
+            $manualStatus = $this->getManualUnitStatus($unit);
+
+            if (in_array($manualStatus, ['occupied', 'booked', 'cleaning'], true)) {
+                return response()->json([
+                    'message' => 'Kamar yang sedang dipakai atau cleaning tidak bisa dihapus.',
+                ], 422);
+            }
+
+            $roomNumber = $unit->room_number;
+
+            $unit->delete();
+
+            return response()->json([
+                'message' => 'Kamar fisik berhasil dihapus.',
+                'deleted_room_number' => $roomNumber,
+            ]);
+        } catch (QueryException $error) {
+            return response()->json([
+                'message' => 'Kamar ini tidak bisa dihapus karena masih terhubung dengan data booking. Gunakan Nonaktifkan saja agar riwayat tetap aman.',
+            ], 422);
+        }
+    }
+
     private function detectOperationalStatus(Request $request)
     {
         $status = strtolower((string) $request->input('status'));
@@ -183,7 +233,7 @@ class RoomUnitController extends Controller
         return 'available';
     }
 
-    private function formatUnitResponse(RoomUnit $unit, $activeBooking = null)
+    private function formatUnitResponse(RoomUnit $unit, $activeBooking = null, $reservedBookings = null)
     {
         $data = $unit->toArray();
 
@@ -191,10 +241,11 @@ class RoomUnitController extends Controller
         $bookingStatus = $this->getBookingUnitStatus($activeBooking);
 
         /*
-         * Urutan status:
-         * 1. Kalau ada booking aktif/check-in => occupied.
-         * 2. Kalau booking sudah checkout/start cleaning => cleaning.
-         * 3. Kalau tidak ada booking aktif, pakai status manual dari room_units.
+         * Konsep monitoring kamar:
+         * 1. Booking baru approved/confirmed/paid TIDAK bikin kamar merah.
+         * 2. Kamar merah hanya saat tamu benar-benar check-in.
+         * 3. Setelah check-out/start cleaning, kamar kuning cleaning.
+         * 4. Kalau tidak ada status operasional booking, pakai status manual room_units.
          */
         $monitoringStatus = $bookingStatus ?: $manualStatus;
 
@@ -213,6 +264,52 @@ class RoomUnitController extends Controller
             $data['current_booking'] = null;
             $data['booking_active'] = false;
         }
+
+        /*
+         * Booking mendatang / booking yang sudah di-approve tapi belum check-in.
+         * Ini dipakai frontend untuk:
+         * - tampil 1 booking utama di card
+         * - tombol +1 Booking Lagi
+         * - modal semua booking kamar tersebut
+         */
+        if ($reservedBookings === null) {
+            $reservedBookings = $this->findReservedBookingsForUnit($unit->id);
+        }
+
+        if ($reservedBookings instanceof \Illuminate\Support\Collection) {
+            $reservedBookings = $reservedBookings->all();
+        }
+
+        if (!is_array($reservedBookings)) {
+            $reservedBookings = $reservedBookings ? [$reservedBookings] : [];
+        }
+
+        $reservedSummaries = collect($reservedBookings)
+            ->filter()
+            ->map(function ($booking) {
+                return $this->formatBookingSummary($booking);
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        $firstReserved = $reservedSummaries[0] ?? null;
+
+        /*
+         * Backward compatible:
+         * Frontend lama masih bisa baca reserved_booking,
+         * frontend baru bisa baca reserved_bookings.
+         */
+        $data['reserved_booking'] = $firstReserved;
+        $data['upcoming_booking'] = $firstReserved;
+        $data['next_booking'] = $firstReserved;
+
+        $data['reserved_bookings'] = $reservedSummaries;
+        $data['upcoming_bookings'] = $reservedSummaries;
+        $data['next_bookings'] = $reservedSummaries;
+
+        $data['has_reserved_booking'] = count($reservedSummaries) > 0;
+        $data['reserved_booking_count'] = count($reservedSummaries);
 
         return $data;
     }
@@ -271,19 +368,16 @@ class RoomUnitController extends Controller
             ->where('room_unit_id', $roomUnitId);
 
         /*
-         * Status yang masih memengaruhi monitoring kamar:
-         * - confirmed/approved/paid/checked_in => merah/occupied
-         * - checked_out/cleaning/start_cleaning => kuning/cleaning
+         * PENTING:
+         * Status approved/confirmed/paid tidak dimasukkan di sini.
+         * Karena booking yang baru disetujui admin belum berarti kamar sudah diduduki.
          *
-         * Status final/cancel tidak ikut supaya setelah checkout selesai/finished
-         * kamar bisa kembali available otomatis.
+         * Monitoring kamar hanya dipengaruhi oleh:
+         * - checked_in/check_in/checkin => merah/occupied
+         * - checked_out/check_out/cleaning/start_cleaning => kuning/cleaning
          */
         if ($statusColumn) {
             $query->whereIn($statusColumn, [
-                'confirmed',
-                'approve',
-                'approved',
-                'paid',
                 'checked_in',
                 'check_in',
                 'checkin',
@@ -307,9 +401,8 @@ class RoomUnitController extends Controller
         ]);
 
         /*
-         * Kalau ada check_out, buang booking lama yang sudah sangat lewat,
-         * kecuali statusnya memang belum difinalkan.
-         * Buffer 2 hari dibuat aman untuk flow hotel yang belum selalu klik finish.
+         * Kalau ada check_out, buang booking lama yang sudah sangat lewat.
+         * Buffer 2 hari dibuat aman untuk flow hotel yang belum selalu klik finish cleaning.
          */
         if ($checkOutColumn) {
             $query->where(function ($innerQuery) use ($checkOutColumn) {
@@ -338,6 +431,78 @@ class RoomUnitController extends Controller
         return $query->first();
     }
 
+    private function findReservedBookingForUnit($roomUnitId)
+    {
+        return $this->findReservedBookingsForUnit($roomUnitId)->first();
+    }
+
+    private function findReservedBookingsForUnit($roomUnitId)
+    {
+        if (!Schema::hasTable('bookings')) {
+            return collect();
+        }
+
+        if (!Schema::hasColumn('bookings', 'room_unit_id')) {
+            return collect();
+        }
+
+        if (!Schema::hasColumn('bookings', 'status')) {
+            return collect();
+        }
+
+        $query = Booking::query()
+            ->where('room_unit_id', $roomUnitId)
+            ->whereIn('status', [
+                'confirmed',
+                'approve',
+                'approved',
+                'paid',
+                'booked',
+                'reserved',
+            ]);
+
+        /*
+         * Kalau booking punya waktu checkout/end,
+         * booking yang sudah lewat tidak perlu ditampilkan sebagai label.
+         */
+        $checkOutColumn = $this->getFirstExistingBookingColumn([
+            'check_out',
+            'checkout',
+            'check_out_at',
+            'checkout_at',
+            'end_time',
+            'end_at',
+        ]);
+
+        if ($checkOutColumn) {
+            $query->where(function ($innerQuery) use ($checkOutColumn) {
+                $innerQuery
+                    ->whereNull($checkOutColumn)
+                    ->orWhere($checkOutColumn, '>=', now()->subHours(2));
+            });
+        }
+
+        /*
+         * Tampilkan booking terdekat dulu supaya admin tahu urutan jadwal kamar.
+         */
+        $checkInColumn = $this->getFirstExistingBookingColumn([
+            'check_in',
+            'checkin',
+            'check_in_at',
+            'checkin_at',
+            'start_time',
+            'start_at',
+        ]);
+
+        if ($checkInColumn) {
+            $query->orderBy($checkInColumn);
+        } else {
+            $query->orderByDesc('id');
+        }
+
+        return $query->get();
+    }
+
     private function getBookingUnitStatus($booking)
     {
         if (!$booking) {
@@ -359,10 +524,6 @@ class RoomUnitController extends Controller
         }
 
         if (in_array($status, [
-            'confirmed',
-            'approve',
-            'approved',
-            'paid',
             'checked_in',
             'check_in',
             'checkin',
@@ -370,7 +531,42 @@ class RoomUnitController extends Controller
             return 'occupied';
         }
 
-        return 'occupied';
+        /*
+         * confirmed / approve / approved / paid / pending
+         * tidak membuat kamar merah di monitoring.
+         */
+        return null;
+    }
+
+    private function hasBlockingBookingForDelete($roomUnitId)
+    {
+        if (!Schema::hasTable('bookings')) {
+            return false;
+        }
+
+        if (!Schema::hasColumn('bookings', 'room_unit_id')) {
+            return false;
+        }
+
+        $query = Booking::query()
+            ->where('room_unit_id', $roomUnitId);
+
+        if (Schema::hasColumn('bookings', 'status')) {
+            $query->whereNotIn('status', [
+                'completed',
+                'complete',
+                'finished',
+                'finish',
+                'cancelled',
+                'canceled',
+                'rejected',
+                'refund',
+                'refunded',
+                'expired',
+            ]);
+        }
+
+        return $query->exists();
     }
 
     private function formatBookingSummary($booking)
@@ -382,20 +578,82 @@ class RoomUnitController extends Controller
         return [
             'id' => $booking->id ?? null,
             'booking_code' => $booking->booking_code ?? $booking->code ?? null,
+            'code' => $booking->code ?? $booking->booking_code ?? null,
             'status' => $booking->status ?? null,
+
             'customer_name' => $booking->customer_name
                 ?? $booking->guest_name
                 ?? optional($booking->customer ?? null)->name
                 ?? null,
+
+            'guest_name' => $booking->guest_name
+                ?? $booking->customer_name
+                ?? optional($booking->customer ?? null)->name
+                ?? null,
+
             'check_in' => $booking->check_in
                 ?? $booking->checkin
                 ?? $booking->check_in_at
                 ?? $booking->checkin_at
                 ?? null,
+
             'check_out' => $booking->check_out
                 ?? $booking->checkout
                 ?? $booking->check_out_at
                 ?? $booking->checkout_at
+                ?? null,
+
+            'start_time' => $booking->start_time
+                ?? $booking->start_at
+                ?? $booking->check_in
+                ?? $booking->checkin
+                ?? $booking->check_in_at
+                ?? $booking->checkin_at
+                ?? null,
+
+            'end_time' => $booking->end_time
+                ?? $booking->end_at
+                ?? $booking->check_out
+                ?? $booking->checkout
+                ?? $booking->check_out_at
+                ?? $booking->checkout_at
+                ?? null,
+
+            /*
+             * Data jenis booking untuk badge frontend:
+             * Transit / Full Day.
+             */
+            'booking_type' => $booking->booking_type
+                ?? $booking->type
+                ?? $booking->stay_type
+                ?? $booking->room_booking_type
+                ?? $booking->duration_type
+                ?? null,
+
+            'type' => $booking->type
+                ?? $booking->booking_type
+                ?? $booking->stay_type
+                ?? null,
+
+            'stay_type' => $booking->stay_type
+                ?? $booking->booking_type
+                ?? $booking->type
+                ?? null,
+
+            'duration' => $booking->duration
+                ?? $booking->duration_hours
+                ?? $booking->hour_duration
+                ?? $booking->day_duration
+                ?? null,
+
+            'duration_hours' => $booking->duration_hours
+                ?? $booking->hour_duration
+                ?? $booking->duration
+                ?? null,
+
+            'hours' => $booking->hours
+                ?? $booking->duration_hours
+                ?? $booking->hour_duration
                 ?? null,
         ];
     }
