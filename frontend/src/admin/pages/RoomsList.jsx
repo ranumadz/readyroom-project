@@ -1811,7 +1811,7 @@ export default function RoomsList() {
                                       disabled={index === 0}
                                       className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                                     >
-                                      ← Kiri
+                                      ← 
                                     </button>
                                     <button
                                       type="button"
@@ -1822,7 +1822,7 @@ export default function RoomsList() {
                                       }
                                       className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                                     >
-                                      Kanan →
+                                       →
                                     </button>
                                   </div>
                                 </div>
@@ -1888,7 +1888,7 @@ export default function RoomsList() {
                                     disabled={index === 0}
                                     className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                                   >
-                                    ← Kiri
+                                    ← 
                                   </button>
                                   <button
                                     type="button"
@@ -1896,7 +1896,7 @@ export default function RoomsList() {
                                     disabled={index === editGalleryPreviews.length - 1}
                                     className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                                   >
-                                    Kanan →
+                                     →
                                   </button>
                                 </div>
                               </div>
