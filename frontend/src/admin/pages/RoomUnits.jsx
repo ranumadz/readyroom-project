@@ -320,10 +320,6 @@ export default function RoomUnits() {
     return single ? [single] : [];
   };
 
-  const getReservedBooking = (unit) => {
-    return getReservedBookings(unit)[0] || null;
-  };
-
   const getAllBookingsForUnit = (unit) => {
     const current = unit?.current_booking || unit?.active_booking || null;
     const reserved = getReservedBookings(unit);
@@ -490,25 +486,6 @@ export default function RoomUnits() {
     if (endText) return `Sampai ${endText}`;
 
     return "-";
-  };
-
-  const getUnitActiveBookingText = (unit) => {
-    const booking = unit?.current_booking || unit?.active_booking || null;
-
-    if (!booking) return "";
-
-    const code = booking?.booking_code || booking?.code || booking?.id;
-    const checkout =
-      booking?.check_out ||
-      booking?.checkout_at ||
-      booking?.end_time ||
-      booking?.check_out_time;
-
-    if (code && checkout) return `${code} • sampai ${formatTimeOnly(checkout)}`;
-    if (code) return `Booking ${code}`;
-    if (checkout) return `Terisi sampai ${formatTimeOnly(checkout)}`;
-
-    return "Sedang terisi";
   };
 
   const filteredUnits = useMemo(() => {
@@ -757,36 +734,7 @@ export default function RoomUnits() {
       <div className="flex-1">
         <Topbar />
 
-        <div className="p-6 md:p-8">
-          <div className="mb-7 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <p className="mb-2 inline-flex rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
-                Admin Panel
-              </p>
-
-              <h1 className="text-3xl font-black tracking-tight text-gray-950">
-                Monitoring Kamar
-              </h1>
-
-              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-500">
-                Pantau status kamar fisik, lihat booking yang sudah terjadwal,
-                dan tutup kamar sementara saat rusak, maintenance, atau belum siap digunakan.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                Cabang Terdaftar
-              </p>
-              <p className="mt-1 text-2xl font-black text-gray-900">
-                {hotelOptions.length}
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Mengikuti data kamar yang bisa diakses user login.
-              </p>
-            </div>
-          </div>
-
+        <div className="p-4 md:p-6">
           <div className="mb-5 overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">
             <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-6 py-5 text-white">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -804,7 +752,7 @@ export default function RoomUnits() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 p-6 xl:grid-cols-12">
+            <div className="grid grid-cols-1 gap-4 p-6 pb-4 xl:grid-cols-12">
               <div className="xl:col-span-3">
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
                   Cabang / Hotel
@@ -844,8 +792,6 @@ export default function RoomUnits() {
                   }
                   className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  
-
                   {selectedHotelId && roomsBySelectedHotel.length > 0 && (
                     <option value="all">Semua Tipe Kamar</option>
                   )}
@@ -898,26 +844,8 @@ export default function RoomUnits() {
                 </select>
               </div>
             </div>
-          </div>
 
-          <div className="overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-lg font-black text-gray-950">
-                  Denah Monitoring Kamar
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Tampilan tile seperti denah kamar agar admin dan resepsionis
-                  cepat melihat kamar yang tersedia, terisi, cleaning, atau nonaktif.
-                </p>
-              </div>
-
-              <div className="rounded-full bg-gray-100 px-4 py-2 text-xs font-black text-gray-600">
-                {filteredUnits.length} dari {units.length} unit tampil
-              </div>
-            </div>
-
-            <div className="border-b border-gray-100 px-6 py-4">
+            <div className="border-t border-gray-100 px-6 py-4">
               <div className="flex flex-wrap gap-3 text-xs font-bold text-gray-600">
                 {["available", "occupied", "cleaning", "maintenance", "inactive"].map(
                   (status) => {
@@ -938,7 +866,9 @@ export default function RoomUnits() {
                 )}
               </div>
             </div>
+          </div>
 
+          <div className="overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">
             <div className="min-h-[420px] bg-[radial-gradient(circle_at_top_left,_rgba(239,68,68,0.08),_transparent_32%),linear-gradient(to_bottom,_#ffffff,_#f8fafc)] p-6">
               {loadingUnits ? (
                 <div className="flex min-h-[260px] items-center justify-center">

@@ -1934,7 +1934,17 @@ const reportBookings = useMemo(() => {
     "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100";
 
   const needsFolderSelection = !canAccessAllHotels;
-  const hasSelectedFolder = canAccessAllHotels ? true : !!filters.hotelId;
+const hasSelectedFolder = canAccessAllHotels ? true : !!filters.hotelId;
+
+const selectedFolderHotel = folderHotels.find(
+  (hotel) => String(hotel.id) === String(filters.hotelId)
+);
+
+const selectedFolderLabel = filters.hotelId
+  ? selectedFolderHotel?.name || "Cabang dipilih"
+  : canAccessAllHotels
+  ? "Semua Cabang"
+  : "Belum pilih cabang";
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -1956,76 +1966,90 @@ const reportBookings = useMemo(() => {
             </p>
           </div>
 
-          <div className="mb-6">
-            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-2">
-                <Building2 size={18} className="text-red-500" />
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">Folder Cabang</h2>
-                  <p className="text-sm text-gray-500">
-                    Klik cabang untuk membuka booking sesuai hotel yang dipilih.
-                  </p>
-                </div>
-              </div>
+          <div className="mb-6 overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
+  <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-5 py-5 text-white">
+    <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h2 className="text-lg font-extrabold">Filter Cabang Booking</h2>
+        <p className="mt-1 text-sm text-white/70">
+          Pilih cabang untuk menampilkan booking sesuai hotel yang dipilih.
+        </p>
+      </div>
 
-              <div className="flex flex-wrap gap-3">
-                {canAccessAllHotels && (
-                  <button
-                    type="button"
-                    onClick={() => handleFilterChange("hotelId", "")}
-                    className={`relative inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
-                      !filters.hotelId
-                        ? "bg-red-600 text-white shadow-sm"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    <Layers3 size={18} />
-                    Semua Cabang
-                    {totalUnreadBranchCount > 0 && (
-                      <span className={`ml-1 inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-1 text-[11px] font-bold ${
-                        !filters.hotelId
-                          ? "bg-white text-red-600"
-                          : "bg-red-500 text-white"
-                      }`}>
-                        {totalUnreadBranchCount}
-                      </span>
-                    )}
-                  </button>
-                )}
+      <div className="w-fit rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white/90">
+        {selectedFolderLabel}
+      </div>
+    </div>
+  </div>
 
-                {folderHotels.map((hotel) => {
-                  const unreadCount = branchUnreadCounts[String(hotel.id)] || 0;
-                  const isActive = String(filters.hotelId) === String(hotel.id);
+  <div className="grid grid-cols-1 gap-4 p-5 lg:grid-cols-12">
+    <div className="lg:col-span-6">
+      <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
+        Cabang / Hotel
+      </label>
 
-                  return (
-                    <button
-                      key={hotel.id}
-                      type="button"
-                      onClick={() => {
-                        handleFilterChange("hotelId", String(hotel.id));
-                        markHotelAsSeen(hotel.id);
-                      }}
-                      className={`relative inline-flex items-center gap-2 rounded-2xl px-4 py-3 pr-4 font-semibold transition ${
-                        isActive
-                          ? "bg-gray-900 text-white shadow-sm"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      <Building2 size={17} />
-                      <span>{hotel.name}</span>
-                      {unreadCount > 0 && (
-                        <span className={`ml-1 inline-flex min-w-[24px] items-center justify-center rounded-full px-2 py-1 text-[11px] font-bold ${
-                          isActive ? "bg-red-500 text-white" : "bg-red-500 text-white"
-                        }`}>
-                          {unreadCount}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+      <select
+        value={filters.hotelId}
+        onChange={(e) => {
+          const value = e.target.value;
+          handleFilterChange("hotelId", value);
+
+          if (value) {
+            markHotelAsSeen(value);
+          }
+        }}
+        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
+      >
+        {canAccessAllHotels && <option value="">Semua Cabang</option>}
+        {!canAccessAllHotels && <option value="">Pilih Cabang / Hotel</option>}
+
+        {folderHotels.map((hotel) => {
+          const unreadCount = branchUnreadCounts[String(hotel.id)] || 0;
+
+          return (
+            <option key={hotel.id} value={hotel.id}>
+              {hotel.name}
+              {unreadCount > 0 ? ` (${unreadCount} baru)` : ""}
+            </option>
+          );
+        })}
+      </select>
+
+      {loadingUserAccessHotels && (
+        <p className="mt-2 text-xs font-semibold text-gray-500">
+          Sedang memuat akses cabang user...
+        </p>
+      )}
+    </div>
+
+    <div className="lg:col-span-6">
+      <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
+        Status Pilihan
+      </label>
+
+      <div className="flex min-h-[50px] items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+        <div>
+          <p className="text-sm font-black text-gray-900">
+            {selectedFolderLabel}
+          </p>
+          <p className="mt-0.5 text-xs font-medium text-gray-500">
+            Booking akan otomatis tampil mengikuti cabang yang dipilih.
+          </p>
+        </div>
+
+        {(filters.hotelId
+          ? branchUnreadCounts[String(filters.hotelId)] > 0
+          : canAccessAllHotels && totalUnreadBranchCount > 0) && (
+          <span className="inline-flex min-w-[28px] items-center justify-center rounded-full bg-red-600 px-2 py-1 text-xs font-black text-white">
+            {filters.hotelId
+              ? branchUnreadCounts[String(filters.hotelId)] || 0
+              : totalUnreadBranchCount}
+          </span>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
 
           {!hasSelectedFolder && (
             <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">

@@ -35,7 +35,10 @@ export default function RoomsList() {
   const [editCoverPreview, setEditCoverPreview] = useState("");
   const [editGalleryFiles, setEditGalleryFiles] = useState([]);
   const [editGalleryPreviews, setEditGalleryPreviews] = useState([]);
+  const [editCurrentGalleryItems, setEditCurrentGalleryItems] = useState([]);
   const [deletedGalleryImageIds, setDeletedGalleryImageIds] = useState([]);
+  const [draggedCurrentGalleryIndex, setDraggedCurrentGalleryIndex] = useState(null);
+  const [draggedNewGalleryIndex, setDraggedNewGalleryIndex] = useState(null);
 
   const [editRoomUnits, setEditRoomUnits] = useState([]);
   const [loadingEditRoomUnits, setLoadingEditRoomUnits] = useState(false);
@@ -534,7 +537,10 @@ export default function RoomsList() {
     setEditCoverPreview(getRoomCoverUrl(room));
     setEditGalleryFiles([]);
     setEditGalleryPreviews([]);
+    setEditCurrentGalleryItems(getRoomGalleryItems(room));
     setDeletedGalleryImageIds([]);
+    setDraggedCurrentGalleryIndex(null);
+    setDraggedNewGalleryIndex(null);
 
     setEditRoomUnits([]);
     setNewRoomUnitNumbers("");
@@ -558,7 +564,10 @@ export default function RoomsList() {
     setEditCoverPreview("");
     setEditGalleryFiles([]);
     setEditGalleryPreviews([]);
+    setEditCurrentGalleryItems([]);
     setDeletedGalleryImageIds([]);
+    setDraggedCurrentGalleryIndex(null);
+    setDraggedNewGalleryIndex(null);
   };
 
   const closeEditModal = () => {
@@ -639,6 +648,49 @@ export default function RoomsList() {
     setEditGalleryPreviews((prev) =>
       prev.filter((_, itemIndex) => itemIndex !== index)
     );
+  };
+
+  const moveArrayItem = (array, fromIndex, toIndex) => {
+    if (!Array.isArray(array)) return [];
+    if (fromIndex === toIndex) return array;
+    if (fromIndex < 0 || toIndex < 0) return array;
+    if (fromIndex >= array.length || toIndex >= array.length) return array;
+
+    const next = [...array];
+    const [movedItem] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, movedItem);
+
+    return next;
+  };
+
+  const moveCurrentGalleryImage = (fromIndex, toIndex) => {
+    setEditCurrentGalleryItems((prev) =>
+      moveArrayItem(prev, fromIndex, toIndex)
+    );
+  };
+
+  const moveNewGalleryImage = (fromIndex, toIndex) => {
+    setEditGalleryPreviews((prev) => {
+      const nextPreviews = moveArrayItem(prev, fromIndex, toIndex);
+
+      setEditGalleryFiles((currentFiles) =>
+        moveArrayItem(currentFiles, fromIndex, toIndex)
+      );
+
+      return nextPreviews;
+    });
+  };
+
+  const handleCurrentGalleryDrop = (dropIndex) => {
+    if (draggedCurrentGalleryIndex === null) return;
+    moveCurrentGalleryImage(draggedCurrentGalleryIndex, dropIndex);
+    setDraggedCurrentGalleryIndex(null);
+  };
+
+  const handleNewGalleryDrop = (dropIndex) => {
+    if (draggedNewGalleryIndex === null) return;
+    moveNewGalleryImage(draggedNewGalleryIndex, dropIndex);
+    setDraggedNewGalleryIndex(null);
   };
 
   const markCurrentGalleryImageForDelete = (image) => {
@@ -802,6 +854,15 @@ export default function RoomsList() {
     editGalleryFiles.forEach((file) => {
       formData.append("images[]", file);
     });
+
+    editCurrentGalleryItems
+      .filter((image) => image?.id && !deletedGalleryImageIds.includes(Number(image.id)))
+      .forEach((image, index) => {
+        formData.append(`gallery_order[${index}]`, image.id);
+        formData.append(`image_order[${index}]`, image.id);
+        formData.append(`room_image_order[${index}][id]`, image.id);
+        formData.append(`room_image_order[${index}][sort_order]`, index + 1);
+      });
 
     formData.append("_method", "PUT");
 
@@ -1060,6 +1121,34 @@ export default function RoomsList() {
     }
   };
 
+  const syncEditedRoomUnitNumbers = async () => {
+    if (!selectedRoom?.id || editRoomUnits.length === 0) return;
+
+    const results = await Promise.allSettled(
+      editRoomUnits
+        .filter((unit) => unit?.id)
+        .map((unit) => {
+          const roomNumber = String(getRoomUnitNumber(unit) || "").trim();
+
+          if (!roomNumber) {
+            throw new Error("Nomor kamar tidak boleh kosong");
+          }
+
+          return updateRoomUnitRequest(unit.id, {
+            room_id: selectedRoom.id,
+            room_number: roomNumber,
+            status: isRoomUnitActive(unit) ? 1 : 0,
+          });
+        })
+    );
+
+    const failed = results.filter((item) => item.status === "rejected");
+
+    if (failed.length > 0) {
+      throw new Error("Ada nomor kamar yang gagal disimpan");
+    }
+  };
+
   const handleSaveEdit = async (e) => {
     e.preventDefault();
 
@@ -1081,11 +1170,15 @@ export default function RoomsList() {
     try {
       setSavingEdit(true);
 
+      await syncEditedRoomUnitNumbers();
+
       const payload = buildUpdatePayload(selectedRoom, editForm);
+      const hasGalleryOrderChanges = editCurrentGalleryItems.some((image) => image?.id);
       const hasImageChanges =
         editCoverFile ||
         editGalleryFiles.length > 0 ||
-        deletedGalleryImageIds.length > 0;
+        deletedGalleryImageIds.length > 0 ||
+        hasGalleryOrderChanges;
 
       const finalPayload = hasImageChanges ? buildUpdateFormData(payload) : payload;
 
@@ -1635,10 +1728,10 @@ export default function RoomsList() {
                       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="text-sm font-bold text-gray-900">
-                            Tambah gambar gallery
+                            Atur gallery kamar
                           </p>
                           <p className="mt-0.5 text-xs text-gray-500">
-                            Gambar baru akan dikirim saat tombol Simpan ditekan.
+                            Geser urutan foto dengan tombol kiri/kanan atau drag. Simpan Perubahan untuk menyimpan.
                           </p>
                         </div>
 
@@ -1654,12 +1747,17 @@ export default function RoomsList() {
                         </label>
                       </div>
 
-                      {getRoomGalleryItems(selectedRoom).length > 0 && (
+                      {editCurrentGalleryItems.filter((image) => !image.id || !deletedGalleryImageIds.includes(Number(image.id))).length > 0 && (
                         <div className="mb-4">
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                              Gallery Saat Ini
-                            </p>
+                          <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                                Gallery Saat Ini
+                              </p>
+                              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-gray-500">
+                                Bisa diurutkan
+                              </span>
+                            </div>
 
                             {deletedGalleryImageIds.length > 0 && (
                               <p className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
@@ -1669,92 +1767,138 @@ export default function RoomsList() {
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                            {getRoomGalleryItems(selectedRoom)
+                            {editCurrentGalleryItems
+                              .filter((image) => !image.id || !deletedGalleryImageIds.includes(Number(image.id)))
                               .slice(0, 12)
-                              .map((image, index) => {
-                                const markedDelete =
-                                  image.id &&
-                                  deletedGalleryImageIds.includes(Number(image.id));
-
-                                return (
-                                  <div
-                                    key={`${image.url}-${image.id || index}`}
-                                    className={`group relative overflow-hidden rounded-2xl border bg-white ${
-                                      markedDelete
-                                        ? "border-red-200 opacity-60"
-                                        : "border-gray-200"
-                                    }`}
-                                  >
+                              .map((image, index) => (
+                                <div
+                                  key={`${image.url}-${image.id || index}`}
+                                  draggable
+                                  onDragStart={() => setDraggedCurrentGalleryIndex(index)}
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onDrop={() => handleCurrentGalleryDrop(index)}
+                                  onDragEnd={() => setDraggedCurrentGalleryIndex(null)}
+                                  className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+                                    draggedCurrentGalleryIndex === index
+                                      ? "border-red-300 opacity-60"
+                                      : "border-gray-200"
+                                  }`}
+                                >
+                                  <div className="relative">
                                     <img
                                       src={image.url}
                                       alt={image.label || `Gallery kamar ${index + 1}`}
                                       className="h-24 w-full object-cover"
                                     />
 
-                                    {markedDelete && (
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/45 px-2 text-center">
-                                        <p className="rounded-full bg-white px-3 py-1 text-xs font-black text-red-600">
-                                          Akan dihapus
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    <div className="absolute inset-x-2 bottom-2 flex justify-end">
-                                      {markedDelete ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => restoreCurrentGalleryImage(image)}
-                                          className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-gray-800 shadow transition hover:bg-gray-100"
-                                        >
-                                          Batal hapus
-                                        </button>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            markCurrentGalleryImageForDelete(image)
-                                          }
-                                          className="rounded-full bg-black/75 px-3 py-1.5 text-xs font-bold text-white shadow transition hover:bg-red-600 md:opacity-0 md:group-hover:opacity-100"
-                                        >
-                                          Hapus
-                                        </button>
-                                      )}
+                                    <div className="absolute left-2 top-2 rounded-full bg-black/65 px-2 py-1 text-[10px] font-black text-white shadow">
+                                      {index + 1}
                                     </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => markCurrentGalleryImageForDelete(image)}
+                                      className="absolute bottom-2 right-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow transition hover:bg-red-700"
+                                    >
+                                      Hapus
+                                    </button>
                                   </div>
-                                );
-                              })}
+
+                                  <div className="grid grid-cols-2 gap-2 p-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => moveCurrentGalleryImage(index, index - 1)}
+                                      disabled={index === 0}
+                                      className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                      ← Kiri
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => moveCurrentGalleryImage(index, index + 1)}
+                                      disabled={
+                                        index ===
+                                        editCurrentGalleryItems.filter((item) => !item.id || !deletedGalleryImageIds.includes(Number(item.id))).length - 1
+                                      }
+                                      className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                      Kanan →
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
                           </div>
 
                           <p className="mt-2 text-xs leading-relaxed text-gray-500">
-                            Tombol hapus di sini belum menghapus permanen sampai kamu klik
-                            Simpan Perubahan.
+                            Urutan gallery dan gambar yang dihapus akan diproses saat klik Simpan Perubahan.
                           </p>
                         </div>
                       )}
 
                       {editGalleryPreviews.length > 0 ? (
                         <div>
-                          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">
-                            Gambar Baru Dipilih
-                          </p>
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                              Gambar Baru Dipilih
+                            </p>
+                            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-gray-500">
+                              Bisa diurutkan
+                            </span>
+                          </div>
+
                           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                             {editGalleryPreviews.map((preview, index) => (
                               <div
                                 key={`${preview}-${index}`}
-                                className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white"
+                                draggable
+                                onDragStart={() => setDraggedNewGalleryIndex(index)}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={() => handleNewGalleryDrop(index)}
+                                onDragEnd={() => setDraggedNewGalleryIndex(null)}
+                                className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+                                  draggedNewGalleryIndex === index
+                                    ? "border-red-300 opacity-60"
+                                    : "border-gray-200"
+                                }`}
                               >
-                                <img
-                                  src={preview}
-                                  alt={`Preview gallery ${index + 1}`}
-                                  className="h-24 w-full object-cover"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removeSelectedGalleryImage(index)}
-                                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-sm font-bold text-white opacity-100 transition hover:bg-red-600 md:opacity-0 md:group-hover:opacity-100"
-                                >
-                                  ×
-                                </button>
+                                <div className="relative">
+                                  <img
+                                    src={preview}
+                                    alt={`Preview gallery ${index + 1}`}
+                                    className="h-24 w-full object-cover"
+                                  />
+
+                                  <div className="absolute left-2 top-2 rounded-full bg-black/65 px-2 py-1 text-[10px] font-black text-white shadow">
+                                    {index + 1}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => removeSelectedGalleryImage(index)}
+                                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-sm font-bold text-red-600 shadow-sm transition hover:bg-red-50"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 p-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => moveNewGalleryImage(index, index - 1)}
+                                    disabled={index === 0}
+                                    className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    ← Kiri
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveNewGalleryImage(index, index + 1)}
+                                    disabled={index === editGalleryPreviews.length - 1}
+                                    className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    Kanan →
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1911,55 +2055,54 @@ export default function RoomsList() {
                   </div>
                 </div>
 
-                <div className="mt-6 rounded-3xl border border-blue-100 bg-blue-50/50 p-5">
-                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-6 rounded-3xl border border-blue-100 bg-blue-50/50 p-4">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h3 className="text-base font-black text-gray-900">
                         Kamar Fisik / Nomor Kamar
                       </h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Kelola nomor kamar fisik agar sinkron dengan Monitoring Kamar.
+                      <p className="mt-1 text-xs text-gray-500">
+                        Nomor kamar tersimpan saat klik Simpan Perubahan.
                       </p>
                     </div>
 
-                    <div className="rounded-full bg-white px-4 py-2 text-xs font-black text-blue-700 shadow-sm">
-                      {editRoomUnits.length} unit terdaftar
+                    <div className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-blue-700 shadow-sm">
+                      {editRoomUnits.length} unit
                     </div>
                   </div>
 
-                  <div className="mb-5 rounded-2xl border border-blue-100 bg-white p-4">
-                    <label className="mb-2 block text-sm font-bold text-gray-800">
-                      Tambah Nomor Kamar Baru
-                    </label>
-                    <textarea
-                      value={newRoomUnitNumbers}
-                      onChange={(e) => setNewRoomUnitNumbers(e.target.value)}
-                      rows={3}
-                      placeholder="Contoh: 101, 102, 103 atau tulis per baris"
-                      className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
-                    />
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-xs leading-relaxed text-gray-500">
-                        Nomor yang ditambahkan akan langsung masuk ke data Monitoring Kamar.
-                      </p>
+                  <div className="mb-4 rounded-2xl border border-blue-100 bg-white p-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                      <div className="flex-1">
+                        <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-400">
+                          Tambah Nomor Kamar
+                        </label>
+                        <textarea
+                          value={newRoomUnitNumbers}
+                          onChange={(e) => setNewRoomUnitNumbers(e.target.value)}
+                          rows={2}
+                          placeholder="Contoh: 101, 102, 103 atau tulis per baris"
+                          className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                        />
+                      </div>
 
                       <button
                         type="button"
                         onClick={handleAddRoomUnitsFromEdit}
                         disabled={savingRoomUnits || !newRoomUnitNumbers.trim()}
-                        className="rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {savingRoomUnits ? "Menambah..." : "Tambah Nomor"}
+                        {savingRoomUnits ? "Menambah..." : "Tambah"}
                       </button>
                     </div>
                   </div>
 
                   {loadingEditRoomUnits ? (
-                    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-5 text-sm font-semibold text-gray-500">
+                    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-semibold text-gray-500">
                       Memuat nomor kamar fisik...
                     </div>
                   ) : editRoomUnits.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-blue-200 bg-white px-4 py-6 text-center">
+                    <div className="rounded-2xl border border-dashed border-blue-200 bg-white px-4 py-5 text-center">
                       <p className="text-sm font-black text-gray-800">
                         Belum ada nomor kamar fisik
                       </p>
@@ -1968,7 +2111,7 @@ export default function RoomsList() {
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       {editRoomUnits.map((unit) => {
                         const unitActive = isRoomUnitActive(unit);
                         const isUpdating = Number(updatingRoomUnitId) === Number(unit.id);
@@ -1977,12 +2120,12 @@ export default function RoomsList() {
                         return (
                           <div
                             key={unit.id}
-                            className="rounded-2xl border border-gray-200 bg-white p-4"
+                            className="rounded-2xl border border-gray-200 bg-white p-3"
                           >
-                            <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
-                              <div className="lg:col-span-4">
-                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                                  Nomor Kamar
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                              <div className="min-w-0 flex-1">
+                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                                  Nomor
                                 </label>
                                 <input
                                   type="text"
@@ -1990,16 +2133,16 @@ export default function RoomsList() {
                                   onChange={(e) =>
                                     handleEditRoomUnitNumberChange(unit.id, e.target.value)
                                   }
-                                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-gray-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
                                 />
                               </div>
 
-                              <div className="lg:col-span-2">
-                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-400">
+                              <div className="shrink-0">
+                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">
                                   Status
                                 </label>
                                 <span
-                                  className={`inline-flex w-full justify-center rounded-2xl px-4 py-3 text-sm font-bold ${
+                                  className={`inline-flex min-w-[90px] justify-center rounded-xl px-3 py-2.5 text-xs font-black ${
                                     unitActive
                                       ? "bg-green-100 text-green-700"
                                       : "bg-red-100 text-red-700"
@@ -2009,39 +2152,32 @@ export default function RoomsList() {
                                 </span>
                               </div>
 
-                              <div className="lg:col-span-6">
-                                <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSaveRoomUnitNumber(unit)}
-                                    disabled={isUpdating || isDeleting}
-                                    className="rounded-2xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {isUpdating ? "Menyimpan..." : "Simpan Nomor"}
-                                  </button>
+                              <div className="flex shrink-0 gap-2 sm:self-end">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleRoomUnitStatus(unit)}
+                                  disabled={isUpdating || isDeleting}
+                                  className={`rounded-xl px-3 py-2.5 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    unitActive
+                                      ? "bg-red-50 text-red-600 hover:bg-red-100"
+                                      : "bg-green-50 text-green-700 hover:bg-green-100"
+                                  }`}
+                                >
+                                  {isUpdating
+                                    ? "Proses..."
+                                    : unitActive
+                                    ? "Nonaktifkan"
+                                    : "Aktifkan"}
+                                </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleRoomUnitStatus(unit)}
-                                    disabled={isUpdating || isDeleting}
-                                    className={`rounded-2xl px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                                      unitActive
-                                        ? "bg-red-50 text-red-600 hover:bg-red-100"
-                                        : "bg-green-50 text-green-700 hover:bg-green-100"
-                                    }`}
-                                  >
-                                    {unitActive ? "Nonaktifkan" : "Aktifkan"}
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteRoomUnit(unit)}
-                                    disabled={isUpdating || isDeleting}
-                                    className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {isDeleting ? "Menghapus..." : "Hapus"}
-                                  </button>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRoomUnit(unit)}
+                                  disabled={isUpdating || isDeleting}
+                                  className="rounded-xl bg-red-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isDeleting ? "Hapus..." : "Hapus"}
+                                </button>
                               </div>
                             </div>
                           </div>

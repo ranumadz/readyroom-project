@@ -51,6 +51,7 @@ export default function BookingCalendar() {
   });
 
   const filtersRef = useRef(filters);
+  const autoFetchReadyRef = useRef(false);
 
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
@@ -284,8 +285,14 @@ export default function BookingCalendar() {
   }, [adminUser?.id]);
 
   useEffect(() => {
+    if (!autoFetchReadyRef.current) {
+      autoFetchReadyRef.current = true;
+      return;
+    }
+
+    fetchCalendar(filters, true);
     fetchFolderBadgeData(filters);
-  }, [filters.month, filters.year, filters.hotel_id, filters.status]);
+  }, [filters.hotel_id, filters.month, filters.year]);
 
   useEffect(() => {
     if (filters.hotel_id) {
@@ -300,11 +307,6 @@ export default function BookingCalendar() {
       ...prev,
       [name]: value,
     }));
-  };
-
-  const handleApplyFilter = () => {
-    fetchCalendar(filters, true);
-    fetchFolderBadgeData(filters);
   };
 
   const handleManualRefresh = () => {
@@ -552,43 +554,30 @@ export default function BookingCalendar() {
       <div className="flex-1 min-w-0">
         <Topbar />
 
-        <div className="min-w-0 p-6 md:p-8">
+        <div className="min-w-0 p-4 md:p-6">
           <style>{calendarScrollStyle}</style>
 
-          <div className="mb-6">
-            <p className="mb-2 text-sm font-semibold text-red-600">
-              Admin Panel
-            </p>
-            <h1 className="text-3xl font-bold text-gray-800 md:text-4xl">
-              Booking Calendar Ready Room
-            </h1>
-            <p className="mt-1 text-gray-500">
-              Monitor booking per kamar fisik dengan tampilan kalender yang
-              lebih mudah dibaca.
-            </p>
-          </div>
-
-          <div className="mb-5 flex flex-wrap items-center justify-end gap-3">
-            <div className="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-2 shadow-sm">
-              <RefreshCw size={16} className="text-red-500" />
+          <div className="mb-5 rounded-[30px] border border-white/70 bg-white/95 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur-sm">
+            <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <p className="text-[11px] text-gray-500">Last Updated</p>
-                <p className="text-xs font-semibold text-gray-700">
-                  {formatLastUpdated(lastUpdated)}
+                <h3 className="text-lg font-bold text-gray-800">
+                  Filter Calendar
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Pilih cabang, tahun, dan bulan. Data kalender akan tampil
+                  otomatis setelah filter diganti.
                 </p>
               </div>
-            </div>
-          </div>
 
-          <div className="mb-6 rounded-[30px] border border-white/70 bg-white/95 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur-sm">
-            <div className="mb-5">
-              <h3 className="text-lg font-bold text-gray-800">
-                Filter Calendar
-              </h3>
-              <p className="text-sm text-gray-500">
-                Pilih cabang, tahun, dan bulan untuk menampilkan jadwal kamar
-                dengan lebih rapi.
-              </p>
+              <div className="flex w-fit items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-2 shadow-sm">
+                <RefreshCw size={16} className="text-red-500" />
+                <div>
+                  <p className="text-[11px] text-gray-500">Last Updated</p>
+                  <p className="text-xs font-semibold text-gray-700">
+                    {formatLastUpdated(lastUpdated)}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -650,42 +639,23 @@ export default function BookingCalendar() {
               </div>
             </div>
 
-            <div className="mt-5 rounded-3xl border border-gray-100 bg-gray-50/80 p-4">
-              <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex items-center gap-2">
-                  <BadgeInfo size={17} className="text-red-500" />
-                  <p className="text-sm font-bold text-gray-800">
-                    Panduan Warna Booking
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={handleApplyFilter}
-                    className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(239,68,68,0.18)] transition hover:from-red-700 hover:to-rose-600"
-                  >
-                    Tampilkan
-                  </button>
-
-                  <button
-                    onClick={handleManualRefresh}
-                    className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
-                    title="Refresh manual"
-                  >
-                    <RefreshCw size={18} />
-                  </button>
-                </div>
+            <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap gap-2">
+                <Legend color="bg-amber-600" label="Approved / Confirmed" />
+                <Legend color="bg-green-500" label="Check-in" />
+                <Legend color="bg-orange-500" label="Cleaning" />
+                <Legend color="bg-slate-500" label="Completed" />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Legend
-                  color="bg-amber-600"
-                  label="Coklat: Approved / Confirmed"
-                />
-                <Legend color="bg-green-500" label="Hijau: Check-in" />
-                <Legend color="bg-orange-500" label="Oranye: Cleaning" />
-                <Legend color="bg-slate-500" label="Abu-abu: Completed" />
-              </div>
+              <button
+                type="button"
+                onClick={handleManualRefresh}
+                className="inline-flex w-fit items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm transition hover:bg-gray-50"
+                title="Refresh manual"
+              >
+                <RefreshCw size={15} />
+                Refresh
+              </button>
             </div>
           </div>
 
@@ -714,172 +684,169 @@ export default function BookingCalendar() {
           )}
 
           {hasSelectedFolder && (
-            <>
-              <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-white/95 shadow-[0_20px_55px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-                {!loading && (
-                  <>
-                    <div className="pointer-events-none absolute inset-y-0 left-0 z-[55] w-6 bg-gradient-to-r from-white via-white/90 to-transparent" />
-                    <div className="pointer-events-none absolute left-0 right-0 top-0 z-[55] h-6 bg-gradient-to-b from-white via-white/90 to-transparent" />
-                  </>
-                )}
+            <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-white/95 shadow-[0_20px_55px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+              {!loading && (
+                <>
+                  <div className="pointer-events-none absolute inset-y-0 left-0 z-[55] w-6 bg-gradient-to-r from-white via-white/90 to-transparent" />
+                  <div className="pointer-events-none absolute left-0 right-0 top-0 z-[55] h-6 bg-gradient-to-b from-white via-white/90 to-transparent" />
+                </>
+              )}
 
-                {loading ? (
-                  <div className="p-6">
-                    <p className="text-gray-500">Memuat data calendar...</p>
-                  </div>
-                ) : (
-                  <div className="calendar-scroll-area max-h-[72vh] overflow-auto overscroll-contain">
-                    <div
-                      className="grid min-w-max"
-                      style={{
-                        gridTemplateColumns: `220px repeat(${calendarDays.length}, minmax(104px, 1fr))`,
-                      }}
-                    >
-                      <div className="sticky left-0 top-0 z-[80] flex min-w-[220px] max-w-[220px] items-center border-r border-b border-red-400 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-4 py-4 font-semibold text-white shadow-[10px_0_24px_rgba(15,23,42,0.16),0_10px_24px_rgba(15,23,42,0.12)]">
-                        Room / Unit
-                      </div>
+              {loading ? (
+                <div className="p-6">
+                  <p className="text-gray-500">Memuat data calendar...</p>
+                </div>
+              ) : (
+                <div className="calendar-scroll-area max-h-[76vh] overflow-auto overscroll-contain">
+                  <div
+                    className="grid min-w-max"
+                    style={{
+                      gridTemplateColumns: `220px repeat(${calendarDays.length}, minmax(104px, 1fr))`,
+                    }}
+                  >
+                    <div className="sticky left-0 top-0 z-[80] flex min-w-[220px] max-w-[220px] items-center border-r border-b border-red-400 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-4 py-4 font-semibold text-white shadow-[10px_0_24px_rgba(15,23,42,0.16),0_10px_24px_rgba(15,23,42,0.12)]">
+                      Room / Unit
+                    </div>
 
-                      {calendarDays.map((day) => {
-                        const todayColumn = isTodayColumn(day);
+                    {calendarDays.map((day) => {
+                      const todayColumn = isTodayColumn(day);
 
-                        return (
-                          <div
-                            key={day}
-                            className={`sticky top-0 z-[70] border-b border-l px-2 py-3 text-center shadow-[0_10px_22px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
-                              todayColumn
-                                ? "border-red-500 bg-gradient-to-b from-red-600 to-rose-500 text-white"
-                                : "border-gray-200 bg-white/95"
+                      return (
+                        <div
+                          key={day}
+                          className={`sticky top-0 z-[70] border-b border-l px-2 py-3 text-center shadow-[0_10px_22px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
+                            todayColumn
+                              ? "border-red-500 bg-gradient-to-b from-red-600 to-rose-500 text-white"
+                              : "border-gray-200 bg-white/95"
+                          }`}
+                        >
+                          <p
+                            className={`text-sm font-bold ${
+                              todayColumn ? "text-white" : "text-gray-800"
                             }`}
                           >
-                            <p
-                              className={`text-sm font-bold ${
-                                todayColumn ? "text-white" : "text-gray-800"
-                              }`}
-                            >
-                              {day}
-                            </p>
-                            <p
-                              className={`text-[10px] ${
-                                todayColumn ? "text-red-100" : "text-gray-400"
-                              }`}
-                            >
-                              {monthNames[Number(filters.month) - 1].slice(0, 3)}
-                            </p>
+                            {day}
+                          </p>
+                          <p
+                            className={`text-[10px] ${
+                              todayColumn ? "text-red-100" : "text-gray-400"
+                            }`}
+                          >
+                            {monthNames[Number(filters.month) - 1].slice(0, 3)}
+                          </p>
 
-                            {todayColumn && (
-                              <span className="mt-1 inline-flex rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white ring-1 ring-white/25">
-                                Hari ini
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                          {todayColumn && (
+                            <span className="mt-1 inline-flex rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white ring-1 ring-white/25">
+                              Hari ini
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
 
-                      {visibleRoomUnits?.map((unit) => {
-                        const unitBookings = getVisibleBookingsForUnit(unit.id);
+                    {visibleRoomUnits?.map((unit) => {
+                      const unitBookings = getVisibleBookingsForUnit(unit.id);
 
-                        return (
-                          <div key={unit.id} className="contents">
-                            <div className="sticky left-0 z-[60] min-w-[220px] max-w-[220px] border-r border-b border-gray-200 bg-white/95 px-4 py-4 shadow-[12px_0_26px_rgba(15,23,42,0.12)] backdrop-blur-sm">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-gray-800">
-                                  Room {unit.room_number}
-                                </p>
-                                <p className="truncate text-xs font-medium text-gray-500">
-                                  {unit.room_name || "-"}
-                                </p>
-                              </div>
+                      return (
+                        <div key={unit.id} className="contents">
+                          <div className="sticky left-0 z-[60] min-w-[220px] max-w-[220px] border-r border-b border-gray-200 bg-white/95 px-4 py-4 shadow-[12px_0_26px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-gray-800">
+                                Room {unit.room_number}
+                              </p>
+                              <p className="truncate text-xs font-medium text-gray-500">
+                                {unit.room_name || "-"}
+                              </p>
                             </div>
+                          </div>
 
+                          <div
+                            className="relative border-b border-gray-200 bg-white"
+                            style={{
+                              gridColumn: `span ${calendarDays.length}`,
+                              minHeight: "104px",
+                            }}
+                          >
                             <div
-                              className="relative border-b border-gray-200 bg-white"
+                              className="grid h-full"
                               style={{
-                                gridColumn: `span ${calendarDays.length}`,
-                                minHeight: "104px",
+                                gridTemplateColumns: `repeat(${calendarDays.length}, minmax(104px, 1fr))`,
                               }}
                             >
-                              <div
-                                className="grid h-full"
-                                style={{
-                                  gridTemplateColumns: `repeat(${calendarDays.length}, minmax(104px, 1fr))`,
-                                }}
-                              >
-                                {calendarDays.map((day) => {
-                                  const todayColumn = isTodayColumn(day);
-
-                                  return (
-                                    <div
-                                      key={`${unit.id}-${day}`}
-                                      className={`border-l ${
-                                        todayColumn
-                                          ? "border-red-200 bg-red-50/70"
-                                          : "border-gray-200 bg-white"
-                                      }`}
-                                    />
-                                  );
-                                })}
-                              </div>
-
-                              {unitBookings.map((booking) => {
-                                const blockStyle = getBookingBlockStyle(booking);
-                                const slotCount = getBookingSlotCount(booking);
-                                const relatedBookings =
-                                  getRelatedBookingsSameDay(booking);
+                              {calendarDays.map((day) => {
+                                const todayColumn = isTodayColumn(day);
 
                                 return (
-                                  <button
-                                    key={booking.id}
-                                    type="button"
-                                    onClick={() =>
-                                      setSelectedBooking({
-                                        ...booking,
-                                        related_bookings_same_day:
-                                          relatedBookings,
-                                      })
-                                    }
-                                    className={`absolute top-5 h-[66px] overflow-hidden rounded-[18px] border px-3 py-2 text-left shadow-[0_14px_24px_rgba(15,23,42,0.18)] transition-all duration-200 hover:z-50 hover:scale-[1.03] hover:shadow-[0_18px_32px_rgba(15,23,42,0.22)] ${getBlockColor(
-                                      booking
-                                    )}`}
-                                    style={blockStyle}
-                                    title={`${booking.guest_name || "-"} | ${
-                                      booking.guest_phone || "-"
-                                    } | ${booking.booking_code}`}
-                                  >
-                                    <div className="absolute left-0 top-0 h-1 w-full rounded-t-2xl bg-white/30" />
-
-                                    {slotCount > 0 && (
-                                      <div className="absolute right-1.5 top-1.5 z-10">
-                                        <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-gray-900 shadow-sm">
-                                          +{slotCount}
-                                        </span>
-                                      </div>
-                                    )}
-
-                                    <p className="truncate pr-8 text-xs font-bold">
-                                      {booking.guest_name ||
-                                        booking.booking_code}
-                                    </p>
-                                    <p className="truncate text-[11px] opacity-95">
-                                      {booking.guest_phone || "-"}
-                                    </p>
-                                    <p className="truncate text-[10px] opacity-90">
-                                      {formatTimeRange(booking)}
-                                    </p>
-                                    <p className="truncate text-[10px] opacity-75">
-                                      {booking.booking_code}
-                                    </p>
-                                  </button>
+                                  <div
+                                    key={`${unit.id}-${day}`}
+                                    className={`border-l ${
+                                      todayColumn
+                                        ? "border-red-200 bg-red-50/70"
+                                        : "border-gray-200 bg-white"
+                                    }`}
+                                  />
                                 );
                               })}
                             </div>
+
+                            {unitBookings.map((booking) => {
+                              const blockStyle = getBookingBlockStyle(booking);
+                              const slotCount = getBookingSlotCount(booking);
+                              const relatedBookings =
+                                getRelatedBookingsSameDay(booking);
+
+                              return (
+                                <button
+                                  key={booking.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedBooking({
+                                      ...booking,
+                                      related_bookings_same_day:
+                                        relatedBookings,
+                                    })
+                                  }
+                                  className={`absolute top-5 h-[66px] overflow-hidden rounded-[18px] border px-3 py-2 text-left shadow-[0_14px_24px_rgba(15,23,42,0.18)] transition-all duration-200 hover:z-50 hover:scale-[1.03] hover:shadow-[0_18px_32px_rgba(15,23,42,0.22)] ${getBlockColor(
+                                    booking
+                                  )}`}
+                                  style={blockStyle}
+                                  title={`${booking.guest_name || "-"} | ${
+                                    booking.guest_phone || "-"
+                                  } | ${booking.booking_code}`}
+                                >
+                                  <div className="absolute left-0 top-0 h-1 w-full rounded-t-2xl bg-white/30" />
+
+                                  {slotCount > 0 && (
+                                    <div className="absolute right-1.5 top-1.5 z-10">
+                                      <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-gray-900 shadow-sm">
+                                        +{slotCount}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  <p className="truncate pr-8 text-xs font-bold">
+                                    {booking.guest_name || booking.booking_code}
+                                  </p>
+                                  <p className="truncate text-[11px] opacity-95">
+                                    {booking.guest_phone || "-"}
+                                  </p>
+                                  <p className="truncate text-[10px] opacity-90">
+                                    {formatTimeRange(booking)}
+                                  </p>
+                                  <p className="truncate text-[10px] opacity-75">
+                                    {booking.booking_code}
+                                  </p>
+                                </button>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-            </>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -902,9 +869,9 @@ export default function BookingCalendar() {
 
 function Legend({ color, label }) {
   return (
-    <div className="flex items-center gap-2 rounded-full border border-gray-100 bg-white px-4 py-2 shadow-sm">
-      <div className={`h-3.5 w-3.5 rounded-full ${color}`} />
-      <span className="text-sm font-medium text-gray-700">{label}</span>
+    <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm">
+      <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+      <span>{label}</span>
     </div>
   );
 }

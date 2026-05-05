@@ -1368,19 +1368,17 @@ export default function RoomDetail() {
                 {roomFacilities.length > 0 ? (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {roomFacilities.map((facility, index) => {
-                      const FacilityIcon = roomFacilityIcon(facility);
-                      const facilityName = getFacilityName(facility);
+  const facilityName = getFacilityName(facility);
 
-                      return (
-                        <span
-                          key={`${facility.id || facilityName}-${index}`}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600"
-                        >
-                          <FacilityIcon size={13} />
-                          {facilityName}
-                        </span>
-                      );
-                    })}
+  return (
+    <span
+      key={`${facility.id || facilityName}-${index}`}
+      className="inline-flex items-center rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600"
+    >
+      {facilityName}
+    </span>
+  );
+})}
                   </div>
                 ) : (
                   <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-500">

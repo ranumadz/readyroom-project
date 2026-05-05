@@ -22,6 +22,9 @@ import {
   CheckSquare,
   Images,
   Upload,
+  ArrowLeft,
+  ArrowRight,
+  GripVertical,
 } from "lucide-react";
 
 export default function HotelsList() {
@@ -61,6 +64,8 @@ export default function HotelsList() {
 
   const [existingGalleryPreviews, setExistingGalleryPreviews] = useState([]);
   const [newGalleryPreviews, setNewGalleryPreviews] = useState([]);
+  const [draggedExistingIndex, setDraggedExistingIndex] = useState(null);
+  const [draggedNewIndex, setDraggedNewIndex] = useState(null);
 
   const backendOrigin = useMemo(() => {
     const candidates = [
@@ -244,6 +249,21 @@ export default function HotelsList() {
     );
   };
 
+  const getGallerySortOrder = (image, fallbackIndex) => {
+    if (!image || typeof image !== "object") return fallbackIndex;
+
+    const value =
+      image.sort_order ??
+      image.order ??
+      image.position ??
+      image.sequence ??
+      fallbackIndex;
+
+    const numeric = Number(value);
+
+    return Number.isFinite(numeric) ? numeric : fallbackIndex;
+  };
+
   const normalizeGalleryImages = (hotel) => {
     const gallerySource = Array.isArray(hotel?.images)
       ? hotel.images
@@ -257,7 +277,15 @@ export default function HotelsList() {
       ? hotel.gallery
       : [];
 
-    return gallerySource
+    return [...gallerySource]
+      .sort((a, b) => {
+        const orderA = getGallerySortOrder(a, 0);
+        const orderB = getGallerySortOrder(b, 0);
+
+        if (orderA === orderB) return 0;
+
+        return orderA - orderB;
+      })
       .map((image, index) => {
         const path = getGalleryImagePath(image);
 
@@ -268,9 +296,60 @@ export default function HotelsList() {
           tempKey: `${path}-${index}`,
           path,
           url: buildImageUrl(path),
+          sort_order: getGallerySortOrder(image, index + 1),
         };
       })
       .filter(Boolean);
+  };
+
+  const moveArrayItem = (array, fromIndex, toIndex) => {
+    if (!Array.isArray(array)) return [];
+    if (fromIndex === toIndex) return array;
+    if (fromIndex < 0 || toIndex < 0) return array;
+    if (fromIndex >= array.length || toIndex >= array.length) return array;
+
+    const next = [...array];
+    const [movedItem] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, movedItem);
+
+    return next;
+  };
+
+  const moveExistingGalleryImage = (fromIndex, toIndex) => {
+    setExistingGalleryPreviews((prev) =>
+      moveArrayItem(prev, fromIndex, toIndex)
+    );
+  };
+
+  const moveNewGalleryImage = (fromIndex, toIndex) => {
+    setNewGalleryPreviews((prev) => {
+      const nextPreviews = moveArrayItem(prev, fromIndex, toIndex);
+
+      setEditForm((current) => ({
+        ...current,
+        gallery_images: nextPreviews.map((item) => item.file).filter(Boolean),
+      }));
+
+      return nextPreviews;
+    });
+  };
+
+  const handleExistingGalleryDrop = (dropIndex) => {
+    if (draggedExistingIndex === null || draggedExistingIndex === undefined) {
+      return;
+    }
+
+    moveExistingGalleryImage(draggedExistingIndex, dropIndex);
+    setDraggedExistingIndex(null);
+  };
+
+  const handleNewGalleryDrop = (dropIndex) => {
+    if (draggedNewIndex === null || draggedNewIndex === undefined) {
+      return;
+    }
+
+    moveNewGalleryImage(draggedNewIndex, dropIndex);
+    setDraggedNewIndex(null);
   };
 
   const resetEditState = () => {
@@ -303,6 +382,8 @@ export default function HotelsList() {
 
     setExistingGalleryPreviews([]);
     setNewGalleryPreviews([]);
+    setDraggedExistingIndex(null);
+    setDraggedNewIndex(null);
   };
 
   const openEditModal = (hotel) => {
@@ -335,6 +416,8 @@ export default function HotelsList() {
 
     setExistingGalleryPreviews(normalizeGalleryImages(hotel));
     setNewGalleryPreviews([]);
+    setDraggedExistingIndex(null);
+    setDraggedNewIndex(null);
     setShowEditModal(true);
   };
 
@@ -440,15 +523,15 @@ export default function HotelsList() {
         URL.revokeObjectURL(removed.preview);
       }
 
-      return prev.filter((_, itemIndex) => itemIndex !== index);
-    });
+      const nextPreviews = prev.filter((_, itemIndex) => itemIndex !== index);
 
-    setEditForm((prev) => ({
-      ...prev,
-      gallery_images: prev.gallery_images.filter(
-        (_, itemIndex) => itemIndex !== index
-      ),
-    }));
+      setEditForm((current) => ({
+        ...current,
+        gallery_images: nextPreviews.map((item) => item.file).filter(Boolean),
+      }));
+
+      return nextPreviews;
+    });
   };
 
   const clearNewGalleryImages = () => {
@@ -555,6 +638,17 @@ export default function HotelsList() {
     }
   };
 
+  const appendGalleryOrderPayload = (payload) => {
+    existingGalleryPreviews.forEach((item, index) => {
+      if (!item?.id) return;
+
+      payload.append(`gallery_order[${index}]`, item.id);
+      payload.append(`existing_gallery_order[${index}]`, item.id);
+      payload.append(`gallery_image_order[${index}][id]`, item.id);
+      payload.append(`gallery_image_order[${index}][sort_order]`, index + 1);
+    });
+  };
+
   const handleUpdateHotel = async (e) => {
     e.preventDefault();
 
@@ -627,6 +721,8 @@ export default function HotelsList() {
         payload.append(`remove_gallery_image_ids[${index}]`, imageId);
       });
 
+      appendGalleryOrderPayload(payload);
+
       await api.post(`/admin/hotels/${selectedHotel.id}`, payload, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -656,6 +752,8 @@ export default function HotelsList() {
           err.response?.data?.errors?.gallery_images?.[0] ||
           err.response?.data?.errors?.["gallery_images.0"]?.[0] ||
           err.response?.data?.errors?.remove_gallery_image_ids?.[0] ||
+          err.response?.data?.errors?.gallery_order?.[0] ||
+          err.response?.data?.errors?.gallery_image_order?.[0] ||
           "Hotel gagal diupdate",
         confirmButtonColor: "#dc2626",
       });
@@ -1173,8 +1271,8 @@ export default function HotelsList() {
                         Gallery Hotel
                       </label>
                       <p className="mt-1 text-xs text-gray-500">
-                        Tambahkan foto lobby, kamar umum, lorong, parkiran,
-                        area depan, atau suasana hotel.
+                        Atur urutan foto dengan tombol panah atau drag foto.
+                        Urutan paling kiri akan tampil lebih dulu di customer.
                       </p>
                     </div>
 
@@ -1193,7 +1291,7 @@ export default function HotelsList() {
                   <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4 md:p-5">
                     {existingGalleryPreviews.length > 0 && (
                       <div className="mb-5">
-                        <div className="mb-3 flex items-center gap-2">
+                        <div className="mb-3 flex flex-wrap items-center gap-2">
                           <Images size={18} className="text-red-500" />
                           <p className="text-sm font-bold text-gray-800">
                             Gallery yang sudah tersimpan
@@ -1201,13 +1299,25 @@ export default function HotelsList() {
                           <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-gray-500">
                             {existingGalleryPreviews.length} foto
                           </span>
+                          <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
+                            Bisa diurutkan
+                          </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                           {existingGalleryPreviews.map((item, index) => (
                             <div
                               key={item.id || item.tempKey || index}
-                              className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+                              draggable
+                              onDragStart={() => setDraggedExistingIndex(index)}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => handleExistingGalleryDrop(index)}
+                              onDragEnd={() => setDraggedExistingIndex(null)}
+                              className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+                                draggedExistingIndex === index
+                                  ? "border-red-300 opacity-60"
+                                  : "border-gray-200"
+                              }`}
                             >
                               <div className="relative">
                                 <img
@@ -1216,6 +1326,11 @@ export default function HotelsList() {
                                   onError={(e) => handleImageError(e)}
                                   className="h-28 w-full object-cover"
                                 />
+
+                                <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-black text-white shadow">
+                                  <GripVertical size={12} />
+                                  {index + 1}
+                                </div>
 
                                 <button
                                   type="button"
@@ -1226,13 +1341,41 @@ export default function HotelsList() {
                                   Hapus
                                 </button>
                               </div>
+
+                              <div className="grid grid-cols-2 gap-2 px-3 py-3">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    moveExistingGalleryImage(index, index - 1)
+                                  }
+                                  disabled={index === 0}
+                                  className="inline-flex items-center justify-center gap-1 rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <ArrowLeft size={14} />
+                                  Kiri
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    moveExistingGalleryImage(index, index + 1)
+                                  }
+                                  disabled={
+                                    index === existingGalleryPreviews.length - 1
+                                  }
+                                  className="inline-flex items-center justify-center gap-1 rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Kanan
+                                  <ArrowRight size={14} />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
 
                         <p className="mt-3 text-xs text-gray-400">
-                          Foto yang dihapus di sini baru permanen setelah klik
-                          Simpan Perubahan.
+                          Foto yang dihapus dan urutan foto baru tersimpan
+                          setelah klik Simpan Perubahan.
                         </p>
                       </div>
                     )}
@@ -1263,7 +1406,7 @@ export default function HotelsList() {
 
                     {newGalleryPreviews.length > 0 && (
                       <div className="mt-5">
-                        <div className="mb-3 flex items-center gap-2">
+                        <div className="mb-3 flex flex-wrap items-center gap-2">
                           <Images size={18} className="text-red-500" />
                           <p className="text-sm font-bold text-gray-800">
                             Foto baru yang akan ditambahkan
@@ -1271,13 +1414,25 @@ export default function HotelsList() {
                           <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-gray-500">
                             {newGalleryPreviews.length} foto
                           </span>
+                          <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
+                            Bisa diurutkan
+                          </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                           {newGalleryPreviews.map((item, index) => (
                             <div
                               key={`${item.name}-${index}`}
-                              className="overflow-hidden rounded-2xl border border-red-100 bg-white shadow-sm"
+                              draggable
+                              onDragStart={() => setDraggedNewIndex(index)}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => handleNewGalleryDrop(index)}
+                              onDragEnd={() => setDraggedNewIndex(null)}
+                              className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+                                draggedNewIndex === index
+                                  ? "border-red-300 opacity-60"
+                                  : "border-red-100"
+                              }`}
                             >
                               <div className="relative">
                                 <img
@@ -1285,6 +1440,11 @@ export default function HotelsList() {
                                   alt={`Preview gallery baru ${index + 1}`}
                                   className="h-28 w-full object-cover"
                                 />
+
+                                <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-black text-white shadow">
+                                  <GripVertical size={12} />
+                                  {index + 1}
+                                </div>
 
                                 <button
                                   type="button"
@@ -1299,6 +1459,34 @@ export default function HotelsList() {
                                 <p className="truncate text-xs font-semibold text-gray-600">
                                   {item.name}
                                 </p>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    moveNewGalleryImage(index, index - 1)
+                                  }
+                                  disabled={index === 0}
+                                  className="inline-flex items-center justify-center gap-1 rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <ArrowLeft size={14} />
+                                  Kiri
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    moveNewGalleryImage(index, index + 1)
+                                  }
+                                  disabled={
+                                    index === newGalleryPreviews.length - 1
+                                  }
+                                  className="inline-flex items-center justify-center gap-1 rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Kanan
+                                  <ArrowRight size={14} />
+                                </button>
                               </div>
                             </div>
                           ))}
