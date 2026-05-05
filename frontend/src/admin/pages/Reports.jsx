@@ -299,6 +299,21 @@ export default function Reports() {
     return value;
   };
 
+  const getBookingTypeLabel = (value, fallback = "-") => {
+    const type = String(value || "").trim().toLowerCase();
+
+    if (!type) return fallback;
+    if (type === "transit") return "Transit";
+    if (type === "overnight") return "Full Day";
+    if (type === "full_day" || type === "full day" || type === "fullday") {
+      return "Full Day";
+    }
+
+    return String(value)
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
   const getPaymentMethodLabel = (booking) => {
     const rawMethod =
       booking?.payment_method ||
@@ -367,7 +382,7 @@ export default function Reports() {
             <td>${booking.guest_phone || "-"}</td>
             <td>${hotelName}</td>
             <td>${roomName}</td>
-            <td>${booking.booking_type || "-"}</td>
+            <td>${getBookingTypeLabel(booking.booking_type)}</td>
             <td>${formatDateTime(booking.check_in)}</td>
             <td>${formatDateTime(booking.check_out)}</td>
             <td>${getPaymentMethodLabel(booking)}</td>
@@ -467,7 +482,7 @@ export default function Reports() {
               <div><strong>Tanggal Awal:</strong> ${filters.start_date ? formatDateOnly(filters.start_date) : "Semua"}</div>
               <div><strong>Tanggal Akhir:</strong> ${filters.end_date ? formatDateOnly(filters.end_date) : "Semua"}</div>
               <div><strong>Status Booking:</strong> ${filters.status || "Semua"}</div>
-              <div><strong>Jenis Booking:</strong> ${filters.booking_type || "Semua"}</div>
+              <div><strong>Jenis Booking:</strong> ${getBookingTypeLabel(filters.booking_type, "Semua")}</div>
               <div><strong>Shift:</strong> ${getShiftLabel(filters.shift)}</div>
               <div><strong>Dicetak Pada:</strong> ${new Date().toLocaleString("id-ID", {
                 dateStyle: "medium",
@@ -741,7 +756,7 @@ export default function Reports() {
                     >
                       <option value="">Semua Jenis</option>
                       <option value="transit">Transit</option>
-                      <option value="overnight">Overnight</option>
+                      <option value="overnight">Full Day</option>
                     </select>
                   </div>
 
@@ -923,7 +938,7 @@ export default function Reports() {
                             </td>
 
                             <td className="px-4 py-4 text-gray-700">
-                              {booking.booking_type || "-"}
+                              {getBookingTypeLabel(booking.booking_type)}
                             </td>
 
                             <td className="px-4 py-4 text-gray-700">
