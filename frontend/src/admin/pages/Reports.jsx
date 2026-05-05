@@ -56,9 +56,7 @@ export default function Reports() {
         ? adminUser.hotels
         : [];
 
-    return sourceHotels
-      .map((hotel) => String(hotel?.id))
-      .filter(Boolean);
+    return sourceHotels.map((hotel) => String(hotel?.id)).filter(Boolean);
   }, [adminUser, canAccessAllHotels, userAccessHotels]);
 
   const needsFolderSelection = !canAccessAllHotels;
@@ -301,36 +299,54 @@ export default function Reports() {
     return value;
   };
 
-  const getStatusClass = (status) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-700";
-      case "confirmed":
-        return "bg-blue-100 text-blue-700";
-      case "checked_in":
-        return "bg-green-100 text-green-700";
-      case "checked_out":
-        return "bg-slate-100 text-slate-700";
-      case "cleaning":
-        return "bg-orange-100 text-orange-700";
-      case "completed":
-        return "bg-emerald-100 text-emerald-700";
-      case "cancelled":
-        return "bg-red-100 text-red-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
+  const getPaymentMethodLabel = (booking) => {
+    const rawMethod =
+      booking?.payment_method ||
+      booking?.payment_type ||
+      booking?.payment_channel ||
+      booking?.method_payment ||
+      booking?.paymentMethod ||
+      booking?.payment?.method ||
+      booking?.payment?.payment_method ||
+      booking?.transaction?.payment_method ||
+      "";
 
-  const getPaymentClass = (paymentStatus) => {
-    switch (paymentStatus) {
-      case "paid":
-        return "bg-emerald-100 text-emerald-700";
-      case "refunded":
-        return "bg-purple-100 text-purple-700";
-      default:
-        return "bg-gray-100 text-gray-700";
+    const method = String(rawMethod || "").trim().toLowerCase();
+
+    if (!method) {
+      if (String(booking?.payment_status || "").toLowerCase() === "paid") {
+        return "Cash / OTS";
+      }
+
+      return "-";
     }
+
+    if (
+      method === "cash" ||
+      method === "ots" ||
+      method.includes("cash") ||
+      method.includes("on the spot") ||
+      method.includes("onsite") ||
+      method.includes("hotel")
+    ) {
+      return "Cash / OTS";
+    }
+
+    if (method.includes("transfer") || method.includes("bank")) {
+      return "Transfer Bank";
+    }
+
+    if (method.includes("qris")) {
+      return "QRIS";
+    }
+
+    if (method.includes("manual")) {
+      return "Manual";
+    }
+
+    return String(rawMethod)
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
   const handlePrint = () => {
@@ -354,8 +370,7 @@ export default function Reports() {
             <td>${booking.booking_type || "-"}</td>
             <td>${formatDateTime(booking.check_in)}</td>
             <td>${formatDateTime(booking.check_out)}</td>
-            <td>${booking.status || "-"}</td>
-            <td>${booking.payment_status || "-"}</td>
+            <td>${getPaymentMethodLabel(booking)}</td>
             <td>${formatRupiah(booking.total_price || 0)}</td>
           </tr>
         `;
@@ -500,13 +515,12 @@ export default function Reports() {
                 <th>Jenis</th>
                 <th>Check In</th>
                 <th>Check Out</th>
-                <th>Status</th>
-                <th>Pembayaran</th>
+                <th>Metode Pembayaran</th>
                 <th>Total Harga</th>
               </tr>
             </thead>
             <tbody>
-              ${rowsHtml || `<tr><td colspan="12">Tidak ada data laporan</td></tr>`}
+              ${rowsHtml || `<tr><td colspan="11">Tidak ada data laporan</td></tr>`}
             </tbody>
           </table>
 
@@ -873,8 +887,7 @@ export default function Reports() {
                           <th className="px-4">Jenis</th>
                           <th className="px-4">Check In</th>
                           <th className="px-4">Check Out</th>
-                          <th className="px-4">Status</th>
-                          <th className="px-4">Pembayaran</th>
+                          <th className="px-4">Metode Pembayaran</th>
                           <th className="px-4">Total</th>
                         </tr>
                       </thead>
@@ -921,24 +934,8 @@ export default function Reports() {
                               {formatDateTime(booking.check_out)}
                             </td>
 
-                            <td className="px-4 py-4">
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(
-                                  booking.status
-                                )}`}
-                              >
-                                {booking.status || "-"}
-                              </span>
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentClass(
-                                  booking.payment_status
-                                )}`}
-                              >
-                                {booking.payment_status || "unpaid"}
-                              </span>
+                            <td className="px-4 py-4 font-semibold text-gray-700">
+                              {getPaymentMethodLabel(booking)}
                             </td>
 
                             <td className="px-4 py-4 font-semibold text-gray-800">
