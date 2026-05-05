@@ -11,8 +11,6 @@ import {
   Clock3,
   X,
   RefreshCw,
-  Filter,
-  Layers3,
 } from "lucide-react";
 
 export default function BookingCalendar() {
@@ -32,6 +30,7 @@ export default function BookingCalendar() {
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const [calendarData, setCalendarData] = useState({
     filters: {
@@ -68,6 +67,14 @@ export default function BookingCalendar() {
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const assignedHotelIds = useMemo(() => {
     if (canAccessAllHotels) return [];
@@ -198,7 +205,9 @@ export default function BookingCalendar() {
 
   const fetchUserAccessHotels = async () => {
     if (!adminUser?.id || canAccessAllHotels) {
-      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+      setUserAccessHotels(
+        Array.isArray(adminUser?.hotels) ? adminUser.hotels : []
+      );
       return;
     }
 
@@ -217,16 +226,23 @@ export default function BookingCalendar() {
         (user) => String(user.id) === String(adminUser.id)
       );
 
-      setUserAccessHotels(Array.isArray(currentUser?.hotels) ? currentUser.hotels : []);
+      setUserAccessHotels(
+        Array.isArray(currentUser?.hotels) ? currentUser.hotels : []
+      );
     } catch (error) {
       console.error("GAGAL AMBIL HOTEL AKSES USER:", error);
-      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+      setUserAccessHotels(
+        Array.isArray(adminUser?.hotels) ? adminUser.hotels : []
+      );
     } finally {
       setLoadingUserAccessHotels(false);
     }
   };
 
-  const fetchCalendar = async (customFilters = filtersRef.current, showLoading = true) => {
+  const fetchCalendar = async (
+    customFilters = filtersRef.current,
+    showLoading = true
+  ) => {
     try {
       if (showLoading) setLoading(true);
 
@@ -235,7 +251,10 @@ export default function BookingCalendar() {
           hotel_id: customFilters.hotel_id || undefined,
           month: customFilters.month,
           year: customFilters.year,
-          status: customFilters.status || undefined,
+          status:
+            customFilters.status && customFilters.status !== "all"
+              ? customFilters.status
+              : undefined,
           admin_user_id: adminUser?.id || undefined,
         },
       });
@@ -276,6 +295,7 @@ export default function BookingCalendar() {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
+
     setFilters((prev) => ({
       ...prev,
       [name]: value,
@@ -290,24 +310,6 @@ export default function BookingCalendar() {
   const handleManualRefresh = () => {
     fetchCalendar(filters, true);
     fetchFolderBadgeData(filters);
-  };
-
-  const handleFolderSelect = (hotelId) => {
-    const nextHotelId = hotelId ? String(hotelId) : "";
-
-    if (nextHotelId) {
-      markHotelFolderAsSeen(nextHotelId, folderBadgeBookings);
-    }
-
-    const nextFilters = {
-      ...filtersRef.current,
-      hotel_id: nextHotelId,
-    };
-
-    setFilters(nextFilters);
-    filtersRef.current = nextFilters;
-    fetchCalendar(nextFilters, true);
-    fetchFolderBadgeData(nextFilters);
   };
 
   const daysInMonth = useMemo(() => {
@@ -339,6 +341,14 @@ export default function BookingCalendar() {
       59
     );
   }, [filters.month, filters.year, daysInMonth]);
+
+  const isTodayColumn = (day) => {
+    return (
+      Number(filters.year) === currentDate.getFullYear() &&
+      Number(filters.month) === currentDate.getMonth() + 1 &&
+      Number(day) === currentDate.getDate()
+    );
+  };
 
   const getBlockColor = (booking) => {
     if (booking.status === "checked_in") {
@@ -459,7 +469,9 @@ export default function BookingCalendar() {
   };
 
   const getHotelName = (hotelId) => {
-    const hotel = (calendarData.hotels || []).find((item) => item.id === hotelId);
+    const hotel = (calendarData.hotels || []).find(
+      (item) => item.id === hotelId
+    );
     return hotel?.name || "-";
   };
 
@@ -488,30 +500,6 @@ export default function BookingCalendar() {
     return Math.max(0, relatedBookings.length - 1);
   };
 
-  const totalVisibleBookings = useMemo(() => {
-    return (calendarData.bookings || []).filter((booking) => {
-      const checkIn = new Date(booking.check_in);
-      const checkOut = new Date(booking.check_out);
-
-      const inMonth = checkIn <= monthEnd && checkOut >= monthStart;
-      const inStatus = isBookingMatchStatus(booking);
-      const inAccess = canAccessAllHotels
-        ? true
-        : assignedHotelIds.includes(
-            String(booking.hotel_id ?? booking.hotel?.id ?? "")
-          );
-
-      return inMonth && inStatus && inAccess;
-    }).length;
-  }, [
-    calendarData.bookings,
-    monthStart,
-    monthEnd,
-    filters.status,
-    canAccessAllHotels,
-    assignedHotelIds,
-  ]);
-
   const selectedBookingRelated = useMemo(() => {
     if (!selectedBooking) return [];
     return getRelatedBookingsSameDay(selectedBooking);
@@ -536,28 +524,6 @@ export default function BookingCalendar() {
 
     return [];
   }, [calendarData.hotels, assignedHotelIds, canAccessAllHotels]);
-
-  const folderUnreadCounts = useMemo(() => {
-    const counts = {};
-
-    (folderBadgeBookings || [])
-      .filter((booking) => isBadgeRelevantBooking(booking))
-      .forEach((booking) => {
-        const hotelId = String(booking.hotel_id ?? booking.hotel?.id ?? "");
-        if (!hotelId) return;
-
-        const seenAt = folderSeenMap?.[hotelId];
-        const freshAt = getBookingFreshTimestamp(booking);
-
-        if (!freshAt) return;
-
-        if (!seenAt || new Date(freshAt) > new Date(seenAt)) {
-          counts[hotelId] = (counts[hotelId] || 0) + 1;
-        }
-      });
-
-    return counts;
-  }, [folderBadgeBookings, folderSeenMap]);
 
   const visibleRoomUnits = useMemo(() => {
     const units = Array.isArray(calendarData.room_units)
@@ -590,23 +556,19 @@ export default function BookingCalendar() {
           <style>{calendarScrollStyle}</style>
 
           <div className="mb-6">
-            <p className="mb-2 text-sm font-semibold text-red-600">Admin Panel</p>
+            <p className="mb-2 text-sm font-semibold text-red-600">
+              Admin Panel
+            </p>
             <h1 className="text-3xl font-bold text-gray-800 md:text-4xl">
               Booking Calendar Ready Room
             </h1>
             <p className="mt-1 text-gray-500">
-              Monitor booking per kamar fisik dengan tampilan kalender yang lebih mudah dibaca.
+              Monitor booking per kamar fisik dengan tampilan kalender yang
+              lebih mudah dibaca.
             </p>
           </div>
 
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-3">
-              <Legend color="bg-amber-600" label="Approved / Confirmed" />
-              <Legend color="bg-green-500" label="Checked In" />
-              <Legend color="bg-orange-500" label="Cleaning" />
-              <Legend color="bg-slate-500" label="Completed" />
-            </div>
-
+          <div className="mb-5 flex flex-wrap items-center justify-end gap-3">
             <div className="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-2 shadow-sm">
               <RefreshCw size={16} className="text-red-500" />
               <div>
@@ -618,59 +580,111 @@ export default function BookingCalendar() {
             </div>
           </div>
 
-          <div className="mb-6">
-            <div className="rounded-[30px] border border-white/70 bg-white/95 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur-sm">
-              <div className="mb-4 flex items-center gap-2">
-                <Hotel size={18} className="text-red-500" />
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">Folder Cabang</h2>
-                  <p className="text-sm text-gray-500">
-                    Klik cabang untuk membuka calendar booking sesuai hotel yang dipilih.
+          <div className="mb-6 rounded-[30px] border border-white/70 bg-white/95 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur-sm">
+            <div className="mb-5">
+              <h3 className="text-lg font-bold text-gray-800">
+                Filter Calendar
+              </h3>
+              <p className="text-sm text-gray-500">
+                Pilih cabang, tahun, dan bulan untuk menampilkan jadwal kamar
+                dengan lebih rapi.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Cabang
+                </label>
+                <select
+                  name="hotel_id"
+                  value={filters.hotel_id}
+                  onChange={handleFilterChange}
+                  className={inputClass}
+                >
+                  {canAccessAllHotels && <option value="">Semua Cabang</option>}
+                  {!canAccessAllHotels && <option value="">Pilih Cabang</option>}
+
+                  {accessibleHotels.map((hotel) => (
+                    <option key={hotel.id} value={hotel.id}>
+                      {hotel.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Tahun
+                </label>
+                <select
+                  name="year"
+                  value={filters.year}
+                  onChange={handleFilterChange}
+                  className={inputClass}
+                >
+                  {[2025, 2026, 2027, 2028].map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Bulan
+                </label>
+                <select
+                  name="month"
+                  value={filters.month}
+                  onChange={handleFilterChange}
+                  className={inputClass}
+                >
+                  {monthNames.map((monthName, index) => (
+                    <option key={index + 1} value={index + 1}>
+                      {monthName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-3xl border border-gray-100 bg-gray-50/80 p-4">
+              <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex items-center gap-2">
+                  <BadgeInfo size={17} className="text-red-500" />
+                  <p className="text-sm font-bold text-gray-800">
+                    Panduan Warna Booking
                   </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleApplyFilter}
+                    className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(239,68,68,0.18)] transition hover:from-red-700 hover:to-rose-600"
+                  >
+                    Tampilkan
+                  </button>
+
+                  <button
+                    onClick={handleManualRefresh}
+                    className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+                    title="Refresh manual"
+                  >
+                    <RefreshCw size={18} />
+                  </button>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-3">
-                {canAccessAllHotels && (
-                  <button
-                    type="button"
-                    onClick={() => handleFolderSelect("")}
-                    className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
-                      !filters.hotel_id
-                        ? "bg-red-600 text-white shadow-sm"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    <Layers3 size={18} />
-                    Semua Cabang
-                  </button>
-                )}
-
-                {accessibleHotels.map((hotel) => {
-                  const unreadCount = folderUnreadCounts[String(hotel.id)] || 0;
-
-                  return (
-                    <button
-                      key={hotel.id}
-                      type="button"
-                      onClick={() => handleFolderSelect(hotel.id)}
-                      className={`relative inline-flex items-center gap-2 rounded-2xl px-4 py-3 pr-12 font-semibold transition ${
-                        String(filters.hotel_id) === String(hotel.id)
-                          ? "bg-gray-900 text-white shadow-sm"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      <Hotel size={17} />
-                      <span className="truncate">{hotel.name}</span>
-
-                      {unreadCount > 0 && (
-                        <span className="absolute -right-2 -top-2 inline-flex min-w-[26px] items-center justify-center rounded-full bg-red-600 px-2 py-1 text-[11px] font-bold text-white shadow-[0_10px_20px_rgba(239,68,68,0.28)] ring-4 ring-white">
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <Legend
+                  color="bg-amber-600"
+                  label="Coklat: Approved / Confirmed"
+                />
+                <Legend color="bg-green-500" label="Hijau: Check-in" />
+                <Legend color="bg-orange-500" label="Oranye: Cleaning" />
+                <Legend color="bg-slate-500" label="Abu-abu: Completed" />
               </div>
             </div>
           </div>
@@ -686,7 +700,8 @@ export default function BookingCalendar() {
                     Pilih cabang dulu
                   </h3>
                   <p className="mt-1 text-sm text-amber-800">
-                    Klik salah satu folder cabang di atas untuk membuka isi Booking Calendar sesuai akses user ini.
+                    Pilih cabang dari dropdown Filter Calendar untuk membuka isi
+                    kalender sesuai akses user ini.
                   </p>
                   {loadingUserAccessHotels && (
                     <p className="mt-2 text-xs font-medium text-amber-700">
@@ -700,131 +715,6 @@ export default function BookingCalendar() {
 
           {hasSelectedFolder && (
             <>
-              <div className="mb-6 rounded-[30px] border border-white/70 bg-white/95 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur-sm">
-                <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">
-                      Filter Calendar
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Pilih bulan, tahun, dan status booking untuk menampilkan jadwal kamar dengan lebih rapi.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={handleApplyFilter}
-                      className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(239,68,68,0.18)] transition hover:from-red-700 hover:to-rose-600"
-                    >
-                      Tampilkan
-                    </button>
-
-                    <button
-                      onClick={handleManualRefresh}
-                      className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
-                      title="Refresh manual"
-                    >
-                      <RefreshCw size={18} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Bulan
-                    </label>
-                    <select
-                      name="month"
-                      value={filters.month}
-                      onChange={handleFilterChange}
-                      className={inputClass}
-                    >
-                      {monthNames.map((monthName, index) => (
-                        <option key={index + 1} value={index + 1}>
-                          {monthName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Tahun
-                    </label>
-                    <select
-                      name="year"
-                      value={filters.year}
-                      onChange={handleFilterChange}
-                      className={inputClass}
-                    >
-                      {[2025, 2026, 2027, 2028].map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Status Booking
-                    </label>
-                    <div className="relative">
-                      <Filter
-                        size={16}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-                      <select
-                        name="status"
-                        value={filters.status}
-                        onChange={handleFilterChange}
-                        className={`${inputClass} pl-11`}
-                      >
-                        <option value="all">Semua Status</option>
-                        <option value="confirmed">Approved / Confirmed</option>
-                        <option value="checked_in">Checked In</option>
-                        <option value="cleaning">Cleaning</option>
-                        <option value="completed">Completed</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm text-blue-800">
-                  Cabang aktif:{" "}
-                  <span className="font-semibold">
-                    {getHotelName(Number(filters.hotel_id)) ||
-                      accessibleHotels.find(
-                        (hotel) => String(hotel.id) === String(filters.hotel_id)
-                      )?.name ||
-                      "-"}
-                  </span>
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <MiniCounter
-                    label="Room Unit"
-                    value={visibleRoomUnits?.length || 0}
-                  />
-                  <MiniCounter label="Booking Tampil" value={totalVisibleBookings} />
-                  <MiniCounter
-                    label="Filter Status"
-                    value={
-                      filters.status === "all"
-                        ? "Semua"
-                        : filters.status === "confirmed"
-                        ? "Confirmed"
-                        : filters.status === "checked_in"
-                        ? "Checked In"
-                        : filters.status === "cleaning"
-                        ? "Cleaning"
-                        : "Completed"
-                    }
-                  />
-                </div>
-              </div>
-
               <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-white/95 shadow-[0_20px_55px_rgba(15,23,42,0.08)] backdrop-blur-sm">
                 {!loading && (
                   <>
@@ -842,44 +732,62 @@ export default function BookingCalendar() {
                     <div
                       className="grid min-w-max"
                       style={{
-                        gridTemplateColumns: `360px repeat(${calendarDays.length}, minmax(96px, 1fr))`,
+                        gridTemplateColumns: `220px repeat(${calendarDays.length}, minmax(104px, 1fr))`,
                       }}
                     >
-                      <div className="sticky left-0 top-0 z-[80] flex min-w-[360px] max-w-[360px] items-center border-r border-b border-red-400 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-5 py-4 font-semibold text-white shadow-[10px_0_24px_rgba(15,23,42,0.16),0_10px_24px_rgba(15,23,42,0.12)]">
+                      <div className="sticky left-0 top-0 z-[80] flex min-w-[220px] max-w-[220px] items-center border-r border-b border-red-400 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-4 py-4 font-semibold text-white shadow-[10px_0_24px_rgba(15,23,42,0.16),0_10px_24px_rgba(15,23,42,0.12)]">
                         Room / Unit
                       </div>
 
-                      {calendarDays.map((day) => (
-                        <div
-                          key={day}
-                          className="sticky top-0 z-[70] border-b border-l border-gray-200 bg-white/95 px-2 py-4 text-center backdrop-blur-sm shadow-[0_10px_22px_rgba(15,23,42,0.08)]"
-                        >
-                          <p className="text-sm font-bold text-gray-800">{day}</p>
-                          <p className="text-[10px] text-gray-400">
-                            {monthNames[Number(filters.month) - 1].slice(0, 3)}
-                          </p>
-                        </div>
-                      ))}
+                      {calendarDays.map((day) => {
+                        const todayColumn = isTodayColumn(day);
+
+                        return (
+                          <div
+                            key={day}
+                            className={`sticky top-0 z-[70] border-b border-l px-2 py-3 text-center shadow-[0_10px_22px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
+                              todayColumn
+                                ? "border-red-500 bg-gradient-to-b from-red-600 to-rose-500 text-white"
+                                : "border-gray-200 bg-white/95"
+                            }`}
+                          >
+                            <p
+                              className={`text-sm font-bold ${
+                                todayColumn ? "text-white" : "text-gray-800"
+                              }`}
+                            >
+                              {day}
+                            </p>
+                            <p
+                              className={`text-[10px] ${
+                                todayColumn ? "text-red-100" : "text-gray-400"
+                              }`}
+                            >
+                              {monthNames[Number(filters.month) - 1].slice(0, 3)}
+                            </p>
+
+                            {todayColumn && (
+                              <span className="mt-1 inline-flex rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white ring-1 ring-white/25">
+                                Hari ini
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
 
                       {visibleRoomUnits?.map((unit) => {
                         const unitBookings = getVisibleBookingsForUnit(unit.id);
 
                         return (
                           <div key={unit.id} className="contents">
-                            <div className="sticky left-0 z-[60] min-w-[360px] max-w-[360px] border-r border-b border-gray-200 bg-white/95 px-5 py-4 backdrop-blur-sm shadow-[12px_0_26px_rgba(15,23,42,0.12)]">
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-sm font-bold text-red-600 shadow-inner">
-                                  {unit.room_number}
-                                </div>
-
-                                <div className="min-w-0">
-                                  <p className="truncate text-[15px] font-semibold text-gray-800">
-                                    Room {unit.room_number}
-                                  </p>
-                                  <p className="truncate text-xs font-medium text-gray-500">
-                                    {unit.room_name || "-"}
-                                  </p>
-                                </div>
+                            <div className="sticky left-0 z-[60] min-w-[220px] max-w-[220px] border-r border-b border-gray-200 bg-white/95 px-4 py-4 shadow-[12px_0_26px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-gray-800">
+                                  Room {unit.room_number}
+                                </p>
+                                <p className="truncate text-xs font-medium text-gray-500">
+                                  {unit.room_name || "-"}
+                                </p>
                               </div>
                             </div>
 
@@ -893,15 +801,23 @@ export default function BookingCalendar() {
                               <div
                                 className="grid h-full"
                                 style={{
-                                  gridTemplateColumns: `repeat(${calendarDays.length}, minmax(96px, 1fr))`,
+                                  gridTemplateColumns: `repeat(${calendarDays.length}, minmax(104px, 1fr))`,
                                 }}
                               >
-                                {calendarDays.map((day) => (
-                                  <div
-                                    key={`${unit.id}-${day}`}
-                                    className="border-l border-gray-200 bg-white"
-                                  />
-                                ))}
+                                {calendarDays.map((day) => {
+                                  const todayColumn = isTodayColumn(day);
+
+                                  return (
+                                    <div
+                                      key={`${unit.id}-${day}`}
+                                      className={`border-l ${
+                                        todayColumn
+                                          ? "border-red-200 bg-red-50/70"
+                                          : "border-gray-200 bg-white"
+                                      }`}
+                                    />
+                                  );
+                                })}
                               </div>
 
                               {unitBookings.map((booking) => {
@@ -917,7 +833,8 @@ export default function BookingCalendar() {
                                     onClick={() =>
                                       setSelectedBooking({
                                         ...booking,
-                                        related_bookings_same_day: relatedBookings,
+                                        related_bookings_same_day:
+                                          relatedBookings,
                                       })
                                     }
                                     className={`absolute top-5 h-[66px] overflow-hidden rounded-[18px] border px-3 py-2 text-left shadow-[0_14px_24px_rgba(15,23,42,0.18)] transition-all duration-200 hover:z-50 hover:scale-[1.03] hover:shadow-[0_18px_32px_rgba(15,23,42,0.22)] ${getBlockColor(
@@ -939,7 +856,8 @@ export default function BookingCalendar() {
                                     )}
 
                                     <p className="truncate pr-8 text-xs font-bold">
-                                      {booking.guest_name || booking.booking_code}
+                                      {booking.guest_name ||
+                                        booking.booking_code}
                                     </p>
                                     <p className="truncate text-[11px] opacity-95">
                                       {booking.guest_phone || "-"}
@@ -991,17 +909,6 @@ function Legend({ color, label }) {
   );
 }
 
-function MiniCounter({ label, value }) {
-  return (
-    <div className="min-w-[118px] rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
-        {label}
-      </p>
-      <p className="mt-1 text-base font-bold text-gray-800">{value}</p>
-    </div>
-  );
-}
-
 function BookingDetailModal({
   booking,
   relatedBookings = [],
@@ -1017,7 +924,9 @@ function BookingDetailModal({
       <div className="relative max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[30px] bg-white shadow-[0_20px_80px_rgba(15,23,42,0.28)]">
         <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
           <div>
-            <p className="text-sm font-semibold text-red-600">Detail Booking</p>
+            <p className="text-sm font-semibold text-red-600">
+              Detail Booking
+            </p>
             <h3 className="mt-1 text-2xl font-bold text-gray-800">
               {booking.booking_code || "-"}
             </h3>
@@ -1072,40 +981,45 @@ function BookingDetailModal({
               label="Nama Tamu"
               value={booking.guest_name || "-"}
             />
+
             <InfoCard
               icon={<Phone size={18} className="text-red-500" />}
               label="Nomor HP"
               value={booking.guest_phone || "-"}
             />
+
             <InfoCard
               icon={<Hotel size={18} className="text-red-500" />}
               label="Hotel"
-              value={
-                booking.hotel?.name ||
-                getHotelName(booking.hotel_id) ||
-                "-"
-              }
+              value={booking.hotel?.name || getHotelName(booking.hotel_id) || "-"}
             />
+
             <InfoCard
               icon={<BedDouble size={18} className="text-red-500" />}
               label="Kamar / Unit"
-              value={`${booking.room?.type || "-"} / ${booking.room_unit?.room_number || booking.room_number || "-"}`}
+              value={`${booking.room?.type || "-"} / ${
+                booking.room_unit?.room_number || booking.room_number || "-"
+              }`}
             />
+
             <InfoCard
               icon={<Clock3 size={18} className="text-red-500" />}
               label="Check In"
               value={formatDateTime(booking.check_in)}
             />
+
             <InfoCard
               icon={<Clock3 size={18} className="text-red-500" />}
               label="Check Out"
               value={formatDateTime(booking.check_out)}
             />
+
             <InfoCard
               icon={<Clock3 size={18} className="text-red-500" />}
               label="Jam Booking"
               value={formatTimeRange(booking)}
             />
+
             <InfoCard
               icon={<CreditCard size={18} className="text-red-500" />}
               label="Total Harga"
@@ -1119,8 +1033,12 @@ function BookingDetailModal({
 
           {booking.admin_note && (
             <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-semibold text-amber-900">Catatan Admin</p>
-              <p className="mt-1 text-sm text-amber-800">{booking.admin_note}</p>
+              <p className="text-sm font-semibold text-amber-900">
+                Catatan Admin
+              </p>
+              <p className="mt-1 text-sm text-amber-800">
+                {booking.admin_note}
+              </p>
             </div>
           )}
 
@@ -1130,7 +1048,8 @@ function BookingDetailModal({
                 Booking Lain di Hari yang Sama
               </h4>
               <p className="mt-1 text-sm text-gray-500">
-                Ini membantu admin melihat slot booking lain pada kamar fisik yang sama.
+                Ini membantu admin melihat slot booking lain pada kamar fisik
+                yang sama.
               </p>
 
               <div className="mt-4 space-y-3">

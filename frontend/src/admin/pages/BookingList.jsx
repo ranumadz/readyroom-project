@@ -2609,27 +2609,6 @@ const reportBookings = useMemo(() => {
                               </div>
                             </div>
                           )}
-
-{["pending", "confirmed", "checked_in"].includes(booking.status) && (
-  <div className="mt-4 rounded-2xl bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
-    <strong>Informasi untuk Tamu:</strong>
-    <p className="mt-1">
-      Harap datang sesuai waktu booking yang telah dipilih.
-    </p>
-    <p>
-      Jika dalam 30 menit setelah waktu check-in tidak ada konfirmasi atau kehadiran, booking dapat dibatalkan oleh pihak hotel.
-    </p>
-    <p>
-      Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui kontak resmi hotel.
-    </p>
-
-    {booking.hotel?.wa_admin && (
-      <p className="mt-2 font-semibold text-blue-700">
-        Kontak Admin Cabang: {booking.hotel.wa_admin}
-      </p>
-    )}
-  </div>
-)}
                           {booking.rejection_reason_customer && (
                             <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
                               <strong>Alasan ke customer:</strong>{" "}

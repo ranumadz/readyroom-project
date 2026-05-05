@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -31,6 +32,7 @@ import {
   UtensilsCrossed,
   CheckCircle2,
   ShieldCheck,
+  ArrowLeft,
 } from "lucide-react";
 
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
@@ -72,6 +74,8 @@ const normalizeFacilityScope = (facility) => {
 };
 
 export default function AddRoom() {
+  const navigate = useNavigate();
+
   const [hotels, setHotels] = useState([]);
   const [facilities, setFacilities] = useState([]);
 
@@ -525,16 +529,27 @@ export default function AddRoom() {
         <Topbar />
 
         <div className="p-6 md:p-8">
-          <div className="mb-8">
-            <p className="text-sm font-semibold text-red-600 mb-2">
-              Admin Panel
-            </p>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-              Add Kamar
-            </h1>
-            <p className="text-gray-500 mt-1">
-              Tambahkan tipe kamar baru ke cabang hotel tertentu.
-            </p>
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-red-600 mb-2">
+                Admin Panel
+              </p>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
+                Add Kamar
+              </h1>
+              <p className="text-gray-500 mt-1">
+                Tambahkan tipe kamar baru ke cabang hotel tertentu.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/admin/rooms")}
+              className="inline-flex w-fit items-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 shadow-sm transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+            >
+              <ArrowLeft size={18} />
+              Kembali ke Rooms List
+            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

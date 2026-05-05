@@ -37,6 +37,13 @@ export default function RoomsList() {
   const [editGalleryPreviews, setEditGalleryPreviews] = useState([]);
   const [deletedGalleryImageIds, setDeletedGalleryImageIds] = useState([]);
 
+  const [editRoomUnits, setEditRoomUnits] = useState([]);
+  const [loadingEditRoomUnits, setLoadingEditRoomUnits] = useState(false);
+  const [newRoomUnitNumbers, setNewRoomUnitNumbers] = useState("");
+  const [savingRoomUnits, setSavingRoomUnits] = useState(false);
+  const [updatingRoomUnitId, setUpdatingRoomUnitId] = useState(null);
+  const [deletingRoomUnitId, setDeletingRoomUnitId] = useState(null);
+
   const [savingEdit, setSavingEdit] = useState(false);
   const [togglingRoomId, setTogglingRoomId] = useState(null);
   const [deletingRoomId, setDeletingRoomId] = useState(null);
@@ -57,6 +64,8 @@ export default function RoomsList() {
     if (Array.isArray(payload?.rooms)) return payload.rooms;
     if (Array.isArray(payload?.hotels)) return payload.hotels;
     if (Array.isArray(payload?.facilities)) return payload.facilities;
+    if (Array.isArray(payload?.room_units)) return payload.room_units;
+    if (Array.isArray(payload?.units)) return payload.units;
     return [];
   };
 
@@ -92,6 +101,32 @@ export default function RoomsList() {
     }
   };
 
+  const fetchEditRoomUnits = async (roomId) => {
+    if (!roomId) return;
+
+    try {
+      setLoadingEditRoomUnits(true);
+
+      const response = await api.get(`/admin/room-units/${roomId}`);
+      const unitData = normalizeArrayResponse(response.data);
+
+      setEditRoomUnits(unitData);
+
+      if (unitData.length > 0) {
+        setEditForm((prev) => ({
+          ...prev,
+          total_rooms: String(unitData.length),
+        }));
+      }
+    } catch (error) {
+      console.error("Gagal mengambil room unit:", error.response?.data || error);
+      setEditRoomUnits([]);
+      toast.error("Gagal mengambil nomor kamar fisik");
+    } finally {
+      setLoadingEditRoomUnits(false);
+    }
+  };
+
   const isRoomActive = (room) => {
     return (
       room?.status === true ||
@@ -108,6 +143,27 @@ export default function RoomsList() {
       facility?.status === "1" ||
       String(facility?.status || "").toLowerCase() === "true" ||
       String(facility?.status || "").toLowerCase() === "active"
+    );
+  };
+
+  const isRoomUnitActive = (unit) => {
+    return (
+      unit?.status === true ||
+      unit?.status === 1 ||
+      unit?.status === "1" ||
+      String(unit?.status || "").toLowerCase() === "true" ||
+      String(unit?.status || "").toLowerCase() === "active" ||
+      String(unit?.status || "").toLowerCase() === "available"
+    );
+  };
+
+  const getRoomUnitNumber = (unit) => {
+    return (
+      unit?.room_number ||
+      unit?.number ||
+      unit?.unit_number ||
+      unit?.name ||
+      ""
     );
   };
 
@@ -136,9 +192,13 @@ export default function RoomsList() {
   const roomFacilityOptions = useMemo(() => {
     return facilities
       .filter((facility) => {
-        return isFacilityActive(facility) && normalizeFacilityScope(facility) === "room";
+        return (
+          isFacilityActive(facility) && normalizeFacilityScope(facility) === "room"
+        );
       })
-      .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+      .sort((a, b) =>
+        String(a?.name || "").localeCompare(String(b?.name || ""))
+      );
   }, [facilities]);
 
   const getRoomFacilitySource = (room) => {
@@ -475,7 +535,12 @@ export default function RoomsList() {
     setEditGalleryFiles([]);
     setEditGalleryPreviews([]);
     setDeletedGalleryImageIds([]);
+
+    setEditRoomUnits([]);
+    setNewRoomUnitNumbers("");
     setShowEditModal(true);
+
+    fetchEditRoomUnits(room?.id);
   };
 
   const resetEditImageState = () => {
@@ -497,7 +562,9 @@ export default function RoomsList() {
   };
 
   const closeEditModal = () => {
-    if (savingEdit) return;
+    if (savingEdit || savingRoomUnits || updatingRoomUnitId || deletingRoomUnitId) {
+      return;
+    }
 
     setShowEditModal(false);
     setSelectedRoom(null);
@@ -514,6 +581,8 @@ export default function RoomsList() {
       status: 1,
       room_facility_ids: [],
     });
+    setEditRoomUnits([]);
+    setNewRoomUnitNumbers("");
     resetEditImageState();
   };
 
@@ -584,7 +653,9 @@ export default function RoomsList() {
       return [...prev, imageId];
     });
 
-    toast.success("Gambar ditandai untuk dihapus. Klik Simpan Perubahan untuk menyimpan.");
+    toast.success(
+      "Gambar ditandai untuk dihapus. Klik Simpan Perubahan untuk menyimpan."
+    );
   };
 
   const restoreCurrentGalleryImage = (image) => {
@@ -602,6 +673,27 @@ export default function RoomsList() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleEditRoomUnitNumberChange = (unitId, value) => {
+    setEditRoomUnits((prev) =>
+      prev.map((unit) =>
+        Number(unit.id) === Number(unitId)
+          ? {
+              ...unit,
+              room_number: value,
+            }
+          : unit
+      )
+    );
+  };
+
+  const parseRoomNumbers = (value) => {
+    return String(value || "")
+      .split(/[\n,;]+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .filter((item, index, array) => array.indexOf(item) === index);
   };
 
   const buildUpdatePayload = (room, formData, statusOverride = null) => {
@@ -651,6 +743,38 @@ export default function RoomsList() {
     return payload;
   };
 
+  const buildTotalRoomSyncPayload = (room, nextTotal) => {
+    const price3Key = getTransitPayloadKey(
+      room,
+      "price_transit_3h",
+      "price_3h"
+    );
+    const price6Key = getTransitPayloadKey(
+      room,
+      "price_transit_6h",
+      "price_6h"
+    );
+    const price12Key = getTransitPayloadKey(
+      room,
+      "price_transit_12h",
+      "price_12h"
+    );
+
+    return {
+      name: room?.name || "",
+      hotel_id: Number(room?.hotel_id || room?.hotel?.id || 0) || "",
+      type: room?.type || "",
+      capacity: Number(room?.capacity || 0),
+      price_per_night: Number(room?.price_per_night || 0),
+      [price3Key]: Number(getRoomTransitPrice(room, "3h") || 0),
+      [price6Key]: Number(getRoomTransitPrice(room, "6h") || 0),
+      [price12Key]: Number(getRoomTransitPrice(room, "12h") || 0),
+      total_rooms: Number(nextTotal || 0),
+      status: isRoomActive(room) ? 1 : 0,
+      room_facility_ids: getRoomFacilityIds(room),
+    };
+  };
+
   const buildUpdateFormData = (payload) => {
     const formData = new FormData();
 
@@ -671,8 +795,6 @@ export default function RoomsList() {
     });
 
     if (editCoverFile) {
-      // Backend RoomController memakai field `thumbnail`.
-      // `cover_image` ikut dikirim sebagai alias aman.
       formData.append("thumbnail", editCoverFile);
       formData.append("cover_image", editCoverFile);
     }
@@ -713,6 +835,215 @@ export default function RoomsList() {
     }
   };
 
+  const updateRoomUnitRequest = async (unitId, payload) => {
+    try {
+      return await api.put(`/admin/room-units/${unitId}`, payload);
+    } catch (error) {
+      const statusCode = error?.response?.status;
+
+      if (statusCode === 404 || statusCode === 405) {
+        return await api.post(`/admin/room-units/${unitId}`, {
+          ...payload,
+          _method: "PUT",
+        });
+      }
+
+      throw error;
+    }
+  };
+
+  const deleteRoomUnitRequest = async (unitId) => {
+    try {
+      return await api.delete(`/admin/room-units/${unitId}`);
+    } catch (error) {
+      const statusCode = error?.response?.status;
+
+      if (statusCode === 404 || statusCode === 405) {
+        return await api.post(`/admin/room-units/${unitId}`, {
+          _method: "DELETE",
+        });
+      }
+
+      throw error;
+    }
+  };
+
+  const syncRoomTotalUnits = async (nextTotal) => {
+    if (!selectedRoom?.id) return;
+
+    const payload = buildTotalRoomSyncPayload(selectedRoom, nextTotal);
+    await updateRoomRequest(selectedRoom.id, payload);
+
+    setEditForm((prev) => ({
+      ...prev,
+      total_rooms: String(nextTotal),
+    }));
+
+    setSelectedRoom((prev) =>
+      prev
+        ? {
+            ...prev,
+            total_rooms: nextTotal,
+          }
+        : prev
+    );
+  };
+
+  const refreshRoomUnitsAndSyncTotal = async () => {
+    if (!selectedRoom?.id) return;
+
+    const response = await api.get(`/admin/room-units/${selectedRoom.id}`);
+    const unitData = normalizeArrayResponse(response.data);
+
+    setEditRoomUnits(unitData);
+    await syncRoomTotalUnits(unitData.length);
+    await fetchRooms();
+  };
+
+  const handleAddRoomUnitsFromEdit = async () => {
+    if (!selectedRoom?.id) {
+      toast.error("Room belum dipilih");
+      return;
+    }
+
+    const numbers = parseRoomNumbers(newRoomUnitNumbers);
+
+    if (numbers.length === 0) {
+      toast.error("Isi nomor kamar yang mau ditambahkan");
+      return;
+    }
+
+    const existingNumbers = editRoomUnits
+      .map((unit) => String(getRoomUnitNumber(unit)).trim().toLowerCase())
+      .filter(Boolean);
+
+    const duplicateNumbers = numbers.filter((number) =>
+      existingNumbers.includes(String(number).trim().toLowerCase())
+    );
+
+    if (duplicateNumbers.length > 0) {
+      toast.error(`Nomor kamar sudah ada: ${duplicateNumbers.join(", ")}`);
+      return;
+    }
+
+    try {
+      setSavingRoomUnits(true);
+
+      const results = await Promise.allSettled(
+        numbers.map((roomNumber) =>
+          api.post("/admin/room-units", {
+            room_id: selectedRoom.id,
+            room_number: roomNumber,
+            status: true,
+          })
+        )
+      );
+
+      const successCount = results.filter(
+        (item) => item.status === "fulfilled"
+      ).length;
+      const failedCount = results.length - successCount;
+
+      if (successCount > 0) {
+        toast.success(`${successCount} nomor kamar berhasil ditambahkan`);
+      }
+
+      if (failedCount > 0) {
+        toast.error(`${failedCount} nomor kamar gagal ditambahkan`);
+      }
+
+      setNewRoomUnitNumbers("");
+      await refreshRoomUnitsAndSyncTotal();
+    } catch (error) {
+      console.error("Gagal tambah room unit:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal menambah nomor kamar");
+    } finally {
+      setSavingRoomUnits(false);
+    }
+  };
+
+  const handleSaveRoomUnitNumber = async (unit) => {
+    if (!unit?.id) return;
+
+    const roomNumber = String(getRoomUnitNumber(unit) || "").trim();
+
+    if (!roomNumber) {
+      toast.error("Nomor kamar tidak boleh kosong");
+      return;
+    }
+
+    try {
+      setUpdatingRoomUnitId(unit.id);
+
+      await updateRoomUnitRequest(unit.id, {
+        room_id: selectedRoom?.id,
+        room_number: roomNumber,
+        status: isRoomUnitActive(unit) ? 1 : 0,
+      });
+
+      toast.success("Nomor kamar berhasil diperbarui");
+      await fetchEditRoomUnits(selectedRoom?.id);
+      await fetchRooms();
+    } catch (error) {
+      console.error("Gagal update room unit:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal update nomor kamar");
+    } finally {
+      setUpdatingRoomUnitId(null);
+    }
+  };
+
+  const handleToggleRoomUnitStatus = async (unit) => {
+    if (!unit?.id) return;
+
+    const nextStatus = isRoomUnitActive(unit) ? 0 : 1;
+
+    try {
+      setUpdatingRoomUnitId(unit.id);
+
+      await updateRoomUnitRequest(unit.id, {
+        room_id: selectedRoom?.id,
+        room_number: getRoomUnitNumber(unit),
+        status: nextStatus,
+      });
+
+      toast.success(nextStatus ? "Nomor kamar diaktifkan" : "Nomor kamar dinonaktifkan");
+      await fetchEditRoomUnits(selectedRoom?.id);
+      await fetchRooms();
+    } catch (error) {
+      console.error("Gagal update status room unit:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal update status nomor kamar");
+    } finally {
+      setUpdatingRoomUnitId(null);
+    }
+  };
+
+  const handleDeleteRoomUnit = async (unit) => {
+    if (!unit?.id) return;
+
+    const confirmed = window.confirm(
+      `Hapus nomor kamar ${getRoomUnitNumber(unit)}? Jika kamar ini sudah pernah dipakai booking, backend bisa menolak penghapusan.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingRoomUnitId(unit.id);
+
+      await deleteRoomUnitRequest(unit.id);
+
+      toast.success("Nomor kamar berhasil dihapus");
+      await refreshRoomUnitsAndSyncTotal();
+    } catch (error) {
+      console.error("Gagal hapus room unit:", error.response?.data || error);
+      toast.error(
+        error.response?.data?.message ||
+          "Gagal hapus nomor kamar. Jika sudah dipakai booking, gunakan Nonaktifkan saja."
+      );
+    } finally {
+      setDeletingRoomUnitId(null);
+    }
+  };
+
   const deleteRoomRequest = async (roomId) => {
     try {
       return await api.delete(`/admin/rooms/${roomId}`);
@@ -743,7 +1074,7 @@ export default function RoomsList() {
     }
 
     if (!editForm.hotel_id) {
-      toast.error("Hotel wajib dipilih");
+      toast.error("Data hotel room tidak terbaca");
       return;
     }
 
@@ -789,6 +1120,7 @@ export default function RoomsList() {
       price_12h: getRoomTransitPrice(room, "12h"),
       total_rooms: room?.total_rooms || "",
       status: nextStatus,
+      room_facility_ids: getRoomFacilityIds(room),
     };
 
     try {
@@ -1218,14 +1550,19 @@ export default function RoomsList() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Edit Room</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  Perbarui data kamar hotel ReadyRoom
+                  Perbarui data kamar, fasilitas, harga, gambar, dan nomor kamar fisik.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={closeEditModal}
-                disabled={savingEdit}
+                disabled={
+                  savingEdit ||
+                  savingRoomUnits ||
+                  Boolean(updatingRoomUnitId) ||
+                  Boolean(deletingRoomUnitId)
+                }
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xl font-bold text-gray-500 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 ×
@@ -1453,37 +1790,6 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Hotel / Cabang
-                    </label>
-
-                    {hotelOptions.length > 0 ? (
-                      <select
-                        name="hotel_id"
-                        value={editForm.hotel_id}
-                        onChange={handleEditFormChange}
-                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
-                      >
-                        <option value="">Pilih Hotel</option>
-                        {hotelOptions.map((hotel) => (
-                          <option key={hotel.id} value={hotel.id}>
-                            {hotel.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="number"
-                        name="hotel_id"
-                        value={editForm.hotel_id}
-                        onChange={handleEditFormChange}
-                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
-                        placeholder="Hotel ID"
-                      />
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Tipe Kamar
                     </label>
                     <input
@@ -1513,6 +1819,24 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Total Unit
+                    </label>
+                    <input
+                      type="number"
+                      name="total_rooms"
+                      min="0"
+                      value={editForm.total_rooms}
+                      readOnly
+                      className="w-full cursor-not-allowed rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500 outline-none"
+                      placeholder="Otomatis dari nomor kamar fisik"
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Total unit mengikuti jumlah nomor kamar fisik di bawah.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Harga Full Day
                     </label>
                     <input
@@ -1528,17 +1852,17 @@ export default function RoomsList() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Total Unit
+                      Status
                     </label>
-                    <input
-                      type="number"
-                      name="total_rooms"
-                      min="0"
-                      value={editForm.total_rooms}
+                    <select
+                      name="status"
+                      value={editForm.status}
                       onChange={handleEditFormChange}
                       className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
-                      placeholder="Jumlah kamar"
-                    />
+                    >
+                      <option value={1}>Aktif</option>
+                      <option value={0}>Nonaktif</option>
+                    </select>
                   </div>
 
                   <div>
@@ -1585,21 +1909,146 @@ export default function RoomsList() {
                       placeholder="Harga transit 12 jam"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Status
-                    </label>
-                    <select
-                      name="status"
-                      value={editForm.status}
-                      onChange={handleEditFormChange}
-                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
-                    >
-                      <option value={1}>Aktif</option>
-                      <option value={0}>Nonaktif</option>
-                    </select>
+                <div className="mt-6 rounded-3xl border border-blue-100 bg-blue-50/50 p-5">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-base font-black text-gray-900">
+                        Kamar Fisik / Nomor Kamar
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Kelola nomor kamar fisik agar sinkron dengan Monitoring Kamar.
+                      </p>
+                    </div>
+
+                    <div className="rounded-full bg-white px-4 py-2 text-xs font-black text-blue-700 shadow-sm">
+                      {editRoomUnits.length} unit terdaftar
+                    </div>
                   </div>
+
+                  <div className="mb-5 rounded-2xl border border-blue-100 bg-white p-4">
+                    <label className="mb-2 block text-sm font-bold text-gray-800">
+                      Tambah Nomor Kamar Baru
+                    </label>
+                    <textarea
+                      value={newRoomUnitNumbers}
+                      onChange={(e) => setNewRoomUnitNumbers(e.target.value)}
+                      rows={3}
+                      placeholder="Contoh: 101, 102, 103 atau tulis per baris"
+                      className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                    />
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs leading-relaxed text-gray-500">
+                        Nomor yang ditambahkan akan langsung masuk ke data Monitoring Kamar.
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={handleAddRoomUnitsFromEdit}
+                        disabled={savingRoomUnits || !newRoomUnitNumbers.trim()}
+                        className="rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {savingRoomUnits ? "Menambah..." : "Tambah Nomor"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {loadingEditRoomUnits ? (
+                    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-5 text-sm font-semibold text-gray-500">
+                      Memuat nomor kamar fisik...
+                    </div>
+                  ) : editRoomUnits.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-blue-200 bg-white px-4 py-6 text-center">
+                      <p className="text-sm font-black text-gray-800">
+                        Belum ada nomor kamar fisik
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Tambahkan nomor kamar agar muncul di Monitoring Kamar.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {editRoomUnits.map((unit) => {
+                        const unitActive = isRoomUnitActive(unit);
+                        const isUpdating = Number(updatingRoomUnitId) === Number(unit.id);
+                        const isDeleting = Number(deletingRoomUnitId) === Number(unit.id);
+
+                        return (
+                          <div
+                            key={unit.id}
+                            className="rounded-2xl border border-gray-200 bg-white p-4"
+                          >
+                            <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
+                              <div className="lg:col-span-4">
+                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-400">
+                                  Nomor Kamar
+                                </label>
+                                <input
+                                  type="text"
+                                  value={getRoomUnitNumber(unit)}
+                                  onChange={(e) =>
+                                    handleEditRoomUnitNumberChange(unit.id, e.target.value)
+                                  }
+                                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                                />
+                              </div>
+
+                              <div className="lg:col-span-2">
+                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-400">
+                                  Status
+                                </label>
+                                <span
+                                  className={`inline-flex w-full justify-center rounded-2xl px-4 py-3 text-sm font-bold ${
+                                    unitActive
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-red-100 text-red-700"
+                                  }`}
+                                >
+                                  {unitActive ? "Aktif" : "Nonaktif"}
+                                </span>
+                              </div>
+
+                              <div className="lg:col-span-6">
+                                <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveRoomUnitNumber(unit)}
+                                    disabled={isUpdating || isDeleting}
+                                    className="rounded-2xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {isUpdating ? "Menyimpan..." : "Simpan Nomor"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleRoomUnitStatus(unit)}
+                                    disabled={isUpdating || isDeleting}
+                                    className={`rounded-2xl px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                      unitActive
+                                        ? "bg-red-50 text-red-600 hover:bg-red-100"
+                                        : "bg-green-50 text-green-700 hover:bg-green-100"
+                                    }`}
+                                  >
+                                    {unitActive ? "Nonaktifkan" : "Aktifkan"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteRoomUnit(unit)}
+                                    disabled={isUpdating || isDeleting}
+                                    className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {isDeleting ? "Menghapus..." : "Hapus"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-6 rounded-3xl border border-red-100 bg-red-50/40 p-5">
@@ -1681,9 +2130,8 @@ export default function RoomsList() {
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-blue-700">
                     Perubahan data room akan langsung tersimpan ke database.
-                    Jika kamu mengganti cover, menambah gallery, menghapus
-                    gallery, atau mengubah fasilitas kamar, sistem akan mengirim
-                    data ke backend agar halaman customer ikut ter-update.
+                    Nomor kamar fisik memakai data room unit, sehingga perubahan
+                    di bagian ini akan dipakai juga oleh halaman Monitoring Kamar.
                   </p>
                 </div>
               </div>
@@ -1692,7 +2140,12 @@ export default function RoomsList() {
                 <button
                   type="button"
                   onClick={closeEditModal}
-                  disabled={savingEdit}
+                  disabled={
+                    savingEdit ||
+                    savingRoomUnits ||
+                    Boolean(updatingRoomUnitId) ||
+                    Boolean(deletingRoomUnitId)
+                  }
                   className="rounded-2xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Batal
@@ -1700,7 +2153,12 @@ export default function RoomsList() {
 
                 <button
                   type="submit"
-                  disabled={savingEdit}
+                  disabled={
+                    savingEdit ||
+                    savingRoomUnits ||
+                    Boolean(updatingRoomUnitId) ||
+                    Boolean(deletingRoomUnitId)
+                  }
                   className="rounded-2xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {savingEdit ? "Menyimpan..." : "Simpan Perubahan"}

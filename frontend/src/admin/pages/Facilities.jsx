@@ -4,19 +4,7 @@ import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import {
   Plus,
-  Wifi,
-  CheckCircle2,
-  CircleOff,
   Layers3,
-  Car,
-  Tv,
-  Bath,
-  Coffee,
-  Dumbbell,
-  Waves,
-  AirVent,
-  UtensilsCrossed,
-  BedDouble,
   ChevronDown,
   Building2,
   DoorOpen,
@@ -25,19 +13,6 @@ import {
   Search,
 } from "lucide-react";
 import Swal from "sweetalert2";
-
-const iconOptions = [
-  { value: "wifi", label: "WiFi", icon: Wifi },
-  { value: "car", label: "Parkir", icon: Car },
-  { value: "tv", label: "TV", icon: Tv },
-  { value: "bath", label: "Kamar Mandi", icon: Bath },
-  { value: "coffee", label: "Breakfast / Coffee", icon: Coffee },
-  { value: "dumbbell", label: "Gym", icon: Dumbbell },
-  { value: "waves", label: "Kolam Renang", icon: Waves },
-  { value: "air-vent", label: "AC", icon: AirVent },
-  { value: "utensils-crossed", label: "Restoran", icon: UtensilsCrossed },
-  { value: "bed-double", label: "Tempat Tidur Besar", icon: BedDouble },
-];
 
 const purposeOptions = [
   {
@@ -60,11 +35,6 @@ const filterOptions = [
   { value: "room", label: "Kamar", icon: DoorOpen },
 ];
 
-const getIconComponent = (iconName) => {
-  const found = iconOptions.find((item) => item.value === iconName);
-  return found ? found.icon : Wifi;
-};
-
 const normalizePurpose = (facility) => {
   const raw = String(
     facility?.usage_scope ||
@@ -80,10 +50,6 @@ const normalizePurpose = (facility) => {
 
   if (raw.includes("room") || raw.includes("kamar")) return "room";
 
-  /*
-    Data lama yang dulu masih "all / both / semua" sengaja diarahkan ke hotel,
-    supaya di UI sekarang tidak muncul kategori "Semua" lagi.
-  */
   if (
     raw.includes("all") ||
     raw.includes("both") ||
@@ -115,13 +81,11 @@ export default function Facilities() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [purposeDropdownOpen, setPurposeDropdownOpen] = useState(false);
 
   const [searchKeyword, setSearchKeyword] = useState("");
   const [purposeFilter, setPurposeFilter] = useState("all");
 
-  const dropdownRef = useRef(null);
   const purposeDropdownRef = useRef(null);
 
   const [form, setForm] = useState({
@@ -158,10 +122,6 @@ export default function Facilities() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
-      }
-
       if (
         purposeDropdownRef.current &&
         !purposeDropdownRef.current.contains(event.target)
@@ -178,8 +138,8 @@ export default function Facilities() {
   const buildFacilityPayload = (data, withPurpose = true) => {
     const basePayload = {
       name: data.name,
-      icon: data.icon,
-      status: data.status,
+      icon: data.icon || "wifi",
+      status: data.status ?? true,
     };
 
     if (!withPurpose) return basePayload;
@@ -222,15 +182,6 @@ export default function Facilities() {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-  };
-
-  const handleSelectIcon = (value) => {
-    setForm((prev) => ({
-      ...prev,
-      icon: value,
-    }));
-
-    setDropdownOpen(false);
   };
 
   const handleSelectPurpose = (value) => {
@@ -310,44 +261,6 @@ export default function Facilities() {
     }
   };
 
-  const toggleStatus = async (facility) => {
-    const currentPurpose = normalizePurpose(facility);
-
-    const payload = {
-      name: facility.name,
-      icon: facility.icon,
-      usage_scope: currentPurpose,
-      status: !facility.status,
-    };
-
-    try {
-      try {
-        await api.put(
-          `/admin/facilities/${facility.id}`,
-          buildFacilityPayload(payload, true)
-        );
-      } catch (error) {
-        if (!shouldRetryWithoutPurpose(error)) throw error;
-
-        await api.put(
-          `/admin/facilities/${facility.id}`,
-          buildFacilityPayload(payload, false)
-        );
-      }
-
-      fetchFacilities();
-    } catch (err) {
-      console.error("UPDATE STATUS ERROR:", err);
-
-      Swal.fire({
-        icon: "error",
-        title: "Gagal",
-        text: "Status fasilitas gagal diubah",
-        confirmButtonColor: "#dc2626",
-      });
-    }
-  };
-
   const handleDelete = async (facility) => {
     const result = await Swal.fire({
       icon: "warning",
@@ -391,10 +304,6 @@ export default function Facilities() {
     }
   };
 
-  const selectedIcon =
-    iconOptions.find((item) => item.value === form.icon) || iconOptions[0];
-  const SelectedIconComponent = selectedIcon.icon;
-
   const selectedPurpose = getPurposeMeta(form.usage_scope);
   const SelectedPurposeIcon = selectedPurpose.icon;
 
@@ -409,12 +318,7 @@ export default function Facilities() {
 
     const matchKeyword =
       !keyword ||
-      [
-        facility?.name,
-        facility?.icon,
-        purpose?.label,
-        currentPurpose,
-      ]
+      [facility?.name, purpose?.label, currentPurpose]
         .join(" ")
         .toLowerCase()
         .includes(keyword);
@@ -422,10 +326,10 @@ export default function Facilities() {
     return matchPurpose && matchKeyword;
   });
 
-  const activeCount = facilities.filter((item) => Boolean(item.status)).length;
   const roomCount = facilities.filter(
     (item) => normalizePurpose(item) === "room"
   ).length;
+
   const hotelCount = facilities.filter(
     (item) => normalizePurpose(item) === "hotel"
   ).length;
@@ -599,94 +503,15 @@ export default function Facilities() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="mb-2 block text-sm font-bold text-gray-700">
-                        Icon Fasilitas
-                      </label>
-
-                      <div className="relative" ref={dropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setDropdownOpen(!dropdownOpen)}
-                          className="flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition hover:border-red-300 focus:ring-4 focus:ring-red-50"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                              <SelectedIconComponent size={18} />
-                            </div>
-
-                            <div className="text-left">
-                              <p className="text-sm font-black text-gray-900">
-                                {selectedIcon.label}
-                              </p>
-                              <p className="text-xs text-gray-400">
-                                {selectedIcon.value}
-                              </p>
-                            </div>
-                          </div>
-
-                          <ChevronDown
-                            size={18}
-                            className={`text-gray-500 transition ${
-                              dropdownOpen ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-
-                        {dropdownOpen && (
-                          <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
-                            <div className="max-h-72 overflow-y-auto">
-                              {iconOptions.map((item) => {
-                                const ItemIcon = item.icon;
-
-                                return (
-                                  <button
-                                    key={item.value}
-                                    type="button"
-                                    onClick={() => handleSelectIcon(item.value)}
-                                    className={`flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-red-50 ${
-                                      form.icon === item.value
-                                        ? "bg-red-50"
-                                        : "bg-white"
-                                    }`}
-                                  >
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                                      <ItemIcon size={18} />
-                                    </div>
-
-                                    <div>
-                                      <p className="text-sm font-black text-gray-900">
-                                        {item.label}
-                                      </p>
-                                      <p className="text-xs text-gray-400">
-                                        {item.value}
-                                      </p>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-                      <input
-                        type="checkbox"
-                        id="status"
-                        name="status"
-                        checked={form.status}
-                        onChange={handleChange}
-                        className="h-4 w-4 accent-red-600"
-                      />
-
-                      <label
-                        htmlFor="status"
-                        className="text-sm font-bold text-gray-700"
-                      >
-                        Aktifkan fasilitas
-                      </label>
+                    <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+                      <p className="text-sm font-bold text-blue-800">
+                        Catatan
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-blue-700">
+                        Icon dan status fasilitas disimpan otomatis oleh sistem,
+                        jadi admin cukup isi nama fasilitas dan pilih dipakai
+                        untuk Hotel atau Kamar.
+                      </p>
                     </div>
 
                     <button
@@ -713,7 +538,7 @@ export default function Facilities() {
                           Daftar Fasilitas
                         </h2>
                         <p className="text-sm text-gray-500">
-                          Data fasilitas aktif dan nonaktif di sistem.
+                          Data fasilitas master di sistem.
                         </p>
                       </div>
                     </div>
@@ -785,7 +610,7 @@ export default function Facilities() {
                     </div>
                   ) : (
                     <div className="overflow-x-auto rounded-3xl border border-gray-100">
-                      <table className="w-full min-w-[760px]">
+                      <table className="w-full min-w-[620px]">
                         <thead>
                           <tr className="border-b border-gray-200 bg-gray-50 text-left">
                             <th className="w-12 px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-400">
@@ -795,13 +620,7 @@ export default function Facilities() {
                               Fasilitas
                             </th>
                             <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-400">
-                              Icon
-                            </th>
-                            <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-400">
                               Untuk
-                            </th>
-                            <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-gray-400">
-                              Status
                             </th>
                             <th className="px-4 py-3 text-right text-xs font-black uppercase tracking-wide text-gray-400">
                               Aksi
@@ -811,7 +630,6 @@ export default function Facilities() {
 
                         <tbody>
                           {filteredFacilities.map((item, index) => {
-                            const TableIcon = getIconComponent(item.icon);
                             const purposeValue = normalizePurpose(item);
                             const purpose = getPurposeMeta(purposeValue);
                             const PurposeIcon = purpose.icon;
@@ -826,26 +644,14 @@ export default function Facilities() {
                                 </td>
 
                                 <td className="px-4 py-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                                      <TableIcon size={18} />
-                                    </div>
-
-                                    <div>
-                                      <p className="font-black text-gray-900">
-                                        {item.name}
-                                      </p>
-                                      <p className="text-xs text-gray-400">
-                                        Master fasilitas
-                                      </p>
-                                    </div>
+                                  <div>
+                                    <p className="font-black text-gray-900">
+                                      {item.name}
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                      Master fasilitas
+                                    </p>
                                   </div>
-                                </td>
-
-                                <td className="px-4 py-4">
-                                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600">
-                                    {item.icon || "-"}
-                                  </span>
                                 </td>
 
                                 <td className="px-4 py-4">
@@ -858,30 +664,6 @@ export default function Facilities() {
                                     <PurposeIcon size={15} />
                                     <span>{purpose.label}</span>
                                   </div>
-                                </td>
-
-                                <td className="px-4 py-4">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleStatus(item)}
-                                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-black transition ${
-                                      item.status
-                                        ? "bg-green-50 text-green-600 hover:bg-green-100"
-                                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                                    }`}
-                                  >
-                                    {item.status ? (
-                                      <>
-                                        <CheckCircle2 size={16} />
-                                        Aktif
-                                      </>
-                                    ) : (
-                                      <>
-                                        <CircleOff size={16} />
-                                        Nonaktif
-                                      </>
-                                    )}
-                                  </button>
                                 </td>
 
                                 <td className="px-4 py-4 text-right">
@@ -907,7 +689,7 @@ export default function Facilities() {
 
                   <div className="mt-4 text-xs font-semibold text-gray-400">
                     Menampilkan {filteredFacilities.length} dari{" "}
-                    {facilities.length} fasilitas. Aktif: {activeCount}.
+                    {facilities.length} fasilitas.
                   </div>
                 </div>
               </div>

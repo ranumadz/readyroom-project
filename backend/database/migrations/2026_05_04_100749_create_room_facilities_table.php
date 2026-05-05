@@ -24,7 +24,7 @@ return new class extends Migration
 
                 $table->unique(['room_id', 'facility_id']);
             });
-        }
+        } 
     }
 
     public function down(): void
