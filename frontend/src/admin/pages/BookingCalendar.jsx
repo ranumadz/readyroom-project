@@ -93,7 +93,7 @@ export default function BookingCalendar() {
   }, [adminUser, canAccessAllHotels, userAccessHotels]);
 
   const inputClass =
-    "w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50";
+    "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50";
 
   const calendarScrollStyle = `
     .calendar-scroll-area::-webkit-scrollbar {
@@ -547,6 +547,30 @@ export default function BookingCalendar() {
     return [];
   }, [calendarData.room_units, assignedHotelIds, canAccessAllHotels]);
 
+  const MAX_VISIBLE_CALENDAR_ROWS = 10;
+  const CALENDAR_HEADER_HEIGHT = 78;
+  const CALENDAR_ROW_HEIGHT = 72;
+  const CALENDAR_SCROLLBAR_SPACE = 18;
+
+  const calendarDisplayRows = useMemo(() => {
+    const realRows = Array.isArray(visibleRoomUnits) ? visibleRoomUnits : [];
+
+    return realRows.map((unit) => ({
+      ...unit,
+      isPlaceholder: false,
+    }));
+  }, [visibleRoomUnits]);
+
+  const calendarVisibleRowCount = Math.min(
+    Math.max(calendarDisplayRows.length, 1),
+    MAX_VISIBLE_CALENDAR_ROWS
+  );
+
+  const calendarMaxHeight =
+    CALENDAR_HEADER_HEIGHT +
+    calendarVisibleRowCount * CALENDAR_ROW_HEIGHT +
+    CALENDAR_SCROLLBAR_SPACE;
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar />
@@ -557,32 +581,31 @@ export default function BookingCalendar() {
         <div className="min-w-0 p-4 md:p-6">
           <style>{calendarScrollStyle}</style>
 
-          <div className="mb-5 rounded-[30px] border border-white/70 bg-white/95 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur-sm">
-            <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-4">
+            <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h3 className="text-lg font-bold text-gray-800">
-                  Filter Calendar
+                <h3 className="text-base font-bold text-gray-800">
+                  Filter Kalender
                 </h3>
-                <p className="text-sm text-gray-500">
-                  Pilih cabang, tahun, dan bulan. Data kalender akan tampil
-                  otomatis setelah filter diganti.
+                <p className="text-xs text-gray-500">
+                  Pilih cabang, tahun, dan bulan. Kalender otomatis mengikuti filter.
                 </p>
               </div>
 
-              <div className="flex w-fit items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-2 shadow-sm">
-                <RefreshCw size={16} className="text-red-500" />
+              <div className="flex w-fit items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 shadow-sm">
+                <RefreshCw size={14} className="text-red-500" />
                 <div>
-                  <p className="text-[11px] text-gray-500">Last Updated</p>
-                  <p className="text-xs font-semibold text-gray-700">
+                  <p className="text-[10px] text-gray-500">Terakhir Diperbarui</p>
+                  <p className="text-[11px] font-semibold text-gray-700">
                     {formatLastUpdated(lastUpdated)}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-12 lg:items-end">
+              <div className="lg:col-span-4">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
                   Cabang
                 </label>
                 <select
@@ -602,8 +625,8 @@ export default function BookingCalendar() {
                 </select>
               </div>
 
-              <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+              <div className="lg:col-span-2">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
                   Tahun
                 </label>
                 <select
@@ -620,8 +643,8 @@ export default function BookingCalendar() {
                 </select>
               </div>
 
-              <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+              <div className="lg:col-span-2">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
                   Bulan
                 </label>
                 <select
@@ -637,25 +660,25 @@ export default function BookingCalendar() {
                   ))}
                 </select>
               </div>
-            </div>
 
-            <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap gap-2">
-                <Legend color="bg-amber-600" label="Approved / Confirmed" />
-                <Legend color="bg-green-500" label="Check-in" />
-                <Legend color="bg-orange-500" label="Cleaning" />
-                <Legend color="bg-slate-500" label="Completed" />
+              <div className="lg:col-span-4">
+                <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                  <Legend color="bg-amber-600" label="Disetujui" />
+                  <Legend color="bg-green-500" label="Check-in" />
+                  <Legend color="bg-orange-500" label="Pembersihan" />
+                  <Legend color="bg-slate-500" label="Selesai" />
+
+                  <button
+                    type="button"
+                    onClick={handleManualRefresh}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-bold text-gray-700 shadow-sm transition hover:bg-gray-50"
+                    title="Refresh manual"
+                  >
+                    <RefreshCw size={13} />
+                    Refresh
+                  </button>
+                </div>
               </div>
-
-              <button
-                type="button"
-                onClick={handleManualRefresh}
-                className="inline-flex w-fit items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm transition hover:bg-gray-50"
-                title="Refresh manual"
-              >
-                <RefreshCw size={15} />
-                Refresh
-              </button>
             </div>
           </div>
 
@@ -670,7 +693,7 @@ export default function BookingCalendar() {
                     Pilih cabang dulu
                   </h3>
                   <p className="mt-1 text-sm text-amber-800">
-                    Pilih cabang dari dropdown Filter Calendar untuk membuka isi
+                    Pilih cabang dari dropdown Filter Kalender untuk membuka isi
                     kalender sesuai akses user ini.
                   </p>
                   {loadingUserAccessHotels && (
@@ -694,18 +717,21 @@ export default function BookingCalendar() {
 
               {loading ? (
                 <div className="p-6">
-                  <p className="text-gray-500">Memuat data calendar...</p>
+                  <p className="text-gray-500">Memuat data kalender...</p>
                 </div>
               ) : (
-                <div className="calendar-scroll-area max-h-[76vh] overflow-auto overscroll-contain">
+                <div
+                  className="calendar-scroll-area overflow-auto overscroll-contain"
+                  style={{ maxHeight: `${calendarMaxHeight}px` }}
+                >
                   <div
                     className="grid min-w-max"
                     style={{
-                      gridTemplateColumns: `220px repeat(${calendarDays.length}, minmax(104px, 1fr))`,
+                      gridTemplateColumns: `170px repeat(${calendarDays.length}, minmax(92px, 1fr))`,
                     }}
                   >
-                    <div className="sticky left-0 top-0 z-[80] flex min-w-[220px] max-w-[220px] items-center border-r border-b border-red-400 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-4 py-4 font-semibold text-white shadow-[10px_0_24px_rgba(15,23,42,0.16),0_10px_24px_rgba(15,23,42,0.12)]">
-                      Room / Unit
+                    <div className="sticky left-0 top-0 z-[80] flex min-w-[170px] max-w-[170px] items-center border-r border-b border-red-400 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-3 py-3 text-sm font-semibold text-white shadow-[10px_0_24px_rgba(15,23,42,0.16),0_10px_24px_rgba(15,23,42,0.12)]">
+                      Kamar / Unit
                     </div>
 
                     {calendarDays.map((day) => {
@@ -714,14 +740,14 @@ export default function BookingCalendar() {
                       return (
                         <div
                           key={day}
-                          className={`sticky top-0 z-[70] border-b border-l px-2 py-3 text-center shadow-[0_10px_22px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
+                          className={`sticky top-0 z-[70] border-b border-l px-2 py-2.5 text-center shadow-[0_10px_22px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
                             todayColumn
                               ? "border-red-500 bg-gradient-to-b from-red-600 to-rose-500 text-white"
                               : "border-gray-200 bg-white/95"
                           }`}
                         >
                           <p
-                            className={`text-sm font-bold ${
+                            className={`text-[13px] font-bold ${
                               todayColumn ? "text-white" : "text-gray-800"
                             }`}
                           >
@@ -744,17 +770,17 @@ export default function BookingCalendar() {
                       );
                     })}
 
-                    {visibleRoomUnits?.map((unit) => {
+                    {calendarDisplayRows?.map((unit) => {
                       const unitBookings = getVisibleBookingsForUnit(unit.id);
 
                       return (
                         <div key={unit.id} className="contents">
-                          <div className="sticky left-0 z-[60] min-w-[220px] max-w-[220px] border-r border-b border-gray-200 bg-white/95 px-4 py-4 shadow-[12px_0_26px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+                          <div className="sticky left-0 z-[60] min-w-[170px] max-w-[170px] border-r border-b border-gray-200 bg-white/95 px-3 py-3 shadow-[10px_0_22px_rgba(15,23,42,0.10)] backdrop-blur-sm">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-gray-800">
+                              <p className="truncate text-[13px] font-semibold text-gray-800">
                                 Room {unit.room_number}
                               </p>
-                              <p className="truncate text-xs font-medium text-gray-500">
+                              <p className="truncate text-[11px] font-medium text-gray-500">
                                 {unit.room_name || "-"}
                               </p>
                             </div>
@@ -764,13 +790,13 @@ export default function BookingCalendar() {
                             className="relative border-b border-gray-200 bg-white"
                             style={{
                               gridColumn: `span ${calendarDays.length}`,
-                              minHeight: "104px",
+                              minHeight: `${CALENDAR_ROW_HEIGHT}px`,
                             }}
                           >
                             <div
                               className="grid h-full"
                               style={{
-                                gridTemplateColumns: `repeat(${calendarDays.length}, minmax(104px, 1fr))`,
+                                gridTemplateColumns: `repeat(${calendarDays.length}, minmax(92px, 1fr))`,
                               }}
                             >
                               {calendarDays.map((day) => {
@@ -806,7 +832,7 @@ export default function BookingCalendar() {
                                         relatedBookings,
                                     })
                                   }
-                                  className={`absolute top-5 h-[66px] overflow-hidden rounded-[18px] border px-3 py-2 text-left shadow-[0_14px_24px_rgba(15,23,42,0.18)] transition-all duration-200 hover:z-50 hover:scale-[1.03] hover:shadow-[0_18px_32px_rgba(15,23,42,0.22)] ${getBlockColor(
+                                  className={`absolute top-2.5 h-[52px] overflow-hidden rounded-[13px] border px-2.5 py-1 text-left shadow-[0_10px_18px_rgba(15,23,42,0.15)] transition-all duration-200 hover:z-50 hover:scale-[1.03] hover:shadow-[0_14px_24px_rgba(15,23,42,0.20)] ${getBlockColor(
                                     booking
                                   )}`}
                                   style={blockStyle}
@@ -824,16 +850,16 @@ export default function BookingCalendar() {
                                     </div>
                                   )}
 
-                                  <p className="truncate pr-8 text-xs font-bold">
+                                  <p className="truncate pr-8 text-[11px] font-bold">
                                     {booking.guest_name || booking.booking_code}
                                   </p>
-                                  <p className="truncate text-[11px] opacity-95">
+                                  <p className="truncate text-[10px] opacity-95">
                                     {booking.guest_phone || "-"}
                                   </p>
-                                  <p className="truncate text-[10px] opacity-90">
+                                  <p className="truncate text-[9px] opacity-90">
                                     {formatTimeRange(booking)}
                                   </p>
-                                  <p className="truncate text-[10px] opacity-75">
+                                  <p className="truncate text-[9px] opacity-75">
                                     {booking.booking_code}
                                   </p>
                                 </button>
@@ -856,6 +882,7 @@ export default function BookingCalendar() {
           booking={selectedBooking}
           relatedBookings={selectedBookingRelated}
           onClose={() => setSelectedBooking(null)}
+          onSelectBooking={setSelectedBooking}
           formatDateTime={formatDateTime}
           formatTimeRange={formatTimeRange}
           getHotelName={getHotelName}
@@ -869,8 +896,8 @@ export default function BookingCalendar() {
 
 function Legend({ color, label }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm">
-      <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+    <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-gray-700 shadow-sm">
+      <span className={`h-2 w-2 rounded-full ${color}`} />
       <span>{label}</span>
     </div>
   );
@@ -880,41 +907,64 @@ function BookingDetailModal({
   booking,
   relatedBookings = [],
   onClose,
+  onSelectBooking,
   formatDateTime,
   formatTimeRange,
   getHotelName,
   getStatusBadgeClass,
   getPaymentBadgeClass,
 }) {
+  const getBookingTypeText = (bookingType) => {
+    if (bookingType === "overnight") return "Full Day";
+    if (bookingType === "transit") return "Transit";
+    return bookingType || "-";
+  };
+
+  const roomLabel = booking.room?.type || booking.room?.name || "Kamar";
+  const unitNumber = booking.room_unit?.room_number || booking.room_number || "-";
+  const roomUnitText = unitNumber === "-" ? roomLabel : `${roomLabel} / ${unitNumber}`;
+  const totalPriceText = booking.total_price
+    ? `Rp ${Number(booking.total_price).toLocaleString("id-ID")}`
+    : "-";
+
+  const handlePickRelatedBooking = (item) => {
+    if (!onSelectBooking) return;
+
+    onSelectBooking({
+      ...item,
+      related_bookings_same_day: relatedBookings,
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
-      <div className="relative max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[30px] bg-white shadow-[0_20px_80px_rgba(15,23,42,0.28)]">
-        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
-          <div>
-            <p className="text-sm font-semibold text-red-600">
+      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[26px] bg-white shadow-[0_20px_80px_rgba(15,23,42,0.28)]">
+        <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide text-red-600">
               Detail Booking
             </p>
-            <h3 className="mt-1 text-2xl font-bold text-gray-800">
+            <h3 className="mt-1 truncate text-2xl font-black text-gray-900">
               {booking.booking_code || "-"}
             </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Klik close untuk kembali ke kalender.
+            <p className="mt-1 text-xs font-medium text-gray-500">
+              Klik booking lain di bawah untuk melihat detailnya di sini.
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50"
           >
-            <X size={20} />
+            <X size={19} />
           </button>
         </div>
 
-        <div className="max-h-[calc(92vh-92px)] overflow-y-auto px-6 py-6">
-          <div className="mb-5 flex flex-wrap gap-2">
+        <div className="max-h-[calc(90vh-86px)] overflow-y-auto px-5 py-4">
+          <div className="mb-4 flex flex-wrap gap-2">
             <span
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold ${getStatusBadgeClass(
                 booking.status
               )}`}
             >
@@ -922,7 +972,7 @@ function BookingDetailModal({
             </span>
 
             <span
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getPaymentBadgeClass(
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold ${getPaymentBadgeClass(
                 booking.payment_status
               )}`}
             >
@@ -930,126 +980,123 @@ function BookingDetailModal({
             </span>
 
             {booking.booking_type && (
-              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                Tipe: {booking.booking_type}
+              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">
+                Tipe: {getBookingTypeText(booking.booking_type)}
               </span>
             )}
 
             {booking.duration_hours && (
-              <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700">
+              <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-[11px] font-bold text-purple-700">
                 Durasi: {booking.duration_hours} jam
               </span>
             )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <InfoCard
-              icon={<BadgeInfo size={18} className="text-red-500" />}
-              label="Nama Tamu"
-              value={booking.guest_name || "-"}
-            />
+          <div className="rounded-[24px] border border-gray-100 bg-gray-50/70 p-3">
+            <div className="space-y-2">
+              <InfoCard
+                icon={<BadgeInfo size={17} className="text-red-500" />}
+                label="Nama Tamu"
+                value={booking.guest_name || "-"}
+              />
 
-            <InfoCard
-              icon={<Phone size={18} className="text-red-500" />}
-              label="Nomor HP"
-              value={booking.guest_phone || "-"}
-            />
+              <InfoCard
+                icon={<Phone size={17} className="text-red-500" />}
+                label="Nomor HP"
+                value={booking.guest_phone || "-"}
+              />
 
-            <InfoCard
-              icon={<Hotel size={18} className="text-red-500" />}
-              label="Hotel"
-              value={booking.hotel?.name || getHotelName(booking.hotel_id) || "-"}
-            />
+              <InfoCard
+                icon={<Hotel size={17} className="text-red-500" />}
+                label="Hotel"
+                value={booking.hotel?.name || getHotelName(booking.hotel_id) || "-"}
+              />
 
-            <InfoCard
-              icon={<BedDouble size={18} className="text-red-500" />}
-              label="Kamar / Unit"
-              value={`${booking.room?.type || "-"} / ${
-                booking.room_unit?.room_number || booking.room_number || "-"
-              }`}
-            />
+              <InfoCard
+                icon={<BedDouble size={17} className="text-red-500" />}
+                label="Kamar / Unit"
+                value={roomUnitText}
+              />
 
-            <InfoCard
-              icon={<Clock3 size={18} className="text-red-500" />}
-              label="Check In"
-              value={formatDateTime(booking.check_in)}
-            />
+              <InfoCard
+                icon={<Clock3 size={17} className="text-red-500" />}
+                label="Check In"
+                value={formatDateTime(booking.check_in)}
+              />
 
-            <InfoCard
-              icon={<Clock3 size={18} className="text-red-500" />}
-              label="Check Out"
-              value={formatDateTime(booking.check_out)}
-            />
+              <InfoCard
+                icon={<Clock3 size={17} className="text-red-500" />}
+                label="Check Out"
+                value={formatDateTime(booking.check_out)}
+              />
 
-            <InfoCard
-              icon={<Clock3 size={18} className="text-red-500" />}
-              label="Jam Booking"
-              value={formatTimeRange(booking)}
-            />
+              <InfoCard
+                icon={<Clock3 size={17} className="text-red-500" />}
+                label="Jam Booking"
+                value={formatTimeRange(booking)}
+              />
 
-            <InfoCard
-              icon={<CreditCard size={18} className="text-red-500" />}
-              label="Total Harga"
-              value={
-                booking.total_price
-                  ? `Rp ${Number(booking.total_price).toLocaleString("id-ID")}`
-                  : "-"
-              }
-            />
+              <InfoCard
+                icon={<CreditCard size={17} className="text-red-500" />}
+                label="Total Harga"
+                value={totalPriceText}
+              />
+            </div>
           </div>
 
           {booking.admin_note && (
-            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-semibold text-amber-900">
-                Catatan Admin
-              </p>
-              <p className="mt-1 text-sm text-amber-800">
-                {booking.admin_note}
-              </p>
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-bold text-amber-900">Catatan Admin</p>
+              <p className="mt-1 text-sm text-amber-800">{booking.admin_note}</p>
             </div>
           )}
 
           {relatedBookings.length > 1 && (
-            <div className="mt-6 rounded-3xl border border-gray-100 bg-gray-50/70 p-5">
-              <h4 className="text-base font-bold text-gray-800">
+            <div className="mt-4 rounded-[24px] border border-gray-100 bg-white p-4">
+              <h4 className="text-sm font-black text-gray-900">
                 Booking Lain di Hari yang Sama
               </h4>
-              <p className="mt-1 text-sm text-gray-500">
-                Ini membantu admin melihat slot booking lain pada kamar fisik
-                yang sama.
+              <p className="mt-1 text-xs text-gray-500">
+                Klik salah satu booking untuk menampilkan detailnya di atas.
               </p>
 
-              <div className="mt-4 space-y-3">
-                {relatedBookings.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`rounded-2xl border px-4 py-3 ${
-                      String(item.id) === String(booking.id)
-                        ? "border-red-200 bg-red-50"
-                        : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-gray-800">
-                          {item.guest_name || item.booking_code}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {item.guest_phone || "-"}
-                        </p>
-                      </div>
+              <div className="mt-3 space-y-2">
+                {relatedBookings.map((item) => {
+                  const active = String(item.id) === String(booking.id);
 
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-gray-700">
-                          {formatTimeRange(item)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {item.booking_code}
-                        </p>
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handlePickRelatedBooking(item)}
+                      className={`w-full rounded-2xl border px-4 py-3 text-left transition hover:border-red-200 hover:bg-red-50/70 ${
+                        active
+                          ? "border-red-200 bg-red-50"
+                          : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-gray-900">
+                            {item.guest_name || item.booking_code}
+                          </p>
+                          <p className="mt-0.5 text-xs font-medium text-gray-500">
+                            {item.guest_phone || "-"}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-gray-800">
+                            {formatTimeRange(item)}
+                          </p>
+                          <p className="text-xs font-medium text-gray-500">
+                            {item.booking_code}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1061,14 +1108,16 @@ function BookingDetailModal({
 
 function InfoCard({ icon, label, value }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
-      <div className="mb-2 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-sm">
-          {icon}
-        </div>
-        <p className="text-sm font-semibold text-gray-700">{label}</p>
+    <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-3.5 py-3 shadow-sm">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50">
+        {icon}
       </div>
-      <p className="text-sm font-medium text-gray-900">{value || "-"}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold text-gray-500">{label}</p>
+        <p className="mt-0.5 truncate text-sm font-black text-gray-900">
+          {value || "-"}
+        </p>
+      </div>
     </div>
   );
 }

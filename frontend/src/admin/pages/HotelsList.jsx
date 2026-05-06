@@ -25,6 +25,8 @@ import {
   ArrowLeft,
   ArrowRight,
   GripVertical,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 
 export default function HotelsList() {
@@ -36,6 +38,9 @@ export default function HotelsList() {
   const [loading, setLoading] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingFacilities, setLoadingFacilities] = useState(false);
+  const [selectedHotelId, setSelectedHotelId] = useState("");
+  const [hotelSearch, setHotelSearch] = useState("");
+  const [hotelStatusFilter, setHotelStatusFilter] = useState("all");
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -767,102 +772,230 @@ export default function HotelsList() {
     return `Edit Hotel - ${selectedHotel.name}`;
   }, [selectedHotel]);
 
+  const selectedHotelData = useMemo(() => {
+    if (!selectedHotelId) return null;
+
+    return hotels.find((hotel) => String(hotel.id) === String(selectedHotelId)) || null;
+  }, [hotels, selectedHotelId]);
+
+  const hotelStats = useMemo(() => {
+    const active = hotels.filter((hotel) => Boolean(hotel.status)).length;
+    const inactive = hotels.length - active;
+
+    return {
+      total: hotels.length,
+      active,
+      inactive,
+    };
+  }, [hotels]);
+
+  const displayedHotels = useMemo(() => {
+    if (!selectedHotelId) return [];
+
+    const keyword = hotelSearch.trim().toLowerCase();
+
+    return hotels
+      .filter((hotel) => String(hotel.id) === String(selectedHotelId))
+      .filter((hotel) => {
+        if (hotelStatusFilter === "active") return Boolean(hotel.status);
+        if (hotelStatusFilter === "inactive") return !Boolean(hotel.status);
+        return true;
+      })
+      .filter((hotel) => {
+        if (!keyword) return true;
+
+        const cityName = hotel.city?.name || hotel.city_name || "";
+
+        return [hotel.name, cityName, hotel.address, hotel.area, hotel.wa_admin]
+          .map((item) => String(item || "").toLowerCase())
+          .some((item) => item.includes(keyword));
+      });
+  }, [hotels, selectedHotelId, hotelSearch, hotelStatusFilter]);
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar />
 
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <Topbar />
 
-        <div className="p-6 md:p-8">
-          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="mb-2 text-sm font-semibold text-red-600">
-                Admin Panel
-              </p>
-              <h1 className="text-3xl font-bold text-gray-800 md:text-4xl">
-                Hotels List
-              </h1>
-              <p className="mt-2 text-gray-500">
-                Kelola data hotel dan cabang ReadyRoom.
-              </p>
-            </div>
-
-            <button
-              onClick={() => navigate("/admin/hotels/add")}
-              className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-red-700"
-            >
-              <Plus size={18} />
-              Add Hotel
-            </button>
-          </div>
-
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-            {loading ? (
-              <div className="py-16 text-center text-gray-500">
-                Memuat data hotel...
-              </div>
-            ) : hotels.length === 0 ? (
-              <div className="py-16 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                  <Building2 size={28} />
+        <div className="p-4 md:p-6">
+          <div className="mb-4 overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm">
+            <div className="flex flex-col gap-3 bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 px-5 py-4 text-white md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal size={17} className="text-red-300" />
+                  <h2 className="text-base font-black">Filter Hotel</h2>
                 </div>
-
-                <h3 className="text-lg font-semibold text-gray-800">
-                  Belum ada data hotel
-                </h3>
-
-                <p className="mb-5 mt-2 text-gray-500">
-                  Tambahkan cabang hotel pertama untuk mulai mengelola room dan
-                  booking.
+                <p className="mt-1 text-xs text-white/75">
+                  Pilih cabang terlebih dahulu. Sistem akan menampilkan data hotel sesuai cabang yang dipilih.
                 </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/10">
+                  {selectedHotelData ? selectedHotelData.name : "Belum pilih cabang"}
+                </span>
 
                 <button
+                  type="button"
                   onClick={() => navigate("/admin/hotels/add")}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700"
                 >
-                  <Plus size={18} />
+                  <Plus size={17} />
                   Add Hotel
                 </button>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-12 md:p-5">
+              <div className="md:col-span-4">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                  Cabang / Hotel
+                </label>
+                <select
+                  value={selectedHotelId}
+                  onChange={(e) => setSelectedHotelId(e.target.value)}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                >
+                  <option value="">Pilih Cabang / Hotel</option>
+                  {hotels.map((hotel) => (
+                    <option key={hotel.id} value={hotel.id}>
+                      {hotel.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-4">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                  Cari Hotel / Kota / Alamat
+                </label>
+                <div className="relative">
+                  <Search
+                    size={17}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="text"
+                    value={hotelSearch}
+                    onChange={(e) => setHotelSearch(e.target.value)}
+                    placeholder="Cari nama hotel, kota, alamat..."
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                  />
+                </div>
+              </div>
+
+              <div className="md:col-span-4">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                  Filter Status
+                </label>
+                <select
+                  value={hotelStatusFilter}
+                  onChange={(e) => setHotelStatusFilter(e.target.value)}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                >
+                  <option value="all">Semua</option>
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Nonaktif</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 pb-4 md:px-5">
+              <StatusPill color="bg-red-500" label={`Total Hotel: ${hotelStats.total}`} />
+              <StatusPill color="bg-emerald-500" label={`Aktif: ${hotelStats.active}`} />
+              <StatusPill color="bg-slate-400" label={`Nonaktif: ${hotelStats.inactive}`} />
+            </div>
+          </div>
+
+          <div className="min-h-[360px] rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm md:p-5">
+            {loading ? (
+              <div className="flex min-h-[300px] items-center justify-center text-gray-500">
+                Memuat data hotel...
+              </div>
+            ) : hotels.length === 0 ? (
+              <div className="flex min-h-[300px] items-center justify-center">
+                <div className="max-w-md rounded-3xl border border-dashed border-gray-300 bg-white px-8 py-7 text-center">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                    <Building2 size={26} />
+                  </div>
+                  <h3 className="text-lg font-black text-gray-900">
+                    Belum ada data hotel
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                    Tambahkan cabang hotel pertama untuk mulai mengelola kamar dan booking.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/hotels/add")}
+                    className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700"
+                  >
+                    <Plus size={18} />
+                    Add Hotel
+                  </button>
+                </div>
+              </div>
+            ) : !selectedHotelId ? (
+              <div className="flex min-h-[300px] items-center justify-center bg-gradient-to-br from-red-50/40 via-white to-slate-50">
+                <div className="max-w-md rounded-3xl border border-dashed border-gray-300 bg-white/90 px-8 py-7 text-center shadow-sm">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                    <Building2 size={26} />
+                  </div>
+                  <h3 className="text-lg font-black text-gray-900">
+                    Pilih cabang terlebih dahulu
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                    Setelah cabang dipilih, data hotel akan tampil di tabel ini.
+                  </p>
+                </div>
+              </div>
+            ) : displayedHotels.length === 0 ? (
+              <div className="flex min-h-[300px] items-center justify-center">
+                <div className="max-w-md rounded-3xl border border-dashed border-gray-300 bg-white px-8 py-7 text-center">
+                  <h3 className="text-lg font-black text-gray-900">
+                    Data tidak ditemukan
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                    Coba ubah kata kunci pencarian atau filter status.
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1180px]">
+                <table className="w-full min-w-[980px]">
                   <thead>
                     <tr className="border-b border-gray-200 text-left">
-                      <th className="py-4 text-sm font-semibold text-gray-600">
+                      <th className="px-2 py-4 text-sm font-semibold text-gray-600">
                         #
                       </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
+                      <th className="px-2 py-4 text-sm font-semibold text-gray-600">
                         Hotel
                       </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
+                      <th className="px-2 py-4 text-sm font-semibold text-gray-600">
                         Kota
                       </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
+                      <th className="px-2 py-4 text-sm font-semibold text-gray-600">
                         Alamat
                       </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
-                        Fasilitas
-                      </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
+                      <th className="px-2 py-4 text-sm font-semibold text-gray-600">
                         Status
                       </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
+                      <th className="px-2 py-4 text-sm font-semibold text-gray-600">
                         Aksi
                       </th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {hotels.map((hotel, index) => (
+                    {displayedHotels.map((hotel, index) => (
                       <tr
                         key={hotel.id}
                         className="border-b border-gray-100 transition hover:bg-gray-50"
                       >
-                        <td className="py-4 text-gray-500">{index + 1}</td>
+                        <td className="px-2 py-4 text-gray-500">{index + 1}</td>
 
-                        <td className="py-4">
+                        <td className="px-2 py-4">
                           <div className="flex items-center gap-3">
                             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                               <Building2 size={18} />
@@ -872,43 +1005,22 @@ export default function HotelsList() {
                               <p className="font-semibold text-gray-800">
                                 {hotel.name}
                               </p>
-                              <p className="text-xs text-gray-400">
-                                ID: {hotel.id}
-                              </p>
+                              <p className="text-xs text-gray-400">ID: {hotel.id}</p>
                             </div>
                           </div>
                         </td>
 
-                        <td className="py-4 text-gray-700">
+                        <td className="px-2 py-4 text-gray-700">
                           {hotel.city?.name || hotel.city_name || "-"}
                         </td>
 
-                        <td className="max-w-[320px] py-4 text-gray-600">
+                        <td className="max-w-[360px] px-2 py-4 text-gray-600">
                           <p className="truncate">{hotel.address || "-"}</p>
                         </td>
 
-                        <td className="max-w-[320px] py-4">
-                          {Array.isArray(hotel.facilities) &&
-                          hotel.facilities.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {hotel.facilities.map((facility) => (
-                                <span
-                                  key={facility.id}
-                                  className="inline-flex items-center rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700"
-                                >
-                                  {facility.name}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-sm text-gray-400">
-                              Belum ada fasilitas
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="py-4">
+                        <td className="px-2 py-4">
                           <button
+                            type="button"
                             onClick={() => toggleStatus(hotel)}
                             className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition ${
                               hotel.status
@@ -930,19 +1042,23 @@ export default function HotelsList() {
                           </button>
                         </td>
 
-                        <td className="py-4">
+                        <td className="px-2 py-4">
                           <div className="flex flex-wrap items-center gap-2">
                             <button
+                              type="button"
                               onClick={() =>
-                                navigate(`/admin/hotels/${hotel.id}/rooms`)
+                                navigate(`/admin/rooms?hotel_id=${hotel.id}`, {
+                                  state: { hotelId: hotel.id, hotelName: hotel.name },
+                                })
                               }
                               className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-600 transition hover:bg-emerald-100"
                             >
                               <BedDouble size={16} />
-                              Manage Room
+                              Manage Kamar
                             </button>
 
                             <button
+                              type="button"
                               onClick={() => openEditModal(hotel)}
                               className="inline-flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-100"
                             >
@@ -951,6 +1067,7 @@ export default function HotelsList() {
                             </button>
 
                             <button
+                              type="button"
                               onClick={() => handleDelete(hotel)}
                               className="inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
                             >
@@ -1544,6 +1661,15 @@ export default function HotelsList() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StatusPill({ color, label }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm">
+      <span className={`h-2 w-2 rounded-full ${color}`} />
+      <span>{label}</span>
     </div>
   );
 }

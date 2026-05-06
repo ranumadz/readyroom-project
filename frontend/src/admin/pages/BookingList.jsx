@@ -1953,114 +1953,210 @@ const selectedFolderLabel = filters.hotelId
       <div className="flex-1">
         <Topbar />
 
-        <div className="p-6 md:p-8">
-          <div className="mb-8">
-            <p className="text-sm font-semibold text-red-600 mb-2">
-              Admin Panel
-            </p>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-              Booking List
-            </h1>
-            <p className="text-gray-500 mt-1">
-              Kelola booking customer, approve kamar, input booking manual, dan proses operasional hotel.
-            </p>
+        <div className="p-4 md:p-6">
+  <div className="relative mb-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    {/* background motif lebih soft */}
+    <div className="pointer-events-none absolute inset-0">
+      <div className="absolute -left-16 -top-16 h-40 w-40 rounded-full bg-red-100/50 blur-3xl" />
+      <div className="absolute right-0 top-0 h-44 w-44 rounded-full bg-orange-100/40 blur-3xl" />
+      <div className="absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-blue-100/30 blur-3xl" />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.95)_50%,rgba(255,247,237,0.92))]" />
+    </div>
+
+    <div className="relative z-10">
+      <div className="grid grid-cols-1 gap-4 p-4 md:p-5 xl:grid-cols-12 xl:items-start">
+        {/* KIRI */}
+        <div className="xl:col-span-5">
+          <div className="space-y-3">
+            <select
+              value={filters.hotelId}
+              onChange={(e) => {
+                const value = e.target.value;
+                handleFilterChange("hotelId", value);
+
+                if (value) {
+                  markHotelAsSeen(value);
+                }
+              }}
+              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+            >
+              {canAccessAllHotels && <option value="">Semua Cabang</option>}
+              {!canAccessAllHotels && (
+                <option value="">Pilih Cabang / Hotel</option>
+              )}
+
+              {folderHotels.map((hotel) => {
+                const unreadCount = branchUnreadCounts[String(hotel.id)] || 0;
+
+                return (
+                  <option key={hotel.id} value={hotel.id}>
+                    {hotel.name}
+                    {unreadCount > 0 ? ` (${unreadCount} baru)` : ""}
+                  </option>
+                );
+              })}
+            </select>
+
+            {loadingUserAccessHotels && (
+              <p className="text-xs font-semibold text-gray-500">
+                Sedang memuat akses cabang user...
+              </p>
+            )}
+
+            {/* tombol dipindah ke kiri bawah */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(true)}
+                disabled={!hasSelectedFolder}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Filter size={16} />
+                Filter
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowReportModal(true)}
+                disabled={!hasSelectedFolder}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ReceiptText size={16} />
+                Report
+              </button>
+
+              <button
+                type="button"
+                onClick={openManualModal}
+                disabled={!hasSelectedFolder}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus size={16} />
+                Manual Booking
+              </button>
+            </div>
           </div>
-
-          <div className="mb-6 overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
-  <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-5 py-5 text-white">
-    <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <h2 className="text-lg font-extrabold">Filter Cabang Booking</h2>
-        <p className="mt-1 text-sm text-white/70">
-          Pilih cabang untuk menampilkan booking sesuai hotel yang dipilih.
-        </p>
-      </div>
-
-      <div className="w-fit rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white/90">
-        {selectedFolderLabel}
-      </div>
-    </div>
-  </div>
-
-  <div className="grid grid-cols-1 gap-4 p-5 lg:grid-cols-12">
-    <div className="lg:col-span-6">
-      <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-        Cabang / Hotel
-      </label>
-
-      <select
-        value={filters.hotelId}
-        onChange={(e) => {
-          const value = e.target.value;
-          handleFilterChange("hotelId", value);
-
-          if (value) {
-            markHotelAsSeen(value);
-          }
-        }}
-        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
-      >
-        {canAccessAllHotels && <option value="">Semua Cabang</option>}
-        {!canAccessAllHotels && <option value="">Pilih Cabang / Hotel</option>}
-
-        {folderHotels.map((hotel) => {
-          const unreadCount = branchUnreadCounts[String(hotel.id)] || 0;
-
-          return (
-            <option key={hotel.id} value={hotel.id}>
-              {hotel.name}
-              {unreadCount > 0 ? ` (${unreadCount} baru)` : ""}
-            </option>
-          );
-        })}
-      </select>
-
-      {loadingUserAccessHotels && (
-        <p className="mt-2 text-xs font-semibold text-gray-500">
-          Sedang memuat akses cabang user...
-        </p>
-      )}
-    </div>
-
-    <div className="lg:col-span-6">
-      <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-        Status Pilihan
-      </label>
-
-      <div className="flex min-h-[50px] items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-        <div>
-          <p className="text-sm font-black text-gray-900">
-            {selectedFolderLabel}
-          </p>
-          <p className="mt-0.5 text-xs font-medium text-gray-500">
-            Booking akan otomatis tampil mengikuti cabang yang dipilih.
-          </p>
         </div>
 
-        {(filters.hotelId
-          ? branchUnreadCounts[String(filters.hotelId)] > 0
-          : canAccessAllHotels && totalUnreadBranchCount > 0) && (
-          <span className="inline-flex min-w-[28px] items-center justify-center rounded-full bg-red-600 px-2 py-1 text-xs font-black text-white">
-            {filters.hotelId
-              ? branchUnreadCounts[String(filters.hotelId)] || 0
-              : totalUnreadBranchCount}
-          </span>
+        {/* TENGAH */}
+        <div className="xl:col-span-3">
+          <div className="flex min-h-[48px] items-center justify-between rounded-2xl border border-gray-200 bg-white/90 px-4 py-2.5 shadow-sm backdrop-blur-sm">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-gray-900">
+                {selectedFolderLabel}
+              </p>
+              <p className="mt-0.5 text-xs font-medium text-gray-500">
+                {hasSelectedFolder
+                  ? "Booking tampil sesuai cabang."
+                  : "Pilih cabang dulu."}
+              </p>
+            </div>
+
+            {(filters.hotelId
+              ? branchUnreadCounts[String(filters.hotelId)] > 0
+              : canAccessAllHotels && totalUnreadBranchCount > 0) && (
+              <span className="ml-2 inline-flex min-w-[26px] shrink-0 items-center justify-center rounded-full bg-red-600 px-2 py-1 text-xs font-black text-white">
+                {filters.hotelId
+                  ? branchUnreadCounts[String(filters.hotelId)] || 0
+                  : totalUnreadBranchCount}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* KANAN */}
+        {hasSelectedFolder && (
+          <div className="xl:col-span-4">
+            <div className="flex flex-col gap-3 xl:items-end">
+              {/* mode */}
+              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("all")}
+                  className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                    viewMode === "all"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <History size={16} />
+                  Riwayat Booking
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode("today_active")}
+                  className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                    viewMode === "today_active"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <Layers3 size={16} />
+                  Aktif Hari Ini
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode("all");
+                    handleFilterChange("status", "pending");
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                    filters.status === "pending"
+                      ? "bg-red-600 text-white shadow-sm"
+                      : "bg-white text-red-600 hover:bg-red-50"
+                  }`}
+                >
+                  <CircleCheck size={16} />
+                  Approval
+                </button>
+              </div>
+
+              {/* status */}
+              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                {[
+                  { label: "Semua Status", value: "" },
+                  { label: "Checked In", value: "checked_in" },
+                  { label: "Checked Out", value: "checked_out" },
+                  { label: "Cleaning", value: "cleaning" },
+                  { label: "Finished", value: "completed" },
+                ].map((item) => {
+                  const active = filters.status === item.value;
+
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => handleFilterChange("status", item.value)}
+                      className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                        active
+                          ? "bg-slate-900 text-white shadow-sm"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
   </div>
-</div>
 
           {!hasSelectedFolder && (
-            <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-                  <Building2 size={20} />
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <Building2 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-amber-900">Pilih cabang dulu</h3>
-                  <p className="mt-1 text-sm text-amber-800">
-                    Klik salah satu folder cabang di atas untuk membuka isi Booking List sesuai akses user ini.
+                  <h3 className="font-bold text-amber-900">Pilih cabang dulu</h3>
+                  <p className="mt-0.5 text-sm text-amber-800">
+                    Pilih cabang/hotel untuk membuka isi Booking List sesuai akses user ini.
                   </p>
                 </div>
               </div>
@@ -2068,152 +2164,8 @@ const selectedFolderLabel = filters.hotelId
           )}
 
           {hasSelectedFolder && (
-          <>
-         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 mb-6">
-  <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-5">
-    <div className="flex items-center gap-2">
-      <Filter size={18} className="text-red-500" />
-      <h2 className="text-lg font-bold text-gray-800">
-        Kontrol Booking
-      </h2>
-    </div>
-
-    <div className="flex flex-wrap items-center gap-3">
-      <button
-        type="button"
-        onClick={() => setShowFilterModal(true)}
-        className="inline-flex items-center gap-2 rounded-2xl bg-white border border-gray-200 px-5 py-3 text-gray-700 font-semibold hover:bg-gray-50 transition"
-      >
-        <Filter size={18} />
-        Filter
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setShowReportModal(true)}
-        className="inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
-      >
-        <ReceiptText size={18} />
-        Report
-      </button>
-
-      <button
-        type="button"
-        onClick={openManualModal}
-        className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
-      >
-        <Plus size={18} />
-        Manual Booking
-      </button>
-    </div>
-  </div>
-
-  <div className="flex flex-wrap gap-3 mb-4">
-    <button
-      type="button"
-      onClick={() => setViewMode("today_active")}
-      className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
-        viewMode === "today_active"
-          ? "bg-red-600 text-white shadow-sm"
-          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-      }`}
-    >
-      <Layers3 size={18} />
-      Aktif Hari Ini
-    </button>
-
-    <button
-      type="button"
-      onClick={() => setViewMode("all")}
-      className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
-        viewMode === "all"
-          ? "bg-gray-900 text-white shadow-sm"
-          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-      }`}
-    >
-      <History size={18} />
-      Riwayat Booking
-    </button>
-
-    <div className="inline-flex items-center rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-      Booking aktif hari ini: {todayVisibleCount}
-    </div>
-
-    {(filters.search || filters.status || filters.bookingType || filters.hotelId || filters.month) && (
-      <div className="inline-flex items-center rounded-2xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
-        Filter aktif
-      </div>
-    )}
-  </div>
-
-  <div className="flex flex-wrap gap-3 mb-4">
-    {[
-      { label: "Semua Status", value: "" },
-      { label: "Checked In", value: "checked_in" },
-      { label: "Checked Out", value: "checked_out" },
-      { label: "Cleaning", value: "cleaning" },
-      { label: "Finished", value: "completed" },
-    ].map((item) => {
-      const active = filters.status === item.value;
-
-      return (
-        <button
-          key={item.label}
-          type="button"
-          onClick={() => handleFilterChange("status", item.value)}
-          className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 font-semibold transition ${
-            active
-              ? "bg-gray-900 text-white shadow-sm"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-          }`}
-        >
-          {item.label}
-        </button>
-      );
-    })}
-  </div>
-
-  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-    <div>
-      <p className="text-sm font-semibold text-gray-800">
-        
-      </p>
-      <p className="text-sm text-gray-500 mt-1">
-        Aktif Hari Ini fokus untuk operasional, sedangkan Riwayat Booking menyimpan semua data agar tetap bisa dipakai untuk report. Gunakan tombol Filter untuk pencarian lanjutan dan Report untuk ringkasan cetak.
-      </p>
-    </div>
-
-    <div className="flex flex-wrap gap-2">
-      {filters.search && (
-        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
-          Cari: {filters.search}
-        </span>
-      )}
-      {filters.status && (
-        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
-          Status: {getStatusLabel(filters.status)}
-        </span>
-      )}
-      {filters.bookingType && (
-        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
-          Jenis: {getBookingTypeLabel(filters.bookingType)}
-        </span>
-      )}
-      {filters.hotelId && (
-        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
-          Hotel dipilih
-        </span>
-      )}
-      {filters.month && (
-        <span className="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">
-          Bulan: {filters.month}
-        </span>
-      )}
-    </div>
-  </div>
-</div>
-
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
+            <>
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-5">
             {loading ? (
               <div className="py-16 text-center text-gray-500">
                 Memuat data booking...

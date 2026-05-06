@@ -26,9 +26,17 @@ export default function RoomUnits() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingModalUnit, setBookingModalUnit] = useState(null);
 
+  const [bulkAction, setBulkAction] = useState("");
+  const [selectedBulkUnitIds, setSelectedBulkUnitIds] = useState([]);
+
   useEffect(() => {
     fetchRooms();
   }, []);
+
+  useEffect(() => {
+    setBulkAction("");
+    setSelectedBulkUnitIds([]);
+  }, [selectedHotelId, selectedRoom, selectedStatus, searchUnit]);
 
   const normalizeArrayResponse = (payload) => {
     if (Array.isArray(payload)) return payload;
@@ -610,8 +618,8 @@ export default function RoomUnits() {
     return map[action] || "Ubah Status";
   };
 
-  const buildStatusPayload = () => {
-    if (statusAction === "available") {
+  const buildStatusPayloadByAction = (action, reason = "") => {
+    if (action === "available") {
       return {
         status: true,
         reason: "",
@@ -622,30 +630,30 @@ export default function RoomUnits() {
       };
     }
 
-    if (statusAction === "inactive") {
+    if (action === "inactive") {
       return {
         status: false,
-        reason: statusReason,
-        inactive_reason: statusReason,
+        reason,
+        inactive_reason: reason,
         is_maintenance: false,
         is_cleaning: false,
       };
     }
 
-    if (statusAction === "maintenance") {
+    if (action === "maintenance") {
       return {
         status: "maintenance",
-        reason: statusReason,
-        maintenance_reason: statusReason,
+        reason,
+        maintenance_reason: reason,
         is_maintenance: true,
         is_cleaning: false,
       };
     }
 
-    if (statusAction === "cleaning") {
+    if (action === "cleaning") {
       return {
         status: "cleaning",
-        reason: statusReason,
+        reason,
         is_maintenance: false,
         is_cleaning: true,
       };
@@ -653,8 +661,12 @@ export default function RoomUnits() {
 
     return {
       status: true,
-      reason: statusReason,
+      reason,
     };
+  };
+
+  const buildStatusPayload = () => {
+    return buildStatusPayloadByAction(statusAction, statusReason);
   };
 
   const updateRoomUnitRequest = async (unitId, payload) => {
@@ -684,7 +696,13 @@ export default function RoomUnits() {
   };
 
   const handleSaveStatus = async () => {
-    if (!selectedUnit?.id) return;
+    const bulkUnits = selectedBulkUnitIds
+      .map((unitId) => units.find((unit) => String(unit.id) === String(unitId)))
+      .filter(Boolean);
+
+    const isBulkUpdate = !selectedUnit?.id && bulkUnits.length > 0;
+
+    if (!selectedUnit?.id && !isBulkUpdate) return;
 
     const needsReason =
       statusAction === "inactive" || statusAction === "maintenance";
@@ -696,6 +714,32 @@ export default function RoomUnits() {
 
     try {
       setSavingStatus(true);
+
+      if (isBulkUpdate) {
+        const payload = buildStatusPayloadByAction(statusAction, statusReason);
+        const results = await Promise.allSettled(
+          bulkUnits.map((unit) => updateRoomUnitRequest(unit.id, payload))
+        );
+
+        const successCount = results.filter(
+          (item) => item.status === "fulfilled"
+        ).length;
+        const failedCount = results.length - successCount;
+
+        if (successCount > 0) {
+          toast.success(`${successCount} kamar berhasil diperbarui`);
+        }
+
+        if (failedCount > 0) {
+          toast.error(`${failedCount} kamar gagal diperbarui`);
+        }
+
+        setBulkAction("");
+        setSelectedBulkUnitIds([]);
+        closeStatusModal();
+        reloadCurrentUnits();
+        return;
+      }
 
       await updateRoomUnitRequest(selectedUnit.id, buildStatusPayload());
 
@@ -721,6 +765,140 @@ export default function RoomUnits() {
   const closeBookingModal = () => {
     setBookingModalUnit(null);
     setShowBookingModal(false);
+  };
+
+  const bulkActionOptions = [
+    {
+      value: "maintenance",
+      label: "Maintenance",
+      helper: "Tandai kamar yang dipilih sebagai maintenance.",
+      buttonClass: "bg-gray-950 text-white hover:bg-black",
+      activeClass: "border-gray-900 bg-gray-950 text-white",
+    },
+    {
+      value: "cleaning",
+      label: "Cleaning",
+      helper: "Tandai kamar yang dipilih sebagai perlu dibersihkan.",
+      buttonClass: "bg-amber-500 text-white hover:bg-amber-600",
+      activeClass: "border-amber-500 bg-amber-500 text-white",
+    },
+    {
+      value: "available",
+      label: "Aktifkan",
+      helper: "Aktifkan kembali kamar yang dipilih.",
+      buttonClass: "bg-emerald-600 text-white hover:bg-emerald-700",
+      activeClass: "border-emerald-600 bg-emerald-600 text-white",
+    },
+    {
+      value: "inactive",
+      label: "Nonaktifkan",
+      helper: "Nonaktifkan kamar yang dipilih sementara.",
+      buttonClass: "bg-red-600 text-white hover:bg-red-700",
+      activeClass: "border-red-600 bg-red-600 text-white",
+    },
+  ];
+
+  const getBulkActionMeta = (action) => {
+    return (
+      bulkActionOptions.find((item) => item.value === action) ||
+      bulkActionOptions[0]
+    );
+  };
+
+  const canSelectUnitForBulk = (unit, action = bulkAction) => {
+    if (!unit?.id || !action) return false;
+
+    const status = getRoomUnitStatus(unit);
+
+    if (status === "occupied") return false;
+
+    return true;
+  };
+
+  const isUnitSelectedForBulk = (unit) => {
+    return selectedBulkUnitIds.some(
+      (unitId) => String(unitId) === String(unit?.id)
+    );
+  };
+
+  const selectedBulkUnits = useMemo(() => {
+    return filteredUnits.filter((unit) => isUnitSelectedForBulk(unit));
+  }, [filteredUnits, selectedBulkUnitIds]);
+
+  const selectableBulkUnits = useMemo(() => {
+    if (!bulkAction) return [];
+    return filteredUnits.filter((unit) => canSelectUnitForBulk(unit));
+  }, [filteredUnits, bulkAction]);
+
+  const openBulkMode = (action) => {
+    if (!selectedHotelId) {
+      toast.error("Pilih cabang terlebih dahulu");
+      return;
+    }
+
+    if (filteredUnits.length === 0) {
+      toast.error("Belum ada kamar yang bisa dipilih");
+      return;
+    }
+
+    setBulkAction(action);
+    setSelectedBulkUnitIds([]);
+  };
+
+  const clearBulkMode = () => {
+    setBulkAction("");
+    setSelectedBulkUnitIds([]);
+  };
+
+  const toggleBulkUnitSelection = (unit) => {
+    if (!bulkAction) return;
+
+    if (!canSelectUnitForBulk(unit)) {
+      toast.error("Kamar yang sedang dipakai booking tidak bisa dipilih.");
+      return;
+    }
+
+    setSelectedBulkUnitIds((prev) => {
+      const exists = prev.some((unitId) => String(unitId) === String(unit.id));
+
+      if (exists) {
+        return prev.filter((unitId) => String(unitId) !== String(unit.id));
+      }
+
+      return [...prev, unit.id];
+    });
+  };
+
+  const selectAllBulkUnits = () => {
+    if (!bulkAction) return;
+
+    if (selectableBulkUnits.length === 0) {
+      toast.error("Tidak ada kamar yang bisa dipilih untuk aksi ini.");
+      return;
+    }
+
+    setSelectedBulkUnitIds(selectableBulkUnits.map((unit) => unit.id));
+  };
+
+  const clearBulkSelection = () => {
+    setSelectedBulkUnitIds([]);
+  };
+
+  const openBulkStatusModal = () => {
+    if (!bulkAction) {
+      toast.error("Pilih tindakan terlebih dahulu");
+      return;
+    }
+
+    if (selectedBulkUnitIds.length === 0) {
+      toast.error("Pilih kamar terlebih dahulu");
+      return;
+    }
+
+    setSelectedUnit(null);
+    setStatusAction(bulkAction);
+    setStatusReason("");
+    setShowStatusModal(true);
   };
 
   const bookingModalBookings = bookingModalUnit
@@ -869,7 +1047,97 @@ export default function RoomUnits() {
           </div>
 
           <div className="overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">
-            <div className="min-h-[420px] bg-[radial-gradient(circle_at_top_left,_rgba(239,68,68,0.08),_transparent_32%),linear-gradient(to_bottom,_#ffffff,_#f8fafc)] p-6">
+            {selectedHotelId && filteredUnits.length > 0 && (
+              <div className="border-b border-gray-100 bg-white px-4 py-4 md:px-5">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-gray-900">
+                      Tindakan Kamar
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
+                      Pilih tindakan di sini, lalu tandai kamar yang ingin diubah statusnya.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {bulkActionOptions.map((item) => {
+                      const active = bulkAction === item.value;
+
+                      return (
+                        <button
+                          key={item.value}
+                          type="button"
+                          onClick={() => openBulkMode(item.value)}
+                          className={`rounded-2xl border px-3.5 py-2.5 text-xs font-black transition ${
+                            active
+                              ? item.activeClass
+                              : "border-gray-200 bg-gray-50 text-gray-700 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {bulkAction && (
+                  <div className="mt-4 rounded-3xl border border-red-100 bg-red-50/70 px-4 py-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-sm font-black text-red-700">
+                          Mode {getBulkActionMeta(bulkAction).label} aktif
+                        </p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-red-600/80">
+                          {getBulkActionMeta(bulkAction).helper} Kamar terisi booking tidak bisa dipilih.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-gray-700 shadow-sm">
+                          {selectedBulkUnitIds.length} dipilih
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={selectAllBulkUnits}
+                          className="rounded-2xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs font-black text-gray-700 transition hover:bg-gray-50"
+                        >
+                          Pilih Semua
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={clearBulkSelection}
+                          className="rounded-2xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs font-black text-gray-700 transition hover:bg-gray-50"
+                        >
+                          Bersihkan
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={clearBulkMode}
+                          className="rounded-2xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs font-black text-gray-700 transition hover:bg-gray-50"
+                        >
+                          Batal Mode
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={openBulkStatusModal}
+                          disabled={selectedBulkUnitIds.length === 0}
+                          className="rounded-2xl bg-red-600 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Terapkan
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="min-h-[360px] bg-[radial-gradient(circle_at_top_left,_rgba(239,68,68,0.08),_transparent_32%),linear-gradient(to_bottom,_#ffffff,_#f8fafc)] p-4 md:p-5">
               {loadingUnits ? (
                 <div className="flex min-h-[260px] items-center justify-center">
                   <div className="rounded-3xl border border-gray-100 bg-white px-6 py-5 text-center shadow-sm">
@@ -906,7 +1174,7 @@ export default function RoomUnits() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
                   {filteredUnits.map((unit) => {
                     const status = getRoomUnitStatus(unit);
                     const meta = getStatusMeta(status);
@@ -919,34 +1187,70 @@ export default function RoomUnits() {
                       unit?.room_name ||
                       "-";
 
+                    const selectionMode = Boolean(bulkAction);
+                    const selectable = canSelectUnitForBulk(unit);
+                    const selected = isUnitSelectedForBulk(unit);
+
                     return (
                       <div
                         key={unit.id}
-                        className={`group relative min-h-[250px] overflow-hidden rounded-[26px] border p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-xl ${meta.cardClass}`}
+                        onClick={() => {
+                          if (selectionMode) toggleBulkUnitSelection(unit);
+                        }}
+                        className={`group relative min-h-[160px] overflow-hidden rounded-[22px] border p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${meta.cardClass} ${
+                          selectionMode && selectable
+                            ? "cursor-pointer"
+                            : selectionMode
+                            ? "cursor-not-allowed opacity-70"
+                            : ""
+                        } ${
+                          selected
+                            ? "ring-4 ring-red-500/25 border-red-400"
+                            : ""
+                        }`}
                       >
-                        <div className="absolute right-3 top-3">
-                          <span
-                            className={`inline-flex h-3 w-3 rounded-full ring-4 ring-white ${meta.dotClass}`}
-                          />
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white ${meta.dotClass}`}
+                              />
+                              <p className="truncate text-[10px] font-black uppercase tracking-wide text-current/55">
+                                Kamar
+                              </p>
+                            </div>
+
+                            <h3 className="mt-1 text-2xl font-black leading-none tracking-tight">
+                              {unit.room_number || "-"}
+                            </h3>
+                          </div>
+
+                          {selectionMode ? (
+                            <div
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-black shadow-sm transition ${
+                                selected
+                                  ? "border-red-600 bg-red-600 text-white"
+                                  : selectable
+                                  ? "border-gray-200 bg-white text-gray-400"
+                                  : "border-gray-200 bg-gray-100 text-gray-300"
+                              }`}
+                            >
+                              {selected ? "✓" : selectable ? "" : "×"}
+                            </div>
+                          ) : (
+                            <span
+                              className={`inline-flex h-3 w-3 shrink-0 rounded-full ring-4 ring-white ${meta.dotClass}`}
+                            />
+                          )}
                         </div>
 
-                        <p className="pt-2 text-xs font-bold uppercase tracking-wide text-current/55">
-                          Kamar
-                        </p>
-
-                        <h3 className="mt-1 text-2xl font-black tracking-tight">
-                          {unit.room_number || "-"}
-                        </h3>
-
-                        <div className="mt-2">
-                          <span className="rounded-full bg-white/80 px-3 py-1 text-[10px] font-black text-current/70 shadow-sm">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="max-w-full truncate rounded-full bg-white/80 px-2.5 py-1 text-[9px] font-black text-current/70 shadow-sm">
                             {unitRoomType}
                           </span>
-                        </div>
 
-                        <div className="mt-3">
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-black ${meta.badgeClass}`}
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-black ${meta.badgeClass}`}
                           >
                             {meta.shortLabel}
                           </span>
@@ -955,60 +1259,21 @@ export default function RoomUnits() {
                         {allBookings.length > 0 && (
                           <button
                             type="button"
-                            onClick={() => openBookingModal(unit)}
-                            className="mt-4 w-full rounded-2xl border border-blue-100 bg-blue-600 px-3 py-3 text-xs font-black text-white shadow-sm transition hover:bg-blue-700"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openBookingModal(unit);
+                            }}
+                            className="mt-3 w-full rounded-2xl border border-blue-100 bg-blue-600 px-3 py-2.5 text-[11px] font-black text-white shadow-sm transition hover:bg-blue-700"
                           >
                             Lihat Detail Booking
                           </button>
                         )}
 
                         {reason && (
-                          <p className="mt-3 line-clamp-2 rounded-2xl bg-white/70 px-3 py-2 text-xs font-semibold leading-relaxed text-current/70">
+                          <p className="mt-2 line-clamp-2 rounded-2xl bg-white/70 px-3 py-2 text-[11px] font-semibold leading-relaxed text-current/70">
                             {reason}
                           </p>
                         )}
-
-                        <div className="mt-4 grid gap-2">
-                          {status !== "available" && status !== "occupied" && (
-                            <button
-                              type="button"
-                              onClick={() => openStatusModal(unit, "available")}
-                              className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-gray-800 shadow-sm transition hover:bg-gray-100"
-                            >
-                              Aktifkan
-                            </button>
-                          )}
-
-                          {status === "available" && (
-                            <button
-                              type="button"
-                              onClick={() => openStatusModal(unit, "maintenance")}
-                              className="rounded-2xl bg-gray-950 px-3 py-2 text-xs font-black text-white transition hover:bg-black"
-                            >
-                              Maintenance
-                            </button>
-                          )}
-
-                          {status === "cleaning" && (
-                            <button
-                              type="button"
-                              onClick={() => openStatusModal(unit, "available")}
-                              className="rounded-2xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700"
-                            >
-                              Selesai Cleaning
-                            </button>
-                          )}
-
-                          {status === "occupied" && (
-                            <button
-                              type="button"
-                              disabled
-                              className="cursor-not-allowed rounded-2xl bg-red-100 px-3 py-2 text-xs font-black text-red-700"
-                            >
-                              Dipakai Booking
-                            </button>
-                          )}
-                        </div>
                       </div>
                     );
                   })}
@@ -1026,7 +1291,9 @@ export default function RoomUnits() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-white/50">
-                    Kamar {selectedUnit?.room_number || "-"}
+                    {selectedUnit?.id
+                      ? `Kamar ${selectedUnit?.room_number || "-"}`
+                      : `${selectedBulkUnitIds.length} kamar dipilih`}
                   </p>
                   <h2 className="mt-1 text-2xl font-black">
                     {getActionText(statusAction)}
@@ -1049,6 +1316,17 @@ export default function RoomUnits() {
             </div>
 
             <div className="px-6 py-5">
+              {!selectedUnit?.id && selectedBulkUnitIds.length > 0 && (
+                <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                  <p className="text-sm font-black text-red-700">
+                    Tindakan massal untuk {selectedBulkUnitIds.length} kamar
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-red-600/80">
+                    Pastikan kamar yang dipilih sudah benar sebelum menyimpan perubahan status.
+                  </p>
+                </div>
+              )}
+
               {(statusAction === "inactive" || statusAction === "maintenance") && (
                 <div>
                   <label className="mb-2 block text-sm font-bold text-gray-800">

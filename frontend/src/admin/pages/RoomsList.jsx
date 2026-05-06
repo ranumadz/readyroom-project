@@ -46,6 +46,9 @@ export default function RoomsList() {
   const [savingRoomUnits, setSavingRoomUnits] = useState(false);
   const [updatingRoomUnitId, setUpdatingRoomUnitId] = useState(null);
   const [deletingRoomUnitId, setDeletingRoomUnitId] = useState(null);
+  const [roomUnitActionMode, setRoomUnitActionMode] = useState(null);
+  const [selectedRoomUnitIds, setSelectedRoomUnitIds] = useState([]);
+  const [bulkRoomUnitProcessing, setBulkRoomUnitProcessing] = useState(false);
 
   const [savingEdit, setSavingEdit] = useState(false);
   const [togglingRoomId, setTogglingRoomId] = useState(null);
@@ -544,6 +547,9 @@ export default function RoomsList() {
 
     setEditRoomUnits([]);
     setNewRoomUnitNumbers("");
+    setRoomUnitActionMode(null);
+    setSelectedRoomUnitIds([]);
+    setBulkRoomUnitProcessing(false);
     setShowEditModal(true);
 
     fetchEditRoomUnits(room?.id);
@@ -571,7 +577,13 @@ export default function RoomsList() {
   };
 
   const closeEditModal = () => {
-    if (savingEdit || savingRoomUnits || updatingRoomUnitId || deletingRoomUnitId) {
+    if (
+      savingEdit ||
+      savingRoomUnits ||
+      updatingRoomUnitId ||
+      deletingRoomUnitId ||
+      bulkRoomUnitProcessing
+    ) {
       return;
     }
 
@@ -592,6 +604,9 @@ export default function RoomsList() {
     });
     setEditRoomUnits([]);
     setNewRoomUnitNumbers("");
+    setRoomUnitActionMode(null);
+    setSelectedRoomUnitIds([]);
+    setBulkRoomUnitProcessing(false);
     resetEditImageState();
   };
 
@@ -1105,6 +1120,139 @@ export default function RoomsList() {
     }
   };
 
+
+
+  const getRoomUnitActionLabel = (mode = roomUnitActionMode) => {
+    if (mode === "activate") return "Aktifkan";
+    if (mode === "deactivate") return "Nonaktifkan";
+    if (mode === "delete") return "Hapus";
+    return "Pilih Aksi";
+  };
+
+  const startRoomUnitActionMode = (mode) => {
+    if (savingRoomUnits || bulkRoomUnitProcessing) return;
+
+    setRoomUnitActionMode((currentMode) => (currentMode === mode ? null : mode));
+    setSelectedRoomUnitIds([]);
+  };
+
+  const cancelRoomUnitActionMode = () => {
+    if (bulkRoomUnitProcessing) return;
+
+    setRoomUnitActionMode(null);
+    setSelectedRoomUnitIds([]);
+  };
+
+  const toggleSelectedRoomUnit = (unitId) => {
+    if (!roomUnitActionMode || bulkRoomUnitProcessing) return;
+
+    const id = String(unitId);
+
+    setSelectedRoomUnitIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllRoomUnitsForAction = () => {
+    if (!roomUnitActionMode || bulkRoomUnitProcessing) return;
+
+    setSelectedRoomUnitIds(
+      editRoomUnits
+        .filter((unit) => unit?.id)
+        .map((unit) => String(unit.id))
+    );
+  };
+
+  const clearSelectedRoomUnits = () => {
+    if (bulkRoomUnitProcessing) return;
+    setSelectedRoomUnitIds([]);
+  };
+
+  const handleApplyRoomUnitAction = async () => {
+    if (!roomUnitActionMode) {
+      toast.error("Pilih tindakan kamar dulu");
+      return;
+    }
+
+    const selectedUnits = editRoomUnits.filter((unit) =>
+      selectedRoomUnitIds.includes(String(unit?.id))
+    );
+
+    if (selectedUnits.length === 0) {
+      toast.error("Pilih nomor kamar yang mau diproses");
+      return;
+    }
+
+    const actionLabel = getRoomUnitActionLabel(roomUnitActionMode).toLowerCase();
+    const roomNumbers = selectedUnits
+      .map((unit) => getRoomUnitNumber(unit))
+      .filter(Boolean)
+      .join(", ");
+
+    const confirmed = window.confirm(
+      `Yakin ingin ${actionLabel} ${selectedUnits.length} nomor kamar${
+        roomNumbers ? `: ${roomNumbers}` : ""
+      }?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setBulkRoomUnitProcessing(true);
+
+      let results = [];
+
+      if (roomUnitActionMode === "delete") {
+        results = await Promise.allSettled(
+          selectedUnits.map((unit) => deleteRoomUnitRequest(unit.id))
+        );
+      } else {
+        const nextStatus = roomUnitActionMode === "activate" ? 1 : 0;
+
+        results = await Promise.allSettled(
+          selectedUnits.map((unit) =>
+            updateRoomUnitRequest(unit.id, {
+              room_id: selectedRoom?.id,
+              room_number: getRoomUnitNumber(unit),
+              status: nextStatus,
+            })
+          )
+        );
+      }
+
+      const successCount = results.filter(
+        (item) => item.status === "fulfilled"
+      ).length;
+      const failedCount = results.length - successCount;
+
+      if (successCount > 0) {
+        toast.success(
+          `${successCount} nomor kamar berhasil di${actionLabel}`
+        );
+      }
+
+      if (failedCount > 0) {
+        toast.error(
+          `${failedCount} nomor kamar gagal diproses. Jika kamar sudah dipakai booking, gunakan Nonaktifkan saja.`
+        );
+      }
+
+      setRoomUnitActionMode(null);
+      setSelectedRoomUnitIds([]);
+
+      if (roomUnitActionMode === "delete") {
+        await refreshRoomUnitsAndSyncTotal();
+      } else {
+        await fetchEditRoomUnits(selectedRoom?.id);
+        await fetchRooms();
+      }
+    } catch (error) {
+      console.error("Gagal proses tindakan kamar fisik:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal memproses nomor kamar");
+    } finally {
+      setBulkRoomUnitProcessing(false);
+    }
+  };
   const deleteRoomRequest = async (roomId) => {
     try {
       return await api.delete(`/admin/rooms/${roomId}`);
@@ -1275,6 +1423,12 @@ export default function RoomsList() {
     ? editForm.room_facility_ids.length
     : 0;
 
+  const activeRoomUnitCount = editRoomUnits.filter((unit) =>
+    isRoomUnitActive(unit)
+  ).length;
+  const inactiveRoomUnitCount = editRoomUnits.length - activeRoomUnitCount;
+  const selectedRoomUnitCount = selectedRoomUnitIds.length;
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar />
@@ -1284,20 +1438,7 @@ export default function RoomsList() {
 
         <div className="p-6 md:p-8">
           <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="mb-2 inline-flex rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
-                Hotel Management
-              </p>
-
-              <h1 className="text-3xl font-bold text-gray-900">
-                Daftar Kamar
-              </h1>
-
-              <p className="mt-1 max-w-2xl text-gray-500">
-                Kelola tipe kamar, harga, kapasitas, status, dan jumlah unit
-                kamar berdasarkan cabang hotel ReadyRoom.
-              </p>
-            </div>
+            
 
             <a
               href="/admin/rooms/add"
@@ -1654,7 +1795,8 @@ export default function RoomsList() {
                   savingEdit ||
                   savingRoomUnits ||
                   Boolean(updatingRoomUnitId) ||
-                  Boolean(deletingRoomUnitId)
+                  Boolean(deletingRoomUnitId) ||
+                  bulkRoomUnitProcessing
                 }
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xl font-bold text-gray-500 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -2056,23 +2198,31 @@ export default function RoomsList() {
                 </div>
 
                 <div className="mt-6 rounded-3xl border border-blue-100 bg-blue-50/50 p-4">
-                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                     <div>
                       <h3 className="text-base font-black text-gray-900">
                         Kamar Fisik / Nomor Kamar
                       </h3>
                       <p className="mt-1 text-xs text-gray-500">
-                        Nomor kamar tersimpan saat klik Simpan Perubahan.
+                        Nomor kamar dibuat lebih compact. Pilih tindakan di atas, centang kamar, lalu terapkan.
                       </p>
                     </div>
 
-                    <div className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-blue-700 shadow-sm">
-                      {editRoomUnits.length} unit
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-blue-700 shadow-sm">
+                        {editRoomUnits.length} unit
+                      </span>
+                      <span className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-black text-green-700 ring-1 ring-green-100">
+                        {activeRoomUnitCount} aktif
+                      </span>
+                      <span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-700 ring-1 ring-red-100">
+                        {inactiveRoomUnitCount} nonaktif
+                      </span>
                     </div>
                   </div>
 
                   <div className="mb-4 rounded-2xl border border-blue-100 bg-white p-3">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                    <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
                       <div className="flex-1">
                         <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-400">
                           Tambah Nomor Kamar
@@ -2097,6 +2247,113 @@ export default function RoomsList() {
                     </div>
                   </div>
 
+                  <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide text-gray-400">
+                          Tindakan Kamar
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Klik Aktifkan, Nonaktifkan, atau Hapus untuk mulai memilih nomor kamar.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startRoomUnitActionMode("activate")}
+                          disabled={loadingEditRoomUnits || savingRoomUnits || bulkRoomUnitProcessing}
+                          className={`rounded-2xl px-4 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            roomUnitActionMode === "activate"
+                              ? "bg-green-600 text-white shadow-lg shadow-green-100"
+                              : "bg-green-50 text-green-700 hover:bg-green-100"
+                          }`}
+                        >
+                          Aktifkan
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => startRoomUnitActionMode("deactivate")}
+                          disabled={loadingEditRoomUnits || savingRoomUnits || bulkRoomUnitProcessing}
+                          className={`rounded-2xl px-4 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            roomUnitActionMode === "deactivate"
+                              ? "bg-amber-600 text-white shadow-lg shadow-amber-100"
+                              : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                          }`}
+                        >
+                          Nonaktifkan
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => startRoomUnitActionMode("delete")}
+                          disabled={loadingEditRoomUnits || savingRoomUnits || bulkRoomUnitProcessing}
+                          className={`rounded-2xl px-4 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            roomUnitActionMode === "delete"
+                              ? "bg-red-600 text-white shadow-lg shadow-red-100"
+                              : "bg-red-50 text-red-700 hover:bg-red-100"
+                          }`}
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    </div>
+
+                    {roomUnitActionMode && (
+                      <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-sm font-black text-gray-900">
+                            Mode {getRoomUnitActionLabel()}
+                          </p>
+                          <p className="text-xs font-medium text-gray-500">
+                            {selectedRoomUnitCount} nomor kamar dipilih
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={selectAllRoomUnitsForAction}
+                            disabled={bulkRoomUnitProcessing || editRoomUnits.length === 0}
+                            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-black text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Pilih Semua
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={clearSelectedRoomUnits}
+                            disabled={bulkRoomUnitProcessing || selectedRoomUnitCount === 0}
+                            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-black text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Bersihkan
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={cancelRoomUnitActionMode}
+                            disabled={bulkRoomUnitProcessing}
+                            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-black text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Batal Mode
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleApplyRoomUnitAction}
+                            disabled={bulkRoomUnitProcessing || selectedRoomUnitCount === 0}
+                            className="rounded-xl bg-gray-900 px-4 py-2 text-xs font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {bulkRoomUnitProcessing
+                              ? "Memproses..."
+                              : `Terapkan ${getRoomUnitActionLabel()}`}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {loadingEditRoomUnits ? (
                     <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-semibold text-gray-500">
                       Memuat nomor kamar fisik...
@@ -2111,38 +2368,87 @@ export default function RoomsList() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9">
                       {editRoomUnits.map((unit) => {
                         const unitActive = isRoomUnitActive(unit);
+                        const unitId = String(unit.id);
+                        const selected = selectedRoomUnitIds.includes(unitId);
                         const isUpdating = Number(updatingRoomUnitId) === Number(unit.id);
                         const isDeleting = Number(deletingRoomUnitId) === Number(unit.id);
+                        const busy =
+                          isUpdating || isDeleting || bulkRoomUnitProcessing || savingRoomUnits;
 
                         return (
                           <div
                             key={unit.id}
-                            className="rounded-2xl border border-gray-200 bg-white p-3"
+                            className={`relative rounded-2xl border bg-white p-2.5 transition ${
+                              selected
+                                ? "border-blue-400 shadow-md ring-4 ring-blue-100"
+                                : unitActive
+                                ? "border-green-100 hover:border-green-200"
+                                : "border-red-100 hover:border-red-200"
+                            }`}
                           >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                              <div className="min-w-0 flex-1">
-                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                                  Nomor
-                                </label>
-                                <input
-                                  type="text"
-                                  value={getRoomUnitNumber(unit)}
-                                  onChange={(e) =>
-                                    handleEditRoomUnitNumberChange(unit.id, e.target.value)
-                                  }
-                                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-gray-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
-                                />
-                              </div>
+                            {roomUnitActionMode && (
+                              <button
+                                type="button"
+                                onClick={() => toggleSelectedRoomUnit(unit.id)}
+                                disabled={busy}
+                                className={`absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-md border text-[11px] font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                  selected
+                                    ? "border-blue-600 bg-blue-600 text-white"
+                                    : "border-gray-300 bg-white text-transparent hover:border-blue-300"
+                                }`}
+                                title="Pilih kamar"
+                              >
+                                ✓
+                              </button>
+                            )}
 
-                              <div className="shrink-0">
-                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                                  Status
-                                </label>
+                            <div
+                              role={roomUnitActionMode ? "button" : undefined}
+                              tabIndex={roomUnitActionMode ? 0 : undefined}
+                              onClick={() => {
+                                if (roomUnitActionMode) {
+                                  toggleSelectedRoomUnit(unit.id);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (
+                                  roomUnitActionMode &&
+                                  (e.key === "Enter" || e.key === " ")
+                                ) {
+                                  e.preventDefault();
+                                  toggleSelectedRoomUnit(unit.id);
+                                }
+                              }}
+                              className={`w-full text-left ${
+                                roomUnitActionMode
+                                  ? "cursor-pointer"
+                                  : "cursor-default"
+                              } ${busy && roomUnitActionMode ? "opacity-70" : ""}`}
+                            >
+                              <label className="mb-1 block text-[9px] font-black uppercase tracking-wide text-gray-400">
+                                Nomor
+                              </label>
+
+                              <input
+                                type="text"
+                                value={getRoomUnitNumber(unit)}
+                                onChange={(e) =>
+                                  handleEditRoomUnitNumberChange(unit.id, e.target.value)
+                                }
+                                readOnly={Boolean(roomUnitActionMode) || busy}
+                                className={`w-full rounded-xl border px-2.5 py-2 text-center text-sm font-black outline-none transition ${
+                                  roomUnitActionMode
+                                    ? "cursor-pointer border-transparent bg-gray-50 text-gray-900"
+                                    : "border-gray-200 bg-gray-50 text-gray-900 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                                }`}
+                              />
+
+                              <div className="mt-2 flex items-center justify-center">
                                 <span
-                                  className={`inline-flex min-w-[90px] justify-center rounded-xl px-3 py-2.5 text-xs font-black ${
+                                  className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${
                                     unitActive
                                       ? "bg-green-100 text-green-700"
                                       : "bg-red-100 text-red-700"
@@ -2150,34 +2456,6 @@ export default function RoomsList() {
                                 >
                                   {unitActive ? "Aktif" : "Nonaktif"}
                                 </span>
-                              </div>
-
-                              <div className="flex shrink-0 gap-2 sm:self-end">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleRoomUnitStatus(unit)}
-                                  disabled={isUpdating || isDeleting}
-                                  className={`rounded-xl px-3 py-2.5 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                                    unitActive
-                                      ? "bg-red-50 text-red-600 hover:bg-red-100"
-                                      : "bg-green-50 text-green-700 hover:bg-green-100"
-                                  }`}
-                                >
-                                  {isUpdating
-                                    ? "Proses..."
-                                    : unitActive
-                                    ? "Nonaktifkan"
-                                    : "Aktifkan"}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteRoomUnit(unit)}
-                                  disabled={isUpdating || isDeleting}
-                                  className="rounded-xl bg-red-600 px-3 py-2.5 text-xs font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {isDeleting ? "Hapus..." : "Hapus"}
-                                </button>
                               </div>
                             </div>
                           </div>
@@ -2280,7 +2558,8 @@ export default function RoomsList() {
                     savingEdit ||
                     savingRoomUnits ||
                     Boolean(updatingRoomUnitId) ||
-                    Boolean(deletingRoomUnitId)
+                    Boolean(deletingRoomUnitId) ||
+                    bulkRoomUnitProcessing
                   }
                   className="rounded-2xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -2293,7 +2572,8 @@ export default function RoomsList() {
                     savingEdit ||
                     savingRoomUnits ||
                     Boolean(updatingRoomUnitId) ||
-                    Boolean(deletingRoomUnitId)
+                    Boolean(deletingRoomUnitId) ||
+                    bulkRoomUnitProcessing
                   }
                   className="rounded-2xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
                 >

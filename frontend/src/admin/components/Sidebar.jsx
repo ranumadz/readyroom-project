@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
@@ -13,7 +13,6 @@ import {
   Layers3,
   Cpu,
   ShieldCheck,
-  Wrench,
   Crown,
   BriefcaseBusiness,
   UserCog,
@@ -28,6 +27,7 @@ const allMenuSections = [
         name: "Dashboard",
         path: "/admin/dashboard",
         icon: LayoutDashboard,
+        end: true,
       },
     ],
   },
@@ -42,15 +42,10 @@ const allMenuSections = [
         end: true,
       },
       {
-        name: "Rooms List",
-        path: "/admin/rooms",
-        icon: BedDouble,
-        end: true,
-      },
-      {
         name: "Facilities",
         path: "/admin/facilities",
         icon: Sparkles,
+        end: true,
       },
     ],
   },
@@ -62,11 +57,13 @@ const allMenuSections = [
         name: "Monitoring Kamar",
         path: "/admin/room-units",
         icon: BedDouble,
+        end: true,
       },
       {
         name: "Ketersediaan Booking",
         path: "/admin/booking-availability",
         icon: CalendarDays,
+        end: true,
       },
       {
         name: "Booking List",
@@ -78,6 +75,7 @@ const allMenuSections = [
         name: "Booking Calendar",
         path: "/admin/bookings/calendar",
         icon: CalendarDays,
+        end: true,
       },
     ],
   },
@@ -89,6 +87,7 @@ const allMenuSections = [
         name: "Reports",
         path: "/admin/reports",
         icon: ChartColumn,
+        end: true,
       },
     ],
   },
@@ -100,16 +99,19 @@ const allMenuSections = [
         name: "Users",
         path: "/admin/users",
         icon: Users,
+        end: true,
       },
       {
         name: "Master Content",
         path: "/admin/master-content",
         icon: Layers3,
+        end: true,
       },
       {
         name: "Settings",
         path: "/admin/settings",
         icon: Settings,
+        end: true,
       },
     ],
   },
@@ -160,22 +162,15 @@ const roleThemes = {
       "w-72 min-h-screen text-white border-r shadow-2xl bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.16),_transparent_22%),linear-gradient(180deg,#03130f_0%,#061d17_42%,#02110d_100%)] border-emerald-400/10",
     logoWrap:
       "w-12 h-12 rounded-2xl overflow-hidden bg-white/95 flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-white/10 shrink-0",
-    infoBox:
-      "rounded-3xl border border-emerald-400/10 bg-white/[0.04] p-4 backdrop-blur-sm",
-    badge:
-      "mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-200",
     sectionTitle:
       "mb-3 text-xs uppercase tracking-[0.22em] text-emerald-300/55",
     activeNav:
-      "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20",
+      "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-[0_10px_24px_rgba(16,185,129,0.20)]",
     inactiveNav: "text-emerald-50/80 hover:bg-white/8 hover:text-white",
     activeIcon: "bg-white/15",
     inactiveIcon: "bg-white/5 group-hover:bg-white/10",
     bottomCard:
-      "mt-10 rounded-3xl bg-gradient-to-r from-emerald-500 to-teal-600 p-4 shadow-lg shadow-emerald-500/20",
-    bottomTitle: "Front Office Control",
-    bottomDesc:
-      "Area operasional reservasi untuk menangani alur tamu dan aktivitas booking dengan lebih rapi.",
+      "mt-8 rounded-3xl bg-gradient-to-r from-emerald-500 to-teal-600 p-4 shadow-lg shadow-emerald-500/20",
     bottomText: "text-emerald-50/90",
   },
 
@@ -189,21 +184,14 @@ const roleThemes = {
       "w-72 min-h-screen text-white border-r shadow-2xl bg-gradient-to-b from-black via-gray-950 to-black border-white/10",
     logoWrap:
       "w-12 h-12 rounded-2xl overflow-hidden bg-white flex items-center justify-center shadow-lg shadow-red-500/25 border border-white/10 shrink-0",
-    infoBox:
-      "rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm",
-    badge:
-      "mt-3 inline-flex rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-red-200",
     sectionTitle: "mb-3 text-xs uppercase tracking-[0.22em] text-gray-500",
     activeNav:
-      "bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-lg shadow-red-500/20",
+      "bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-[0_10px_24px_rgba(244,63,94,0.20)]",
     inactiveNav: "text-gray-300 hover:bg-white/10 hover:text-white",
     activeIcon: "bg-white/15",
     inactiveIcon: "bg-white/5 group-hover:bg-white/10",
     bottomCard:
-      "mt-10 rounded-3xl bg-gradient-to-r from-red-600 to-rose-500 p-4 shadow-lg shadow-red-500/20",
-    bottomTitle: "ReadyRoom Operations",
-    bottomDesc:
-      "Pusat kerja utama untuk pengelolaan booking, laporan, dan aktivitas operasional hotel.",
+      "mt-8 rounded-3xl bg-gradient-to-r from-red-600 to-rose-500 p-4 shadow-lg shadow-red-500/20",
     bottomText: "text-red-50/90",
   },
 
@@ -217,22 +205,15 @@ const roleThemes = {
       "w-72 min-h-screen text-white border-r shadow-2xl bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.16),_transparent_24%),linear-gradient(180deg,#161006_0%,#241807_45%,#120c03_100%)] border-amber-400/10",
     logoWrap:
       "w-12 h-12 rounded-2xl overflow-hidden bg-white/95 flex items-center justify-center shadow-lg shadow-amber-500/20 border border-white/10 shrink-0",
-    infoBox:
-      "rounded-3xl border border-amber-400/10 bg-white/[0.04] p-4 backdrop-blur-sm",
-    badge:
-      "mt-3 inline-flex rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-amber-200",
     sectionTitle:
       "mb-3 text-xs uppercase tracking-[0.22em] text-amber-300/55",
     activeNav:
-      "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20",
+      "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-[0_10px_24px_rgba(245,158,11,0.20)]",
     inactiveNav: "text-amber-50/85 hover:bg-white/8 hover:text-white",
     activeIcon: "bg-white/15",
     inactiveIcon: "bg-white/5 group-hover:bg-white/10",
     bottomCard:
-      "mt-10 rounded-3xl bg-gradient-to-r from-amber-500 to-orange-500 p-4 shadow-lg shadow-amber-500/20",
-    bottomTitle: "Branch Monitoring",
-    bottomDesc:
-      "Panel pengawasan untuk memantau performa booking dan alur operasional cabang secara lebih jelas.",
+      "mt-8 rounded-3xl bg-gradient-to-r from-amber-500 to-orange-500 p-4 shadow-lg shadow-amber-500/20",
     bottomText: "text-amber-50/90",
   },
 
@@ -246,22 +227,15 @@ const roleThemes = {
       "w-72 min-h-screen text-white border-r shadow-2xl bg-[radial-gradient(circle_at_top_left,_rgba(168,85,247,0.18),_transparent_22%),linear-gradient(180deg,#0f0820_0%,#170b2d_42%,#0a0614_100%)] border-violet-400/10",
     logoWrap:
       "w-12 h-12 rounded-2xl overflow-hidden bg-white/95 flex items-center justify-center shadow-lg shadow-violet-500/20 border border-white/10 shrink-0",
-    infoBox:
-      "rounded-3xl border border-violet-400/10 bg-white/[0.04] p-4 backdrop-blur-sm",
-    badge:
-      "mt-3 inline-flex rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-200",
     sectionTitle:
       "mb-3 text-xs uppercase tracking-[0.22em] text-violet-300/55",
     activeNav:
-      "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-500/20",
+      "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-[0_10px_24px_rgba(168,85,247,0.20)]",
     inactiveNav: "text-violet-50/85 hover:bg-white/8 hover:text-white",
     activeIcon: "bg-white/15",
     inactiveIcon: "bg-white/5 group-hover:bg-white/10",
     bottomCard:
-      "mt-10 rounded-3xl bg-gradient-to-r from-violet-500 to-fuchsia-500 p-4 shadow-lg shadow-violet-500/20",
-    bottomTitle: "System Management",
-    bottomDesc:
-      "Kontrol tingkat tinggi untuk operasional, user, konten, dan pengaturan sistem ReadyRoom.",
+      "mt-8 rounded-3xl bg-gradient-to-r from-violet-500 to-fuchsia-500 p-4 shadow-lg shadow-violet-500/20",
     bottomText: "text-violet-50/90",
   },
 
@@ -275,22 +249,15 @@ const roleThemes = {
       "w-72 min-h-screen text-white border-r shadow-2xl bg-[radial-gradient(circle_at_top_left,_rgba(250,204,21,0.16),_transparent_22%),linear-gradient(180deg,#171717_0%,#111827_42%,#0a0a0a_100%)] border-yellow-300/10",
     logoWrap:
       "w-12 h-12 rounded-2xl overflow-hidden bg-white/95 flex items-center justify-center shadow-lg shadow-yellow-500/20 border border-white/10 shrink-0",
-    infoBox:
-      "rounded-3xl border border-yellow-300/10 bg-white/[0.04] p-4 backdrop-blur-sm",
-    badge:
-      "mt-3 inline-flex rounded-full border border-yellow-300/20 bg-yellow-400/10 px-3 py-1 text-xs font-semibold tracking-wide text-yellow-100",
     sectionTitle:
       "mb-3 text-xs uppercase tracking-[0.22em] text-yellow-200/45",
     activeNav:
-      "bg-gradient-to-r from-yellow-500 to-amber-500 text-slate-900 shadow-lg shadow-yellow-500/20",
+      "bg-gradient-to-r from-yellow-500 to-amber-500 text-slate-900 shadow-[0_10px_24px_rgba(234,179,8,0.22)]",
     inactiveNav: "text-slate-200 hover:bg-white/8 hover:text-white",
     activeIcon: "bg-white/20",
     inactiveIcon: "bg-white/5 group-hover:bg-white/10",
     bottomCard:
-      "mt-10 rounded-3xl bg-gradient-to-r from-yellow-400 to-amber-500 p-4 shadow-lg shadow-yellow-500/20",
-    bottomTitle: "Executive Overview",
-    bottomDesc:
-      "Panel eksekutif untuk melihat performa bisnis, operasional, dan arah pengembangan sistem ReadyRoom.",
+      "mt-8 rounded-3xl bg-gradient-to-r from-yellow-400 to-amber-500 p-4 shadow-lg shadow-yellow-500/20",
     bottomText: "text-slate-900",
   },
 
@@ -304,22 +271,15 @@ const roleThemes = {
       "w-72 min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_22%),linear-gradient(180deg,#03111f_0%,#071827_45%,#020817_100%)] text-white border-r border-cyan-400/10 shadow-2xl",
     logoWrap:
       "w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-cyan-400/20 to-blue-500/20 flex items-center justify-center shadow-lg shadow-cyan-500/20 border border-cyan-300/20 shrink-0",
-    infoBox:
-      "rounded-3xl border border-cyan-300/10 bg-cyan-400/5 p-4 backdrop-blur-sm",
-    badge:
-      "mt-3 inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-300",
     sectionTitle:
       "mb-3 text-xs uppercase tracking-[0.22em] text-cyan-500/70",
     activeNav:
-      "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/20",
+      "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-[0_10px_24px_rgba(6,182,212,0.20)]",
     inactiveNav: "text-slate-200 hover:bg-white/10 hover:text-white",
     activeIcon: "bg-white/15",
     inactiveIcon: "bg-white/5 group-hover:bg-white/10",
     bottomCard:
-      "mt-10 rounded-3xl bg-gradient-to-r from-cyan-500 to-blue-600 p-4 shadow-lg shadow-cyan-500/20",
-    bottomTitle: "IT Control Center",
-    bottomDesc:
-      "Area khusus IT untuk mengelola konfigurasi, hak akses, konten, dan kontrol teknis sistem ReadyRoom.",
+      "mt-8 rounded-3xl bg-gradient-to-r from-cyan-500 to-blue-600 p-4 shadow-lg shadow-cyan-500/20",
     bottomText: "text-cyan-50/90",
   },
 
@@ -333,26 +293,20 @@ const roleThemes = {
       "w-72 min-h-screen text-white border-r shadow-2xl bg-gradient-to-b from-black via-gray-950 to-black border-white/10",
     logoWrap:
       "w-12 h-12 rounded-2xl overflow-hidden bg-white flex items-center justify-center shadow-lg shadow-red-500/25 border border-white/10 shrink-0",
-    infoBox:
-      "rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm",
-    badge:
-      "mt-3 inline-flex rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-red-200",
     sectionTitle: "mb-3 text-xs uppercase tracking-[0.22em] text-gray-500",
     activeNav:
-      "bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-lg shadow-red-500/20",
+      "bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-[0_10px_24px_rgba(244,63,94,0.20)]",
     inactiveNav: "text-gray-300 hover:bg-white/10 hover:text-white",
     activeIcon: "bg-white/15",
     inactiveIcon: "bg-white/5 group-hover:bg-white/10",
     bottomCard:
-      "mt-10 rounded-3xl bg-gradient-to-r from-red-600 to-rose-500 p-4 shadow-lg shadow-red-500/20",
-    bottomTitle: "ReadyRoom System",
-    bottomDesc:
-      "Sistem manajemen hotel untuk mengelola cabang, kamar, booking, laporan, dan pengguna dengan lebih mudah.",
+      "mt-8 rounded-3xl bg-gradient-to-r from-red-600 to-rose-500 p-4 shadow-lg shadow-red-500/20",
     bottomText: "text-red-50/90",
   },
 };
 
 export default function Sidebar() {
+  const location = useLocation();
   const [adminUser, setAdminUser] = useState(null);
 
   useEffect(() => {
@@ -409,11 +363,23 @@ export default function Sidebar() {
   }, [currentRole]);
 
   const theme = roleThemes[currentRole] || roleThemes.default;
-  const HeaderIcon = theme.icon;
+  const BottomIcon = theme.icon;
+
+  const isItemActive = (item) => {
+    const currentPath = location.pathname;
+
+    if (item.end) {
+      return currentPath === item.path;
+    }
+
+    return currentPath === item.path || currentPath.startsWith(`${item.path}/`);
+  };
 
   const getNavClassName = (isActive) => {
-    return `group flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${
-      isActive ? theme.activeNav : theme.inactiveNav
+    return `group relative flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 ${
+      isActive
+        ? `${theme.activeNav} z-10 translate-x-0`
+        : `${theme.inactiveNav} z-0 hover:translate-x-0.5`
     }`;
   };
 
@@ -424,10 +390,10 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className={theme.aside}>
+    <aside className={`${theme.aside} overflow-y-auto overflow-x-hidden`}>
       <div className="p-6">
-        <div className="mb-10">
-          <div className="mb-4 flex items-center gap-3">
+        <div className="mb-8">
+          <div className="flex items-center gap-3">
             <div className={theme.logoWrap}>
               <img
                 src="/readyroom.png"
@@ -441,29 +407,6 @@ export default function Sidebar() {
               <p className="text-xs text-white/55">{theme.panelSubtitle}</p>
             </div>
           </div>
-
-          <div className={theme.infoBox}>
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/8 shrink-0">
-                <HeaderIcon size={18} />
-              </div>
-
-              <div className="min-w-0">
-                <p className="text-sm leading-relaxed text-white/88">
-                  {theme.description}
-                </p>
-
-                <div className={theme.badge}>{theme.label}</div>
-
-                {currentRole === "it" && (
-                  <div className="mt-4 flex items-center gap-2 rounded-2xl border border-cyan-300/10 bg-white/5 px-3 py-2 text-xs text-cyan-100/80">
-                    <Cpu size={14} className="text-cyan-300" />
-                    <span>Mode khusus sistem aktif</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="space-y-8">
@@ -474,23 +417,20 @@ export default function Sidebar() {
               <nav className="space-y-2">
                 {section.items.map((item) => {
                   const Icon = item.icon;
+                  const active = isItemActive(item);
 
                   return (
                     <NavLink
                       key={item.name}
                       to={item.path}
                       end={Boolean(item.end)}
-                      className={({ isActive }) => getNavClassName(isActive)}
+                      className={getNavClassName(active)}
                     >
-                      {({ isActive }) => (
-                        <>
-                          <div className={getIconWrapClassName(isActive)}>
-                            <Icon size={20} />
-                          </div>
+                      <div className={getIconWrapClassName(active)}>
+                        <Icon size={20} />
+                      </div>
 
-                          <span className="font-medium">{item.name}</span>
-                        </>
-                      )}
+                      <span className="font-medium">{item.name}</span>
                     </NavLink>
                   );
                 })}
@@ -501,21 +441,20 @@ export default function Sidebar() {
 
         <div className={theme.bottomCard}>
           <div className="mb-2 flex items-center gap-2">
-            {currentRole === "boss" ? (
-              <Crown size={16} />
-            ) : currentRole === "it" ? (
-              <Wrench size={16} />
-            ) : currentRole === "receptionist" ? (
-              <BellRing size={16} />
-            ) : (
-              <ShieldCheck size={16} />
-            )}
-            <p className="text-sm font-semibold">{theme.bottomTitle}</p>
+            <BottomIcon size={16} />
+            <p className="text-sm font-semibold">{theme.label}</p>
           </div>
 
           <p className={`text-xs leading-relaxed ${theme.bottomText}`}>
-            {theme.bottomDesc}
+            {theme.description}
           </p>
+
+          {currentRole === "it" && (
+            <div className="mt-3 flex items-center gap-2 rounded-2xl border border-cyan-300/10 bg-white/10 px-3 py-2 text-xs text-cyan-50/90">
+              <Cpu size={14} />
+              <span>Mode khusus sistem aktif</span>
+            </div>
+          )}
         </div>
       </div>
     </aside>
