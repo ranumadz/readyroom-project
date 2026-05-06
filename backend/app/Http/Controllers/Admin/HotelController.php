@@ -26,6 +26,27 @@ class HotelController extends Controller
         ];
     }
 
+    private function syncBookingClosureStatus(Hotel $hotel): Hotel
+    {
+        if (
+            (bool) ($hotel->booking_is_closed ?? false) === true &&
+            !empty($hotel->booking_reopen_at) &&
+            now()->greaterThanOrEqualTo($hotel->booking_reopen_at)
+        ) {
+            $hotel->forceFill([
+                'booking_is_closed' => false,
+                'booking_closed_reason' => null,
+                'booking_reopen_at' => null,
+            ])->save();
+
+            $hotel->booking_is_closed = false;
+            $hotel->booking_closed_reason = null;
+            $hotel->booking_reopen_at = null;
+        }
+
+        return $hotel;
+    }
+
     private function getHotelStartingPrice(int $hotelId): array
     {
         $rooms = Room::where('hotel_id', $hotelId)
@@ -198,7 +219,12 @@ class HotelController extends Controller
 
     public function index()
     {
-        $hotels = Hotel::with(['city', 'facilities', 'images'])->latest()->get();
+        $hotels = Hotel::with(['city', 'facilities', 'images'])
+            ->latest()
+            ->get()
+            ->map(function ($hotel) {
+                return $this->syncBookingClosureStatus($hotel);
+            });
 
         return response()->json($hotels);
     }
@@ -218,6 +244,8 @@ class HotelController extends Controller
             ->orderByDesc('id')
             ->get()
             ->map(function ($hotel) {
+                $hotel = $this->syncBookingClosureStatus($hotel);
+
                 return $this->attachStartingPrice($hotel);
             });
 
@@ -240,6 +268,7 @@ class HotelController extends Controller
             ->where('status', true)
             ->findOrFail($id);
 
+        $hotel = $this->syncBookingClosureStatus($hotel);
         $hotel = $this->attachStartingPrice($hotel);
 
         return response()->json([
@@ -414,6 +443,43 @@ class HotelController extends Controller
         return response()->json([
             'message' => 'Hotel berhasil diupdate',
             'data' => $hotel->fresh()->load(['city', 'facilities', 'images'])
+        ]);
+    }
+
+    public function closeBooking(Request $request, $id)
+    {
+        $hotel = Hotel::findOrFail($id);
+
+        $validated = $request->validate([
+            'booking_closed_reason' => 'nullable|string|max:255',
+            'booking_reopen_at' => 'required|date|after:now',
+        ]);
+
+        $hotel->update([
+            'booking_is_closed' => true,
+            'booking_closed_reason' => $validated['booking_closed_reason'] ?? 'Kamar penuh',
+            'booking_reopen_at' => $validated['booking_reopen_at'],
+        ]);
+
+        return response()->json([
+            'message' => 'Booking hotel berhasil ditutup sementara',
+            'data' => $hotel->fresh()->load(['city', 'facilities', 'images']),
+        ]);
+    }
+
+    public function openBooking($id)
+    {
+        $hotel = Hotel::findOrFail($id);
+
+        $hotel->update([
+            'booking_is_closed' => false,
+            'booking_closed_reason' => null,
+            'booking_reopen_at' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Booking hotel berhasil dibuka kembali',
+            'data' => $hotel->fresh()->load(['city', 'facilities', 'images']),
         ]);
     }
 

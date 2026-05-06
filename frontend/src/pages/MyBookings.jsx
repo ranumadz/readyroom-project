@@ -21,6 +21,8 @@ import {
   Phone,
   CheckCircle2,
   X,
+  Hourglass,
+  AlertCircle,
 } from "lucide-react";
 
 export default function MyBookings() {
@@ -121,6 +123,8 @@ export default function MyBookings() {
         return "bg-slate-100 text-slate-700 border-slate-200";
       case "cancelled":
         return "bg-red-50 text-red-700 border-red-200";
+      case "rejected":
+        return "bg-red-50 text-red-700 border-red-200";
       default:
         return "bg-gray-50 text-gray-700 border-gray-200";
     }
@@ -150,8 +154,62 @@ export default function MyBookings() {
       : "Full Day";
   };
 
+  const isApprovedBooking = (booking) => {
+    const approvedStatuses = [
+      "confirmed",
+      "paid",
+      "checked_in",
+      "checked_out",
+      "cleaning",
+      "completed",
+    ];
+
+    return approvedStatuses.includes(String(booking?.status || ""));
+  };
+
+  const isPendingBooking = (booking) => {
+    return String(booking?.status || "") === "pending";
+  };
+
+  const getBookingIdentityLabel = (booking) => {
+    if (isApprovedBooking(booking)) return "Kode Booking";
+    return "Nomor Pengajuan";
+  };
+
+  const getBookingIdentityValue = (booking) => {
+    if (isApprovedBooking(booking)) {
+      return booking.booking_code || "-";
+    }
+
+    return booking.id ? `REQ-${booking.id}` : "Menunggu konfirmasi";
+  };
+
   const getCustomerInfoMessage = (booking) => {
     const waAdmin = booking?.hotel?.wa_admin || "-";
+
+    if (isPendingBooking(booking)) {
+      return {
+        title: "Pengajuan Booking Sedang Diproses",
+        lines: [
+          "Pengajuan booking kamu sudah diterima oleh sistem ReadyRoom.",
+          "Mohon tunggu konfirmasi admin cabang terlebih dahulu.",
+          "Kode booking dan receipt akan muncul setelah booking disetujui oleh admin.",
+        ],
+        contact: waAdmin,
+      };
+    }
+
+    if (!isApprovedBooking(booking)) {
+      return {
+        title: "Informasi Pengajuan Booking",
+        lines: [
+          "Pengajuan booking ini belum berstatus disetujui.",
+          "Kode booking dan receipt hanya tersedia setelah booking disetujui oleh admin.",
+          "Jika membutuhkan bantuan, silakan hubungi admin cabang melalui kontak resmi hotel.",
+        ],
+        contact: waAdmin,
+      };
+    }
 
     return {
       title: "Informasi untuk Tamu",
@@ -166,13 +224,16 @@ export default function MyBookings() {
 
   const buildReceiptHtml = (booking) => {
     const info = getCustomerInfoMessage(booking);
+    const bookingCode = isApprovedBooking(booking)
+      ? booking.booking_code || "-"
+      : "-";
 
     return `
       <!DOCTYPE html>
       <html lang="id">
       <head>
         <meta charset="UTF-8" />
-        <title>Receipt Booking ${booking.booking_code || "-"}</title>
+        <title>Receipt Booking ${bookingCode}</title>
         <style>
           * { box-sizing: border-box; }
           body {
@@ -329,7 +390,7 @@ export default function MyBookings() {
 
             <div class="header">
               <small>READYROOM BOOKING RECEIPT</small>
-              <h1>${booking.booking_code || "-"}</h1>
+              <h1>${bookingCode}</h1>
               <p>Tunjukkan receipt ini saat dibutuhkan untuk konfirmasi booking.</p>
             </div>
 
@@ -395,6 +456,8 @@ export default function MyBookings() {
   };
 
   const handleDownloadReceipt = (booking) => {
+    if (!isApprovedBooking(booking)) return;
+
     const receiptWindow = window.open("", "_blank", "width=960,height=900");
 
     if (!receiptWindow) return;
@@ -433,7 +496,8 @@ export default function MyBookings() {
           </h1>
 
           <p className="text-gray-500 mt-2">
-            Lihat status booking, kode booking, detail reservasi, dan unduh receipt booking kamu di ReadyRoom.
+            Lihat status pengajuan booking kamu. Kode booking dan receipt akan
+            tersedia setelah admin menyetujui booking.
           </p>
         </div>
 
@@ -457,7 +521,6 @@ export default function MyBookings() {
             >
               Login Sekarang
             </button>
-
           </div>
         )}
 
@@ -518,7 +581,8 @@ export default function MyBookings() {
                 </h2>
 
                 <p className="text-gray-500 mb-6">
-                  Kamu belum punya riwayat booking. Yuk mulai cari kamar favoritmu.
+                  Kamu belum punya riwayat booking. Yuk mulai cari kamar
+                  favoritmu.
                 </p>
 
                 <button
@@ -532,6 +596,8 @@ export default function MyBookings() {
               <div className="space-y-6">
                 {sortedBookings.map((booking) => {
                   const info = getCustomerInfoMessage(booking);
+                  const approved = isApprovedBooking(booking);
+                  const pending = isPendingBooking(booking);
 
                   return (
                     <div
@@ -550,16 +616,34 @@ export default function MyBookings() {
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                           <div>
                             <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-red-600 border border-red-100 mb-3">
-                              <Ticket size={14} />
-                              Ticket Booking ReadyRoom
+                              {approved ? (
+                                <>
+                                  <Ticket size={14} />
+                                  Ticket Booking ReadyRoom
+                                </>
+                              ) : (
+                                <>
+                                  <Hourglass size={14} />
+                                  Pengajuan Booking ReadyRoom
+                                </>
+                              )}
                             </div>
 
                             <p className="text-sm text-red-600 font-semibold mb-1">
-                              Kode Booking
+                              {getBookingIdentityLabel(booking)}
                             </p>
+
                             <h3 className="text-2xl font-extrabold tracking-wide text-gray-800">
-                              {booking.booking_code || "-"}
+                              {getBookingIdentityValue(booking)}
                             </h3>
+
+                            {!approved && (
+                              <p className="mt-2 max-w-xl text-sm font-semibold text-amber-700">
+                                {pending
+                                  ? "Kode booking akan muncul setelah admin menyetujui pengajuan ini."
+                                  : "Kode booking tidak tersedia karena booking belum berstatus disetujui."}
+                              </p>
+                            )}
                           </div>
 
                           <div className="flex flex-wrap gap-2">
@@ -583,15 +667,46 @@ export default function MyBookings() {
                       </div>
 
                       <div className="p-6">
+                        {!approved && (
+                          <div className="mb-5 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4">
+                            <div className="flex items-start gap-3">
+                              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-100 bg-white text-amber-600">
+                                {pending ? (
+                                  <Hourglass size={19} />
+                                ) : (
+                                  <AlertCircle size={19} />
+                                )}
+                              </div>
+
+                              <div>
+                                <h4 className="font-bold text-amber-800">
+                                  {pending
+                                    ? "Menunggu Konfirmasi Admin"
+                                    : "Belum Ada Kode Booking"}
+                                </h4>
+                                <p className="mt-1 text-sm font-semibold leading-relaxed text-amber-800">
+                                  {pending
+                                    ? "Pengajuan booking kamu sudah masuk. Setelah admin menyetujui, kode booking dan receipt akan otomatis tersedia di halaman ini."
+                                    : "Kode booking dan receipt hanya ditampilkan untuk booking yang sudah disetujui admin."}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           <InfoCard
-                            icon={<Building2 size={18} className="text-red-500" />}
+                            icon={
+                              <Building2 size={18} className="text-red-500" />
+                            }
                             label="Hotel"
                             value={booking.hotel?.name || "-"}
                           />
 
                           <InfoCard
-                            icon={<BedDouble size={18} className="text-red-500" />}
+                            icon={
+                              <BedDouble size={18} className="text-red-500" />
+                            }
                             label="Kamar"
                             value={booking.room?.name || "-"}
                           />
@@ -603,41 +718,67 @@ export default function MyBookings() {
                           />
 
                           <InfoCard
-                            icon={<CalendarDays size={18} className="text-red-500" />}
+                            icon={
+                              <CalendarDays
+                                size={18}
+                                className="text-red-500"
+                              />
+                            }
                             label="Check In"
                             value={formatDateTime(booking.check_in)}
                           />
 
                           <InfoCard
-                            icon={<CalendarDays size={18} className="text-red-500" />}
+                            icon={
+                              <CalendarDays
+                                size={18}
+                                className="text-red-500"
+                              />
+                            }
                             label="Check Out"
                             value={formatDateTime(booking.check_out)}
                           />
 
                           <InfoCard
                             icon={
-                              <CircleDollarSign size={18} className="text-red-500" />
+                              <CircleDollarSign
+                                size={18}
+                                className="text-red-500"
+                              />
                             }
                             label="Total Harga"
                             value={formatRupiah(booking.total_price)}
                           />
 
                           <InfoCard
-                            icon={<CreditCard size={18} className="text-red-500" />}
+                            icon={
+                              <CreditCard size={18} className="text-red-500" />
+                            }
                             label="Room Unit"
                             value={
-                              booking.room_unit?.room_number || "Belum di-assign admin"
+                              booking.room_unit?.room_number ||
+                              "Belum di-assign admin"
                             }
                           />
 
                           <InfoCard
-                            icon={<ShieldCheck size={18} className="text-red-500" />}
+                            icon={
+                              <ShieldCheck
+                                size={18}
+                                className="text-red-500"
+                              />
+                            }
                             label="Admin Note"
                             value={booking.admin_note || "-"}
                           />
 
                           <InfoCard
-                            icon={<ReceiptText size={18} className="text-red-500" />}
+                            icon={
+                              <ReceiptText
+                                size={18}
+                                className="text-red-500"
+                              />
+                            }
                             label="Alasan Penolakan"
                             value={booking.rejection_reason_customer || "-"}
                           />
@@ -656,7 +797,9 @@ export default function MyBookings() {
 
                               <div className="mt-2 space-y-1.5 text-sm leading-relaxed text-amber-800">
                                 {info.lines.map((line, index) => (
-                                  <p key={`${booking.id}-info-${index}`}>{line}</p>
+                                  <p key={`${booking.id}-info-${index}`}>
+                                    {line}
+                                  </p>
                                 ))}
                               </div>
 
@@ -669,23 +812,32 @@ export default function MyBookings() {
                         </div>
 
                         <div className="mt-5 flex flex-col sm:flex-row gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedBooking(booking)}
-                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
-                          >
-                            <Eye size={17} />
-                            Lihat Receipt
-                          </button>
+                          {approved ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBooking(booking)}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
+                              >
+                                <Eye size={17} />
+                                Lihat Receipt
+                              </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadReceipt(booking)}
-                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700 transition"
-                          >
-                            <Download size={17} />
-                            Unduh Receipt
-                          </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadReceipt(booking)}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700 transition"
+                              >
+                                <Download size={17} />
+                                Unduh Receipt
+                              </button>
+                            </>
+                          ) : (
+                            <div className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 sm:w-auto">
+                              <Hourglass size={17} />
+                              Receipt tersedia setelah admin ACC
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -699,7 +851,7 @@ export default function MyBookings() {
 
       <Footer />
 
-      {selectedBooking && (
+      {selectedBooking && isApprovedBooking(selectedBooking) && (
         <ReceiptModal
           booking={selectedBooking}
           customer={customer}
@@ -709,6 +861,7 @@ export default function MyBookings() {
           getBookingTypeText={getBookingTypeText}
           getCustomerInfoMessage={getCustomerInfoMessage}
           onDownload={handleDownloadReceipt}
+          isApprovedBooking={isApprovedBooking}
         />
       )}
     </div>
@@ -743,8 +896,12 @@ function ReceiptModal({
   getBookingTypeText,
   getCustomerInfoMessage,
   onDownload,
+  isApprovedBooking,
 }) {
   const info = getCustomerInfoMessage(booking);
+  const bookingCode = isApprovedBooking(booking)
+    ? booking.booking_code || "-"
+    : "-";
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
@@ -760,7 +917,7 @@ function ReceiptModal({
                 READYROOM BOOKING RECEIPT
               </p>
               <h2 className="text-3xl font-extrabold tracking-wide">
-                {booking.booking_code || "-"}
+                {bookingCode}
               </h2>
               <p className="mt-2 text-white/90 text-sm">
                 Simpan receipt ini untuk referensi booking kamu.
@@ -841,7 +998,9 @@ function ReceiptModal({
           </div>
 
           <div className="mt-5 rounded-[28px] border border-amber-200 bg-amber-50 px-5 py-5">
-            <h4 className="text-base font-bold text-amber-800">{info.title}</h4>
+            <h4 className="text-base font-bold text-amber-800">
+              {info.title}
+            </h4>
 
             <div className="mt-2 space-y-1.5 text-sm leading-relaxed text-amber-800">
               {info.lines.map((line, index) => (
@@ -870,7 +1029,7 @@ function ReceiptModal({
               onClick={onClose}
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
             >
-              Tutup 
+              Tutup
             </button>
           </div>
         </div>

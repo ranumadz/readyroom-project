@@ -26,6 +26,17 @@ class Hotel extends Model
         'hero_image',
         'rating',
         'status',
+
+        // Tutup / buka booking hotel sementara
+        'booking_is_closed',
+        'booking_closed_reason',
+        'booking_reopen_at',
+    ];
+
+    protected $casts = [
+        'status' => 'boolean',
+        'booking_is_closed' => 'boolean',
+        'booking_reopen_at' => 'datetime',
     ];
 
     public function city()

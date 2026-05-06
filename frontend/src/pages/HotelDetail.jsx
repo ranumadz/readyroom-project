@@ -16,6 +16,9 @@ import {
   X,
   BadgeCheck,
   FileText,
+  AlertCircle,
+  Clock3,
+  Lock,
 } from "lucide-react";
 
 const BACKEND_BASE_URL =
@@ -109,7 +112,10 @@ export default function HotelDetail() {
       setHotel(hotelRes.data?.data || null);
       setRooms(Array.isArray(roomsRes.data?.data) ? roomsRes.data.data : []);
     } catch (error) {
-      console.error("GET HOTEL DETAIL / ROOMS ERROR:", error.response?.data || error);
+      console.error(
+        "GET HOTEL DETAIL / ROOMS ERROR:",
+        error.response?.data || error
+      );
       setHotel(null);
       setRooms([]);
     } finally {
@@ -127,7 +133,8 @@ export default function HotelDetail() {
 
     const cleanPath = rawPath.replace(/^\/+/, "");
     if (cleanPath.startsWith("images/")) return `/${cleanPath}`;
-    if (cleanPath.startsWith("storage/")) return `${BACKEND_BASE_URL}/${cleanPath}`;
+    if (cleanPath.startsWith("storage/"))
+      return `${BACKEND_BASE_URL}/${cleanPath}`;
 
     return `${BACKEND_BASE_URL}/storage/${cleanPath}`;
   };
@@ -139,6 +146,22 @@ export default function HotelDetail() {
       currency: "IDR",
       maximumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const formatBookingReopenAt = (value) => {
+    if (!value) return "";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return String(value);
+
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
   };
 
   const getRoomLowestPrice = (room) => {
@@ -169,6 +192,11 @@ export default function HotelDetail() {
 
   const cheapestRoom = sortedRooms[0] || null;
   const cheapestPrice = cheapestRoom ? getRoomLowestPrice(cheapestRoom) : 0;
+
+  const isBookingClosed = Boolean(hotel?.booking_is_closed);
+  const bookingClosedReason =
+    hotel?.booking_closed_reason || "Kamar di hotel ini sedang penuh.";
+  const bookingReopenLabel = formatBookingReopenAt(hotel?.booking_reopen_at);
 
   const galleryImages = useMemo(() => {
     if (!hotel) return ["/images/hotel.jpg"];
@@ -228,6 +256,8 @@ export default function HotelDetail() {
   };
 
   const handleOpenRoomDetail = (roomId) => {
+    if (isBookingClosed) return;
+
     window.scrollTo({
       top: 0,
       left: 0,
@@ -276,7 +306,9 @@ export default function HotelDetail() {
       if (!hotelData?.id) return;
 
       const storageKey = getCustomerStorageKey();
-      const existingRecent = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const existingRecent = JSON.parse(
+        localStorage.getItem(storageKey) || "[]"
+      );
 
       const hotelItem = {
         id: hotelData.id,
@@ -287,7 +319,12 @@ export default function HotelDetail() {
         city: hotelData.city || null,
         thumbnail: hotelData.thumbnail || "",
         hero_image: hotelData.hero_image || "",
-        facilities: Array.isArray(hotelData.facilities) ? hotelData.facilities : [],
+        facilities: Array.isArray(hotelData.facilities)
+          ? hotelData.facilities
+          : [],
+        booking_is_closed: Boolean(hotelData.booking_is_closed),
+        booking_closed_reason: hotelData.booking_closed_reason || "",
+        booking_reopen_at: hotelData.booking_reopen_at || null,
         viewed_at: new Date().toISOString(),
       };
 
@@ -360,7 +397,9 @@ export default function HotelDetail() {
       ? `62${rawWa.slice(1)}`
       : rawWa;
 
-    const text = `Halo Admin ${hotel?.name || "Hotel"}, saya ingin bertanya tentang reservasi kamar di hotel ini. Mohon info lebih lanjut ya.`;
+    const text = `Halo Admin ${
+      hotel?.name || "Hotel"
+    }, saya ingin bertanya tentang reservasi kamar di hotel ini. Mohon info lebih lanjut ya.`;
 
     return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
   }, [hotel]);
@@ -498,7 +537,10 @@ export default function HotelDetail() {
                   const itemWidth = e.currentTarget.clientWidth + 12;
                   const nextIndex = Math.round(scrollLeft / itemWidth);
 
-                  if (galleryImages[nextIndex] && nextIndex !== activeImageIndex) {
+                  if (
+                    galleryImages[nextIndex] &&
+                    nextIndex !== activeImageIndex
+                  ) {
                     setActiveImageIndex(nextIndex);
                   }
                 }}
@@ -569,12 +611,29 @@ export default function HotelDetail() {
             <div className="overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm md:rounded-[1.5rem]">
               <div className="p-4 md:p-7">
                 <div className="mb-5 border-b border-gray-100 pb-5">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    {isBookingClosed ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-extrabold text-amber-700 ring-1 ring-amber-100">
+                        <Lock size={13} />
+                        Kamar penuh sementara
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-extrabold text-emerald-700 ring-1 ring-emerald-100">
+                        <BadgeCheck size={13} />
+                        Booking tersedia
+                      </span>
+                    )}
+                  </div>
+
                   <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-gray-950 md:text-4xl">
                     {hotel.name}
                   </h1>
 
                   <div className="mt-4 grid grid-cols-[22px_1fr] items-start gap-2.5">
-                    <MapPin size={18} className="mt-0.5 shrink-0 text-red-500" />
+                    <MapPin
+                      size={18}
+                      className="mt-0.5 shrink-0 text-red-500"
+                    />
 
                     <div className="min-w-0">
                       <p className="text-base font-extrabold leading-tight text-gray-900 md:text-xl">
@@ -590,36 +649,69 @@ export default function HotelDetail() {
                   </div>
                 </div>
 
-               <div className="grid grid-cols-[24px_1fr] items-start gap-2.5">
-                <FileText size={14} className="mt-0.5 shrink-0 text-red-500" />
+                {isBookingClosed && (
+                  <div className="mb-5 rounded-[1.25rem] border border-amber-100 bg-amber-50 p-4 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
+                        <AlertCircle size={18} />
+                      </div>
 
-  <div className="min-w-0">
-  <h1 className="text-base font-extrabold leading-tight text-gray-900 md:text-xl">
-    Deskripsi & Fasilitas Hotel
-  </h1>
+                      <div className="min-w-0">
+                        <p className="font-extrabold text-amber-900">
+                          Kamar di hotel ini sedang penuh
+                        </p>
+                        <p className="mt-1 text-sm font-semibold leading-relaxed text-amber-800">
+                          {bookingClosedReason}. Silakan pilih hotel ReadyRoom
+                          lain atau coba kembali
+                          {bookingReopenLabel ? ` setelah ${bookingReopenLabel}` : ""}.
+                        </p>
 
-       <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500 md:text-base">
-    {hotel.description || "Deskripsi hotel belum tersedia."}
-      </p>
+                        {bookingReopenLabel && (
+                          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-amber-700 shadow-sm">
+                            <Clock3 size={14} />
+                            Buka kembali: {bookingReopenLabel}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-  {Array.isArray(hotel.facilities) && hotel.facilities.length > 0 ? (
-    <div className="mt-4 flex flex-wrap gap-1.5 md:gap-2">
-      {hotel.facilities.map((facility) => (
-        <span
-          key={facility.id}
-          className="rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-red-600 md:px-3 md:py-1.5 md:text-xs"
-        >
-          {getFacilityLabel(facility)}
-        </span>
-      ))}
-    </div>
-  ) : (
-    <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-gray-500">
-      Fasilitas hotel belum tersedia untuk ditampilkan saat ini.
-    </div>
-  )}
-</div>
-</div>
+                <div className="grid grid-cols-[24px_1fr] items-start gap-2.5">
+                  <FileText
+                    size={14}
+                    className="mt-0.5 shrink-0 text-red-500"
+                  />
+
+                  <div className="min-w-0">
+                    <h1 className="text-base font-extrabold leading-tight text-gray-900 md:text-xl">
+                      Deskripsi & Fasilitas Hotel
+                    </h1>
+
+                    <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500 md:text-base">
+                      {hotel.description || "Deskripsi hotel belum tersedia."}
+                    </p>
+
+                    {Array.isArray(hotel.facilities) &&
+                    hotel.facilities.length > 0 ? (
+                      <div className="mt-4 flex flex-wrap gap-1.5 md:gap-2">
+                        {hotel.facilities.map((facility) => (
+                          <span
+                            key={facility.id}
+                            className="rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-red-600 md:px-3 md:py-1.5 md:text-xs"
+                          >
+                            {getFacilityLabel(facility)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-gray-500">
+                        Fasilitas hotel belum tersedia untuk ditampilkan saat
+                        ini.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -632,7 +724,6 @@ export default function HotelDetail() {
                     <p className="font-semibold text-gray-800">
                       Lihat di Google Maps
                     </p>
-                    
                   </div>
                 </div>
               </div>
@@ -653,7 +744,8 @@ export default function HotelDetail() {
               ) : googleMapsUrl ? (
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
                   <p className="leading-relaxed text-gray-600">
-                    Peta embed belum tersedia, tapi lokasi hotel sudah tersimpan. Klik tombol Buka Maps untuk membuka lokasi.
+                    Peta embed belum tersedia, tapi lokasi hotel sudah
+                    tersimpan. Klik tombol Buka Maps untuk membuka lokasi.
                   </p>
                 </div>
               ) : (
@@ -679,6 +771,20 @@ export default function HotelDetail() {
                 </div>
               </div>
 
+              {isBookingClosed && (
+                <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-4 text-sm font-semibold leading-relaxed text-amber-800">
+                  <div className="flex items-start gap-3">
+                    <Lock size={18} className="mt-0.5 shrink-0" />
+                    <p>
+                      Booking untuk hotel ini sedang ditutup sementara karena{" "}
+                      {String(bookingClosedReason || "kamar penuh").toLowerCase()}
+                      . Kamu tetap bisa melihat pilihan kamar, namun pemesanan
+                      belum dapat dilakukan saat ini.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {sortedRooms.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
                   Belum ada kamar tersedia untuk hotel ini.
@@ -691,12 +797,19 @@ export default function HotelDetail() {
                     return (
                       <div
                         key={room.id}
-                        className="overflow-hidden rounded-[1.25rem] border border-gray-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg md:rounded-[1.7rem]"
+                        className={`overflow-hidden rounded-[1.25rem] border border-gray-100 bg-white shadow-sm transition md:rounded-[1.7rem] ${
+                          isBookingClosed
+                            ? "opacity-95"
+                            : "hover:-translate-y-0.5 hover:shadow-lg"
+                        }`}
                       >
                         <div className="grid grid-cols-1 md:grid-cols-[250px_1fr]">
                           <div className="relative h-[205px] bg-gray-100 md:h-full md:min-h-[260px]">
                             <img
-                              src={buildImageUrl(getRoomImage(room), "/images/hotel.jpg")}
+                              src={buildImageUrl(
+                                getRoomImage(room),
+                                "/images/hotel.jpg"
+                              )}
                               alt={room.name}
                               onError={(e) => {
                                 e.currentTarget.src = "/images/hotel.jpg";
@@ -715,6 +828,13 @@ export default function HotelDetail() {
                               <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
                                 <BadgeCheck size={13} />
                                 Termurah di hotel ini
+                              </div>
+                            )}
+
+                            {isBookingClosed && (
+                              <div className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-bold text-white shadow-lg">
+                                <Lock size={13} />
+                                Penuh
                               </div>
                             )}
                           </div>
@@ -785,17 +905,37 @@ export default function HotelDetail() {
                             </div>
 
                             <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm md:flex md:items-center md:justify-between md:gap-4">
+                              {isBookingClosed && (
+                                <p className="mb-3 text-sm font-semibold text-amber-700 md:mb-0">
+                                  Hotel sedang penuh sementara.
+                                </p>
+                              )}
+
                               <button
                                 type="button"
+                                disabled={isBookingClosed}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   handleOpenRoomDetail(room.id);
                                 }}
-                                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700 md:mt-0 md:w-auto"
+                                className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-bold transition md:mt-0 md:w-auto ${
+                                  isBookingClosed
+                                    ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                                    : "bg-red-600 text-white hover:bg-red-700"
+                                }`}
                               >
-                                Pilih Kamar
-                                <ArrowRight size={18} />
+                                {isBookingClosed ? (
+                                  <>
+                                    Tidak Tersedia
+                                    <Lock size={18} />
+                                  </>
+                                ) : (
+                                  <>
+                                    Pilih Kamar
+                                    <ArrowRight size={18} />
+                                  </>
+                                )}
                               </button>
                             </div>
                           </div>
@@ -857,25 +997,57 @@ export default function HotelDetail() {
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                Mulai dari
+                {isBookingClosed ? "Status hotel" : "Mulai dari"}
               </p>
-              <p className="text-lg font-extrabold leading-tight text-red-600">
-                {cheapestPrice > 0 ? formatRupiah(cheapestPrice) : "Hubungi admin"}
+
+              <p
+                className={`text-lg font-extrabold leading-tight ${
+                  isBookingClosed ? "text-amber-600" : "text-red-600"
+                }`}
+              >
+                {isBookingClosed
+                  ? "Kamar penuh"
+                  : cheapestPrice > 0
+                  ? formatRupiah(cheapestPrice)
+                  : "Hubungi admin"}
               </p>
-              {cheapestRoom?.name && (
+
+              {isBookingClosed ? (
                 <p className="line-clamp-1 text-[11px] font-medium text-gray-500">
-                  {cheapestRoom.name}
+                  {bookingReopenLabel
+                    ? `Coba lagi setelah ${bookingReopenLabel}`
+                    : "Silakan pilih hotel lain"}
                 </p>
+              ) : (
+                cheapestRoom?.name && (
+                  <p className="line-clamp-1 text-[11px] font-medium text-gray-500">
+                    {cheapestRoom.name}
+                  </p>
+                )
               )}
             </div>
 
             <button
               type="button"
-              onClick={handleScrollToRooms}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-200 transition hover:bg-red-700"
+              onClick={isBookingClosed ? undefined : handleScrollToRooms}
+              disabled={isBookingClosed}
+              className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold shadow-lg transition ${
+                isBookingClosed
+                  ? "cursor-not-allowed bg-gray-200 text-gray-500 shadow-gray-100"
+                  : "bg-red-600 text-white shadow-red-200 hover:bg-red-700"
+              }`}
             >
-              Lihat kamar
-              <ArrowRight size={17} />
+              {isBookingClosed ? (
+                <>
+                  Tidak tersedia
+                  <Lock size={17} />
+                </>
+              ) : (
+                <>
+                  Lihat kamar
+                  <ArrowRight size={17} />
+                </>
+              )}
             </button>
           </div>
         </div>

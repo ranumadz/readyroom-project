@@ -10,6 +10,7 @@ import RoomUnits from "../admin/pages/RoomUnits";
 import BookingList from "../admin/pages/BookingList";
 import ManualBooking from "../admin/pages/ManualBooking";
 import BookingCalendar from "../admin/pages/BookingCalendar";
+import BookingAvailability from "../admin/pages/BookingAvailability";
 import Reports from "../admin/pages/Reports";
 import UsersPage from "../admin/pages/Users";
 import MasterContent from "../admin/pages/MasterContent";
@@ -141,6 +142,10 @@ function PageTitleManager() {
         return "ReadyRoom Technology | Booking Calendar";
       }
 
+      if (pathname === "/admin/booking-availability") {
+        return "ReadyRoom Technology | Booking Availability";
+      }
+
       if (pathname === "/admin/reports") {
         return "ReadyRoom Technology | Reports";
       }
@@ -269,6 +274,15 @@ export default function AppRoutes() {
           element={
             <AdminProtectedRoute>
               <BookingCalendar />
+            </AdminProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/booking-availability"
+          element={
+            <AdminProtectedRoute>
+              <BookingAvailability />
             </AdminProtectedRoute>
           }
         />

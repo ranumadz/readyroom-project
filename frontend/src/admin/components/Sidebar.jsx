@@ -64,6 +64,11 @@ const allMenuSections = [
         icon: BedDouble,
       },
       {
+        name: "Ketersediaan Booking",
+        path: "/admin/booking-availability",
+        icon: CalendarDays,
+      },
+      {
         name: "Booking List",
         path: "/admin/bookings",
         icon: ClipboardList,
@@ -118,12 +123,14 @@ const roleAllowedPaths = {
   ],
   admin: [
     "/admin/room-units",
+    "/admin/booking-availability",
     "/admin/bookings",
     "/admin/bookings/calendar",
     "/admin/reports",
   ],
   pengawas: [
     "/admin/room-units",
+    "/admin/booking-availability",
     "/admin/bookings",
     "/admin/bookings/calendar",
     "/admin/reports",

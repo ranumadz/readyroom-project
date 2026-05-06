@@ -86,6 +86,11 @@ Route::prefix('admin')->group(function () {
     Route::post('/hotels', [HotelController::class, 'store']);
     Route::put('/hotels/{id}', [HotelController::class, 'update']);
     Route::post('/hotels/{id}', [HotelController::class, 'update']);
+
+    // Tutup / buka booking hotel sementara
+    Route::post('/hotels/{id}/close-booking', [HotelController::class, 'closeBooking']);
+    Route::post('/hotels/{id}/open-booking', [HotelController::class, 'openBooking']);
+
     Route::delete('/hotels/{id}', [HotelController::class, 'destroy']);
 
     // =========================
