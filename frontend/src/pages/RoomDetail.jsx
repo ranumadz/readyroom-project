@@ -67,7 +67,7 @@ export default function RoomDetail() {
   const [submittingBooking, setSubmittingBooking] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState({
     open: false,
-    bookingCode: "",
+    requestNumber: "",
   });
 
   const [bookingError, setBookingError] = useState("");
@@ -986,7 +986,7 @@ export default function RoomDetail() {
   };
 
   const closeSuccessModal = () =>
-    setBookingSuccess({ open: false, bookingCode: "" });
+    setBookingSuccess({ open: false, requestNumber: "" });
 
   const resolveCustomerUserId = () => {
     if (customerUser?.id) return customerUser.id;
@@ -1082,13 +1082,18 @@ export default function RoomDetail() {
       };
 
       const res = await api.post("/bookings", payload);
-      const bookingCode = res.data?.data?.booking_code || "-";
+      const bookingId =
+        res.data?.data?.id ||
+        res.data?.data?.booking_id ||
+        res.data?.booking?.id ||
+        null;
+      const requestNumber = bookingId ? `REQ-${bookingId}` : "Menunggu konfirmasi";
 
       setBookingForm({ check_in: "", overnight_end_date: "" });
       setShowDatePanel(false);
       setShowTimePanel(false);
       setShowFullDayDurationPanel(false);
-      setBookingSuccess({ open: true, bookingCode });
+      setBookingSuccess({ open: true, requestNumber });
     } catch (error) {
       console.error("SUBMIT BOOKING ERROR:", error.response?.data || error);
 
@@ -2110,16 +2115,16 @@ export default function RoomDetail() {
 
             <div className="mt-6 rounded-3xl border border-red-100 bg-gradient-to-br from-red-50 to-rose-50 p-5">
               <p className="text-sm text-red-600 font-semibold mb-2">
-                Kode Booking Kamu
+                Nomor Pengajuan
               </p>
 
               <p className="text-2xl font-extrabold tracking-wide text-gray-800">
-                {bookingSuccess.bookingCode || "-"}
+                {bookingSuccess.requestNumber || "Menunggu konfirmasi"}
               </p>
 
               <p className="mt-2 text-xs text-gray-500">
-                Simpan kode ini ya, nanti bisa dipakai untuk konfirmasi ke hotel
-                saat booking sudah disetujui.
+                Ini bukan kode booking final. Kode booking akan muncul setelah
+                admin menyetujui pengajuan booking kamu.
               </p>
             </div>
 
