@@ -11,7 +11,12 @@ export default function RoomsList() {
   const [loadingFacilities, setLoadingFacilities] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedHotelId, setSelectedHotelId] = useState("all");
+  const [selectedHotelId, setSelectedHotelId] = useState(() => {
+    if (typeof window === "undefined") return "all";
+
+    const params = new URLSearchParams(window.location.search);
+    return params.get("hotel_id") || "all";
+  });
   const [selectedRoomType, setSelectedRoomType] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
 
@@ -430,6 +435,18 @@ export default function RoomsList() {
     return uniqueHotels;
   }, [hotels, rooms]);
 
+  const selectedHotelData = useMemo(() => {
+    if (selectedHotelId === "all") return null;
+
+    return (
+      hotelOptions.find((hotel) => String(hotel.id) === String(selectedHotelId)) ||
+      null
+    );
+  }, [hotelOptions, selectedHotelId]);
+
+  const selectedBranchLabel = selectedHotelData?.name ||
+    (selectedHotelId === "all" ? "Semua Cabang" : "Cabang dipilih");
+
   const roomTypeOptions = useMemo(() => {
     const types = rooms
       .map((room) => room?.type)
@@ -482,29 +499,38 @@ export default function RoomsList() {
     roomFacilityOptions,
   ]);
 
+  const roomStatsSource = useMemo(() => {
+    if (selectedHotelId === "all") return rooms;
+
+    return rooms.filter((room) => {
+      const roomHotelId = Number(room?.hotel_id || room?.hotel?.id || 0);
+      return roomHotelId === Number(selectedHotelId);
+    });
+  }, [rooms, selectedHotelId]);
+
   const roomStats = useMemo(() => {
-    const activeRooms = rooms.filter((room) => isRoomActive(room)).length;
-    const inactiveRooms = rooms.length - activeRooms;
-    const totalUnits = rooms.reduce(
+    const activeRooms = roomStatsSource.filter((room) => isRoomActive(room)).length;
+    const inactiveRooms = roomStatsSource.length - activeRooms;
+    const totalUnits = roomStatsSource.reduce(
       (sum, room) => sum + Number(room?.total_rooms || 0),
       0
     );
 
     const uniqueHotels = new Set(
-      rooms
+      roomStatsSource
         .map((room) => room?.hotel_id || room?.hotel?.id)
         .filter(Boolean)
         .map((id) => String(id))
     );
 
     return {
-      totalRoomTypes: rooms.length,
+      totalRoomTypes: roomStatsSource.length,
       activeRooms,
       inactiveRooms,
       totalUnits,
       totalBranches: uniqueHotels.size,
     };
-  }, [rooms]);
+  }, [roomStatsSource]);
 
   const hasActiveFilters =
     searchTerm.trim() ||
@@ -1437,8 +1463,14 @@ export default function RoomsList() {
         <Topbar />
 
         <div className="p-6 md:p-8">
-          <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            
+          <div className="mb-6 flex flex-wrap items-center justify-start gap-2">
+            <a
+              href="/admin/hotels"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            >
+              <span className="text-lg leading-none">←</span>
+              Kembali
+            </a>
 
             <a
               href="/admin/rooms/add"
@@ -1447,169 +1479,22 @@ export default function RoomsList() {
               + Add Room
             </a>
           </div>
-
-          <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                Total Tipe Kamar
-              </p>
-              <p className="mt-2 text-3xl font-black text-gray-900">
-                {roomStats.totalRoomTypes}
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                Semua tipe kamar terdaftar
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-green-100 bg-green-50/70 p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-green-600">
-                Room Aktif
-              </p>
-              <p className="mt-2 text-3xl font-black text-green-700">
-                {roomStats.activeRooms}
-              </p>
-              <p className="mt-1 text-sm text-green-700/70">
-                Tampil untuk operasional
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-red-100 bg-red-50/70 p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-red-600">
-                Room Nonaktif
-              </p>
-              <p className="mt-2 text-3xl font-black text-red-700">
-                {roomStats.inactiveRooms}
-              </p>
-              <p className="mt-1 text-sm text-red-700/70">
-                Disembunyikan sementara
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                Total Unit
-              </p>
-              <p className="mt-2 text-3xl font-black text-gray-900">
-                {roomStats.totalUnits}
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                Dari {roomStats.totalBranches} cabang hotel
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-5 overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm">
-            <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-5 py-5 text-white">
-              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h2 className="text-lg font-extrabold">
-                    Filter Kamar Cabang
-                  </h2>
-                  <p className="mt-1 text-sm text-white/65">
-                    Pilih cabang hotel terlebih dahulu, lalu saring berdasarkan
-                    tipe kamar, status, atau nama kamar.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white/90">
-                  {filteredRooms.length} dari {rooms.length} data tampil
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 p-5 lg:grid-cols-12">
-              <div className="lg:col-span-3">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Cari Kamar
-                </label>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Cari nama kamar / hotel..."
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
-                />
-              </div>
-
-              <div className="lg:col-span-3">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Cabang / Hotel
-                </label>
-                <select
-                  value={selectedHotelId}
-                  onChange={(e) => setSelectedHotelId(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
-                >
-                  <option value="all">Semua Cabang</option>
-                  {hotelOptions.map((hotel) => (
-                    <option key={hotel.id} value={hotel.id}>
-                      {hotel.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="lg:col-span-2">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Tipe Kamar
-                </label>
-                <select
-                  value={selectedRoomType}
-                  onChange={(e) => setSelectedRoomType(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
-                >
-                  <option value="all">Semua Tipe</option>
-                  {roomTypeOptions.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="lg:col-span-2">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Status
-                </label>
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
-                >
-                  <option value="all">Semua Status</option>
-                  <option value="active">Aktif</option>
-                  <option value="inactive">Nonaktif</option>
-                </select>
-              </div>
-
-              <div className="flex items-end lg:col-span-2">
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  disabled={!hasActiveFilters}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Reset Filter
-                </button>
-              </div>
-            </div>
-          </div>
-
           <div className="overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm">
-            <div className="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-lg font-extrabold text-gray-900">
-                  Data Kamar
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Daftar kamar yang sesuai dengan filter cabang dan tipe kamar.
-                </p>
-              </div>
+            <div className="border-b border-gray-100 px-5 py-4">
+  <div className="flex flex-wrap items-center gap-3">
+    <h2 className="text-lg font-extrabold text-gray-900">
+      Data Kamar
+    </h2>
 
-              <div className="rounded-full bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600">
-                {filteredRooms.length} data ditemukan
-              </div>
-            </div>
+    <div className="rounded-full bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600">
+      {filteredRooms.length} data ditemukan
+    </div>
+  </div>
+
+  <p className="mt-1 text-sm text-gray-500">
+    Kamar berdasarkan cabang yang dipilih.
+  </p>
+</div>
 
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1250px]">

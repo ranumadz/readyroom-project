@@ -4,56 +4,79 @@ import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import Swal from "sweetalert2";
 import {
-  Building2,
-  Search,
-  Lock,
-  Unlock,
-  Clock3,
-  RefreshCw,
   AlertCircle,
-  X,
+  BedDouble,
+  Clock3,
+  Hotel,
+  Lock,
+  RefreshCw,
   Save,
+  Search,
+  Unlock,
+  X,
 } from "lucide-react";
+
+const CLOSE_META_STORAGE_KEY = "readyroom_room_booking_close_meta";
 
 export default function BookingAvailability() {
   const [hotels, setHotels] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [savingClose, setSavingClose] = useState(false);
+  const [updatingRoomId, setUpdatingRoomId] = useState(null);
+
+  const [selectedCityKey, setSelectedCityKey] = useState("");
+  const [selectedHotelId, setSelectedHotelId] = useState("");
   const [search, setSearch] = useState("");
 
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [selectedHotel, setSelectedHotel] = useState(null);
-
+  const [selectedCloseRoom, setSelectedCloseRoom] = useState(null);
+  const [savingClose, setSavingClose] = useState(false);
+  const [roomCloseMetaMap, setRoomCloseMetaMap] = useState({});
   const [closeForm, setCloseForm] = useState({
     booking_closed_reason: "Kamar penuh",
     booking_reopen_at: "",
   });
+  const [selectedQuickCloseHours, setSelectedQuickCloseHours] = useState(null);
+
+  const normalizeArrayResponse = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data?.data)) return payload.data.data;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.hotels)) return payload.hotels;
+    if (Array.isArray(payload?.rooms)) return payload.rooms;
+    return [];
+  };
 
   const fetchHotels = async () => {
+    const res = await api.get("/admin/hotels");
+    return normalizeArrayResponse(res.data);
+  };
+
+  const fetchRooms = async () => {
+    const res = await api.get("/admin/rooms");
+    return normalizeArrayResponse(res.data);
+  };
+
+  const fetchAvailabilityData = async () => {
     try {
       setLoading(true);
 
-      const res = await api.get("/admin/hotels");
-
-      const hotelData = Array.isArray(res.data?.data)
-        ? res.data.data
-        : Array.isArray(res.data?.hotels)
-        ? res.data.hotels
-        : Array.isArray(res.data)
-        ? res.data
-        : [];
+      const [hotelData, roomData] = await Promise.all([
+        fetchHotels(),
+        fetchRooms(),
+      ]);
 
       setHotels(hotelData);
+      setRooms(roomData);
     } catch (err) {
-      console.error(
-        "GET BOOKING AVAILABILITY HOTELS ERROR:",
-        err.response?.data || err
-      );
+      console.error("GET BOOKING AVAILABILITY ERROR:", err.response?.data || err);
 
       Swal.fire({
         icon: "error",
         title: "Gagal",
-        text: err.response?.data?.message || "Data hotel gagal diambil",
+        text:
+          err.response?.data?.message ||
+          "Data ketersediaan booking gagal diambil",
         confirmButtonColor: "#dc2626",
       });
     } finally {
@@ -62,32 +85,296 @@ export default function BookingAvailability() {
   };
 
   useEffect(() => {
-    fetchHotels();
+    fetchAvailabilityData();
   }, []);
 
-  const filteredHotels = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CLOSE_META_STORAGE_KEY);
+      setRoomCloseMetaMap(saved ? JSON.parse(saved) : {});
+    } catch (error) {
+      console.error("READ ROOM CLOSE META ERROR:", error);
+      setRoomCloseMetaMap({});
+    }
+  }, []);
 
-    if (!keyword) return hotels;
+  const persistRoomCloseMetaMap = (nextMap) => {
+    setRoomCloseMetaMap(nextMap);
+    localStorage.setItem(CLOSE_META_STORAGE_KEY, JSON.stringify(nextMap));
+  };
 
-    return hotels.filter((hotel) => {
-      const name = String(hotel?.name || "").toLowerCase();
-      const city = String(
-        hotel?.city?.name || hotel?.city_name || ""
-      ).toLowerCase();
-      const area = String(hotel?.area || "").toLowerCase();
-      const address = String(hotel?.address || "").toLowerCase();
+  const getHotelCityName = (hotel) => {
+    return (
+      hotel?.city?.name ||
+      hotel?.city_name ||
+      hotel?.city ||
+      hotel?.area ||
+      "-"
+    );
+  };
 
-      return (
-        name.includes(keyword) ||
-        city.includes(keyword) ||
-        area.includes(keyword) ||
-        address.includes(keyword)
-      );
+  const getHotelCityKey = (hotel) => {
+    const cityId = hotel?.city?.id || hotel?.city_id;
+
+    if (cityId) return `city-id-${cityId}`;
+
+    const cityName = getHotelCityName(hotel);
+
+    return `city-name-${String(cityName || "-").toLowerCase()}`;
+  };
+
+  const cityOptions = useMemo(() => {
+    const map = new Map();
+
+    hotels.forEach((hotel) => {
+      const key = getHotelCityKey(hotel);
+      const name = getHotelCityName(hotel);
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          name,
+        });
+      }
     });
-  }, [hotels, search]);
 
-  const formatReopenAt = (value) => {
+    return Array.from(map.values()).sort((a, b) =>
+      String(a.name || "").localeCompare(String(b.name || ""))
+    );
+  }, [hotels]);
+
+  const hotelsById = useMemo(() => {
+    const map = new Map();
+
+    hotels.forEach((hotel) => {
+      if (hotel?.id) {
+        map.set(String(hotel.id), hotel);
+      }
+    });
+
+    return map;
+  }, [hotels]);
+
+  const selectedCityHotels = useMemo(() => {
+    if (!selectedCityKey) return [];
+
+    return hotels
+      .filter((hotel) => getHotelCityKey(hotel) === selectedCityKey)
+      .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+  }, [hotels, selectedCityKey]);
+
+  const handleCityChange = (value) => {
+    setSelectedCityKey(value);
+    setSelectedHotelId("");
+    setSearch("");
+  };
+
+  const handleHotelChange = (value) => {
+    setSelectedHotelId(value);
+    setSearch("");
+  };
+
+  const getRoomHotelId = (room) => {
+    return String(room?.hotel_id || room?.hotel?.id || "");
+  };
+
+  const getRoomHotel = (room) => {
+    return room?.hotel || hotelsById.get(getRoomHotelId(room)) || null;
+  };
+
+  const isRoomActive = (room) => {
+    return (
+      room?.status === true ||
+      room?.status === 1 ||
+      room?.status === "1" ||
+      String(room?.status || "").toLowerCase() === "true" ||
+      String(room?.status || "").toLowerCase() === "active"
+    );
+  };
+
+  const getRoomTransitPrice = (room, duration) => {
+    if (duration === "3h") {
+      return room?.price_transit_3h ?? room?.price_3h ?? 0;
+    }
+
+    if (duration === "6h") {
+      return room?.price_transit_6h ?? room?.price_6h ?? 0;
+    }
+
+    if (duration === "12h") {
+      return room?.price_transit_12h ?? room?.price_12h ?? 0;
+    }
+
+    return 0;
+  };
+
+  const getTransitPayloadKey = (room, canonicalKey, fallbackKey) => {
+    if (Object.prototype.hasOwnProperty.call(room || {}, canonicalKey)) {
+      return canonicalKey;
+    }
+
+    return fallbackKey;
+  };
+
+  const getRoomFacilityIds = (room) => {
+    const source = Array.isArray(room?.room_facility_ids)
+      ? room.room_facility_ids
+      : Array.isArray(room?.facility_ids)
+      ? room.facility_ids
+      : Array.isArray(room?.room_facilities)
+      ? room.room_facilities
+      : Array.isArray(room?.roomFacilities)
+      ? room.roomFacilities
+      : Array.isArray(room?.facilities)
+      ? room.facilities
+      : [];
+
+    return source
+      .map((item) => {
+        if (typeof item === "object" && item !== null) {
+          return item.id || item.facility_id || item.value || null;
+        }
+
+        return item;
+      })
+      .filter((value) => value !== null && value !== undefined && value !== "")
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0)
+      .filter((value, index, array) => array.indexOf(value) === index);
+  };
+
+  const buildRoomStatusPayload = (room, nextStatus) => {
+    const price3Key = getTransitPayloadKey(
+      room,
+      "price_transit_3h",
+      "price_3h"
+    );
+    const price6Key = getTransitPayloadKey(
+      room,
+      "price_transit_6h",
+      "price_6h"
+    );
+    const price12Key = getTransitPayloadKey(
+      room,
+      "price_transit_12h",
+      "price_12h"
+    );
+
+    const payload = {
+      name: room?.name || "",
+      hotel_id: Number(room?.hotel_id || room?.hotel?.id || 0) || "",
+      type: room?.type || "",
+      capacity: Number(room?.capacity || 0),
+      price_per_night: Number(room?.price_per_night || 0),
+      [price3Key]: Number(getRoomTransitPrice(room, "3h") || 0),
+      [price6Key]: Number(getRoomTransitPrice(room, "6h") || 0),
+      [price12Key]: Number(getRoomTransitPrice(room, "12h") || 0),
+      total_rooms: Number(room?.total_rooms || 0),
+      status: nextStatus,
+      room_facility_ids: getRoomFacilityIds(room),
+    };
+
+    return payload;
+  };
+
+  const updateRoomRequest = async (roomId, payload) => {
+    try {
+      return await api.put(`/admin/rooms/${roomId}`, payload);
+    } catch (error) {
+      const statusCode = error?.response?.status;
+
+      if (statusCode === 404 || statusCode === 405) {
+        return await api.post(`/admin/rooms/${roomId}`, {
+          ...payload,
+          _method: "PUT",
+        });
+      }
+
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    const autoOpenExpiredRooms = async () => {
+      const entries = Object.entries(roomCloseMetaMap).filter(([, meta]) => {
+        if (!meta?.booking_reopen_at) return false;
+
+        const reopenTime = new Date(meta.booking_reopen_at).getTime();
+
+        return Number.isFinite(reopenTime) && reopenTime <= Date.now();
+      });
+
+      if (entries.length === 0) return;
+
+      const nextMap = { ...roomCloseMetaMap };
+      let shouldPersist = false;
+      let shouldRefresh = false;
+
+      for (const [roomId] of entries) {
+        const room = rooms.find((item) => String(item?.id) === String(roomId));
+
+        if (!room) {
+          delete nextMap[roomId];
+          shouldPersist = true;
+          continue;
+        }
+
+        if (isRoomActive(room)) {
+          delete nextMap[roomId];
+          shouldPersist = true;
+          continue;
+        }
+
+        try {
+          await updateRoomRequest(room.id, buildRoomStatusPayload(room, 1));
+          delete nextMap[roomId];
+          shouldPersist = true;
+          shouldRefresh = true;
+        } catch (error) {
+          console.error(
+            "AUTO OPEN ROOM BOOKING ERROR:",
+            error.response?.data || error
+          );
+        }
+      }
+
+      if (shouldPersist) {
+        persistRoomCloseMetaMap(nextMap);
+      }
+
+      if (shouldRefresh) {
+        await fetchAvailabilityData();
+      }
+    };
+
+    autoOpenExpiredRooms();
+
+    const intervalId = window.setInterval(autoOpenExpiredRooms, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [rooms, roomCloseMetaMap]);
+
+  const getDateTimeLocalAfterHours = (hours) => {
+    const date = new Date();
+    date.setHours(date.getHours() + Number(hours || 0));
+
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - offset * 60 * 1000);
+
+    return localDate.toISOString().slice(0, 16);
+  };
+
+  const getMinDateTimeLocal = () => {
+    const date = new Date();
+    date.setMinutes(date.getMinutes() + 5);
+
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - offset * 60 * 1000);
+
+    return localDate.toISOString().slice(0, 16);
+  };
+
+  const formatDateTime = (value) => {
     if (!value) return "-";
 
     const date = new Date(value);
@@ -103,39 +390,42 @@ export default function BookingAvailability() {
     }).format(date);
   };
 
-  const getMinDateTimeLocal = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + 5);
-
-    const offset = now.getTimezoneOffset();
-    const localDate = new Date(now.getTime() - offset * 60 * 1000);
-
-    return localDate.toISOString().slice(0, 16);
+  const getRoomCloseMeta = (roomId) => {
+    return roomCloseMetaMap[String(roomId)] || null;
   };
 
-  const openCloseModal = (hotel) => {
-    const minValue = getMinDateTimeLocal();
+  const openCloseRoomModal = (room) => {
+    const savedMeta = getRoomCloseMeta(room?.id);
 
-    setSelectedHotel(hotel);
+    setSelectedCloseRoom(room);
     setCloseForm({
-      booking_closed_reason: hotel?.booking_closed_reason || "Kamar penuh",
-      booking_reopen_at: minValue,
+      booking_closed_reason:
+        savedMeta?.booking_closed_reason || "Kamar penuh",
+      booking_reopen_at:
+        savedMeta?.booking_reopen_at || getDateTimeLocalAfterHours(3),
     });
+    setSelectedQuickCloseHours(savedMeta?.booking_reopen_at ? null : 3);
     setShowCloseModal(true);
   };
 
-  const closeCloseModal = () => {
+  const closeCloseRoomModal = () => {
+    if (savingClose) return;
+
     setShowCloseModal(false);
-    setSelectedHotel(null);
-    setSavingClose(false);
+    setSelectedCloseRoom(null);
     setCloseForm({
       booking_closed_reason: "Kamar penuh",
       booking_reopen_at: "",
     });
+    setSelectedQuickCloseHours(null);
   };
 
   const handleCloseFormChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "booking_reopen_at") {
+      setSelectedQuickCloseHours(null);
+    }
 
     setCloseForm((prev) => ({
       ...prev,
@@ -143,60 +433,112 @@ export default function BookingAvailability() {
     }));
   };
 
-  const handleCloseBooking = async (e) => {
+  const handleQuickCloseHours = (hours) => {
+    setSelectedQuickCloseHours(hours);
+
+    setCloseForm((prev) => ({
+      ...prev,
+      booking_reopen_at: getDateTimeLocalAfterHours(hours),
+    }));
+  };
+
+  const handleCloseRoomBooking = async (e) => {
     e.preventDefault();
 
-    if (!selectedHotel) return;
+    if (!selectedCloseRoom?.id) return;
 
     if (!closeForm.booking_reopen_at) {
       return Swal.fire({
         icon: "warning",
         title: "Jam buka kembali wajib diisi",
-        text: "Pilih sampai jam berapa booking hotel ini ditutup.",
+        text: "Pilih sampai jam berapa booking kamar ini ditutup.",
         confirmButtonColor: "#dc2626",
       });
     }
 
+    const reopenTime = new Date(closeForm.booking_reopen_at);
+    const minTime = new Date();
+    minTime.setMinutes(minTime.getMinutes() + 4);
+
+    if (Number.isNaN(reopenTime.getTime()) || reopenTime.getTime() <= minTime.getTime()) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Jam belum valid",
+        text: "Pilih jam buka kembali minimal beberapa menit dari sekarang.",
+        confirmButtonColor: "#dc2626",
+      });
+    }
+
+    const roomHotel = getRoomHotel(selectedCloseRoom);
+    const result = await Swal.fire({
+      title: "Tutup booking kamar?",
+      text: `${selectedCloseRoom?.name || "Kamar"} di ${roomHotel?.name || "hotel ini"} akan ditutup sampai ${formatDateTime(closeForm.booking_reopen_at)}.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Ya, tutup",
+      cancelButtonText: "Batal",
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       setSavingClose(true);
+      setUpdatingRoomId(selectedCloseRoom.id);
 
-      await api.post(`/admin/hotels/${selectedHotel.id}/close-booking`, {
-        booking_closed_reason:
-          closeForm.booking_closed_reason?.trim() || "Kamar penuh",
-        booking_reopen_at: closeForm.booking_reopen_at,
-      });
+      await updateRoomRequest(
+        selectedCloseRoom.id,
+        buildRoomStatusPayload(selectedCloseRoom, 0)
+      );
+
+      const nextMap = {
+        ...roomCloseMetaMap,
+        [String(selectedCloseRoom.id)]: {
+          room_id: selectedCloseRoom.id,
+          booking_closed_reason:
+            closeForm.booking_closed_reason?.trim() || "Kamar penuh",
+          booking_reopen_at: closeForm.booking_reopen_at,
+          closed_at: new Date().toISOString(),
+        },
+      };
+
+      persistRoomCloseMetaMap(nextMap);
 
       await Swal.fire({
         icon: "success",
         title: "Berhasil",
-        text: "Booking hotel berhasil ditutup sementara.",
+        text: "Booking kamar berhasil ditutup.",
         confirmButtonColor: "#dc2626",
       });
 
-      closeCloseModal();
-      fetchHotels();
+      closeCloseRoomModal();
+      await fetchAvailabilityData();
     } catch (err) {
-      console.error("CLOSE BOOKING HOTEL ERROR:", err.response?.data || err);
+      console.error("CLOSE ROOM BOOKING ERROR:", err.response?.data || err);
 
       Swal.fire({
         icon: "error",
         title: "Gagal",
         text:
           err.response?.data?.message ||
-          err.response?.data?.errors?.booking_reopen_at?.[0] ||
-          err.response?.data?.errors?.booking_closed_reason?.[0] ||
-          "Booking hotel gagal ditutup.",
+          "Status booking kamar gagal ditutup.",
         confirmButtonColor: "#dc2626",
       });
     } finally {
       setSavingClose(false);
+      setUpdatingRoomId(null);
     }
   };
 
-  const handleOpenBooking = async (hotel) => {
+  const handleOpenRoomBooking = async (room) => {
+    if (!room?.id) return;
+
+    const roomHotel = getRoomHotel(room);
+
     const result = await Swal.fire({
-      title: "Buka booking hotel?",
-      text: `Booking untuk "${hotel.name}" akan dibuka kembali.`,
+      title: "Buka booking kamar?",
+      text: `${room?.name || "Kamar"} di ${roomHotel?.name || "hotel ini"} akan dibuka kembali untuk booking customer.`,
       icon: "question",
       showCancelButton: true,
       confirmButtonColor: "#16a34a",
@@ -208,27 +550,100 @@ export default function BookingAvailability() {
     if (!result.isConfirmed) return;
 
     try {
-      await api.post(`/admin/hotels/${hotel.id}/open-booking`);
+      setUpdatingRoomId(room.id);
+
+      await updateRoomRequest(room.id, buildRoomStatusPayload(room, 1));
+
+      const nextMap = { ...roomCloseMetaMap };
+      delete nextMap[String(room.id)];
+      persistRoomCloseMetaMap(nextMap);
 
       await Swal.fire({
         icon: "success",
         title: "Berhasil",
-        text: "Booking hotel berhasil dibuka kembali.",
+        text: "Booking kamar berhasil dibuka kembali.",
         confirmButtonColor: "#16a34a",
       });
 
-      fetchHotels();
+      await fetchAvailabilityData();
     } catch (err) {
-      console.error("OPEN BOOKING HOTEL ERROR:", err.response?.data || err);
+      console.error("OPEN ROOM BOOKING ERROR:", err.response?.data || err);
 
       Swal.fire({
         icon: "error",
         title: "Gagal",
-        text: err.response?.data?.message || "Booking hotel gagal dibuka.",
+        text:
+          err.response?.data?.message ||
+          "Status booking kamar gagal dibuka.",
         confirmButtonColor: "#dc2626",
       });
+    } finally {
+      setUpdatingRoomId(null);
     }
   };
+
+  const filteredRooms = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    if (!selectedCityKey || !selectedHotelId) return [];
+
+    return rooms
+      .filter((room) => getRoomHotelId(room) === String(selectedHotelId))
+      .filter((room) => {
+        if (!keyword) return true;
+
+        const roomHotel = getRoomHotel(room);
+        const cityName = getHotelCityName(roomHotel);
+
+        return [
+          room?.name,
+          room?.type,
+          roomHotel?.name,
+          cityName,
+          roomHotel?.area,
+          roomHotel?.address,
+        ]
+          .map((item) => String(item || "").toLowerCase())
+          .some((item) => item.includes(keyword));
+      })
+      .sort((a, b) => {
+        const hotelA = String(getRoomHotel(a)?.name || "");
+        const hotelB = String(getRoomHotel(b)?.name || "");
+
+        if (hotelA !== hotelB) return hotelA.localeCompare(hotelB);
+
+        return String(a?.name || "").localeCompare(String(b?.name || ""));
+      });
+  }, [
+    rooms,
+    search,
+    selectedCityKey,
+    selectedHotelId,
+    hotelsById,
+  ]);
+
+  const availabilityStats = useMemo(() => {
+    const activeRooms = filteredRooms.filter((room) => isRoomActive(room)).length;
+    const closedRooms = filteredRooms.length - activeRooms;
+    const totalUnits = filteredRooms.reduce(
+      (sum, room) => sum + Number(room?.total_rooms || 0),
+      0
+    );
+
+    return {
+      totalRooms: filteredRooms.length,
+      activeRooms,
+      closedRooms,
+      totalUnits,
+    };
+  }, [filteredRooms]);
+
+  const selectedCityLabel =
+    cityOptions.find((city) => city.key === selectedCityKey)?.name || "Pilih kota";
+
+  const selectedCloseRoomHotel = selectedCloseRoom
+    ? getRoomHotel(selectedCloseRoom)
+    : null;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -237,160 +652,301 @@ export default function BookingAvailability() {
       <div className="flex-1">
         <Topbar />
 
-        <div className="p-6 md:p-8">
-          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            
+        <div className="p-4 md:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-black text-gray-900">
+                Ketersediaan Booking
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Tutup atau buka booking berdasarkan kamar.
+              </p>
+            </div>
 
             <button
-              onClick={fetchHotels}
+              type="button"
+              onClick={fetchAvailabilityData}
               disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+              <RefreshCw size={17} className={loading ? "animate-spin" : ""} />
               Refresh
             </button>
           </div>
 
-          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm md:p-6">
-            <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              
+          <div className="mb-4 overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm">
+            <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 px-5 py-4 text-white">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-black">Filter Kamar</h2>
+                  <p className="mt-1 text-xs text-white/70">
+                    Pilih kota dulu, lanjut pilih hotel, baru kamar akan tampil.
+                  </p>
+                </div>
 
-              <div className="relative w-full md:max-w-sm">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Cari hotel, kota, area..."
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                <div className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white">
+                  {selectedCityLabel}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-12 md:p-5">
+              <div className="md:col-span-4">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                  Kota
+                </label>
+                <select
+                  value={selectedCityKey}
+                  onChange={(e) => handleCityChange(e.target.value)}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                >
+                  <option value="">Pilih Kota</option>
+                  {cityOptions.map((city) => (
+                    <option key={city.key} value={city.key}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedCityKey && !selectedHotelId && (
+                  <p className="mt-2 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-700">
+                    Kota sudah dipilih. Lanjut pilih hotel/cabang di kolom sebelah kanan.
+                  </p>
+                )}
+              </div>
+
+              <div className="md:col-span-4">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                  Hotel
+                </label>
+                <select
+                  value={selectedHotelId}
+                  onChange={(e) => handleHotelChange(e.target.value)}
+                  disabled={!selectedCityKey}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  <option value="">
+                    {selectedCityKey ? "Pilih Hotel / Cabang" : "Pilih kota dulu"}
+                  </option>
+
+                  {selectedCityHotels.map((hotel) => (
+                    <option key={hotel.id} value={hotel.id}>
+                      {hotel.name}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedCityKey && !selectedHotelId && (
+                  <p className="mt-2 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold leading-relaxed text-red-700">
+                    Wajib pilih hotel dulu agar daftar kamar tampil.
+                  </p>
+                )}
+
+                {selectedCityKey && selectedHotelId && (
+                  <p className="mt-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold leading-relaxed text-emerald-700">
+                    Hotel dipilih. Silakan atur kamar yang mau dibuka atau ditutup.
+                  </p>
+                )}
+              </div>
+
+              <div className="md:col-span-4">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                  Cari Kamar
+                </label>
+                <div className="relative">
+                  <Search
+                    size={17}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={selectedHotelId ? "Cari kamar atau tipe..." : "Pilih hotel dulu"}
+                    disabled={!selectedCityKey || !selectedHotelId}
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {selectedCityKey && selectedHotelId && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 pb-4 md:px-5">
+                <StatusPill label={`Total Kamar: ${availabilityStats.totalRooms}`} />
+                <StatusPill
+                  color="bg-emerald-500"
+                  label={`Dibuka: ${availabilityStats.activeRooms}`}
                 />
-                <Search
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                <StatusPill
+                  color="bg-amber-500"
+                  label={`Ditutup: ${availabilityStats.closedRooms}`}
+                />
+                <StatusPill
+                  color="bg-slate-500"
+                  label={`Total Unit: ${availabilityStats.totalUnits}`}
                 />
               </div>
+            )}
+          </div>
+
+          <div className="overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-lg font-extrabold text-gray-900">
+                  Data Kamar
+                </h2>
+
+                <div className="rounded-full bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600">
+                  {filteredRooms.length} data ditemukan
+                </div>
+              </div>
+
+              <p className="mt-1 text-sm text-gray-500">
+                Atur booking buka/tutup dari tipe kamar yang dipilih.
+              </p>
             </div>
 
             {loading ? (
               <div className="py-16 text-center text-gray-500">
-                Memuat data hotel...
+                Memuat data ketersediaan...
               </div>
-            ) : filteredHotels.length === 0 ? (
-              <div className="py-16 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                  <AlertCircle size={28} />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800">
-                  Data tidak ditemukan
-                </h3>
-                <p className="mt-2 text-gray-500">
-                  Coba gunakan kata kunci pencarian lain.
-                </p>
-              </div>
+            ) : !selectedCityKey ? (
+              <EmptyState
+                title="Pilih kota dulu"
+                description="Setelah kota dipilih, daftar hotel di kota tersebut akan tersedia."
+              />
+            ) : !selectedHotelId ? (
+              <EmptyState
+                title="Pilih hotel dulu"
+                description="Kamar baru akan tampil setelah hotel atau cabang dipilih."
+              />
+            ) : filteredRooms.length === 0 ? (
+              <EmptyState
+                title="Data kamar tidak ditemukan"
+                description="Belum ada kamar untuk hotel ini atau coba kata kunci pencarian berbeda."
+              />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px]">
-                  <thead>
-                    <tr className="border-b border-gray-200 text-left">
-                      <th className="py-4 text-sm font-semibold text-gray-600">
-                        Hotel
-                      </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
-                        Kota / Area
-                      </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
-                        Status Booking
-                      </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
-                        Buka Kembali
-                      </th>
-                      <th className="py-4 text-sm font-semibold text-gray-600">
-                        Aksi
-                      </th>
+                <table className="w-full min-w-[1080px]">
+                  <thead className="border-b border-gray-200 bg-gray-50">
+                    <tr className="text-left text-sm text-gray-600">
+                      <th className="px-5 py-4 font-semibold">Kamar</th>
+                      <th className="px-5 py-4 font-semibold">Hotel</th>
+                      <th className="px-5 py-4 font-semibold">Kota / Area</th>
+                      <th className="px-5 py-4 font-semibold">Total Unit</th>
+                      <th className="px-5 py-4 font-semibold">Status Booking</th>
+                      <th className="px-5 py-4 font-semibold">Buka Kembali</th>
+                      <th className="px-5 py-4 font-semibold text-right">Aksi</th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {filteredHotels.map((hotel) => {
-                      const isBookingClosed = Boolean(hotel.booking_is_closed);
+                    {filteredRooms.map((room) => {
+                      const roomHotel = getRoomHotel(room);
+                      const active = isRoomActive(room);
+                      const updating = updatingRoomId === room.id;
+                      const closeMeta = getRoomCloseMeta(room.id);
 
                       return (
                         <tr
-                          key={hotel.id}
+                          key={room.id}
                           className="border-b border-gray-100 transition hover:bg-gray-50"
                         >
-                          <td className="py-4">
+                          <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                                <Building2 size={18} />
+                                <BedDouble size={18} />
                               </div>
 
                               <div>
-                                <p className="font-semibold text-gray-800">
-                                  {hotel.name}
+                                <p className="font-bold text-gray-900">
+                                  {room?.name || "-"}
                                 </p>
-                                <p className="text-xs text-gray-400">
-                                  ID: {hotel.id}
+                                <p className="mt-0.5 text-xs font-semibold text-gray-400">
+                                  {room?.type || "Tipe kamar"} • ID: {room?.id}
                                 </p>
                               </div>
                             </div>
                           </td>
 
-                          <td className="py-4 text-gray-700">
+                          <td className="px-5 py-4 text-gray-700">
+                            <div className="inline-flex items-center gap-2">
+                              <Hotel size={16} className="text-gray-400" />
+                              <span className="font-semibold">
+                                {roomHotel?.name || "-"}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="px-5 py-4 text-gray-700">
                             <p className="font-semibold">
-                              {hotel.city?.name || hotel.city_name || "-"}
+                              {getHotelCityName(roomHotel)}
                             </p>
                             <p className="text-sm text-gray-400">
-                              {hotel.area || "-"}
+                              {roomHotel?.area || "-"}
                             </p>
                           </td>
 
-                          <td className="py-4">
-                            {isBookingClosed ? (
-                              <div>
-                                <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
-                                  <Lock size={15} />
-                                  Ditutup sementara
-                                </span>
-                                <p className="mt-1 text-xs text-gray-400">
-                                  {hotel.booking_closed_reason || "Kamar penuh"}
-                                </p>
-                              </div>
-                            ) : (
+                          <td className="px-5 py-4 text-gray-700">
+                            {room?.total_rooms || 0}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            {active ? (
                               <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-600">
                                 <Unlock size={15} />
                                 Booking dibuka
                               </span>
-                            )}
-                          </td>
-
-                          <td className="py-4">
-                            <div className="inline-flex items-center gap-2 text-sm text-gray-600">
-                              <Clock3 size={16} className="text-gray-400" />
-                              {isBookingClosed
-                                ? formatReopenAt(hotel.booking_reopen_at)
-                                : "-"}
-                            </div>
-                          </td>
-
-                          <td className="py-4">
-                            {isBookingClosed ? (
-                              <button
-                                onClick={() => handleOpenBooking(hotel)}
-                                className="inline-flex items-center gap-2 rounded-xl bg-green-50 px-4 py-2 text-sm font-semibold text-green-600 transition hover:bg-green-100"
-                              >
-                                <Unlock size={16} />
-                                Buka Booking
-                              </button>
                             ) : (
-                              <button
-                                onClick={() => openCloseModal(hotel)}
-                                disabled={!hotel.status}
-                                className="inline-flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <Lock size={16} />
-                                Tutup Booking
-                              </button>
+                              <div>
+                                <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
+                                  <Lock size={15} />
+                                  Booking ditutup
+                                </span>
+                                {closeMeta?.booking_closed_reason && (
+                                  <p className="mt-1 text-xs font-medium text-gray-400">
+                                    {closeMeta.booking_closed_reason}
+                                  </p>
+                                )}
+                              </div>
                             )}
+                          </td>
+
+                          <td className="px-5 py-4 text-sm text-gray-600">
+                            {!active && closeMeta?.booking_reopen_at ? (
+                              <div className="inline-flex items-center gap-2">
+                                <Clock3 size={16} className="text-gray-400" />
+                                {formatDateTime(closeMeta.booking_reopen_at)}
+                              </div>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <div className="flex justify-end">
+                              {active ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openCloseRoomModal(room)}
+                                  disabled={updating}
+                                  className="inline-flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <Lock size={16} />
+                                  {updating ? "Memproses..." : "Tutup Booking"}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRoomBooking(room)}
+                                  disabled={updating}
+                                  className="inline-flex items-center gap-2 rounded-xl bg-green-50 px-4 py-2 text-sm font-semibold text-green-600 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <Unlock size={16} />
+                                  {updating ? "Memproses..." : "Buka Booking"}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -403,32 +959,32 @@ export default function BookingAvailability() {
         </div>
       </div>
 
-      {showCloseModal && selectedHotel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+      {showCloseModal && selectedCloseRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+            <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
               <div>
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Tutup Booking
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Tutup Booking Kamar
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  {selectedHotel.name}
+                  {selectedCloseRoom?.name || "Kamar"} • {selectedCloseRoomHotel?.name || "Hotel"}
                 </p>
               </div>
 
               <button
                 type="button"
-                onClick={closeCloseModal}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 transition hover:bg-gray-200"
+                onClick={closeCloseRoomModal}
+                disabled={savingClose}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleCloseBooking} className="space-y-5 px-6 py-6">
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Hotel tetap tampil di customer, tapi tombol booking akan
-                ditutup sementara.
+            <form onSubmit={handleCloseRoomBooking} className="space-y-5 px-6 py-6">
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-800">
+                Kamar akan disembunyikan dari booking customer sampai jam yang dipilih admin.
               </div>
 
               <div>
@@ -441,33 +997,74 @@ export default function BookingAvailability() {
                   value={closeForm.booking_closed_reason}
                   onChange={handleCloseFormChange}
                   placeholder="Contoh: Kamar penuh"
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Tutup Sampai
+                  Tombol Cepat
                 </label>
-                <input
-                  type="datetime-local"
-                  name="booking_reopen_at"
-                  min={getMinDateTimeLocal()}
-                  value={closeForm.booking_reopen_at}
-                  onChange={handleCloseFormChange}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                />
-                <p className="mt-2 text-xs text-gray-400">
-                  Setelah melewati jam ini, sistem akan menganggap booking hotel
-                  terbuka kembali saat data hotel dimuat.
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "3 Jam", hours: 3 },
+                    { label: "6 Jam", hours: 6 },
+                    { label: "12 Jam", hours: 12 },
+                  ].map((item) => {
+                    const active = selectedQuickCloseHours === item.hours;
+
+                    return (
+                      <button
+                        key={item.hours}
+                        type="button"
+                        onClick={() => handleQuickCloseHours(item.hours)}
+                        className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${
+                          active
+                            ? "border-amber-500 bg-amber-400 text-amber-950 shadow-lg shadow-amber-100 ring-2 ring-amber-200"
+                            : "border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedQuickCloseHours && (
+                  <p className="mt-2 text-xs font-semibold text-amber-700">
+                    Tombol cepat aktif: {selectedQuickCloseHours} jam. Admin tetap bisa ubah manual di bawah.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Buka Kembali
+                </label>
+                <div className="relative">
+                  <Clock3
+                    size={18}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="datetime-local"
+                    name="booking_reopen_at"
+                    min={getMinDateTimeLocal()}
+                    value={closeForm.booking_reopen_at}
+                    onChange={handleCloseFormChange}
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-11 pr-4 text-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                  />
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-gray-400">
+                  Admin tetap bebas pilih tanggal dan jam manual, tidak harus pakai tombol cepat.
                 </p>
               </div>
 
               <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                 <button
                   type="button"
-                  onClick={closeCloseModal}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 transition hover:bg-gray-50"
+                  onClick={closeCloseRoomModal}
+                  disabled={savingClose}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <X size={18} />
                   Batal
@@ -476,7 +1073,7 @@ export default function BookingAvailability() {
                 <button
                   type="submit"
                   disabled={savingClose}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-700 disabled:opacity-70"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <Save size={18} />
                   {savingClose ? "Menyimpan..." : "Simpan"}
@@ -486,6 +1083,31 @@ export default function BookingAvailability() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StatusPill({ color = "bg-red-500", label }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm">
+      <span className={`h-2 w-2 rounded-full ${color}`} />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function EmptyState({ title, description }) {
+  return (
+    <div className="flex min-h-[320px] items-center justify-center px-5 py-12">
+      <div className="max-w-md rounded-3xl border border-dashed border-gray-300 bg-white px-8 py-7 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+          <AlertCircle size={26} />
+        </div>
+        <h3 className="text-lg font-black text-gray-900">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-gray-500">
+          {description}
+        </p>
+      </div>
     </div>
   );
 }

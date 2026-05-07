@@ -38,6 +38,7 @@ export default function HotelsList() {
   const [loading, setLoading] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingFacilities, setLoadingFacilities] = useState(false);
+  const [selectedCityId, setSelectedCityId] = useState("");
   const [selectedHotelId, setSelectedHotelId] = useState("");
   const [hotelSearch, setHotelSearch] = useState("");
   const [hotelStatusFilter, setHotelStatusFilter] = useState("all");
@@ -772,30 +773,110 @@ export default function HotelsList() {
     return `Edit Hotel - ${selectedHotel.name}`;
   }, [selectedHotel]);
 
+  const getHotelCityId = (hotel) => {
+    return hotel?.city_id || hotel?.city?.id || hotel?.cityId || "";
+  };
+
+  const getHotelCityName = (hotel) => {
+    if (hotel?.city?.name) return hotel.city.name;
+    if (hotel?.city_name) return hotel.city_name;
+    if (typeof hotel?.city === "string") return hotel.city;
+    return "-";
+  };
+
+  const cityOptions = useMemo(() => {
+    const map = new Map();
+
+    cities.forEach((city) => {
+      if (!city?.id) return;
+
+      map.set(String(city.id), {
+        id: city.id,
+        name: city.name || `Kota #${city.id}`,
+      });
+    });
+
+    hotels.forEach((hotel) => {
+      const cityId = getHotelCityId(hotel);
+      const cityName = getHotelCityName(hotel);
+
+      if (!cityId || !cityName || cityName === "-") return;
+
+      if (!map.has(String(cityId))) {
+        map.set(String(cityId), {
+          id: cityId,
+          name: cityName,
+        });
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) =>
+      String(a.name || "").localeCompare(String(b.name || ""), "id")
+    );
+  }, [cities, hotels]);
+
+  const selectedCityData = useMemo(() => {
+    if (!selectedCityId) return null;
+
+    return (
+      cityOptions.find((city) => String(city.id) === String(selectedCityId)) ||
+      null
+    );
+  }, [cityOptions, selectedCityId]);
+
+  const hotelsInSelectedCity = useMemo(() => {
+    if (!selectedCityId) return [];
+
+    return hotels.filter(
+      (hotel) => String(getHotelCityId(hotel)) === String(selectedCityId)
+    );
+  }, [hotels, selectedCityId]);
+
   const selectedHotelData = useMemo(() => {
     if (!selectedHotelId) return null;
 
     return hotels.find((hotel) => String(hotel.id) === String(selectedHotelId)) || null;
   }, [hotels, selectedHotelId]);
 
+  const headerFilterLabel = useMemo(() => {
+    if (selectedHotelData) return selectedHotelData.name;
+    if (selectedCityData) {
+      return `${selectedCityData.name} • ${hotelsInSelectedCity.length} hotel`;
+    }
+
+    return "Belum pilih kota";
+  }, [selectedHotelData, selectedCityData, hotelsInSelectedCity.length]);
+
+  const statsSourceHotels = useMemo(() => {
+    if (!selectedCityId) return hotels;
+    if (!selectedHotelId) return hotelsInSelectedCity;
+
+    return hotelsInSelectedCity.filter(
+      (hotel) => String(hotel.id) === String(selectedHotelId)
+    );
+  }, [hotels, hotelsInSelectedCity, selectedCityId, selectedHotelId]);
+
   const hotelStats = useMemo(() => {
-    const active = hotels.filter((hotel) => Boolean(hotel.status)).length;
-    const inactive = hotels.length - active;
+    const active = statsSourceHotels.filter((hotel) => Boolean(hotel.status)).length;
+    const inactive = statsSourceHotels.length - active;
 
     return {
-      total: hotels.length,
+      total: statsSourceHotels.length,
       active,
       inactive,
     };
-  }, [hotels]);
+  }, [statsSourceHotels]);
 
   const displayedHotels = useMemo(() => {
-    if (!selectedHotelId) return [];
+    if (!selectedCityId) return [];
 
     const keyword = hotelSearch.trim().toLowerCase();
 
-    return hotels
-      .filter((hotel) => String(hotel.id) === String(selectedHotelId))
+    return hotelsInSelectedCity
+      .filter((hotel) => {
+        if (!selectedHotelId) return true;
+        return String(hotel.id) === String(selectedHotelId);
+      })
       .filter((hotel) => {
         if (hotelStatusFilter === "active") return Boolean(hotel.status);
         if (hotelStatusFilter === "inactive") return !Boolean(hotel.status);
@@ -804,13 +885,19 @@ export default function HotelsList() {
       .filter((hotel) => {
         if (!keyword) return true;
 
-        const cityName = hotel.city?.name || hotel.city_name || "";
+        const cityName = getHotelCityName(hotel);
 
         return [hotel.name, cityName, hotel.address, hotel.area, hotel.wa_admin]
           .map((item) => String(item || "").toLowerCase())
           .some((item) => item.includes(keyword));
       });
-  }, [hotels, selectedHotelId, hotelSearch, hotelStatusFilter]);
+  }, [
+    hotelsInSelectedCity,
+    selectedCityId,
+    selectedHotelId,
+    hotelSearch,
+    hotelStatusFilter,
+  ]);
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -825,16 +912,16 @@ export default function HotelsList() {
               <div>
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal size={17} className="text-red-300" />
-                  <h2 className="text-base font-black">Filter Hotel</h2>
+                  <h2 className="text-base font-black">Hotel List</h2>
                 </div>
                 <p className="mt-1 text-xs text-white/75">
-                  Pilih cabang terlebih dahulu. Sistem akan menampilkan data hotel sesuai cabang yang dipilih.
+                  Pilih kota terlebih dahulu.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/10">
-                  {selectedHotelData ? selectedHotelData.name : "Belum pilih cabang"}
+                  {headerFilterLabel}
                 </span>
 
                 <button
@@ -849,17 +936,44 @@ export default function HotelsList() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-12 md:p-5">
-              <div className="md:col-span-4">
+              <div className="md:col-span-3">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                  Kota
+                </label>
+                <select
+                  value={selectedCityId}
+                  onChange={(e) => {
+                    setSelectedCityId(e.target.value);
+                    setSelectedHotelId("");
+                    setHotelSearch("");
+                  }}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                >
+                  <option value="">
+                    {loadingCities ? "Memuat kota..." : "Pilih Kota"}
+                  </option>
+                  {cityOptions.map((city) => (
+                    <option key={city.id} value={city.id}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-3">
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
                   Cabang / Hotel
                 </label>
                 <select
                   value={selectedHotelId}
                   onChange={(e) => setSelectedHotelId(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                  disabled={!selectedCityId}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                 >
-                  <option value="">Pilih Cabang / Hotel</option>
-                  {hotels.map((hotel) => (
+                  <option value="">
+                    {selectedCityId ? "Semua Hotel di Kota Ini" : "Pilih Kota Dulu"}
+                  </option>
+                  {hotelsInSelectedCity.map((hotel) => (
                     <option key={hotel.id} value={hotel.id}>
                       {hotel.name}
                     </option>
@@ -867,26 +981,9 @@ export default function HotelsList() {
                 </select>
               </div>
 
-              <div className="md:col-span-4">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                  Cari Hotel / Kota / Alamat
-                </label>
-                <div className="relative">
-                  <Search
-                    size={17}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="text"
-                    value={hotelSearch}
-                    onChange={(e) => setHotelSearch(e.target.value)}
-                    placeholder="Cari nama hotel, kota, alamat..."
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                  />
-                </div>
-              </div>
+              
 
-              <div className="md:col-span-4">
+              <div className="md:col-span-3">
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
                   Filter Status
                 </label>
@@ -936,17 +1033,17 @@ export default function HotelsList() {
                   </button>
                 </div>
               </div>
-            ) : !selectedHotelId ? (
+            ) : !selectedCityId ? (
               <div className="flex min-h-[300px] items-center justify-center bg-gradient-to-br from-red-50/40 via-white to-slate-50">
                 <div className="max-w-md rounded-3xl border border-dashed border-gray-300 bg-white/90 px-8 py-7 text-center shadow-sm">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                     <Building2 size={26} />
                   </div>
                   <h3 className="text-lg font-black text-gray-900">
-                    Pilih cabang terlebih dahulu
+                    Pilih kota terlebih dahulu
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                    Setelah cabang dipilih, data hotel akan tampil di tabel ini.
+                    Setelah kota dipilih, hotel yang terdaftar di kota tersebut akan tampil di tabel ini.
                   </p>
                 </div>
               </div>
@@ -957,7 +1054,7 @@ export default function HotelsList() {
                     Data tidak ditemukan
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                    Coba ubah kata kunci pencarian atau filter status.
+                    Coba ubah pilihan kota, cabang, kata kunci pencarian, atau filter status.
                   </p>
                 </div>
               </div>

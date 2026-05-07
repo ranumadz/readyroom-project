@@ -51,15 +51,21 @@ class RoomController extends Controller
 
     /**
      * GET rooms by hotel (PUBLIC - customer)
+     *
+     * Penting:
+     * - Tetap hanya tampilkan room dari hotel yang aktif.
+     * - Room dengan status nonaktif tetap dikirim ke frontend HotelDetail.jsx
+     *   supaya bisa tampil gelap / disabled, bukan hilang total.
      */
     public function getByHotel($hotelId)
     {
         $rooms = Room::with(['hotel.city', 'hotel.facilities', 'images'])
             ->where('hotel_id', $hotelId)
-            ->where('status', true)
             ->whereHas('hotel', function ($query) {
                 $query->where('status', true);
             })
+            ->orderByDesc('status')
+            ->orderBy('name')
             ->get();
 
         $this->attachRoomFacilitiesToRooms($rooms);

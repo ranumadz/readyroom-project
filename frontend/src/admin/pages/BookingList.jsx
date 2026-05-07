@@ -2003,7 +2003,7 @@ const selectedFolderLabel = filters.hotelId
               </p>
             )}
 
-            {/* tombol dipindah ke kiri bawah */}
+            {/* Filter kanan dipindah masuk ke modal Filter */}
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -2037,112 +2037,6 @@ const selectedFolderLabel = filters.hotelId
             </div>
           </div>
         </div>
-
-        {/* TENGAH */}
-        <div className="xl:col-span-3">
-          <div className="flex min-h-[48px] items-center justify-between rounded-2xl border border-gray-200 bg-white/90 px-4 py-2.5 shadow-sm backdrop-blur-sm">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black text-gray-900">
-                {selectedFolderLabel}
-              </p>
-              <p className="mt-0.5 text-xs font-medium text-gray-500">
-                {hasSelectedFolder
-                  ? "Booking tampil sesuai cabang."
-                  : "Pilih cabang dulu."}
-              </p>
-            </div>
-
-            {(filters.hotelId
-              ? branchUnreadCounts[String(filters.hotelId)] > 0
-              : canAccessAllHotels && totalUnreadBranchCount > 0) && (
-              <span className="ml-2 inline-flex min-w-[26px] shrink-0 items-center justify-center rounded-full bg-red-600 px-2 py-1 text-xs font-black text-white">
-                {filters.hotelId
-                  ? branchUnreadCounts[String(filters.hotelId)] || 0
-                  : totalUnreadBranchCount}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* KANAN */}
-        {hasSelectedFolder && (
-          <div className="xl:col-span-4">
-            <div className="flex flex-col gap-3 xl:items-end">
-              {/* mode */}
-              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("all")}
-                  className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition ${
-                    viewMode === "all"
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <History size={16} />
-                  Riwayat Booking
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setViewMode("today_active")}
-                  className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition ${
-                    viewMode === "today_active"
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Layers3 size={16} />
-                  Aktif Hari Ini
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode("all");
-                    handleFilterChange("status", "pending");
-                  }}
-                  className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition ${
-                    filters.status === "pending"
-                      ? "bg-red-600 text-white shadow-sm"
-                      : "bg-white text-red-600 hover:bg-red-50"
-                  }`}
-                >
-                  <CircleCheck size={16} />
-                  Approval
-                </button>
-              </div>
-
-              {/* status */}
-              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                {[
-                  { label: "Semua Status", value: "" },
-                  { label: "Checked In", value: "checked_in" },
-                  { label: "Checked Out", value: "checked_out" },
-                  { label: "Cleaning", value: "cleaning" },
-                  { label: "Finished", value: "completed" },
-                ].map((item) => {
-                  const active = filters.status === item.value;
-
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => handleFilterChange("status", item.value)}
-                      className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-semibold transition ${
-                        active
-                          ? "bg-slate-900 text-white shadow-sm"
-                          : "bg-white text-gray-700 hover:bg-gray-100"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   </div>
@@ -3747,9 +3641,15 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           )}
 {showFilterModal && (
   <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
-    <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-gray-100 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-bold text-gray-800">Filter Booking</h3>
+    <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl border border-gray-100 overflow-hidden">
+      <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
+        <div>
+          <h3 className="text-xl font-bold text-gray-800">Filter Booking</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Atur mode booking dan status dari satu tempat.
+          </p>
+        </div>
+
         <button
           type="button"
           onClick={() => setShowFilterModal(false)}
@@ -3759,42 +3659,127 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </button>
       </div>
 
-      <div className="space-y-4">
-  <div className="relative">
-    <Search
-      size={18}
-      className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-    />
-    <input
-      type="text"
-      value={filters.search}
-      onChange={(e) => handleFilterChange("search", e.target.value)}
-      placeholder="Cari kode booking, nama tamu, hotel, tipe kamar"
-      className="w-full rounded-2xl border border-gray-200 bg-gray-50 pl-12 pr-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-    />
-  </div>
-</div>
+      <div className="max-h-[72vh] space-y-5 overflow-y-auto px-6 py-5">
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Pencarian
+          </label>
+          <div className="relative">
+            <Search
+              size={18}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
+            />
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => handleFilterChange("search", e.target.value)}
+              placeholder="Cari kode booking, nama tamu, hotel, tipe kamar"
+              className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-12 pr-4 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+            />
+          </div>
+        </div>
 
-      <div className="mt-5 flex justify-end gap-3">
-  <button
-    type="button"
-    onClick={resetFilters}
-    className="rounded-2xl bg-gray-100 px-5 py-3 text-gray-700 font-semibold hover:bg-gray-200 transition"
-  >
-    Reset
-  </button>
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Mode Booking
+          </label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <button
+              type="button"
+              onClick={() => setViewMode("all")}
+              className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                viewMode === "all"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <History size={16} />
+              Riwayat Booking
+            </button>
 
-  <button
-    type="button"
-    onClick={() => setShowFilterModal(false)}
-    className="rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
-  >
-    Terapkan
-  </button>
-</div>
+            <button
+              type="button"
+              onClick={() => setViewMode("today_active")}
+              className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                viewMode === "today_active"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <Layers3 size={16} />
+              Aktif Hari Ini
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("all");
+                handleFilterChange("status", "pending");
+              }}
+              className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                filters.status === "pending"
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "bg-red-50 text-red-600 hover:bg-red-100"
+              }`}
+            >
+              <CircleCheck size={16} />
+              Approval
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Status Booking
+          </label>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {[
+              { label: "Semua Status", value: "" },
+              { label: "Checked In", value: "checked_in" },
+              { label: "Checked Out", value: "checked_out" },
+              { label: "Cleaning", value: "cleaning" },
+              { label: "Finished", value: "completed" },
+            ].map((item) => {
+              const active = filters.status === item.value;
+
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => handleFilterChange("status", item.value)}
+                  className={`inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                    active
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 px-6 py-5">
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="rounded-2xl bg-gray-100 px-5 py-3 font-semibold text-gray-700 transition hover:bg-gray-200"
+        >
+          Reset
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowFilterModal(false)}
+          className="rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
+        >
+          Terapkan
+        </button>
+      </div>
     </div>
   </div>
-
 )}{showReportModal && (
   <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
     <div className="w-full max-w-6xl rounded-3xl bg-white shadow-2xl border border-gray-100 p-6">

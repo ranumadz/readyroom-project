@@ -190,13 +190,65 @@ export default function HotelDetail() {
     });
   }, [rooms]);
 
-  const cheapestRoom = sortedRooms[0] || null;
-  const cheapestPrice = cheapestRoom ? getRoomLowestPrice(cheapestRoom) : 0;
-
   const isBookingClosed = Boolean(hotel?.booking_is_closed);
   const bookingClosedReason =
     hotel?.booking_closed_reason || "Kamar di hotel ini sedang penuh.";
   const bookingReopenLabel = formatBookingReopenAt(hotel?.booking_reopen_at);
+
+  const isRoomStatusClosed = (room) => {
+    const rawStatus = String(room?.status ?? "").toLowerCase();
+
+    return (
+      room?.status === false ||
+      room?.status === 0 ||
+      room?.status === "0" ||
+      rawStatus === "false" ||
+      rawStatus === "inactive" ||
+      rawStatus === "nonaktif" ||
+      rawStatus === "closed" ||
+      rawStatus === "disabled"
+    );
+  };
+
+  const isRoomBookingClosed = (room) => {
+    return (
+      isBookingClosed ||
+      Boolean(
+        room?.booking_is_closed ||
+          room?.booking_closed ||
+          room?.is_booking_closed ||
+          room?.closed_for_booking
+      ) ||
+      isRoomStatusClosed(room)
+    );
+  };
+
+  const getRoomBookingClosedReason = (room) => {
+    if (isBookingClosed) return bookingClosedReason;
+
+    return (
+      room?.booking_closed_reason ||
+      room?.closed_reason ||
+      room?.availability_note ||
+      "Kamar ini sedang tidak tersedia sementara."
+    );
+  };
+
+  const getRoomBookingReopenLabel = (room) => {
+    if (isBookingClosed) return bookingReopenLabel;
+
+    return formatBookingReopenAt(
+      room?.booking_reopen_at || room?.reopen_at || room?.available_at
+    );
+  };
+
+  const availableSortedRooms = useMemo(() => {
+    return sortedRooms.filter((room) => !isRoomBookingClosed(room));
+  }, [sortedRooms, isBookingClosed]);
+
+  const cheapestRoom = availableSortedRooms[0] || null;
+  const cheapestPrice = cheapestRoom ? getRoomLowestPrice(cheapestRoom) : 0;
+  const hasBookableRooms = availableSortedRooms.length > 0;
 
   const galleryImages = useMemo(() => {
     if (!hotel) return ["/images/hotel.jpg"];
@@ -255,7 +307,11 @@ export default function HotelDetail() {
     });
   };
 
-  const handleOpenRoomDetail = (roomId) => {
+  const handleOpenRoomDetail = (room) => {
+    const roomId = typeof room === "object" ? room?.id : room;
+
+    if (!roomId) return;
+    if (typeof room === "object" && isRoomBookingClosed(room)) return;
     if (isBookingClosed) return;
 
     window.scrollTo({
@@ -793,14 +849,17 @@ export default function HotelDetail() {
                 <div className="space-y-4 md:space-y-5">
                   {sortedRooms.map((room, index) => {
                     const lowestPrice = getRoomLowestPrice(room);
+                    const roomBookingClosed = isRoomBookingClosed(room);
+                    const roomClosedReason = getRoomBookingClosedReason(room);
+                    const roomReopenLabel = getRoomBookingReopenLabel(room);
 
                     return (
                       <div
                         key={room.id}
-                        className={`overflow-hidden rounded-[1.25rem] border border-gray-100 bg-white shadow-sm transition md:rounded-[1.7rem] ${
-                          isBookingClosed
-                            ? "opacity-95"
-                            : "hover:-translate-y-0.5 hover:shadow-lg"
+                        className={`overflow-hidden rounded-[1.25rem] border shadow-sm transition md:rounded-[1.7rem] ${
+                          roomBookingClosed
+                            ? "border-gray-200 bg-slate-50 opacity-90 grayscale-[0.08]"
+                            : "border-gray-100 bg-white hover:-translate-y-0.5 hover:shadow-lg"
                         }`}
                       >
                         <div className="grid grid-cols-1 md:grid-cols-[250px_1fr]">
@@ -814,8 +873,16 @@ export default function HotelDetail() {
                               onError={(e) => {
                                 e.currentTarget.src = "/images/hotel.jpg";
                               }}
-                              className="h-full w-full object-cover"
+                              className={`h-full w-full object-cover transition ${
+                                roomBookingClosed
+                                  ? "brightness-[0.45] grayscale"
+                                  : ""
+                              }`}
                             />
+
+                            {roomBookingClosed && (
+                              <div className="absolute inset-0 bg-slate-950/25" />
+                            )}
 
                             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
 
@@ -831,10 +898,10 @@ export default function HotelDetail() {
                               </div>
                             )}
 
-                            {isBookingClosed && (
-                              <div className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-bold text-white shadow-lg">
+                            {roomBookingClosed && (
+                              <div className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-slate-900/90 px-3 py-1 text-xs font-bold text-white shadow-lg backdrop-blur">
                                 <Lock size={13} />
-                                Penuh
+                                Tidak tersedia
                               </div>
                             )}
                           </div>
@@ -904,30 +971,45 @@ export default function HotelDetail() {
                               </div>
                             </div>
 
-                            <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm md:flex md:items-center md:justify-between md:gap-4">
-                              {isBookingClosed && (
-                                <p className="mb-3 text-sm font-semibold text-amber-700 md:mb-0">
-                                  Hotel sedang penuh sementara.
-                                </p>
+                            <div
+                              className={`mt-4 rounded-2xl border p-3 shadow-sm md:flex md:items-center md:justify-between md:gap-4 ${
+                                roomBookingClosed
+                                  ? "border-slate-200 bg-slate-50"
+                                  : "border-gray-100 bg-white"
+                              }`}
+                            >
+                              {roomBookingClosed && (
+                                <div className="mb-3 text-sm font-semibold text-slate-600 md:mb-0">
+                                  <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-extrabold text-slate-700 shadow-sm ring-1 ring-slate-200">
+                                    <Lock size={14} />
+                                    Booking ditutup sementara
+                                  </div>
+                                  <p className="mt-2 leading-relaxed text-slate-500">
+                                    {roomClosedReason}
+                                    {roomReopenLabel
+                                      ? ` • Buka kembali ${roomReopenLabel}`
+                                      : ""}
+                                  </p>
+                                </div>
                               )}
 
                               <button
                                 type="button"
-                                disabled={isBookingClosed}
+                                disabled={roomBookingClosed}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  handleOpenRoomDetail(room.id);
+                                  handleOpenRoomDetail(room);
                                 }}
                                 className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-bold transition md:mt-0 md:w-auto ${
-                                  isBookingClosed
+                                  roomBookingClosed
                                     ? "cursor-not-allowed bg-gray-200 text-gray-500"
                                     : "bg-red-600 text-white hover:bg-red-700"
                                 }`}
                               >
-                                {isBookingClosed ? (
+                                {roomBookingClosed ? (
                                   <>
-                                    Tidak Tersedia
+                                    Booking Ditutup
                                     <Lock size={18} />
                                   </>
                                 ) : (
@@ -997,26 +1079,32 @@ export default function HotelDetail() {
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                {isBookingClosed ? "Status hotel" : "Mulai dari"}
+                {isBookingClosed
+                  ? "Status hotel"
+                  : hasBookableRooms
+                  ? "Mulai dari"
+                  : "Status kamar"}
               </p>
 
               <p
                 className={`text-lg font-extrabold leading-tight ${
-                  isBookingClosed ? "text-amber-600" : "text-red-600"
+                  !hasBookableRooms ? "text-amber-600" : "text-red-600"
                 }`}
               >
                 {isBookingClosed
                   ? "Kamar penuh"
+                  : !hasBookableRooms
+                  ? "Tidak tersedia"
                   : cheapestPrice > 0
                   ? formatRupiah(cheapestPrice)
                   : "Hubungi admin"}
               </p>
 
-              {isBookingClosed ? (
+              {!hasBookableRooms ? (
                 <p className="line-clamp-1 text-[11px] font-medium text-gray-500">
-                  {bookingReopenLabel
+                  {isBookingClosed && bookingReopenLabel
                     ? `Coba lagi setelah ${bookingReopenLabel}`
-                    : "Silakan pilih hotel lain"}
+                    : "Pilih kamar lain yang tersedia"}
                 </p>
               ) : (
                 cheapestRoom?.name && (
@@ -1029,15 +1117,15 @@ export default function HotelDetail() {
 
             <button
               type="button"
-              onClick={isBookingClosed ? undefined : handleScrollToRooms}
-              disabled={isBookingClosed}
+              onClick={!hasBookableRooms ? undefined : handleScrollToRooms}
+              disabled={!hasBookableRooms}
               className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold shadow-lg transition ${
-                isBookingClosed
+                !hasBookableRooms
                   ? "cursor-not-allowed bg-gray-200 text-gray-500 shadow-gray-100"
                   : "bg-red-600 text-white shadow-red-200 hover:bg-red-700"
               }`}
             >
-              {isBookingClosed ? (
+              {!hasBookableRooms ? (
                 <>
                   Tidak tersedia
                   <Lock size={17} />
