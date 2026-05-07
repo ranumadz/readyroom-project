@@ -52,6 +52,16 @@ export default function BookingCalendar() {
 
   const filtersRef = useRef(filters);
   const autoFetchReadyRef = useRef(false);
+  const calendarScrollRef = useRef(null);
+  const dragScrollStateRef = useRef({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+  });
+
+  const [isCalendarDragging, setIsCalendarDragging] = useState(false);
 
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
@@ -114,6 +124,19 @@ export default function BookingCalendar() {
 
     .calendar-scroll-area::-webkit-scrollbar-thumb:hover {
       background: linear-gradient(180deg, #64748b, #475569);
+    }
+
+    .calendar-drag-scroll {
+      cursor: grab;
+      user-select: none;
+    }
+
+    .calendar-drag-scroll.is-dragging {
+      cursor: grabbing;
+    }
+
+    .calendar-drag-scroll.is-dragging * {
+      cursor: grabbing !important;
     }
   `;
 
@@ -312,6 +335,61 @@ export default function BookingCalendar() {
   const handleManualRefresh = () => {
     fetchCalendar(filters, true);
     fetchFolderBadgeData(filters);
+  };
+
+  const isInteractiveCalendarTarget = (target) => {
+    if (!target) return false;
+
+    return Boolean(
+      target.closest(
+        'button, a, input, textarea, select, option, [role="button"], [data-no-drag="true"]'
+      )
+    );
+  };
+
+  const handleCalendarDragStart = (event) => {
+    if (event.button !== 0) return;
+    if (!calendarScrollRef.current) return;
+    if (isInteractiveCalendarTarget(event.target)) return;
+
+    dragScrollStateRef.current = {
+      isDragging: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: calendarScrollRef.current.scrollLeft,
+      scrollTop: calendarScrollRef.current.scrollTop,
+    };
+
+    setIsCalendarDragging(true);
+    event.preventDefault();
+  };
+
+  const handleCalendarDragMove = (event) => {
+    const dragState = dragScrollStateRef.current;
+
+    if (!dragState.isDragging || !calendarScrollRef.current) return;
+
+    const deltaX = event.clientX - dragState.startX;
+    const deltaY = event.clientY - dragState.startY;
+
+    calendarScrollRef.current.scrollLeft = dragState.scrollLeft - deltaX;
+    calendarScrollRef.current.scrollTop = dragState.scrollTop - deltaY;
+
+    event.preventDefault();
+  };
+
+  const handleCalendarDragEnd = () => {
+    if (!dragScrollStateRef.current.isDragging) return;
+
+    dragScrollStateRef.current = {
+      isDragging: false,
+      startX: 0,
+      startY: 0,
+      scrollLeft: 0,
+      scrollTop: 0,
+    };
+
+    setIsCalendarDragging(false);
   };
 
   const daysInMonth = useMemo(() => {
@@ -713,8 +791,17 @@ export default function BookingCalendar() {
                 </div>
               ) : (
                 <div
-                  className="calendar-scroll-area overflow-auto overscroll-contain"
+                  ref={calendarScrollRef}
+                  onMouseDown={handleCalendarDragStart}
+                  onMouseMove={handleCalendarDragMove}
+                  onMouseUp={handleCalendarDragEnd}
+                  onMouseLeave={handleCalendarDragEnd}
+                  onDragStart={(event) => event.preventDefault()}
+                  className={`calendar-scroll-area calendar-drag-scroll overflow-auto overscroll-contain ${
+                    isCalendarDragging ? "is-dragging" : ""
+                  }`}
                   style={calendarViewportStyle}
+                  title="Klik tahan area kalender kosong untuk menggeser kiri, kanan, atas, atau bawah"
                 >
                   <div
                     className="grid min-w-max"
@@ -817,6 +904,7 @@ export default function BookingCalendar() {
                                 <button
                                   key={booking.id}
                                   type="button"
+                                  data-no-drag="true"
                                   onClick={() =>
                                     setSelectedBooking({
                                       ...booking,

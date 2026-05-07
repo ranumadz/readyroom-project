@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Search, ChevronDown } from "lucide-react";
+import {
+  Bell,
+  Search,
+  ChevronDown,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../../services/api";
 import BroadcastModal from "./BroadcastModal";
 
 export default function Topbar() {
   const [open, setOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const [user, setUser] = useState({
     id: null,
     name: "Admin ReadyRoom",
@@ -86,6 +94,34 @@ export default function Topbar() {
     fetchActiveBroadcasts(normalizedRole, user.id);
   }, [normalizedRole, shouldShowBroadcast, user?.id, fetchActiveBroadcasts]);
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+        return;
+      }
+
+      await document.exitFullscreen();
+      setIsFullscreen(false);
+    } catch (error) {
+      console.error("FULLSCREEN ERROR:", error);
+      toast.error("Mode fullscreen tidak bisa dibuka di browser ini");
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("adminUser");
     toast.success("Logout berhasil");
@@ -122,9 +158,7 @@ export default function Topbar() {
         "DISMISS BROADCAST ERROR:",
         error.response?.data || error
       );
-      toast.error(
-        error.response?.data?.message || "Gagal menutup broadcast"
-      );
+      toast.error(error.response?.data?.message || "Gagal menutup broadcast");
     } finally {
       setClosingBroadcast(false);
     }
@@ -146,7 +180,17 @@ export default function Topbar() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 md:gap-6">
+          <button
+            type="button"
+            onClick={handleToggleFullscreen}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            title={isFullscreen ? "Keluar fullscreen" : "Mode fullscreen"}
+            aria-label={isFullscreen ? "Keluar fullscreen" : "Mode fullscreen"}
+          >
+            {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+          </button>
+
           <div className="relative cursor-pointer">
             <Bell
               className="text-gray-600 transition hover:text-red-600"

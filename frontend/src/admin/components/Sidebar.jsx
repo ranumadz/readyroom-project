@@ -17,7 +17,6 @@ import {
   BriefcaseBusiness,
   UserCog,
   BellRing,
-  DoorOpen,
   ClipboardCheck,
 } from "lucide-react";
 
@@ -42,12 +41,12 @@ const allMenuSections = [
         path: "/admin/hotels",
         icon: Building2,
         end: true,
-      },
-      {
-        name: "Atur Kamar",
-        path: "/admin/rooms",
-        icon: DoorOpen,
-        end: true,
+        activePaths: [
+          "/admin/hotels",
+          "/admin/hotels/add",
+          "/admin/rooms",
+          "/admin/rooms/add",
+        ],
       },
       {
         name: "Facilities",
@@ -389,6 +388,13 @@ export default function Sidebar() {
   const isItemActive = (item) => {
     const currentPath = location.pathname;
 
+    if (Array.isArray(item.activePaths)) {
+      return item.activePaths.some(
+        (path) =>
+          currentPath === path || currentPath.startsWith(`${path}/`)
+      );
+    }
+
     if (item.end) {
       return currentPath === item.path;
     }
@@ -411,7 +417,9 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className={`${theme.aside} overflow-y-auto overflow-x-hidden`}>
+    <aside
+      className={`${theme.aside} sticky top-0 h-screen max-h-screen overflow-y-auto overflow-x-hidden overscroll-contain`}
+    >
       <div className="p-6">
         <div className="mb-8">
           <div className="flex items-center gap-3">

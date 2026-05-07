@@ -18,7 +18,6 @@ import {
   Plus,
   X,
   Images,
-  Sparkles,
   Upload,
 } from "lucide-react";
 
@@ -395,35 +394,20 @@ export default function AddHotel() {
         <Topbar />
 
         <div className="p-6 md:p-8">
-          <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
-                <Sparkles size={16} />
-                Admin Panel
-              </div>
-
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
-                Add Hotel
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500 md:text-base">
-                Tambahkan cabang hotel baru ke sistem ReadyRoom dengan informasi
-                utama, fasilitas, thumbnail, hero image, dan gallery hotel.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate("/admin/hotels")}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-gray-50"
-            >
-              <List size={18} />
-              Hotels List
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-              <div className="xl:col-span-2 space-y-6">
+              <div className="space-y-6 xl:col-span-2">
+                <div className="flex justify-start">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/hotels")}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-gray-50"
+                  >
+                    <List size={18} />
+                    Hotels List
+                  </button>
+                </div>
+
                 <div className="overflow-hidden rounded-[28px] border border-white/70 bg-white/95 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.18)] backdrop-blur">
                   <div className="border-b border-gray-100 bg-gradient-to-r from-red-50 via-white to-white px-6 py-5 md:px-8">
                     <div className="flex items-center gap-3">
@@ -571,8 +555,6 @@ export default function AddHotel() {
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
                           />
                         </div>
-
-                        
                       </div>
                     </div>
 
