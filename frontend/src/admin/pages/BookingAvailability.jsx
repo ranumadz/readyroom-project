@@ -654,15 +654,6 @@ export default function BookingAvailability() {
 
         <div className="p-4 md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-black text-gray-900">
-                Ketersediaan Booking
-              </h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Tutup atau buka booking berdasarkan kamar.
-              </p>
-            </div>
-
             <button
               type="button"
               onClick={fetchAvailabilityData}
@@ -678,7 +669,7 @@ export default function BookingAvailability() {
             <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 px-5 py-4 text-white">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-black">Filter Kamar</h2>
+                  <h2 className="text-base font-black">Filter </h2>
                   <p className="mt-1 text-xs text-white/70">
                     Pilih kota dulu, lanjut pilih hotel, baru kamar akan tampil.
                   </p>
