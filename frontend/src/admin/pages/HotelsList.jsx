@@ -38,10 +38,30 @@ export default function HotelsList() {
   const [loading, setLoading] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingFacilities, setLoadingFacilities] = useState(false);
-  const [selectedCityId, setSelectedCityId] = useState("");
-  const [selectedHotelId, setSelectedHotelId] = useState("");
-  const [hotelSearch, setHotelSearch] = useState("");
-  const [hotelStatusFilter, setHotelStatusFilter] = useState("all");
+  const [selectedCityId, setSelectedCityId] = useState(() => {
+    if (typeof window === "undefined") return "all";
+
+    const params = new URLSearchParams(window.location.search);
+    return params.get("city_id") || "all";
+  });
+  const [selectedHotelId, setSelectedHotelId] = useState(() => {
+    if (typeof window === "undefined") return "";
+
+    const params = new URLSearchParams(window.location.search);
+    return params.get("hotel_id") || "";
+  });
+  const [hotelSearch, setHotelSearch] = useState(() => {
+    if (typeof window === "undefined") return "";
+
+    const params = new URLSearchParams(window.location.search);
+    return params.get("search") || "";
+  });
+  const [hotelStatusFilter, setHotelStatusFilter] = useState(() => {
+    if (typeof window === "undefined") return "all";
+
+    const params = new URLSearchParams(window.location.search);
+    return params.get("status") || "all";
+  });
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -169,6 +189,37 @@ export default function HotelsList() {
     fetchHotels();
     fetchFormData();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams();
+
+    if (selectedCityId && selectedCityId !== "all") {
+      params.set("city_id", selectedCityId);
+    }
+
+    if (selectedHotelId) {
+      params.set("hotel_id", selectedHotelId);
+    }
+
+    if (hotelStatusFilter && hotelStatusFilter !== "all") {
+      params.set("status", hotelStatusFilter);
+    }
+
+    const cleanSearch = hotelSearch.trim();
+    if (cleanSearch) {
+      params.set("search", cleanSearch);
+    }
+
+    const nextSearch = params.toString();
+    const nextUrl = nextSearch ? `/admin/hotels?${nextSearch}` : "/admin/hotels";
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+
+    if (window.location.pathname === "/admin/hotels" && currentUrl !== nextUrl) {
+      navigate(nextUrl, { replace: true });
+    }
+  }, [selectedCityId, selectedHotelId, hotelSearch, hotelStatusFilter, navigate]);
 
   const buildImageUrl = (path, fallback = "/images/hotel.jpg") => {
     if (!path) return fallback;
@@ -816,7 +867,7 @@ export default function HotelsList() {
   }, [cities, hotels]);
 
   const selectedCityData = useMemo(() => {
-    if (!selectedCityId) return null;
+    if (!selectedCityId || selectedCityId === "all") return null;
 
     return (
       cityOptions.find((city) => String(city.id) === String(selectedCityId)) ||
@@ -825,7 +876,7 @@ export default function HotelsList() {
   }, [cityOptions, selectedCityId]);
 
   const hotelsInSelectedCity = useMemo(() => {
-    if (!selectedCityId) return [];
+    if (!selectedCityId || selectedCityId === "all") return hotels;
 
     return hotels.filter(
       (hotel) => String(getHotelCityId(hotel)) === String(selectedCityId)
@@ -840,15 +891,20 @@ export default function HotelsList() {
 
   const headerFilterLabel = useMemo(() => {
     if (selectedHotelData) return selectedHotelData.name;
+
+    if (!selectedCityId || selectedCityId === "all") {
+      return `Semua Kota • ${hotels.length} hotel`;
+    }
+
     if (selectedCityData) {
       return `${selectedCityData.name} • ${hotelsInSelectedCity.length} hotel`;
     }
 
-    return "Belum pilih kota";
-  }, [selectedHotelData, selectedCityData, hotelsInSelectedCity.length]);
+    return `Semua Kota • ${hotels.length} hotel`;
+  }, [selectedHotelData, selectedCityId, selectedCityData, hotelsInSelectedCity.length, hotels.length]);
 
   const statsSourceHotels = useMemo(() => {
-    if (!selectedCityId) return hotels;
+    if (!selectedCityId || selectedCityId === "all") return hotels;
     if (!selectedHotelId) return hotelsInSelectedCity;
 
     return hotelsInSelectedCity.filter(
@@ -868,11 +924,11 @@ export default function HotelsList() {
   }, [statsSourceHotels]);
 
   const displayedHotels = useMemo(() => {
-    if (!selectedCityId) return [];
-
     const keyword = hotelSearch.trim().toLowerCase();
+    const sourceHotels =
+      !selectedCityId || selectedCityId === "all" ? hotels : hotelsInSelectedCity;
 
-    return hotelsInSelectedCity
+    return sourceHotels
       .filter((hotel) => {
         if (!selectedHotelId) return true;
         return String(hotel.id) === String(selectedHotelId);
@@ -892,12 +948,37 @@ export default function HotelsList() {
           .some((item) => item.includes(keyword));
       });
   }, [
+    hotels,
     hotelsInSelectedCity,
     selectedCityId,
     selectedHotelId,
     hotelSearch,
     hotelStatusFilter,
   ]);
+
+  const buildHotelsListReturnPath = () => {
+    const params = new URLSearchParams();
+
+    if (selectedCityId && selectedCityId !== "all") {
+      params.set("city_id", selectedCityId);
+    }
+
+    if (selectedHotelId) {
+      params.set("hotel_id", selectedHotelId);
+    }
+
+    if (hotelStatusFilter && hotelStatusFilter !== "all") {
+      params.set("status", hotelStatusFilter);
+    }
+
+    const cleanSearch = hotelSearch.trim();
+    if (cleanSearch) {
+      params.set("search", cleanSearch);
+    }
+
+    const query = params.toString();
+    return query ? `/admin/hotels?${query}` : "/admin/hotels";
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -915,7 +996,7 @@ export default function HotelsList() {
                   <h2 className="text-base font-black">Hotel List</h2>
                 </div>
                 <p className="mt-1 text-xs text-white/75">
-                  Pilih kota terlebih dahulu.
+                  Tampilkan semua kota atau pilih kota tertentu.
                 </p>
               </div>
 
@@ -943,14 +1024,14 @@ export default function HotelsList() {
                 <select
                   value={selectedCityId}
                   onChange={(e) => {
-                    setSelectedCityId(e.target.value);
+                    setSelectedCityId(e.target.value || "all");
                     setSelectedHotelId("");
                     setHotelSearch("");
                   }}
                   className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
                 >
-                  <option value="">
-                    {loadingCities ? "Memuat kota..." : "Pilih Kota"}
+                  <option value="all">
+                    {loadingCities ? "Memuat kota..." : "Semua Kota"}
                   </option>
                   {cityOptions.map((city) => (
                     <option key={city.id} value={city.id}>
@@ -959,30 +1040,6 @@ export default function HotelsList() {
                   ))}
                 </select>
               </div>
-
-              <div className="md:col-span-3">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                  Cabang / Hotel
-                </label>
-                <select
-                  value={selectedHotelId}
-                  onChange={(e) => setSelectedHotelId(e.target.value)}
-                  disabled={!selectedCityId}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-                >
-                  <option value="">
-                    {selectedCityId ? "Semua Hotel di Kota Ini" : "Pilih Kota Dulu"}
-                  </option>
-                  {hotelsInSelectedCity.map((hotel) => (
-                    <option key={hotel.id} value={hotel.id}>
-                      {hotel.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              
-
               <div className="md:col-span-3">
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
                   Filter Status
@@ -1031,20 +1088,6 @@ export default function HotelsList() {
                     <Plus size={18} />
                     Add Hotel
                   </button>
-                </div>
-              </div>
-            ) : !selectedCityId ? (
-              <div className="flex min-h-[300px] items-center justify-center bg-gradient-to-br from-red-50/40 via-white to-slate-50">
-                <div className="max-w-md rounded-3xl border border-dashed border-gray-300 bg-white/90 px-8 py-7 text-center shadow-sm">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                    <Building2 size={26} />
-                  </div>
-                  <h3 className="text-lg font-black text-gray-900">
-                    Pilih kota terlebih dahulu
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                    Setelah kota dipilih, hotel yang terdaftar di kota tersebut akan tampil di tabel ini.
-                  </p>
                 </div>
               </div>
             ) : displayedHotels.length === 0 ? (
@@ -1143,11 +1186,20 @@ export default function HotelsList() {
                           <div className="flex flex-wrap items-center gap-2">
                             <button
                               type="button"
-                              onClick={() =>
-                                navigate(`/admin/rooms?hotel_id=${hotel.id}`, {
-                                  state: { hotelId: hotel.id, hotelName: hotel.name },
-                                })
-                              }
+                              onClick={() => {
+                                const returnTo = buildHotelsListReturnPath();
+
+                                navigate(
+                                  `/admin/rooms?hotel_id=${hotel.id}&return=${encodeURIComponent(returnTo)}`,
+                                  {
+                                    state: {
+                                      hotelId: hotel.id,
+                                      hotelName: hotel.name,
+                                      returnTo,
+                                    },
+                                  }
+                                );
+                              }}
                               className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-600 transition hover:bg-emerald-100"
                             >
                               <BedDouble size={16} />

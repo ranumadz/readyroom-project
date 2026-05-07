@@ -17,6 +17,7 @@ import {
   BriefcaseBusiness,
   UserCog,
   BellRing,
+  DoorOpen,
 } from "lucide-react";
 
 const allMenuSections = [
@@ -42,11 +43,17 @@ const allMenuSections = [
         end: true,
       },
       {
-  name: "Facilities",
-  path: "/admin/facilities",
-  icon: BadgeCheck,
-  end: true,
-},
+        name: "Atur Kamar",
+        path: "/admin/rooms",
+        icon: DoorOpen,
+        end: true,
+      },
+      {
+        name: "Facilities",
+        path: "/admin/facilities",
+        icon: BadgeCheck,
+        end: true,
+      },
     ],
   },
 

@@ -547,10 +547,7 @@ export default function BookingCalendar() {
     return [];
   }, [calendarData.room_units, assignedHotelIds, canAccessAllHotels]);
 
-  const MAX_VISIBLE_CALENDAR_ROWS = 10;
-  const CALENDAR_HEADER_HEIGHT = 78;
   const CALENDAR_ROW_HEIGHT = 72;
-  const CALENDAR_SCROLLBAR_SPACE = 18;
 
   const calendarDisplayRows = useMemo(() => {
     const realRows = Array.isArray(visibleRoomUnits) ? visibleRoomUnits : [];
@@ -561,15 +558,9 @@ export default function BookingCalendar() {
     }));
   }, [visibleRoomUnits]);
 
-  const calendarVisibleRowCount = Math.min(
-    Math.max(calendarDisplayRows.length, 1),
-    MAX_VISIBLE_CALENDAR_ROWS
-  );
-
-  const calendarMaxHeight =
-    CALENDAR_HEADER_HEIGHT +
-    calendarVisibleRowCount * CALENDAR_ROW_HEIGHT +
-    CALENDAR_SCROLLBAR_SPACE;
+  const calendarViewportStyle = {
+    maxHeight: "max(430px, calc(100vh - 285px))",
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -603,7 +594,7 @@ export default function BookingCalendar() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 lg:grid-cols-12 lg:items-end">
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-12 lg:items-start">
               <div className="lg:col-span-4">
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
                   Cabang
@@ -623,6 +614,17 @@ export default function BookingCalendar() {
                     </option>
                   ))}
                 </select>
+
+                <button
+                  type="button"
+                  onClick={handleManualRefresh}
+                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  title="Refresh manual"
+                  disabled={loading}
+                >
+                  <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+                  Refresh Kalender
+                </button>
               </div>
 
               <div className="lg:col-span-2">
@@ -661,22 +663,12 @@ export default function BookingCalendar() {
                 </select>
               </div>
 
-              <div className="lg:col-span-4">
+              <div className="lg:col-span-4 lg:pt-6">
                 <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
                   <Legend color="bg-amber-600" label="Disetujui" />
                   <Legend color="bg-green-500" label="Check-in" />
                   <Legend color="bg-orange-500" label="Pembersihan" />
                   <Legend color="bg-slate-500" label="Selesai" />
-
-                  <button
-                    type="button"
-                    onClick={handleManualRefresh}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-bold text-gray-700 shadow-sm transition hover:bg-gray-50"
-                    title="Refresh manual"
-                  >
-                    <RefreshCw size={13} />
-                    Refresh
-                  </button>
                 </div>
               </div>
             </div>
@@ -722,7 +714,7 @@ export default function BookingCalendar() {
               ) : (
                 <div
                   className="calendar-scroll-area overflow-auto overscroll-contain"
-                  style={{ maxHeight: `${calendarMaxHeight}px` }}
+                  style={calendarViewportStyle}
                 >
                   <div
                     className="grid min-w-max"
