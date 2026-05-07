@@ -15,6 +15,8 @@ import Reports from "../admin/pages/Reports";
 import UsersPage from "../admin/pages/Users";
 import MasterContent from "../admin/pages/MasterContent";
 import InternalBroadcasts from "../admin/pages/InternalBroadcasts";
+import PartnerRegister from "../admin/pages/PartnerRegister";
+import PartnerApplications from "../admin/pages/PartnerApplications";
 
 import Home from "../pages/Home";
 import Hotels from "../pages/Hotels";
@@ -89,6 +91,10 @@ function PageTitleManager() {
 
       if (pathname === "/register") {
         return "Daftar Customer | ReadyRoom";
+      }
+
+      if (pathname === "/partner/register") {
+        return "Daftar Partner Hotel | ReadyRoom";
       }
 
       if (pathname === "/verify-otp") {
@@ -194,6 +200,9 @@ export default function AppRoutes() {
         <Route path="/register" element={<Register />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
 
+        {/* Partner registration sample */}
+        <Route path="/partner/register" element={<PartnerRegister />} />
+
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/hotels" element={<HotelsList />} />
 
@@ -250,6 +259,15 @@ export default function AppRoutes() {
             </AdminProtectedRoute>
           }
         />
+
+        <Route
+  path="/admin/partner-applications"
+  element={
+    <AdminProtectedRoute>
+      <PartnerApplications />
+    </AdminProtectedRoute>
+  }
+/>
 
         <Route
           path="/admin/bookings"

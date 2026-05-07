@@ -18,6 +18,7 @@ import {
   UserCog,
   BellRing,
   DoorOpen,
+  ClipboardCheck,
 } from "lucide-react";
 
 const allMenuSections = [
@@ -88,6 +89,18 @@ const allMenuSections = [
   },
 
   {
+    title: "Partner / OTA",
+    items: [
+      {
+        name: "Pengajuan Partner",
+        path: "/admin/partner-applications",
+        icon: ClipboardCheck,
+        end: true,
+      },
+    ],
+  },
+
+  {
     title: "Analytics",
     items: [
       {
@@ -150,6 +163,7 @@ const roleAllowedPaths = {
     "/admin/rooms",
     "/admin/room-units",
     "/admin/facilities",
+    "/admin/partner-applications",
     "/admin/users",
     "/admin/master-content",
     "/admin/settings",
