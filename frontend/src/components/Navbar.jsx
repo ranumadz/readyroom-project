@@ -20,10 +20,22 @@ export default function Navbar() {
 
   const [customer, setCustomer] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const [notifications, setNotifications] = useState([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState([]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 24);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     const syncCustomer = () => {
@@ -328,17 +340,45 @@ export default function Navbar() {
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
+  const isHomePage = location.pathname === "/";
+  const isTransparentNavbar =
+    isHomePage && !isScrolled && !mobileOpen && !notificationOpen;
+
+  const navTextClass = isTransparentNavbar
+    ? "text-white/90 [text-shadow:_0_1px_12px_rgb(0_0_0_/_0.35)] hover:text-white"
+    : "text-gray-700 hover:bg-gray-50 hover:text-red-600";
+
+  const activeNavClass = isTransparentNavbar
+    ? "text-white [text-shadow:_0_1px_14px_rgb(0_0_0_/_0.45)]"
+    : "bg-red-50 text-red-600 shadow-sm";
+
   return (
-    <header className="fixed left-0 right-0 top-0 z-[999] w-full border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-md">
+    <header
+      className={`fixed left-0 right-0 top-0 z-[999] w-full border-b transition-all duration-300 ${
+        isTransparentNavbar
+          ? "border-transparent bg-transparent shadow-none backdrop-blur-0"
+          : "border-gray-200 bg-white/95 shadow-sm backdrop-blur-md"
+      }`}
+    >
       <div className="mx-auto max-w-7xl px-4 md:px-6">
         <div className="flex h-14 items-center justify-between md:h-20">
           <Link to="/" className="flex items-center gap-2 md:gap-3">
-            <img
-              src="/readyroom.png"
-              alt="ReadyRoom"
-              className="h-7 w-7 object-contain md:h-10 md:w-10"
-            />
-            <span className="text-lg font-bold text-red-600 md:text-xl">
+            <span
+              className="flex h-8 w-8 items-center justify-center transition md:h-11 md:w-11"
+            >
+              <img
+                src="/readyroom.png"
+                alt="ReadyRoom"
+                className="h-7 w-7 object-contain md:h-10 md:w-10"
+              />
+            </span>
+            <span
+              className={`text-lg font-bold transition md:text-xl ${
+                isTransparentNavbar
+                  ? "text-white [text-shadow:_0_1px_14px_rgb(0_0_0_/_0.45)]"
+                  : "text-red-600"
+              }`}
+            >
               ReadyRoom
             </span>
           </Link>
@@ -351,10 +391,12 @@ export default function Navbar() {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                    active
-                      ? "bg-red-50 text-red-600 shadow-sm"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-red-600"
+                  className={`px-4 py-2.5 text-sm font-semibold transition ${
+                    isTransparentNavbar
+                      ? active
+                        ? activeNavClass
+                        : navTextClass
+                      : `rounded-xl ${active ? activeNavClass : navTextClass}`
                   }`}
                 >
                   {item.label}
@@ -365,10 +407,12 @@ export default function Navbar() {
             {customer && (
               <Link
                 to="/my-bookings"
-                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                  isActive("/my-bookings")
-                    ? "bg-red-50 text-red-600 shadow-sm"
-                    : "text-gray-700 hover:bg-gray-50 hover:text-red-600"
+                className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition ${
+                  isTransparentNavbar
+                    ? isActive("/my-bookings")
+                      ? activeNavClass
+                      : navTextClass
+                    : `rounded-xl ${isActive("/my-bookings") ? activeNavClass : navTextClass}`
                 }`}
               >
                 <ReceiptText size={17} />
@@ -387,6 +431,8 @@ export default function Navbar() {
                     className={`relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
                       notificationOpen
                         ? "border-red-200 bg-red-50 text-red-600"
+                        : isTransparentNavbar
+                        ? "border-white/15 bg-white/10 text-white hover:bg-white/15"
                         : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-red-600"
                     }`}
                   >
@@ -487,17 +533,29 @@ export default function Navbar() {
 
                 <Link
                   to="/profile"
-                  className="flex items-center gap-3 rounded-full bg-gray-100 py-2 pl-3 pr-4 transition hover:bg-gray-200"
+                  className={`flex items-center gap-3 rounded-full py-2 pl-3 pr-4 transition ${
+                    isTransparentNavbar
+                      ? "bg-white/10 text-white hover:bg-white/15"
+                      : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                  }`}
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 font-semibold text-white">
                     {customer.name?.charAt(0).toUpperCase() || "U"}
                   </div>
 
                   <div className="leading-tight">
-                    <p className="text-sm font-semibold text-gray-800">
+                    <p
+                      className={`text-sm font-semibold ${
+                        isTransparentNavbar ? "text-white" : "text-gray-800"
+                      }`}
+                    >
                       {customer.name || "User"}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p
+                      className={`text-xs ${
+                        isTransparentNavbar ? "text-white/70" : "text-gray-500"
+                      }`}
+                    >
                       {customer.phone || "-"}
                     </p>
                   </div>
@@ -515,13 +573,21 @@ export default function Navbar() {
               <>
                 <Link
                   to="/login"
-                  className="rounded-xl px-4 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 hover:text-red-600"
+                  className={`px-4 py-2.5 font-medium transition ${
+                    isTransparentNavbar
+                      ? "text-white/90 [text-shadow:_0_1px_12px_rgb(0_0_0_/_0.35)] hover:text-white"
+                      : "rounded-xl text-gray-700 hover:bg-gray-50 hover:text-red-600"
+                  }`}
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
-                  className="rounded-xl bg-red-600 px-5 py-2.5 font-medium text-white transition hover:bg-red-700"
+                  className={`rounded-xl bg-red-600 px-5 py-2.5 font-medium text-white transition hover:bg-red-700 ${
+                    isTransparentNavbar
+                      ? "shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+                      : "shadow-sm"
+                  }`}
                 >
                   Daftar
                 </Link>
@@ -534,7 +600,11 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={handleToggleNotifications}
-                className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-700 transition hover:bg-gray-100"
+                className={`relative inline-flex h-10 w-10 items-center justify-center rounded-xl transition ${
+                  isTransparentNavbar
+                    ? "text-white hover:bg-white/10"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
               >
                 <Bell size={22} />
 
@@ -548,7 +618,11 @@ export default function Navbar() {
 
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-700 transition hover:bg-gray-100"
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl transition ${
+                isTransparentNavbar
+                  ? "text-white hover:bg-white/10"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
             >
               {mobileOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
