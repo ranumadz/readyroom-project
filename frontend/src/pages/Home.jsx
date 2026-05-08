@@ -1262,9 +1262,7 @@ export default function Home() {
                   <p className="text-[10.5px] font-black text-gray-700 md:text-xs">
                     Butuh bantuan langsung?
                   </p>
-                  <p className="mt-0.5 text-[9.5px] font-semibold text-gray-400">
-                    CS ReadyRoom. 0811150591
-                  </p>
+                 
                 </div>
 
                 <a
