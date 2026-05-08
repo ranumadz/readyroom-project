@@ -46,7 +46,7 @@ const READYROOM_BRANDS = [
   {
     id: "red",
     name: "ReadyRoom Red",
-    label: "Express Transit",
+   
     subtitle: "Pilihan cepat untuk transit 3, 6, dan 12 jam.",
     description:
       "Brand sample untuk cabang ReadyRoom yang fokus ke harga hemat, proses cepat, dan kebutuhan short stay harian.",
@@ -57,7 +57,7 @@ const READYROOM_BRANDS = [
   {
     id: "blue",
     name: "ReadyRoom Blue",
-    label: "Comfort Stay",
+    
     subtitle: "Pilihan nyaman untuk istirahat, pasangan, dan full day.",
     description:
       "Brand sample untuk pengalaman menginap yang lebih tenang, rapi, dan cocok untuk customer yang mengutamakan kenyamanan.",
@@ -68,7 +68,7 @@ const READYROOM_BRANDS = [
   {
     id: "silver",
     name: "ReadyRoom Silver",
-    label: "Signature Partner",
+
     subtitle: "Pilihan premium untuk partner dan properti unggulan.",
     description:
       "Brand sample untuk partner pilihan ReadyRoom dengan tampilan lebih eksklusif, fasilitas lebih lengkap, dan citra lebih premium.",
@@ -962,10 +962,7 @@ export default function Home() {
       <section className="mx-auto max-w-7xl px-4 py-7 md:px-6 md:py-16">
         <div className="mb-4 flex flex-col gap-3 md:mb-8 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 md:mb-4 md:px-4 md:py-2 md:text-sm">
-              <Building2 size={13} />
-              Cari Berdasarkan Brand
-            </div>
+          
             <h3 className="text-lg font-extrabold text-gray-950 md:text-3xl">
               Cari Berdasarkan Brand
             </h3>
