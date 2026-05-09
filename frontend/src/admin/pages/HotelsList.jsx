@@ -617,10 +617,159 @@ export default function HotelsList() {
     });
   };
 
+  const normalizeBooleanValue = (value) => {
+    if (value === true || value === 1) return true;
+    if (value === false || value === 0 || value === null || value === undefined) {
+      return false;
+    }
+
+    const text = String(value).trim().toLowerCase();
+
+    if (["1", "true", "yes", "aktif", "active"].includes(text)) return true;
+    if (["0", "false", "no", "nonaktif", "inactive"].includes(text)) return false;
+
+    return Boolean(value);
+  };
+
+  const numberFromPossibleValues = (...values) => {
+    const found = values.find((value) => {
+      const numberValue = Number(value);
+      return Number.isFinite(numberValue) && numberValue > 0;
+    });
+
+    return Number(found || 0);
+  };
+
+  const hotelHasRooms = (hotel) => {
+    if (Object.prototype.hasOwnProperty.call(hotel || {}, "has_rooms")) {
+      return normalizeBooleanValue(hotel?.has_rooms);
+    }
+
+    if (Array.isArray(hotel?.rooms)) return hotel.rooms.length > 0;
+
+    return (
+      numberFromPossibleValues(
+        hotel?.rooms_count,
+        hotel?.room_count,
+        hotel?.total_rooms_count,
+        hotel?.room_types_count
+      ) > 0
+    );
+  };
+
+  const hotelHasBookingHistory = (hotel) => {
+    if (Object.prototype.hasOwnProperty.call(hotel || {}, "has_booking_history")) {
+      return normalizeBooleanValue(hotel?.has_booking_history);
+    }
+
+    if (Array.isArray(hotel?.bookings)) return hotel.bookings.length > 0;
+
+    return (
+      numberFromPossibleValues(
+        hotel?.booking_history_count,
+        hotel?.bookings_count,
+        hotel?.valid_booking_count,
+        hotel?.booking_count
+      ) > 0
+    );
+  };
+
+  const getHotelCanDelete = (hotel) => {
+    if (Object.prototype.hasOwnProperty.call(hotel || {}, "can_delete")) {
+      return normalizeBooleanValue(hotel?.can_delete);
+    }
+
+    /*
+     * Fallback aman kalau backend lama belum mengirim can_delete.
+     * Kalau tidak ada info proteksi, tombol tetap boleh mencoba hapus,
+     * dan backend tetap menjadi proteksi terakhir.
+     */
+    if (hotelHasRooms(hotel) || hotelHasBookingHistory(hotel)) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const getHotelDeleteProtectionMessage = (hotel) => {
+    if (hotel?.delete_protection_message) return hotel.delete_protection_message;
+
+    const reasons = [];
+
+    if (hotelHasRooms(hotel)) {
+      reasons.push("hotel ini sudah memiliki data kamar");
+    }
+
+    if (hotelHasBookingHistory(hotel)) {
+      reasons.push("hotel ini sudah memiliki riwayat booking");
+    }
+
+    if (reasons.length === 0) {
+      return "Hotel ini tidak bisa dihapus untuk menjaga data operasional tetap aman. Gunakan Nonaktifkan Hotel.";
+    }
+
+    return `Hotel ini tidak bisa dihapus karena ${reasons.join(" dan ")}. Gunakan Nonaktifkan Hotel agar laporan, receipt, monitoring, dan riwayat customer tetap aman.`;
+  };
+
+  const escapeHtml = (value) =>
+    String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  const showHotelDeleteProtectedAlert = async (hotel, backendMessage = "") => {
+    const protectionMessage =
+      backendMessage || getHotelDeleteProtectionMessage(hotel);
+    const hotelIsActive = Boolean(hotel?.status);
+
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "Hotel tidak bisa dihapus",
+      html: `
+        <div style="text-align:left;line-height:1.65">
+          <div style="padding:12px 14px;border:1px solid #fee2e2;background:#fff7ed;border-radius:16px;color:#9a3412;font-size:14px;margin-bottom:12px">
+            ${escapeHtml(protectionMessage)}
+          </div>
+          <div style="padding:12px 14px;border:1px solid #bbf7d0;background:#f0fdf4;border-radius:16px;color:#166534;font-size:14px">
+            <b>Solusi aman:</b> nonaktifkan hotel supaya tidak tampil untuk customer, tanpa menghapus data kamar dan riwayat booking.
+          </div>
+        </div>
+      `,
+      showCancelButton: hotelIsActive,
+      showConfirmButton: hotelIsActive,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Nonaktifkan Hotel",
+      cancelButtonText: "Tutup",
+    });
+
+    if (result.isConfirmed && hotelIsActive) {
+      await toggleStatus(hotel);
+    }
+  };
+
   const handleDelete = async (hotel) => {
+    if (!hotel?.id) return;
+
+    if (!getHotelCanDelete(hotel)) {
+      await showHotelDeleteProtectedAlert(hotel);
+      return;
+    }
+
     const result = await Swal.fire({
       title: "Hapus hotel?",
-      text: `Hotel "${hotel.name}" akan dihapus.`,
+      html: `
+        <div style="text-align:left;line-height:1.65">
+          <p style="margin:0 0 10px;color:#4b5563">
+            Hotel <b>${escapeHtml(hotel.name)}</b> akan dihapus permanen.
+          </p>
+          <div style="padding:12px 14px;border:1px solid #bbf7d0;background:#f0fdf4;border-radius:16px;color:#166534;font-size:14px">
+            Penghapusan hanya aman untuk hotel yang belum punya kamar dan belum pernah masuk Booking List.
+          </div>
+        </div>
+      `,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#dc2626",
@@ -645,10 +794,18 @@ export default function HotelsList() {
     } catch (err) {
       console.error("DELETE HOTEL ERROR:", err.response?.data || err);
 
+      const statusCode = err.response?.status;
+      const backendMessage = err.response?.data?.message || "";
+
+      if (statusCode === 409) {
+        await showHotelDeleteProtectedAlert(hotel, backendMessage);
+        return;
+      }
+
       Swal.fire({
         icon: "error",
         title: "Gagal",
-        text: err.response?.data?.message || "Hotel gagal dihapus",
+        text: backendMessage || "Hotel gagal dihapus",
         confirmButtonColor: "#dc2626",
       });
     }
@@ -1218,10 +1375,19 @@ export default function HotelsList() {
                             <button
                               type="button"
                               onClick={() => handleDelete(hotel)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
+                              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition ${
+                                getHotelCanDelete(hotel)
+                                  ? "bg-red-50 text-red-600 hover:bg-red-100"
+                                  : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                              }`}
+                              title={
+                                getHotelCanDelete(hotel)
+                                  ? "Hapus hotel"
+                                  : "Hotel terlindungi, gunakan Nonaktifkan"
+                              }
                             >
                               <Trash2 size={16} />
-                              Hapus
+                              {getHotelCanDelete(hotel) ? "Hapus" : "Terkunci"}
                             </button>
                           </div>
                         </td>

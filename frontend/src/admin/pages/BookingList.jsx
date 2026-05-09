@@ -2118,150 +2118,166 @@ const selectedFolderLabel = filters.hotelId
                   return (
                     <div
                       key={booking.id}
-                      className="rounded-3xl border border-gray-200 bg-gray-50 p-5"
+                      className="group relative overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-red-100 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)]"
                     >
-                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
-                        <div className="flex-1">
-                          <div className="flex flex-wrap items-center gap-3 mb-4">
-                            <h3 className="text-lg font-bold text-gray-800">
-                              {booking.booking_code || `Booking #${booking.id}`}
-                            </h3>
+                      <div className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-red-600 via-red-500 to-rose-400" />
+                      <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-red-50 blur-3xl transition group-hover:bg-red-100" />
+                      <div className="pointer-events-none absolute -bottom-24 left-1/3 h-40 w-40 rounded-full bg-amber-50 blur-3xl" />
 
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(
-                                booking.status
-                              )}`}
-                            >
-                              {booking.status}
-                            </span>
+                      <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px]">
+                        <div className="min-w-0 p-4 md:p-5 lg:p-6">
+                          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                            <div className="min-w-0">
+                              <div className="mb-3 flex flex-wrap items-center gap-2">
+                                <h3 className="mr-1 text-lg font-black tracking-tight text-slate-950 md:text-xl">
+                                  {booking.booking_code || `Booking #${booking.id}`}
+                                </h3>
 
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentStatusClass(
-                                booking.payment_status
-                              )}`}
-                            >
-                              {booking.payment_status || "unpaid"}
-                            </span>
+                                <span
+                                  className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getStatusClass(
+                                    booking.status
+                                  )}`}
+                                >
+                                  {getStatusLabel(booking.status)}
+                                </span>
 
-                            {booking.payment_method && (
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentMethodClass(
-                                  booking.payment_method
-                                )}`}
-                              >
-                                {getPaymentMethodLabel(booking.payment_method)}
-                              </span>
-                            )}
+                                <span
+                                  className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getPaymentStatusClass(
+                                    booking.payment_status
+                                  )}`}
+                                >
+                                  {booking.payment_status || "unpaid"}
+                                </span>
 
-                            {sourceLabel && (
-                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white border border-gray-200 text-gray-700">
-                                {sourceLabel}
-                              </span>
-                            )}
+                                {booking.payment_method && (
+                                  <span
+                                    className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getPaymentMethodClass(
+                                      booking.payment_method
+                                    )}`}
+                                  >
+                                    {getPaymentMethodLabel(booking.payment_method)}
+                                  </span>
+                                )}
+
+                                {sourceLabel && (
+                                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-black text-slate-700 shadow-sm">
+                                    {sourceLabel}
+                                  </span>
+                                )}
+
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-[11px] font-black text-red-700 shadow-sm">
+                                  <Clock3 size={12} />
+                                  {getBookingTypeLabel(booking.booking_type)}
+                                  {booking.duration_hours
+                                    ? ` • ${booking.duration_hours} jam`
+                                    : !booking.duration_hours && Number(booking.duration_days || 0) > 0
+                                    ? ` • ${booking.duration_days} hari`
+                                    : ""}
+                                </span>
+
+                                {getBookingRoomUnit(booking) !== "Belum di-assign" && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700 shadow-sm">
+                                    <DoorOpen size={12} />
+                                    Unit {getBookingRoomUnit(booking)}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
+                                <InfoMiniCard
+                                  icon={<User size={16} className="text-red-500" />}
+                                  label="Nama Customer"
+                                  value={getBookingCustomerName(booking)}
+                                />
+
+                                <InfoMiniCard
+                                  icon={<Hotel size={16} className="text-red-500" />}
+                                  label="Hotel"
+                                  value={booking.hotel?.name || "-"}
+                                />
+
+                                <InfoMiniCard
+                                  icon={<BedDouble size={16} className="text-red-500" />}
+                                  label="Tipe Kamar"
+                                  value={booking.room?.type || booking.room?.name || "-"}
+                                />
+
+                                <InfoMiniCard
+                                  icon={<CalendarDays size={16} className="text-red-500" />}
+                                  label="Check In"
+                                  value={formatDateTime(booking.check_in)}
+                                />
+
+                                <InfoMiniCard
+                                  icon={<CalendarDays size={16} className="text-red-500" />}
+                                  label="Check Out"
+                                  value={formatDateTime(booking.check_out)}
+                                />
+
+                                <InfoMiniCard
+                                  icon={<Wallet size={16} className="text-red-500" />}
+                                  label="Total Harga"
+                                  value={formatCurrency(booking.total_price)}
+                                  strong
+                                />
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 text-sm">
-                            <div className="flex items-start gap-3">
-                              <User size={16} className="text-red-500 mt-0.5" />
-                              <div>
-                                <p className="text-gray-400">Nama Customer</p>
-                                <p className="font-semibold text-gray-800">
-                                  {getBookingCustomerName(booking)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
-                              <Hotel size={16} className="text-red-500 mt-0.5" />
-                              <div>
-                                <p className="text-gray-400">Hotel</p>
-                                <p className="font-semibold text-gray-800">
-                                  {booking.hotel?.name || "-"}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
-                              <BedDouble size={16} className="text-red-500 mt-0.5" />
-                              <div>
-                                <p className="text-gray-400">Tipe Kamar</p>
-                                <p className="font-semibold text-gray-800">
-                                  {booking.room?.type || booking.room?.name || "-"}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
-                              <CalendarDays size={16} className="text-red-500 mt-0.5" />
-                              <div>
-                                <p className="text-gray-400">Check In</p>
-                                <p className="font-semibold text-gray-800">
-                                  {formatDateTime(booking.check_in)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
-                              <CalendarDays size={16} className="text-red-500 mt-0.5" />
-                              <div>
-                                <p className="text-gray-400">Check Out</p>
-                                <p className="font-semibold text-gray-800">
-                                  {formatDateTime(booking.check_out)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
-                              <Wallet size={16} className="text-red-500 mt-0.5" />
-                              <div>
-                                <p className="text-gray-400">Total Harga</p>
-                                <p className="font-semibold text-gray-800">
-                                  {formatCurrency(booking.total_price)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {(customerEmail || customerPhone) && (
-                            <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                          <div className="mt-4 rounded-[24px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-red-50/40 px-3.5 py-3 shadow-sm">
+                            <div className="flex flex-wrap items-center gap-2.5 text-sm">
                               {customerPhone && (
-                                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
+                                <span className="inline-flex items-center gap-2 rounded-2xl border border-white bg-white px-3 py-2 font-bold text-slate-700 shadow-sm">
                                   <Phone size={14} className="text-red-500" />
                                   {customerPhone}
                                 </span>
                               )}
 
+                              {showNotifyButton && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleNotifyWhatsApp(booking)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-600 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg"
+                                >
+                                  <MessageCircle size={15} />
+                                  Notify WA
+                                </button>
+                              )}
+
+                              {canEditBooking && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditClick(booking)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-black text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-100"
+                                >
+                                  <Pencil size={15} />
+                                  Edit
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReceipt(booking)}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-950 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-black hover:shadow-lg"
+                              >
+                                <ReceiptText size={15} />
+                                Receipt
+                              </button>
+
                               {customerEmail && (
-                                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
+                                <span className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-white bg-white px-3 py-2 font-semibold text-slate-600 shadow-sm">
                                   <Mail size={14} className="text-red-500" />
-                                  {customerEmail}
+                                  <span className="truncate">{customerEmail}</span>
+                                </span>
+                              )}
+
+                              {!customerPhone && !customerEmail && (
+                                <span className="inline-flex items-center gap-2 rounded-2xl border border-white bg-white px-3 py-2 font-semibold text-slate-500 shadow-sm">
+                                  <Phone size={14} className="text-slate-400" />
+                                  Kontak tamu belum tersedia
                                 </span>
                               )}
                             </div>
-                          )}
-
-                          <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                            <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
-                              Booking: {getBookingTypeLabel(booking.booking_type)}
-                            </span>
-
-                            {booking.duration_hours && (
-                              <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
-                                Durasi: {booking.duration_hours} jam
-                              </span>
-                            )}
-
-                            {!booking.duration_hours && Number(booking.duration_days || 0) > 0 && (
-                              <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
-                                Durasi: {booking.duration_days} hari
-                              </span>
-                            )}
-
-                           {getBookingRoomUnit(booking) !== "Belum di-assign" && (
-  <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 font-medium">
-    Unit Kamar: {getBookingRoomUnit(booking)}
-  </span>
-)}
                           </div>
 
                           {(booking.payment_method || booking.paid_amount || booking.payment_note) && (
@@ -2273,7 +2289,7 @@ const selectedFolderLabel = filters.hotelId
                                   </span>
                                 )}
                                 {booking.paid_amount ? (
-                                  <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-sky-700 border border-sky-200">
+                                  <span className="rounded-full border border-sky-200 bg-white/90 px-3 py-1 text-xs font-semibold text-sky-700">
                                     Dibayar: {formatCurrency(booking.paid_amount)}
                                   </span>
                                 ) : null}
@@ -2287,16 +2303,16 @@ const selectedFolderLabel = filters.hotelId
                           )}
 
                           {discountPercent > 0 && (
-                            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                              <div className="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-amber-700">
-                                <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+                            <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+                              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-amber-700">
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide">
                                   Discount
                                 </p>
                                 <p className="font-bold">{discountPercent}%</p>
                               </div>
 
-                              <div className="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-slate-700">
-                                <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+                              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700">
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide">
                                   Harga Awal
                                 </p>
                                 <p className="font-bold">
@@ -2304,8 +2320,8 @@ const selectedFolderLabel = filters.hotelId
                                 </p>
                               </div>
 
-                              <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-emerald-700">
-                                <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+                              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-emerald-700">
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide">
                                   Harga Setelah Discount
                                 </p>
                                 <p className="font-bold">
@@ -2316,7 +2332,7 @@ const selectedFolderLabel = filters.hotelId
                           )}
 
                           {booking.payment_status === "refunded" && (
-                            <div className="mt-4 rounded-2xl bg-purple-50 border border-purple-100 px-4 py-3 text-sm text-purple-700">
+                            <div className="mt-4 rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-700">
                               <p>
                                 <strong>Refund:</strong>{" "}
                                 {formatCurrency(booking.refund_amount || 0)}
@@ -2350,7 +2366,7 @@ const selectedFolderLabel = filters.hotelId
                                   </p>
                                 </div>
 
-                                <div className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-rose-700 border border-rose-200">
+                                <div className="inline-flex items-center rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700">
                                   {bookingPenalties.length} item denda
                                 </div>
                               </div>
@@ -2389,7 +2405,7 @@ const selectedFolderLabel = filters.hotelId
                                           )}
                                         </div>
 
-                                        <div className="shrink-0 rounded-full bg-rose-100 px-3 py-1 text-sm font-bold text-rose-700 border border-rose-200">
+                                        <div className="shrink-0 rounded-full border border-rose-200 bg-rose-100 px-3 py-1 text-sm font-bold text-rose-700">
                                           {formatCurrency(Number(penalty.amount || 0))}
                                         </div>
                                       </div>
@@ -2401,7 +2417,7 @@ const selectedFolderLabel = filters.hotelId
                           )}
 
                           {booking.cancel_reason && (
-                            <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
+                            <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                               <p>
                                 <strong>Alasan Cancel:</strong> {booking.cancel_reason}
                               </p>
@@ -2415,7 +2431,7 @@ const selectedFolderLabel = filters.hotelId
                           )}
 
                           {booking.admin_note && (
-                            <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-700">
+                            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
                               <strong>Catatan Admin:</strong> {booking.admin_note}
                             </div>
                           )}
@@ -2424,243 +2440,170 @@ const selectedFolderLabel = filters.hotelId
                             booking?.editor?.name ||
                             booking?.refunder?.name ||
                             booking?.canceller?.name) && (
-                            <div className="mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-4">
-                              <div className="mb-3 flex items-center gap-2">
-                                <History size={16} className="text-red-500" />
-                                <p className="text-sm font-bold text-gray-800">
+                            <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                              <div className="mb-2 flex items-center gap-2">
+                                <History size={14} className="text-red-500" />
+                                <p className="text-xs font-black uppercase tracking-wide text-slate-600">
                                   Riwayat Booking
                                 </p>
                               </div>
 
-                              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+                              <div className="flex flex-wrap gap-2 text-xs">
                                 {booking?.creator?.name && (
-                                  <div className="rounded-2xl bg-gray-50 border border-gray-200 px-3 py-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                      Dibuat Oleh
-                                    </p>
-                                    <p className="mt-1 font-semibold text-gray-800">
-                                      {getCreatedByName(booking)}
-                                    </p>
-                                  </div>
+                                  <HistoryPill label="Dibuat" value={getCreatedByName(booking)} />
                                 )}
 
                                 {booking?.editor?.name && (
-                                  <div className="rounded-2xl bg-gray-50 border border-gray-200 px-3 py-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                      Diedit Oleh
-                                    </p>
-                                    <p className="mt-1 font-semibold text-gray-800">
-                                      {getEditedByName(booking)}
-                                    </p>
-                                  </div>
+                                  <HistoryPill label="Diedit" value={getEditedByName(booking)} />
                                 )}
 
                                 {booking?.refunder?.name && (
-                                  <div className="rounded-2xl bg-gray-50 border border-gray-200 px-3 py-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                      Refund Oleh
-                                    </p>
-                                    <p className="mt-1 font-semibold text-gray-800">
-                                      {getRefundedByName(booking)}
-                                    </p>
-                                  </div>
+                                  <HistoryPill label="Refund" value={getRefundedByName(booking)} />
                                 )}
 
                                 {booking?.canceller?.name && (
-                                  <div className="rounded-2xl bg-gray-50 border border-gray-200 px-3 py-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                      Cancel Oleh
-                                    </p>
-                                    <p className="mt-1 font-semibold text-gray-800">
-                                      {getCancelledByName(booking)}
-                                    </p>
-                                  </div>
+                                  <HistoryPill label="Cancel" value={getCancelledByName(booking)} />
                                 )}
                               </div>
                             </div>
                           )}
+
                           {booking.rejection_reason_customer && (
-                            <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
+                            <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                               <strong>Alasan ke customer:</strong>{" "}
                               {booking.rejection_reason_customer}
                             </div>
                           )}
 
                           {booking.rejection_reason_internal && (
-                            <div className="mt-4 rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-700">
+                            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                               <strong>Catatan internal:</strong>{" "}
                               {booking.rejection_reason_internal}
                             </div>
                           )}
                         </div>
 
-                        <div className="w-full lg:w-auto flex lg:flex-col gap-3">
-                          {showNotifyButton && (
-                            <button
-                              type="button"
-                              onClick={() => handleNotifyWhatsApp(booking)}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-white font-semibold hover:bg-green-700 transition"
-                            >
-                              <MessageCircle size={18} />
-                              Notify WA
-                            </button>
-                          )}
+                        <div className="relative border-t border-dashed border-slate-200 bg-slate-50/80 p-4 lg:border-l lg:border-t-0 lg:p-5">
+                          <div className="absolute -left-3 top-1/2 hidden h-6 w-6 -translate-y-1/2 rounded-full border border-slate-200 bg-gray-100 lg:block" />
+                          <div className="absolute -right-3 top-1/2 hidden h-6 w-6 -translate-y-1/2 rounded-full border border-slate-200 bg-gray-100 lg:block" />
 
-                          {canEditBooking && (
-                            <button
-                              type="button"
-                              onClick={() => handleEditClick(booking)}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-yellow-500 px-5 py-3 text-white font-semibold hover:bg-yellow-600 transition"
-                            >
-                              <Pencil size={18} />
-                              Edit
-                            </button>
-                          )}
+                          <div className="sticky top-4 space-y-2">
+                            <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                              Aksi Operasional
+                            </p>
 
-                          <button
-                            type="button"
-                            onClick={() => handleOpenReceipt(booking)}
-                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition shadow-sm"
-                          >
-                            <ReceiptText size={18} />
-                            Receipt
-                          </button>
+                            {booking.status === "pending" ? (
+                              <>
+                                <ActionButton
+                                  icon={<CircleCheck size={17} />}
+                                  label="Approve"
+                                  tone="green"
+                                  onClick={() => handleApproveClick(booking)}
+                                />
 
-                          {booking.status === "pending" ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleApproveClick(booking)}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-white font-semibold hover:bg-green-700 transition"
-                              >
-                                <CircleCheck size={18} />
-                                Approve
-                              </button>
+                                <ActionButton
+                                  icon={<CircleX size={17} />}
+                                  label="Reject"
+                                  tone="red"
+                                  onClick={() => handleRejectClick(booking)}
+                                />
+                              </>
+                            ) : booking.status === "confirmed" &&
+                              booking.payment_status !== "paid" &&
+                              booking.payment_status !== "refunded" ? (
+                              <>
+                                <ActionButton
+                                  icon={<Wallet size={17} />}
+                                  label="Mark Paid"
+                                  tone="emerald"
+                                  onClick={() => handleMarkPaid(booking)}
+                                />
 
-                              <button
-                                type="button"
-                                onClick={() => handleRejectClick(booking)}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
-                              >
-                                <CircleX size={18} />
-                                Reject
-                              </button>
-                            </>
-                          ) : booking.status === "confirmed" &&
-                            booking.payment_status !== "paid" &&
-                            booking.payment_status !== "refunded" ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleMarkPaid(booking)}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-white font-semibold hover:bg-emerald-700 transition"
-                              >
-                                <Wallet size={18} />
-                                Mark Paid
-                              </button>
+                                {showCancelButton && (
+                                  <ActionButton
+                                    icon={<CircleX size={17} />}
+                                    label="Cancel"
+                                    tone="red"
+                                    onClick={() => openCancelModal(booking)}
+                                  />
+                                )}
+                              </>
+                            ) : booking.status === "confirmed" &&
+                              booking.payment_status === "paid" ? (
+                              <>
+                                <ActionButton
+                                  icon={<CheckCircle2 size={17} />}
+                                  label="Check In"
+                                  tone="blue"
+                                  onClick={() => handleCheckIn(booking)}
+                                />
 
-                              {showCancelButton && (
-                                <button
-                                  type="button"
-                                  onClick={() => openCancelModal(booking)}
-                                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
-                                >
-                                  <CircleX size={18} />
-                                  Cancel
-                                </button>
-                              )}
-                            </>
-                          ) : booking.status === "confirmed" &&
-                            booking.payment_status === "paid" ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleCheckIn(booking)}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-white font-semibold hover:bg-blue-700 transition"
-                              >
-                                <CheckCircle2 size={18} />
-                                Check In
-                              </button>
+                                {canEditBooking && (
+                                  <ActionButton
+                                    icon={<Wallet size={17} />}
+                                    label="Refund"
+                                    tone="purple"
+                                    onClick={() => openRefundModal(booking)}
+                                  />
+                                )}
 
-                              {canEditBooking && (
-                                <button
-                                  type="button"
-                                  onClick={() => openRefundModal(booking)}
-                                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-600 px-5 py-3 text-white font-semibold hover:bg-purple-700 transition"
-                                >
-                                  <Wallet size={18} />
-                                  Refund
-                                </button>
-                              )}
+                                {showCancelButton && (
+                                  <ActionButton
+                                    icon={<CircleX size={17} />}
+                                    label="Cancel"
+                                    tone="red"
+                                    onClick={() => openCancelModal(booking)}
+                                  />
+                                )}
+                              </>
+                            ) : booking.status === "checked_in" ? (
+                              <>
+                                <ActionButton
+                                  icon={<CircleCheck size={17} />}
+                                  label="Check Out"
+                                  tone="slate"
+                                  onClick={() => handleCheckOut(booking)}
+                                />
 
-                              {showCancelButton && (
-                                <button
-                                  type="button"
-                                  onClick={() => openCancelModal(booking)}
-                                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
-                                >
-                                  <CircleX size={18} />
-                                  Cancel
-                                </button>
-                              )}
-                            </>
-                          ) : booking.status === "checked_in" ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleCheckOut(booking)}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-700 px-5 py-3 text-white font-semibold hover:bg-slate-800 transition"
-                              >
-                                <CircleCheck size={18} />
-                                Check Out
-                              </button>
+                                {showCancelButton && (
+                                  <ActionButton
+                                    icon={<CircleX size={17} />}
+                                    label="Cancel"
+                                    tone="red"
+                                    onClick={() => openCancelModal(booking)}
+                                  />
+                                )}
+                              </>
+                            ) : booking.status === "checked_out" ? (
+                              <ActionButton
+                                icon={<RotateCcw size={17} />}
+                                label="Start Cleaning"
+                                tone="orange"
+                                onClick={() => handleStartCleaning(booking)}
+                              />
+                            ) : booking.status === "cleaning" ? (
+                              <ActionButton
+                                icon={<CircleCheck size={17} />}
+                                label="Finish Cleaning"
+                                tone="teal"
+                                onClick={() => handleFinishCleaning(booking)}
+                              />
+                            ) : (
+                              <div className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-600 shadow-sm ring-1 ring-slate-200">
+                                <CheckCircle2 size={17} />
+                                Sudah Diproses
+                              </div>
+                            )}
 
-                              {showCancelButton && (
-                                <button
-                                  type="button"
-                                  onClick={() => openCancelModal(booking)}
-                                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-white font-semibold hover:bg-red-700 transition"
-                                >
-                                  <CircleX size={18} />
-                                  Cancel
-                                </button>
-                              )}
-                            </>
-                          ) : booking.status === "checked_out" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleStartCleaning(booking)}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-orange-600 px-5 py-3 text-white font-semibold hover:bg-orange-700 transition"
-                            >
-                              <RotateCcw size={18} />
-                              Start Cleaning
-                            </button>
-                          ) : booking.status === "cleaning" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleFinishCleaning(booking)}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-600 px-5 py-3 text-white font-semibold hover:bg-teal-700 transition"
-                            >
-                              <CircleCheck size={18} />
-                              Finish Cleaning
-                            </button>
-                          ) : (
-                            <div className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-200 px-5 py-3 text-gray-700 font-semibold">
-                              <CheckCircle2 size={18} />
-                              Sudah Diproses
-                            </div>
-                          )}
-
-                          {showAddPenaltyButton && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenPenaltyModal(booking)}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-600 px-5 py-3 text-white font-semibold hover:bg-rose-700 transition"
-                            >
-                              <Plus size={18} />
-                              Tambah Denda
-                            </button>
-                          )}
+                            {showAddPenaltyButton && (
+                              <ActionButton
+                                icon={<Plus size={17} />}
+                                label="Tambah Denda"
+                                tone="rose"
+                                onClick={() => handleOpenPenaltyModal(booking)}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -4378,5 +4321,62 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </div>
       </div>
     </div>
+  );
+}
+function InfoMiniCard({ icon, label, value, strong = false }) {
+  return (
+    <div className="flex min-w-0 items-start gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 shadow-sm">
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+          {label}
+        </p>
+        <p
+          className={`mt-1 truncate text-sm ${
+            strong ? "font-black text-slate-950" : "font-bold text-slate-800"
+          }`}
+        >
+          {value || "-"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function HistoryPill({ label, value }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-700">
+      <span className="font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </span>
+      <span className="font-bold text-slate-800">{value || "-"}</span>
+    </div>
+  );
+}
+
+function ActionButton({ icon, label, tone = "slate", onClick }) {
+  const toneClass = {
+    green: "bg-green-600 text-white hover:bg-green-700 shadow-green-100",
+    emerald: "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100",
+    blue: "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-100",
+    red: "bg-red-600 text-white hover:bg-red-700 shadow-red-100",
+    purple: "bg-purple-600 text-white hover:bg-purple-700 shadow-purple-100",
+    orange: "bg-orange-600 text-white hover:bg-orange-700 shadow-orange-100",
+    teal: "bg-teal-600 text-white hover:bg-teal-700 shadow-teal-100",
+    rose: "bg-rose-600 text-white hover:bg-rose-700 shadow-rose-100",
+    slate: "bg-slate-800 text-white hover:bg-slate-900 shadow-slate-100",
+  }[tone] || "bg-slate-800 text-white hover:bg-slate-900 shadow-slate-100";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${toneClass}`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

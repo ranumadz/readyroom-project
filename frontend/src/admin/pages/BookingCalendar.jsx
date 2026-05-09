@@ -11,6 +11,8 @@ import {
   Clock3,
   X,
   RefreshCw,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 export default function BookingCalendar() {
@@ -53,6 +55,7 @@ export default function BookingCalendar() {
   const filtersRef = useRef(filters);
   const autoFetchReadyRef = useRef(false);
   const calendarScrollRef = useRef(null);
+  const fullscreenAreaRef = useRef(null);
   const dragScrollStateRef = useRef({
     isDragging: false,
     startX: 0,
@@ -62,6 +65,7 @@ export default function BookingCalendar() {
   });
 
   const [isCalendarDragging, setIsCalendarDragging] = useState(false);
+  const [isCalendarFullscreen, setIsCalendarFullscreen] = useState(false);
 
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
@@ -86,6 +90,49 @@ export default function BookingCalendar() {
 
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const fullscreenElement =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+
+      setIsCalendarFullscreen(fullscreenElement === fullscreenAreaRef.current);
+    };
+
+    const handleEscapeKey = (event) => {
+      if (event.key !== "Escape") return;
+
+      const hasNativeFullscreen =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+
+      if (!hasNativeFullscreen && isCalendarFullscreen) {
+        setIsCalendarFullscreen(false);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+    document.addEventListener("keydown", handleEscapeKey);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        handleFullscreenChange
+      );
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+      document.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, [isCalendarFullscreen]);
 
   const assignedHotelIds = useMemo(() => {
     if (canAccessAllHotels) return [];
@@ -137,6 +184,14 @@ export default function BookingCalendar() {
 
     .calendar-drag-scroll.is-dragging * {
       cursor: grabbing !important;
+    }
+
+    .booking-calendar-fullscreen-shell:fullscreen {
+      background: #f3f4f6;
+    }
+
+    .booking-calendar-fullscreen-shell:-webkit-full-screen {
+      background: #f3f4f6;
     }
   `;
 
@@ -335,6 +390,51 @@ export default function BookingCalendar() {
   const handleManualRefresh = () => {
     fetchCalendar(filters, true);
     fetchFolderBadgeData(filters);
+  };
+
+  const handleToggleCalendarFullscreen = async () => {
+    const target = fullscreenAreaRef.current;
+
+    if (!target) return;
+
+    const nativeFullscreenElement =
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement;
+
+    try {
+      if (nativeFullscreenElement) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          await document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+          await document.msExitFullscreen();
+        } else {
+          setIsCalendarFullscreen(false);
+        }
+
+        return;
+      }
+
+      if (target.requestFullscreen) {
+        await target.requestFullscreen();
+      } else if (target.webkitRequestFullscreen) {
+        await target.webkitRequestFullscreen();
+      } else if (target.mozRequestFullScreen) {
+        await target.mozRequestFullScreen();
+      } else if (target.msRequestFullscreen) {
+        await target.msRequestFullscreen();
+      } else {
+        setIsCalendarFullscreen(true);
+      }
+    } catch (error) {
+      console.error("GAGAL TOGGLE FULLSCREEN BOOKING CALENDAR:", error);
+      setIsCalendarFullscreen((prev) => !prev);
+    }
   };
 
   const isInteractiveCalendarTarget = (target) => {
@@ -637,7 +737,9 @@ export default function BookingCalendar() {
   }, [visibleRoomUnits]);
 
   const calendarViewportStyle = {
-    maxHeight: "max(430px, calc(100vh - 285px))",
+    maxHeight: isCalendarFullscreen
+      ? "max(520px, calc(100vh - 245px))"
+      : "max(430px, calc(100vh - 285px))",
   };
 
   return (
@@ -647,7 +749,14 @@ export default function BookingCalendar() {
       <div className="flex-1 min-w-0">
         <Topbar />
 
-        <div className="min-w-0 p-4 md:p-6">
+        <div
+          ref={fullscreenAreaRef}
+          className={`booking-calendar-fullscreen-shell min-w-0 transition-all ${
+            isCalendarFullscreen
+              ? "fixed inset-0 z-[1300] overflow-auto bg-gray-100 p-3 pb-10 md:p-5 md:pb-12"
+              : "p-4 pb-14 md:p-6 md:pb-16"
+          }`}
+        >
           <style>{calendarScrollStyle}</style>
 
           <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-4">
@@ -661,13 +770,36 @@ export default function BookingCalendar() {
                 </p>
               </div>
 
-              <div className="flex w-fit items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 shadow-sm">
-                <RefreshCw size={14} className="text-red-500" />
-                <div>
-                  <p className="text-[10px] text-gray-500">Terakhir Diperbarui</p>
-                  <p className="text-[11px] font-semibold text-gray-700">
-                    {formatLastUpdated(lastUpdated)}
-                  </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleToggleCalendarFullscreen}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-black text-red-600 shadow-sm transition hover:border-red-200 hover:bg-red-100"
+                  title={
+                    isCalendarFullscreen
+                      ? "Kembali ke tampilan biasa"
+                      : "Perbesar halaman Booking Calendar"
+                  }
+                >
+                  {isCalendarFullscreen ? (
+                    <Minimize2 size={15} />
+                  ) : (
+                    <Maximize2 size={15} />
+                  )}
+                  {isCalendarFullscreen ? "Tampilan Biasa" : "Fullscreen"}
+                  <span className="hidden text-[10px] font-bold text-red-400 sm:inline">
+                    ESC
+                  </span>
+                </button>
+
+                <div className="flex w-fit items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 shadow-sm">
+                  <RefreshCw size={14} className="text-red-500" />
+                  <div>
+                    <p className="text-[10px] text-gray-500">Terakhir Diperbarui</p>
+                    <p className="text-[11px] font-semibold text-gray-700">
+                      {formatLastUpdated(lastUpdated)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -777,7 +909,7 @@ export default function BookingCalendar() {
           )}
 
           {hasSelectedFolder && (
-            <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-white/95 shadow-[0_20px_55px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+            <div className="relative mb-8 overflow-hidden rounded-[32px] border border-white/70 bg-white/95 shadow-[0_20px_55px_rgba(15,23,42,0.08)] backdrop-blur-sm md:mb-10">
               {!loading && (
                 <>
                   <div className="pointer-events-none absolute inset-y-0 left-0 z-[55] w-6 bg-gradient-to-r from-white via-white/90 to-transparent" />

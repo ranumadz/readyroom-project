@@ -530,17 +530,6 @@ export default function AddRoom() {
 
         <div className="p-6 md:p-8">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-red-600 mb-2">
-                Admin Panel
-              </p>
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-                Add Kamar
-              </h1>
-              <p className="text-gray-500 mt-1">
-                Tambahkan tipe kamar baru ke cabang hotel tertentu.
-              </p>
-            </div>
 
             <button
               type="button"

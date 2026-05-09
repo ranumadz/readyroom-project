@@ -23,6 +23,7 @@ class RoomController extends Controller
             ->get();
 
         $this->attachRoomFacilitiesToRooms($rooms);
+        $this->attachRoomBookingProtectionToRooms($rooms);
 
         return response()->json($rooms);
     }
@@ -195,6 +196,7 @@ class RoomController extends Controller
 
         $freshRoom = $room->fresh()->load(['hotel.city', 'hotel.facilities', 'images', 'units']);
         $this->attachRoomFacilitiesToRoom($freshRoom);
+        $this->attachRoomBookingProtectionToRoom($freshRoom);
 
         return response()->json([
             'message' => 'Kamar berhasil ditambahkan',
@@ -327,6 +329,7 @@ class RoomController extends Controller
 
         $freshRoom = $room->fresh()->load(['hotel.city', 'hotel.facilities', 'images', 'units']);
         $this->attachRoomFacilitiesToRoom($freshRoom);
+        $this->attachRoomBookingProtectionToRoom($freshRoom);
 
         return response()->json([
             'message' => 'Kamar berhasil diperbarui',
@@ -336,10 +339,21 @@ class RoomController extends Controller
 
     /**
      * DELETE room (ADMIN)
+     *
+     * Proteksi penting:
+     * - Kamar yang sudah punya riwayat booking tidak boleh dihapus.
+     * - Kalau belum pernah dipakai booking, kamar tetap boleh dihapus
+     *   untuk kasus salah input data.
      */
     public function destroy($id)
     {
         $room = Room::with(['images'])->findOrFail($id);
+
+        if ($this->roomHasBookingHistory($room)) {
+            return response()->json([
+                'message' => 'Kamar ini sudah memiliki riwayat booking, tidak bisa dihapus. Gunakan Disable agar data booking, laporan, receipt, dan riwayat customer tetap aman.',
+            ], 409);
+        }
 
         $this->deleteStorageFile($room->thumbnail);
 
@@ -372,6 +386,78 @@ class RoomController extends Controller
         }
 
         return $availableRooms;
+    }
+
+    /**
+     * Cek apakah room sudah pernah dipakai di booking list.
+     *
+     * Dibuat aman dengan dua jalur:
+     * - bookings.room_id untuk data booking normal.
+     * - bookings.room_unit_id untuk data lama / data yang terkait ke room unit.
+     */
+    private function roomHasBookingHistory(Room $room): bool
+    {
+        if (!Schema::hasTable('bookings')) {
+            return false;
+        }
+
+        if (Schema::hasColumn('bookings', 'room_id')) {
+            $hasRoomBooking = DB::table('bookings')
+                ->where('room_id', $room->id)
+                ->exists();
+
+            if ($hasRoomBooking) {
+                return true;
+            }
+        }
+
+        if (
+            Schema::hasTable('room_units') &&
+            Schema::hasColumn('room_units', 'room_id') &&
+            Schema::hasColumn('bookings', 'room_unit_id')
+        ) {
+            $roomUnitIds = DB::table('room_units')
+                ->where('room_id', $room->id)
+                ->pluck('id');
+
+            if ($roomUnitIds->isNotEmpty()) {
+                return DB::table('bookings')
+                    ->whereIn('room_unit_id', $roomUnitIds)
+                    ->exists();
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Tempelkan status proteksi hapus ke object room supaya frontend bisa tahu
+     * apakah tombol Tetap Hapus boleh ditampilkan atau harus diarahkan ke Disable.
+     */
+    private function attachRoomBookingProtectionToRoom(Room $room): Room
+    {
+        $hasBookingHistory = $this->roomHasBookingHistory($room);
+
+        $room->setAttribute('has_booking_history', $hasBookingHistory);
+        $room->setAttribute('can_delete', !$hasBookingHistory);
+        $room->setAttribute(
+            'delete_protection_message',
+            $hasBookingHistory
+                ? 'Kamar ini sudah memiliki riwayat booking, tidak bisa dihapus. Gunakan Disable agar data booking, laporan, receipt, dan riwayat customer tetap aman.'
+                : null
+        );
+
+        return $room;
+    }
+
+    /**
+     * Tempelkan status proteksi hapus ke banyak room.
+     */
+    private function attachRoomBookingProtectionToRooms($rooms): void
+    {
+        foreach ($rooms as $room) {
+            $this->attachRoomBookingProtectionToRoom($room);
+        }
     }
 
     /**

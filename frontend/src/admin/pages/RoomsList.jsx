@@ -1438,6 +1438,14 @@ export default function RoomsList() {
   const handleDeleteRoom = async () => {
     if (!roomToDelete?.id) return;
 
+    if (roomToDeleteHasBookingHistory || !roomToDeleteCanDelete) {
+      toast.error(
+        roomToDeleteProtectionMessage ||
+          "Room ini sudah punya riwayat booking. Gunakan Disable agar laporan, receipt, dan riwayat customer tetap aman."
+      );
+      return;
+    }
+
     try {
       setDeletingRoomId(roomToDelete.id);
 
@@ -1449,14 +1457,51 @@ export default function RoomsList() {
       fetchRooms();
     } catch (error) {
       console.error("Gagal hapus room:", error.response?.data || error);
+
+      const statusCode = error?.response?.status;
+      const backendMessage = error?.response?.data?.message;
+
       toast.error(
-        error.response?.data?.message ||
-          "Gagal menghapus room. Jika room sudah punya booking atau room unit, gunakan Disable saja."
+        backendMessage ||
+          (statusCode === 409
+            ? "Room ini sudah punya riwayat booking. Gunakan Disable agar laporan, receipt, dan riwayat customer tetap aman."
+            : "Gagal menghapus room. Jika room sudah punya booking atau room unit, gunakan Disable saja.")
       );
     } finally {
       setDeletingRoomId(null);
     }
   };
+
+  const handleDisableRoomFromDeleteModal = async () => {
+    if (!roomToDelete?.id || togglingRoomId || deletingRoomId) return;
+
+    if (!isRoomActive(roomToDelete)) {
+      toast.success("Room ini sudah nonaktif");
+      closeDeleteModal();
+      return;
+    }
+
+    await handleToggleStatus(roomToDelete);
+    closeDeleteModal();
+  };
+
+  const roomToDeleteHasBookingHistory = Boolean(
+    roomToDelete?.has_booking_history ||
+      roomToDelete?.hasBookingHistory ||
+      roomToDelete?.booking_history ||
+      roomToDelete?.booking_count > 0 ||
+      roomToDelete?.bookings_count > 0
+  );
+
+  const roomToDeleteCanDelete = roomToDelete
+    ? roomToDelete?.can_delete !== false && !roomToDeleteHasBookingHistory
+    : false;
+
+  const roomToDeleteProtectionMessage =
+    roomToDelete?.delete_protection_message ||
+    "Room ini sudah memiliki riwayat booking, tidak bisa dihapus. Gunakan Disable agar data booking, laporan, receipt, dan riwayat customer tetap aman.";
+
+  const roomToDeleteIsActive = roomToDelete ? isRoomActive(roomToDelete) : false;
 
   const selectedFacilityCount = Array.isArray(editForm.room_facility_ids)
     ? editForm.room_facility_ids.length
@@ -2486,8 +2531,8 @@ export default function RoomsList() {
 
       {showDeleteModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl">
-            <div className="border-b border-red-100 bg-gradient-to-br from-red-50 to-white px-6 py-5">
+          <div className="w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="border-b border-red-100 bg-gradient-to-br from-red-50 via-white to-white px-6 py-5">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-xl font-black text-red-600">
                   !
@@ -2498,48 +2543,83 @@ export default function RoomsList() {
                     Hapus Room?
                   </h2>
                   <p className="mt-1 text-sm leading-relaxed text-gray-500">
-                    Kamu akan menghapus data kamar dari sistem ReadyRoom.
+                    Delete hanya aman untuk room yang belum pernah masuk Booking List.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="px-6 py-5">
-              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-4">
-                <p className="text-sm font-bold text-red-700">
+            <div className="space-y-4 px-6 py-5">
+              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
+                <p className="text-sm font-bold text-gray-900">
                   {roomToDelete?.name || "Room ini"}
                 </p>
-                <p className="mt-1 text-sm leading-relaxed text-red-600">
-                  Aksi ini dapat menghapus data kamar dari sistem. Jika room ini
-                  sudah punya booking, room unit, atau riwayat transaksi, lebih
-                  aman gunakan tombol <b>Disable</b> saja.
+                <p className="mt-1 text-xs font-medium text-gray-500">
+                  Cabang: {roomToDelete?.hotel?.name || "-"} · ID: {roomToDelete?.id || "-"}
                 </p>
               </div>
 
-              <p className="mt-4 text-sm leading-relaxed text-gray-500">
-                Pastikan room ini memang tidak digunakan lagi sebelum
-                melanjutkan.
-              </p>
+              {roomToDeleteHasBookingHistory ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4">
+                  <p className="text-sm font-extrabold text-red-800">
+                    Room ini terkunci dari penghapusan
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-red-700">
+                    {roomToDeleteProtectionMessage}
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-green-100 bg-green-50 px-4 py-4">
+                  <p className="text-sm font-extrabold text-green-800">
+                    Room ini masih boleh dihapus
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-green-700">
+                    Delete hanya aman kalau room ini memang salah input dan belum pernah masuk Booking List.
+                  </p>
+                </div>
+              )}
+
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+                <p className="text-sm font-extrabold text-amber-800">
+                  Catatan aman operasional
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-amber-700">
+                  Kalau room sudah pernah dipakai booking, gunakan <b>Disable</b> agar laporan, receipt, monitoring, dan riwayat customer tetap aman.
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-6 py-5 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={closeDeleteModal}
-                disabled={Boolean(deletingRoomId)}
+                disabled={Boolean(deletingRoomId) || Boolean(togglingRoomId)}
                 className="rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Batal
               </button>
 
-              <button
-                type="button"
-                onClick={handleDeleteRoom}
-                disabled={Boolean(deletingRoomId)}
-                className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {deletingRoomId ? "Menghapus..." : "Ya, Hapus Room"}
-              </button>
+              {roomToDeleteIsActive && (
+                <button
+                  type="button"
+                  onClick={handleDisableRoomFromDeleteModal}
+                  disabled={Boolean(deletingRoomId) || Boolean(togglingRoomId)}
+                  className="rounded-2xl border border-red-100 bg-white px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {togglingRoomId ? "Memproses..." : "Disable Saja"}
+                </button>
+              )}
+
+              {roomToDeleteCanDelete && (
+                <button
+                  type="button"
+                  onClick={handleDeleteRoom}
+                  disabled={Boolean(deletingRoomId) || Boolean(togglingRoomId)}
+                  className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deletingRoomId ? "Menghapus..." : "Tetap Hapus"}
+                </button>
+              )}
             </div>
           </div>
         </div>

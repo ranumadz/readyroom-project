@@ -9,6 +9,7 @@ use App\Models\Facility;
 use App\Models\HotelImage;
 use App\Models\Room;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
@@ -123,6 +124,123 @@ class HotelController extends Controller
         return $hotel;
     }
 
+    /**
+     * Cek apakah hotel masih punya data kamar.
+     * Ini dipakai untuk mencegah hotel dihapus sembarangan dari admin.
+     */
+    private function hotelHasRooms(Hotel $hotel): bool
+    {
+        if (!Schema::hasTable('rooms') || !Schema::hasColumn('rooms', 'hotel_id')) {
+            return false;
+        }
+
+        return DB::table('rooms')
+            ->where('hotel_id', $hotel->id)
+            ->exists();
+    }
+
+    /**
+     * Cek apakah hotel sudah pernah masuk Booking List.
+     * Dibuat fleksibel supaya aman untuk beberapa struktur booking:
+     * - bookings.hotel_id
+     * - bookings.room_id yang mengarah ke rooms.hotel_id
+     * - bookings.room_unit_id yang mengarah ke room_units.room_id
+     */
+    private function hotelHasBookingHistory(Hotel $hotel): bool
+    {
+        if (!Schema::hasTable('bookings')) {
+            return false;
+        }
+
+        if (Schema::hasColumn('bookings', 'hotel_id')) {
+            $hasHotelBooking = DB::table('bookings')
+                ->where('hotel_id', $hotel->id)
+                ->exists();
+
+            if ($hasHotelBooking) {
+                return true;
+            }
+        }
+
+        $roomIds = collect([]);
+
+        if (Schema::hasTable('rooms') && Schema::hasColumn('rooms', 'hotel_id')) {
+            $roomIds = DB::table('rooms')
+                ->where('hotel_id', $hotel->id)
+                ->pluck('id');
+        }
+
+        if ($roomIds->isNotEmpty() && Schema::hasColumn('bookings', 'room_id')) {
+            $hasRoomBooking = DB::table('bookings')
+                ->whereIn('room_id', $roomIds)
+                ->exists();
+
+            if ($hasRoomBooking) {
+                return true;
+            }
+        }
+
+        if (
+            $roomIds->isNotEmpty() &&
+            Schema::hasTable('room_units') &&
+            Schema::hasColumn('room_units', 'room_id') &&
+            Schema::hasColumn('bookings', 'room_unit_id')
+        ) {
+            $roomUnitIds = DB::table('room_units')
+                ->whereIn('room_id', $roomIds)
+                ->pluck('id');
+
+            if ($roomUnitIds->isNotEmpty()) {
+                return DB::table('bookings')
+                    ->whereIn('room_unit_id', $roomUnitIds)
+                    ->exists();
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Data proteksi delete hotel untuk frontend HotelsList.jsx.
+     * Hotel hanya boleh dihapus kalau benar-benar belum punya kamar dan belum punya riwayat booking.
+     */
+    private function getHotelDeleteProtection(Hotel $hotel): array
+    {
+        $hasRooms = $this->hotelHasRooms($hotel);
+        $hasBookingHistory = $this->hotelHasBookingHistory($hotel);
+        $canDelete = !$hasRooms && !$hasBookingHistory;
+
+        $message = null;
+
+        if ($hasBookingHistory) {
+            $message = 'Hotel ini sudah memiliki riwayat booking, tidak bisa dihapus. Gunakan Nonaktifkan agar data booking, laporan, receipt, dan riwayat customer tetap aman.';
+        } elseif ($hasRooms) {
+            $message = 'Hotel ini masih memiliki data kamar, tidak bisa dihapus langsung. Hapus kamar yang salah input terlebih dahulu jika belum pernah booking, atau gunakan Nonaktifkan untuk hotel ini.';
+        }
+
+        return [
+            'has_rooms' => $hasRooms,
+            'has_booking_history' => $hasBookingHistory,
+            'can_delete' => $canDelete,
+            'delete_protection_message' => $message,
+        ];
+    }
+
+    /**
+     * Tempelkan info proteksi delete ke data hotel tanpa mengubah struktur lama.
+     */
+    private function attachDeleteProtectionToHotel(Hotel $hotel): Hotel
+    {
+        $protection = $this->getHotelDeleteProtection($hotel);
+
+        $hotel->setAttribute('has_rooms', $protection['has_rooms']);
+        $hotel->setAttribute('has_booking_history', $protection['has_booking_history']);
+        $hotel->setAttribute('can_delete', $protection['can_delete']);
+        $hotel->setAttribute('delete_protection_message', $protection['delete_protection_message']);
+
+        return $hotel;
+    }
+
     private function normalizeFacilityScope($facility): string
     {
         $raw = strtolower((string) (
@@ -223,7 +341,9 @@ class HotelController extends Controller
             ->latest()
             ->get()
             ->map(function ($hotel) {
-                return $this->syncBookingClosureStatus($hotel);
+                $hotel = $this->syncBookingClosureStatus($hotel);
+
+                return $this->attachDeleteProtectionToHotel($hotel);
             });
 
         return response()->json($hotels);
@@ -364,9 +484,12 @@ class HotelController extends Controller
 
         $this->storeGalleryImages($hotel->id, $this->galleryFilesFromRequest($request));
 
+        $freshHotel = $hotel->load(['city', 'facilities', 'images']);
+        $freshHotel = $this->attachDeleteProtectionToHotel($freshHotel);
+
         return response()->json([
             'message' => 'Hotel berhasil ditambahkan',
-            'data' => $hotel->load(['city', 'facilities', 'images'])
+            'data' => $freshHotel
         ], 201);
     }
 
@@ -440,9 +563,12 @@ class HotelController extends Controller
         $this->deleteSelectedGalleryImages($hotel, $request);
         $this->storeGalleryImages($hotel->id, $this->galleryFilesFromRequest($request));
 
+        $freshHotel = $hotel->fresh()->load(['city', 'facilities', 'images']);
+        $freshHotel = $this->attachDeleteProtectionToHotel($freshHotel);
+
         return response()->json([
             'message' => 'Hotel berhasil diupdate',
-            'data' => $hotel->fresh()->load(['city', 'facilities', 'images'])
+            'data' => $freshHotel
         ]);
     }
 
@@ -486,6 +612,17 @@ class HotelController extends Controller
     public function destroy($id)
     {
         $hotel = Hotel::with('images')->findOrFail($id);
+        $deleteProtection = $this->getHotelDeleteProtection($hotel);
+
+        if (!$deleteProtection['can_delete']) {
+            return response()->json([
+                'message' => $deleteProtection['delete_protection_message']
+                    ?: 'Hotel ini tidak bisa dihapus karena masih memiliki data kamar atau riwayat booking. Gunakan Nonaktifkan agar data tetap aman.',
+                'has_rooms' => $deleteProtection['has_rooms'],
+                'has_booking_history' => $deleteProtection['has_booking_history'],
+                'can_delete' => false,
+            ], 409);
+        }
 
         if ($hotel->thumbnail && Storage::disk('public')->exists($hotel->thumbnail)) {
             Storage::disk('public')->delete($hotel->thumbnail);
