@@ -394,7 +394,7 @@ export default function BookingList() {
     if (!selectedRejectBooking) return;
 
     if (!rejectReasonCustomer.trim()) {
-      toast.error("Alasan untuk customer wajib diisi");
+      toast.error("Alasan untuk tamu wajib diisi");
       return;
     }
 
@@ -849,7 +849,7 @@ const handlePrintReport = () => {
   const printEl = reportPrintRef.current;
 
   if (!printEl) {
-    toast.error("Report belum siap dicetak");
+    toast.error("Laporan belum siap dicetak");
     return;
   }
 
@@ -877,7 +877,7 @@ const handlePrintReport = () => {
   printWindow.document.write(`
     <html>
       <head>
-        <title>Report Booking ReadyRoom</title>
+        <title>Laporan Booking ReadyRoom</title>
         <meta charset="utf-8" />
         <style>
           * { box-sizing: border-box; }
@@ -1013,7 +1013,7 @@ const handlePrintReport = () => {
       <body>
         <div class="sheet">
           <div class="sheet-top">
-            <h1>Report Booking ReadyRoom</h1>
+            <h1>Laporan Booking ReadyRoom</h1>
             <p>Laporan operasional resepsionis per cabang yang siap dicetak</p>
           </div>
 
@@ -1052,7 +1052,7 @@ const handlePrintReport = () => {
           </div>
 
           <div class="footer">
-            <div>ReadyRoom Admin Report</div>
+            <div>Laporan Admin ReadyRoom</div>
             <div>Dokumen internal cabang</div>
           </div>
         </div>
@@ -1125,8 +1125,9 @@ const handlePrintReport = () => {
   };
 
   const getReceiptSourceLabel = (booking) => {
-    if (booking?.booking_source === "admin_manual") return "Manual Admin";
-    if (booking?.booking_source === "customer_app") return "App Customer";
+    if (booking?.booking_source === "admin_manual") return "Admin Manual";
+    if (booking?.booking_source === "customer_app") return "Aplikasi Tamu";
+    if (booking?.booking_source === "customer_login") return "Login Tamu";
     return booking?.booking_source || "Operasional Hotel";
   };
 
@@ -1158,7 +1159,7 @@ const handlePrintReport = () => {
     const receiptEl = receiptPrintRef.current;
 
     if (!selectedReceiptBooking || !receiptEl) {
-      toast.error("Receipt belum siap dicetak");
+      toast.error("Kuitansi belum siap dicetak");
       return;
     }
 
@@ -1189,7 +1190,7 @@ const handlePrintReport = () => {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Receipt ${selectedReceiptBooking.booking_code || selectedReceiptBooking.id}</title>
+          <title>Kuitansi ${selectedReceiptBooking.booking_code || selectedReceiptBooking.id}</title>
           <meta charset="utf-8" />
           <style>
             * { box-sizing: border-box; }
@@ -1519,6 +1520,17 @@ const buildWhatsAppMessage = (booking) => {
     }
   };
 
+  const getPaymentStatusLabel = (paymentStatus) => {
+    switch (paymentStatus) {
+      case "paid":
+        return "Lunas";
+      case "refunded":
+        return "Refund";
+      default:
+        return "Belum Lunas";
+    }
+  };
+
   const getPaymentMethodLabel = (paymentMethod) => {
     switch (paymentMethod) {
       case "cash":
@@ -1575,21 +1587,21 @@ const buildWhatsAppMessage = (booking) => {
   const getStatusLabel = (status) => {
     switch (status) {
       case "checked_in":
-        return "Checked In";
+        return "Check In";
       case "checked_out":
-        return "Checked Out";
+        return "Check Out";
       case "cleaning":
-        return "Cleaning";
+        return "Proses Cleaning";
       case "completed":
-        return "Finished";
+        return "Selesai";
       case "confirmed":
-        return "Confirmed";
+        return "Dikonfirmasi";
       case "pending":
-        return "Pending";
+        return "Menunggu";
       case "cancelled":
-        return "Cancelled";
+        return "Dibatalkan";
       case "rejected":
-        return "Rejected";
+        return "Ditolak";
       default:
         return status || "-";
     }
@@ -1947,13 +1959,13 @@ const selectedFolderLabel = filters.hotelId
   : "Belum pilih cabang";
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen overflow-x-hidden bg-gray-100">
       <Sidebar />
 
-      <div className="flex-1">
+      <div className="min-w-0 flex-1 overflow-x-hidden">
         <Topbar />
 
-        <div className="p-4 md:p-6">
+        <div className="min-w-0 overflow-x-hidden p-4 md:p-6">
   <div className="relative mb-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
     {/* background motif lebih soft */}
     <div className="pointer-events-none absolute inset-0">
@@ -2022,7 +2034,7 @@ const selectedFolderLabel = filters.hotelId
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ReceiptText size={16} />
-                Report
+                Laporan
               </button>
 
               <button
@@ -2032,7 +2044,7 @@ const selectedFolderLabel = filters.hotelId
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus size={16} />
-                Manual Booking
+                Booking Manual
               </button>
             </div>
           </div>
@@ -2085,9 +2097,11 @@ const selectedFolderLabel = filters.hotelId
                   const customerEmail = booking.guest_email || null;
                   const sourceLabel =
                     booking.booking_source === "admin_manual"
-                      ? "Manual Admin"
+                      ? "Admin Manual"
                       : booking.booking_source === "customer_app"
-                      ? "App Customer"
+                      ? "Aplikasi Tamu"
+                      : booking.booking_source === "customer_login"
+                      ? "Login Tamu"
                       : booking.booking_source || null;
 
                   const discountPercent = Number(booking.discount_percent || 0);
@@ -2124,10 +2138,10 @@ const selectedFolderLabel = filters.hotelId
                       <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-red-50 blur-3xl transition group-hover:bg-red-100" />
                       <div className="pointer-events-none absolute -bottom-24 left-1/3 h-40 w-40 rounded-full bg-amber-50 blur-3xl" />
 
-                      <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px]">
+                      <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_190px] xl:grid-cols-[minmax(0,1fr)_200px]">
                         <div className="min-w-0 p-4 md:p-5 lg:p-6">
                           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                            <div className="min-w-0">
+                            <div className="w-full min-w-0">
                               <div className="mb-3 flex flex-wrap items-center gap-2">
                                 <h3 className="mr-1 text-lg font-black tracking-tight text-slate-950 md:text-xl">
                                   {booking.booking_code || `Booking #${booking.id}`}
@@ -2146,7 +2160,7 @@ const selectedFolderLabel = filters.hotelId
                                     booking.payment_status
                                   )}`}
                                 >
-                                  {booking.payment_status || "unpaid"}
+                                  {getPaymentStatusLabel(booking.payment_status)}
                                 </span>
 
                                 {booking.payment_method && (
@@ -2183,10 +2197,10 @@ const selectedFolderLabel = filters.hotelId
                                 )}
                               </div>
 
-                              <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
+                              <div className="grid w-full grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-[minmax(155px,1.25fr)_minmax(180px,1.35fr)_minmax(150px,1.05fr)_236px_160px] 2xl:grid-cols-[minmax(160px,1.25fr)_minmax(190px,1.35fr)_minmax(155px,1.05fr)_246px_168px]">
                                 <InfoMiniCard
                                   icon={<User size={16} className="text-red-500" />}
-                                  label="Nama Customer"
+                                  label="Nama Tamu"
                                   value={getBookingCustomerName(booking)}
                                 />
 
@@ -2202,16 +2216,10 @@ const selectedFolderLabel = filters.hotelId
                                   value={booking.room?.type || booking.room?.name || "-"}
                                 />
 
-                                <InfoMiniCard
+                                <StayScheduleMiniCard
                                   icon={<CalendarDays size={16} className="text-red-500" />}
-                                  label="Check In"
-                                  value={formatDateTime(booking.check_in)}
-                                />
-
-                                <InfoMiniCard
-                                  icon={<CalendarDays size={16} className="text-red-500" />}
-                                  label="Check Out"
-                                  value={formatDateTime(booking.check_out)}
+                                  checkIn={formatDateTime(booking.check_in)}
+                                  checkOut={formatDateTime(booking.check_out)}
                                 />
 
                                 <InfoMiniCard
@@ -2240,7 +2248,7 @@ const selectedFolderLabel = filters.hotelId
                                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-600 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg"
                                 >
                                   <MessageCircle size={15} />
-                                  Notify WA
+                                  Kirim WA
                                 </button>
                               )}
 
@@ -2251,7 +2259,7 @@ const selectedFolderLabel = filters.hotelId
                                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-black text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-100"
                                 >
                                   <Pencil size={15} />
-                                  Edit
+                                  Ubah
                                 </button>
                               )}
 
@@ -2261,7 +2269,7 @@ const selectedFolderLabel = filters.hotelId
                                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-950 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-black hover:shadow-lg"
                               >
                                 <ReceiptText size={15} />
-                                Receipt
+                                Kuitansi
                               </button>
 
                               {customerEmail && (
@@ -2306,7 +2314,7 @@ const selectedFolderLabel = filters.hotelId
                             <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
                               <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-amber-700">
                                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide">
-                                  Discount
+                                  Diskon
                                 </p>
                                 <p className="font-bold">{discountPercent}%</p>
                               </div>
@@ -2322,7 +2330,7 @@ const selectedFolderLabel = filters.hotelId
 
                               <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-emerald-700">
                                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide">
-                                  Harga Setelah Discount
+                                  Harga Setelah Diskon
                                 </p>
                                 <p className="font-bold">
                                   {formatCurrency(booking.total_price)}
@@ -2462,7 +2470,7 @@ const selectedFolderLabel = filters.hotelId
                                 )}
 
                                 {booking?.canceller?.name && (
-                                  <HistoryPill label="Cancel" value={getCancelledByName(booking)} />
+                                  <HistoryPill label="Batalkan" value={getCancelledByName(booking)} />
                                 )}
                               </div>
                             </div>
@@ -2470,7 +2478,7 @@ const selectedFolderLabel = filters.hotelId
 
                           {booking.rejection_reason_customer && (
                             <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-                              <strong>Alasan ke customer:</strong>{" "}
+                              <strong>Alasan untuk tamu:</strong>{" "}
                               {booking.rejection_reason_customer}
                             </div>
                           )}
@@ -2496,14 +2504,14 @@ const selectedFolderLabel = filters.hotelId
                               <>
                                 <ActionButton
                                   icon={<CircleCheck size={17} />}
-                                  label="Approve"
+                                  label="Setujui"
                                   tone="green"
                                   onClick={() => handleApproveClick(booking)}
                                 />
 
                                 <ActionButton
                                   icon={<CircleX size={17} />}
-                                  label="Reject"
+                                  label="Tolak"
                                   tone="red"
                                   onClick={() => handleRejectClick(booking)}
                                 />
@@ -2514,7 +2522,7 @@ const selectedFolderLabel = filters.hotelId
                               <>
                                 <ActionButton
                                   icon={<Wallet size={17} />}
-                                  label="Mark Paid"
+                                  label="Tandai Lunas"
                                   tone="emerald"
                                   onClick={() => handleMarkPaid(booking)}
                                 />
@@ -2522,7 +2530,7 @@ const selectedFolderLabel = filters.hotelId
                                 {showCancelButton && (
                                   <ActionButton
                                     icon={<CircleX size={17} />}
-                                    label="Cancel"
+                                    label="Batalkan"
                                     tone="red"
                                     onClick={() => openCancelModal(booking)}
                                   />
@@ -2550,7 +2558,7 @@ const selectedFolderLabel = filters.hotelId
                                 {showCancelButton && (
                                   <ActionButton
                                     icon={<CircleX size={17} />}
-                                    label="Cancel"
+                                    label="Batalkan"
                                     tone="red"
                                     onClick={() => openCancelModal(booking)}
                                   />
@@ -2568,7 +2576,7 @@ const selectedFolderLabel = filters.hotelId
                                 {showCancelButton && (
                                   <ActionButton
                                     icon={<CircleX size={17} />}
-                                    label="Cancel"
+                                    label="Batalkan"
                                     tone="red"
                                     onClick={() => openCancelModal(booking)}
                                   />
@@ -2577,14 +2585,14 @@ const selectedFolderLabel = filters.hotelId
                             ) : booking.status === "checked_out" ? (
                               <ActionButton
                                 icon={<RotateCcw size={17} />}
-                                label="Start Cleaning"
+                                label="Mulai Cleaning"
                                 tone="orange"
                                 onClick={() => handleStartCleaning(booking)}
                               />
                             ) : booking.status === "cleaning" ? (
                               <ActionButton
                                 icon={<CircleCheck size={17} />}
-                                label="Finish Cleaning"
+                                label="Selesai Cleaning"
                                 tone="teal"
                                 onClick={() => handleFinishCleaning(booking)}
                               />
@@ -2620,7 +2628,7 @@ const selectedFolderLabel = filters.hotelId
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-xl">
                 <h2 className="text-xl font-bold text-gray-800 mb-2">
-                  Approve Booking
+                  Setujui Booking
                 </h2>
                 <p className="text-sm text-gray-500 mb-5">
                   Pilih kamar fisik untuk booking{" "}
@@ -2676,7 +2684,7 @@ const selectedFolderLabel = filters.hotelId
                       onClick={handleApprove}
                       disabled={approving}
                     >
-                      {approving ? "Menyimpan..." : "Confirm Approve"}
+                      {approving ? "Menyimpan..." : "Konfirmasi Setujui"}
                     </button>
                   </div>
                 </div>
@@ -2688,7 +2696,7 @@ const selectedFolderLabel = filters.hotelId
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-xl">
                 <h2 className="text-xl font-bold text-gray-800 mb-2">
-                  Reject Booking
+                  Tolak Booking
                 </h2>
                 <p className="text-sm text-gray-500 mb-5">
                   Isi alasan penolakan untuk booking{" "}
@@ -2700,7 +2708,7 @@ const selectedFolderLabel = filters.hotelId
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Alasan untuk Customer
+                      Alasan untuk Tamu
                     </label>
                     <textarea
                       rows={3}
@@ -2717,7 +2725,7 @@ const selectedFolderLabel = filters.hotelId
                     </label>
                     <textarea
                       rows={3}
-                      placeholder="Contoh: Customer masuk blacklist internal."
+                      placeholder="Contoh: Tamu masuk blacklist internal."
                       className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 resize-none"
                       value={rejectReasonInternal}
                       onChange={(e) => setRejectReasonInternal(e.target.value)}
@@ -2739,7 +2747,7 @@ const selectedFolderLabel = filters.hotelId
                       onClick={handleReject}
                       disabled={rejecting}
                     >
-                      {rejecting ? "Menyimpan..." : "Confirm Reject"}
+                      {rejecting ? "Menyimpan..." : "Konfirmasi Tolak"}
                     </button>
                   </div>
                 </div>
@@ -2751,10 +2759,10 @@ const selectedFolderLabel = filters.hotelId
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-xl">
                 <h2 className="text-xl font-bold text-gray-800 mb-2">
-                  Edit Booking
+                  Ubah Booking
                 </h2>
                 <p className="text-sm text-gray-500 mb-5">
-                  Edit data booking{" "}
+                  Ubah data booking{" "}
                   <span className="font-semibold text-gray-700">
                     {selectedEditBooking.booking_code}
                   </span>
@@ -2941,7 +2949,7 @@ const selectedFolderLabel = filters.hotelId
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-xl">
                 <h2 className="text-xl font-bold text-gray-800 mb-2">
-                  Cancel Booking
+                  Batalkan Booking
                 </h2>
                 <p className="text-sm text-gray-500 mb-5">
                   Isi alasan pembatalan untuk booking{" "}
@@ -2985,7 +2993,7 @@ const selectedFolderLabel = filters.hotelId
                       onClick={handleCancelBooking}
                       disabled={cancelling}
                     >
-                      {cancelling ? "Memproses..." : "Confirm Cancel"}
+                      {cancelling ? "Memproses..." : "Konfirmasi Batalkan"}
                     </button>
                   </div>
                 </div>
@@ -3002,13 +3010,13 @@ const selectedFolderLabel = filters.hotelId
                     <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-red-100 bg-white/95 px-5 py-4 backdrop-blur md:flex-row md:items-center md:justify-between md:px-8">
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.28em] text-red-600">
-                          ReadyRoom Admin Receipt
+                          Kuitansi Admin ReadyRoom
                         </p>
                         <h2 className="mt-1 text-2xl font-black text-gray-900 md:text-3xl">
                           Tiket Operasional Booking
                         </h2>
                         <p className="mt-1 text-sm text-gray-500">
-                          Receipt ini bisa diprint atau disimpan PDF untuk tamu dan resepsionis.
+                          Kuitansi ini bisa dicetak atau disimpan PDF untuk tamu dan resepsionis.
                         </p>
                       </div>
 
@@ -3019,7 +3027,7 @@ const selectedFolderLabel = filters.hotelId
                           className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-200 transition hover:bg-red-700"
                         >
                           <Printer size={18} />
-                          Print / Save PDF
+                          Cetak / Simpan PDF
                         </button>
 
                         <button
@@ -3050,8 +3058,8 @@ const selectedFolderLabel = filters.hotelId
                                 ReadyRoom • Hotel Ops
                               </p>
                               <h3 className="mt-3 text-3xl font-black leading-tight md:text-5xl">
-                                ReadyRoom Invoice
-                                <span className="block text-red-100">BOOKING TICKET</span>
+                                Kuitansi ReadyRoom
+                                <span className="block text-red-100">TIKET BOOKING</span>
                               </h3>
                               <p className="mt-3 max-w-2xl text-sm text-red-50 md:text-base">
                                 Tunjukkan tiket ini ke resepsionis. Gunakan kode booking atau scan QR untuk validasi cepat saat tamu datang.
@@ -3076,7 +3084,7 @@ const selectedFolderLabel = filters.hotelId
                                     : "bg-white text-gray-700"
                                 }`}
                               >
-                                Status: {selectedReceiptBooking.status || "-"}
+                                Status: {getStatusLabel(selectedReceiptBooking.status)}
                               </span>
 
                               <span
@@ -3088,7 +3096,7 @@ const selectedFolderLabel = filters.hotelId
                                     : "bg-white text-gray-700"
                                 }`}
                               >
-                                Payment: {selectedReceiptBooking.payment_status || "unpaid"}
+                                Pembayaran: {getPaymentStatusLabel(selectedReceiptBooking.payment_status)}
                               </span>
 
                               {selectedReceiptBooking.payment_method && (
@@ -3112,13 +3120,13 @@ const selectedFolderLabel = filters.hotelId
                             <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
                               <div>
                                 <p className="text-sm font-black uppercase tracking-[0.22em] text-red-600">
-                                  Booking Code
+                                  Kode Booking
                                 </p>
                                 <h4 className="mt-2 break-all text-3xl font-black text-gray-950 md:text-5xl">
                                   {selectedReceiptBooking.booking_code || `BOOKING-${selectedReceiptBooking.id}`}
                                 </h4>
                                 <p className="mt-2 text-sm text-gray-500">
-                                  Dicetak dari Apps ReadyRoom  • {new Date().toLocaleString("id-ID", {
+                                  Dicetak dari Aplikasi ReadyRoom  • {new Date().toLocaleString("id-ID", {
                                     dateStyle: "medium",
                                     timeStyle: "short",
                                   })}
@@ -3174,7 +3182,7 @@ const selectedFolderLabel = filters.hotelId
 
                               <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                  Room Unit
+                                  Unit Kamar
                                 </p>
                                 <p className="mt-2 text-lg font-black text-slate-900">
                                   {getBookingRoomUnit(selectedReceiptBooking)}
@@ -3228,7 +3236,7 @@ const selectedFolderLabel = filters.hotelId
 
                               <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                  Booking Type
+                                  Tipe Booking
                                 </p>
                                 <p className="mt-2 text-lg font-black capitalize text-slate-900">
                                   {getBookingTypeLabel(selectedReceiptBooking.booking_type)}
@@ -3251,7 +3259,7 @@ const selectedFolderLabel = filters.hotelId
                             <div className="print-lower mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.35fr_0.65fr]">
                               <div className="print-note rounded-[28px] border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-5 shadow-sm">
                                 <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600">
-                                  Important Note
+                                  Catatan Penting
                                 </p>
                                 <h5 className="mt-2 text-2xl font-black text-amber-950">
                                   Tunjukkan tiket ini ke resepsionis
@@ -3292,8 +3300,8 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             </div>
 
                             <div className="print-footer mt-6 flex flex-col gap-3 border-t border-dashed border-slate-200 pt-4 text-xs font-medium text-slate-500 md:flex-row md:items-center md:justify-between">
-                              <p>ReadyRoom Admin Ticket • Semi-manual operational flow</p>
-                              <p>Gunakan Print / Save PDF untuk mengirim receipt ke tamu</p>
+                              <p>Tiket Admin ReadyRoom • Alur operasional semi-manual</p>
+                              <p>Gunakan Cetak / Simpan PDF untuk mengirim receipt ke tamu</p>
                             </div>
                           </div>
                         </div>
@@ -3306,7 +3314,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                           className="inline-flex items-center gap-2 rounded-2xl bg-gray-950 px-5 py-3 text-sm font-black text-white transition hover:bg-black"
                         >
                           <Download size={18} />
-                          Print / Save PDF
+                          Cetak / Simpan PDF
                         </button>
 
                         <button
@@ -3314,7 +3322,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                           onClick={closeReceiptModal}
                           className="inline-flex items-center gap-2 rounded-2xl bg-gray-200 px-5 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-300"
                         >
-                          Tutup Receipt
+                          Tutup Kuitansi
                         </button>
                       </div>
                     </div>
@@ -3347,7 +3355,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                   <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Booking Code</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Kode Booking</p>
                         <p className="mt-1 text-sm font-bold text-rose-700">
                           {selectedPenaltyBooking.booking_code || `Booking #${selectedPenaltyBooking.id}`}
                         </p>
@@ -3481,7 +3489,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Booking Code</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Kode Booking</p>
                         <p className="mt-1 text-sm font-bold text-gray-800">
                           {selectedPaidBooking.booking_code || `Booking #${selectedPaidBooking.id}`}
                         </p>
@@ -3678,10 +3686,10 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {[
               { label: "Semua Status", value: "" },
-              { label: "Checked In", value: "checked_in" },
-              { label: "Checked Out", value: "checked_out" },
-              { label: "Cleaning", value: "cleaning" },
-              { label: "Finished", value: "completed" },
+              { label: "Check In", value: "checked_in" },
+              { label: "Check Out", value: "checked_out" },
+              { label: "Proses Cleaning", value: "cleaning" },
+              { label: "Selesai", value: "completed" },
             ].map((item) => {
               const active = filters.status === item.value;
 
@@ -3728,7 +3736,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
     <div className="w-full max-w-6xl rounded-3xl bg-white shadow-2xl border border-gray-100 p-6">
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
-          <h3 className="text-2xl font-bold text-gray-800">Report Booking</h3>
+          <h3 className="text-2xl font-bold text-gray-800">Laporan Booking</h3>
           <p className="text-sm text-gray-500 mt-1">
             Laporan booking operasional resepsionis tanpa data cancel, reject, refund, dan tanpa kolom status.
           </p>
@@ -3811,7 +3819,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         <div className="bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-6 py-5 text-white">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h4 className="text-3xl font-extrabold tracking-tight">Report Booking ReadyRoom</h4>
+              <h4 className="text-3xl font-extrabold tracking-tight">Laporan Booking ReadyRoom</h4>
               <p className="mt-1 text-sm text-white/90">Dicetak dari Apps Powered by ReadyRoom Technology</p>
             </div>
 
@@ -3852,7 +3860,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                   <th className="px-4 py-3 font-semibold">No</th>
                   <th className="px-4 py-3 font-semibold">Tanggal Transaksi</th>
                   <th className="px-4 py-3 font-semibold">Kode Booking</th>
-                  <th className="px-4 py-3 font-semibold">Nama Customer</th>
+                  <th className="px-4 py-3 font-semibold">Nama Tamu</th>
                   <th className="px-4 py-3 font-semibold">No Telp</th>
                   <th className="px-4 py-3 font-semibold">Metode Pembayaran</th>
                   <th className="px-4 py-3 font-semibold text-right">Total Harga</th>
@@ -4233,7 +4241,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                       {canEditBooking && (
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            Discount (%)
+                            Diskon (%)
                           </label>
                           <div className="relative">
                             <input
@@ -4258,7 +4266,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                       <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
                           <p className="text-sm text-amber-700 font-medium">
-                            Potongan Discount
+                            Potongan Diskon
                           </p>
                           <p className="text-lg font-bold text-amber-800">
                             - {formatCurrency(manualDiscountAmount)}
@@ -4267,7 +4275,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 
                         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                           <p className="text-sm text-emerald-700 font-medium">
-                            Total Setelah Discount
+                            Total Setelah Diskon
                           </p>
                           <p className="text-lg font-bold text-emerald-800">
                             {formatCurrency(finalManualPrice)}
@@ -4323,6 +4331,35 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
     </div>
   );
 }
+function StayScheduleMiniCard({ icon, checkIn, checkOut }) {
+  return (
+    <div className="flex min-w-0 items-start gap-2.5 rounded-2xl border border-slate-100 bg-white px-3 py-3 shadow-sm">
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+          Jadwal
+        </p>
+        <div className="mt-1 space-y-1 text-[12px] font-black leading-tight text-slate-900">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="w-[52px] shrink-0 text-[9px] font-black uppercase tracking-wide text-slate-400">
+              Check In
+            </span>
+            <span className="min-w-0 truncate">{checkIn || "-"}</span>
+          </div>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="w-[52px] shrink-0 text-[9px] font-black uppercase tracking-wide text-slate-400">
+              Check Out
+            </span>
+            <span className="min-w-0 truncate">{checkOut || "-"}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InfoMiniCard({ icon, label, value, strong = false }) {
   return (
     <div className="flex min-w-0 items-start gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 shadow-sm">
