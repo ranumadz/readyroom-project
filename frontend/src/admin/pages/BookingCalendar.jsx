@@ -18,7 +18,7 @@ import {
 export default function BookingCalendar() {
   const today = new Date();
   const FOLDER_SEEN_STORAGE_KEY = "readyroom_calendar_seen_hotels";
-  const AUTO_REFRESH_INTERVAL = 60000;
+  const AUTO_REFRESH_INTERVAL = 30000;
 
   const adminUser =
     JSON.parse(localStorage.getItem("adminUser") || "null") ||
@@ -387,11 +387,6 @@ export default function BookingCalendar() {
     }));
   };
 
-  const handleManualRefresh = () => {
-    fetchCalendar(filters, true);
-    fetchFolderBadgeData(filters);
-  };
-
   const handleToggleCalendarFullscreen = async () => {
     const target = fullscreenAreaRef.current;
 
@@ -637,15 +632,13 @@ export default function BookingCalendar() {
   };
 
   const formatLastUpdated = (date) => {
-    if (!date) return "-";
+    if (!date) return "menunggu data";
 
     const pad = (num) => String(num).padStart(2, "0");
 
-    return `${pad(date.getDate())} ${
-      monthNames[date.getMonth()]
-    } ${date.getFullYear()} • ${pad(date.getHours())}:${pad(
-      date.getMinutes()
-    )}:${pad(date.getSeconds())}`;
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+      date.getSeconds()
+    )}`;
   };
 
   const getHotelName = (hotelId) => {
@@ -766,7 +759,8 @@ export default function BookingCalendar() {
                   Filter Kalender
                 </h3>
                 <p className="text-xs text-gray-500">
-                  Pilih cabang, tahun, dan bulan. Kalender otomatis mengikuti filter.
+                  Pilih cabang, tahun, dan bulan. Kalender otomatis mengikuti
+                  filter.
                 </p>
               </div>
 
@@ -792,14 +786,15 @@ export default function BookingCalendar() {
                   </span>
                 </button>
 
-                <div className="flex w-fit items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 shadow-sm">
-                  <RefreshCw size={14} className="text-red-500" />
-                  <div>
-                    <p className="text-[10px] text-gray-500">Terakhir Diperbarui</p>
-                    <p className="text-[11px] font-semibold text-gray-700">
-                      {formatLastUpdated(lastUpdated)}
-                    </p>
-                  </div>
+                <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 shadow-sm">
+                  <RefreshCw
+                    size={14}
+                    className={loading ? "animate-spin text-emerald-600" : ""}
+                  />
+                  <span>Auto update aktif</span>
+                  <span className="hidden text-emerald-600/80 sm:inline">
+                    • {formatLastUpdated(lastUpdated)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -824,17 +819,6 @@ export default function BookingCalendar() {
                     </option>
                   ))}
                 </select>
-
-                <button
-                  type="button"
-                  onClick={handleManualRefresh}
-                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                  title="Refresh manual"
-                  disabled={loading}
-                >
-                  <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-                  Refresh Kalender
-                </button>
               </div>
 
               <div className="lg:col-span-2">

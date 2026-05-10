@@ -1703,13 +1703,7 @@ export default function RoomsList() {
                             kunci pencarian.
                           </p>
 
-                          <button
-                            type="button"
-                            onClick={resetFilters}
-                            className="mt-5 rounded-2xl bg-gray-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-black"
-                          >
-                            Reset Filter
-                          </button>
+                          
                         </div>
                       </td>
                     </tr>

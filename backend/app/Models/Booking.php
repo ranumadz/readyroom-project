@@ -28,6 +28,7 @@ class Booking extends Model
 
         'booking_type',
         'duration_hours',
+        'duration_days',
 
         'check_in',
         'check_out',
@@ -51,6 +52,13 @@ class Booking extends Model
         'payment_method',
         'paid_amount',
         'payment_note',
+
+        // TAMBAHAN CLEANING / HOUSEKEEPING
+        'cleaning_started_by',
+        'cleaning_started_at',
+        'cleaning_finished_by',
+        'cleaning_finished_at',
+        'cleaning_estimation_minutes',
 
         'admin_note',
         'rejection_reason_internal',
@@ -109,6 +117,18 @@ class Booking extends Model
     public function canceller()
     {
         return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    // Akun yang mulai menangani cleaning
+    public function cleaningStarter()
+    {
+        return $this->belongsTo(User::class, 'cleaning_started_by');
+    }
+
+    // Akun yang menyelesaikan cleaning
+    public function cleaningFinisher()
+    {
+        return $this->belongsTo(User::class, 'cleaning_finished_by');
     }
 
     // Daftar denda booking

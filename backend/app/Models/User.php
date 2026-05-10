@@ -67,4 +67,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(InternalBroadcastDismissal::class, 'user_id');
     }
+
+    public function cleaningStartedBookings()
+    {
+        return $this->hasMany(Booking::class, 'cleaning_started_by');
+    }
+
+    public function cleaningFinishedBookings()
+    {
+        return $this->hasMany(Booking::class, 'cleaning_finished_by');
+    }
 }

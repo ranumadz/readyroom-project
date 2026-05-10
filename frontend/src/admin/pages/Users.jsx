@@ -181,6 +181,8 @@ export default function UsersPage() {
         return "bg-blue-50 text-blue-700 border border-blue-100";
       case "receptionist":
         return "bg-emerald-50 text-emerald-700 border border-emerald-100";
+      case "housekeeping":
+        return "bg-sky-50 text-sky-700 border border-sky-100";
       case "pengawas":
         return "bg-amber-50 text-amber-700 border border-amber-100";
       case "it":
@@ -202,6 +204,8 @@ export default function UsersPage() {
         return "Super Admin";
       case "receptionist":
         return "Receptionist";
+      case "housekeeping":
+        return "Housekeeping";
       case "pengawas":
         return "Pengawas";
       case "it":
@@ -286,7 +290,12 @@ export default function UsersPage() {
   };
 
   const roleNeedsHotelAssignment = (role) => {
-    return role === "admin" || role === "receptionist" || role === "pengawas";
+    return (
+      role === "admin" ||
+      role === "receptionist" ||
+      role === "housekeeping" ||
+      role === "pengawas"
+    );
   };
 
   const roleHasAllBranchAccess = (role) => {
@@ -722,6 +731,7 @@ export default function UsersPage() {
                   <option value="super_admin">Super Admin</option>
                   <option value="admin">Admin</option>
                   <option value="receptionist">Receptionist</option>
+                  <option value="housekeeping">Housekeeping</option>
                   <option value="pengawas">Pengawas</option>
                   <option value="it">IT</option>
                 </select>
@@ -1117,6 +1127,7 @@ export default function UsersPage() {
                 <option value="admin">Admin</option>
                 <option value="super_admin">Super Admin</option>
                 <option value="receptionist">Receptionist</option>
+                <option value="housekeeping">Housekeeping</option>
                 <option value="pengawas">Pengawas</option>
                 <option value="it">IT</option>
               </select>
@@ -1248,6 +1259,7 @@ export default function UsersPage() {
                 <option value="super_admin">Super Admin</option>
                 <option value="admin">Admin</option>
                 <option value="receptionist">Receptionist</option>
+                <option value="housekeeping">Housekeeping</option>
                 <option value="pengawas">Pengawas</option>
                 <option value="it">IT</option>
               </select>

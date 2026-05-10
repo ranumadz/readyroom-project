@@ -30,6 +30,7 @@ class AuthController extends Controller
             'receptionist',
             'pengawas',
             'it',
+            'housekeeping',
         ];
 
         if (!in_array($user->role, $allowedRoles)) {

@@ -17,6 +17,8 @@ import MasterContent from "../admin/pages/MasterContent";
 import InternalBroadcasts from "../admin/pages/InternalBroadcasts";
 import PartnerRegister from "../admin/pages/PartnerRegister";
 import PartnerApplications from "../admin/pages/PartnerApplications";
+import Housekeeping from "../admin/pages/Housekeeping";
+import AnalisaKinerjaKaryawan from "../admin/pages/AnalisaKinerjaKaryawan";
 
 import Home from "../pages/Home";
 import Hotels from "../pages/Hotels";
@@ -152,6 +154,14 @@ function PageTitleManager() {
         return "ReadyRoom Technology | Booking Availability";
       }
 
+      if (pathname === "/admin/housekeeping") {
+        return "ReadyRoom Technology | Housekeeping";
+      }
+
+      if (pathname === "/admin/analisa-kinerja-karyawan") {
+        return "ReadyRoom Technology | Analisa Kinerja Karyawan";
+      }
+
       if (pathname === "/admin/reports") {
         return "ReadyRoom Technology | Reports";
       }
@@ -261,13 +271,13 @@ export default function AppRoutes() {
         />
 
         <Route
-  path="/admin/partner-applications"
-  element={
-    <AdminProtectedRoute>
-      <PartnerApplications />
-    </AdminProtectedRoute>
-  }
-/>
+          path="/admin/partner-applications"
+          element={
+            <AdminProtectedRoute>
+              <PartnerApplications />
+            </AdminProtectedRoute>
+          }
+        />
 
         <Route
           path="/admin/bookings"
@@ -301,6 +311,24 @@ export default function AppRoutes() {
           element={
             <AdminProtectedRoute>
               <BookingAvailability />
+            </AdminProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/housekeeping"
+          element={
+            <AdminProtectedRoute>
+              <Housekeeping />
+            </AdminProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/analisa-kinerja-karyawan"
+          element={
+            <AdminProtectedRoute>
+              <AnalisaKinerjaKaryawan />
             </AdminProtectedRoute>
           }
         />

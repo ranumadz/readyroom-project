@@ -485,8 +485,14 @@ export default function BookingList() {
 
   const handleStartCleaning = async (booking) => {
     try {
-      await api.post(`/admin/bookings/${booking.id}/start-cleaning`);
-      toast.success("Kamar masuk proses cleaning");
+      await api.post(`/admin/bookings/${booking.id}/start-cleaning`, {
+        admin_user_id: adminUser?.id || null,
+        current_user_id: adminUser?.id || null,
+        changed_by: adminUser?.id || null,
+        cleaning_estimation_minutes: 15,
+      });
+
+      toast.success("Cleaning mulai ditangani");
       fetchBookings();
     } catch (error) {
       console.error("START CLEANING ERROR:", error.response?.data || error);
@@ -496,8 +502,13 @@ export default function BookingList() {
 
   const handleFinishCleaning = async (booking) => {
     try {
-      await api.post(`/admin/bookings/${booking.id}/finish-cleaning`);
-      toast.success("Cleaning selesai, kamar siap dipakai lagi");
+      await api.post(`/admin/bookings/${booking.id}/finish-cleaning`, {
+        admin_user_id: adminUser?.id || null,
+        current_user_id: adminUser?.id || null,
+        changed_by: adminUser?.id || null,
+      });
+
+      toast.success("Cleaning ditandai selesai");
       fetchBookings();
     } catch (error) {
       console.error("FINISH CLEANING ERROR:", error.response?.data || error);
@@ -1122,6 +1133,45 @@ const handlePrintReport = () => {
       booking?.cancelledBy?.name ||
       "-"
     );
+  };
+
+  const getCleaningStartedByName = (booking) => {
+    return (
+      booking?.cleaningStarter?.name ||
+      booking?.cleaning_starter?.name ||
+      booking?.cleaning_started_by_user?.name ||
+      booking?.cleaningStartedBy?.name ||
+      booking?.cleaning_started_by_name ||
+      "Akun operasional"
+    );
+  };
+
+  const getCleaningTimeNote = (booking) => {
+    const startedAt = booking?.cleaning_started_at;
+
+    if (!startedAt) {
+      return "Waktu mulai belum tercatat";
+    }
+
+    const startedDate = new Date(startedAt);
+
+    if (Number.isNaN(startedDate.getTime())) {
+      return "Waktu mulai belum tercatat";
+    }
+
+    const estimationMinutes = Number(booking?.cleaning_estimation_minutes || 15);
+    const estimatedFinish = new Date(startedDate.getTime() + estimationMinutes * 60 * 1000);
+    const now = new Date();
+
+    if (now > estimatedFinish) {
+      const lateMinutes = Math.max(1, Math.ceil((now.getTime() - estimatedFinish.getTime()) / 60000));
+      return `Lewat estimasi ${lateMinutes} menit`;
+    }
+
+    return `Estimasi selesai ${estimatedFinish.toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
   };
 
   const getReceiptSourceLabel = (booking) => {
@@ -1959,10 +2009,12 @@ const selectedFolderLabel = filters.hotelId
   : "Belum pilih cabang";
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden bg-gray-100">
-      <Sidebar />
+    <div className="flex h-screen overflow-hidden bg-gray-100">
+      <div className="h-screen shrink-0 overflow-y-auto overflow-x-hidden bg-slate-950">
+        <Sidebar />
+      </div>
 
-      <div className="min-w-0 flex-1 overflow-x-hidden">
+      <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         <Topbar />
 
         <div className="min-w-0 overflow-x-hidden p-4 md:p-6">
@@ -2197,7 +2249,7 @@ const selectedFolderLabel = filters.hotelId
                                 )}
                               </div>
 
-                              <div className="grid w-full grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-[minmax(155px,1.25fr)_minmax(180px,1.35fr)_minmax(150px,1.05fr)_236px_160px] 2xl:grid-cols-[minmax(160px,1.25fr)_minmax(190px,1.35fr)_minmax(155px,1.05fr)_246px_168px]">
+                              <div className="grid w-full grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-[minmax(155px,1.18fr)_minmax(180px,1.28fr)_minmax(150px,1fr)_minmax(285px,1.55fr)_150px] 2xl:grid-cols-[minmax(160px,1.18fr)_minmax(190px,1.28fr)_minmax(155px,1fr)_minmax(315px,1.6fr)_160px]">
                                 <InfoMiniCard
                                   icon={<User size={16} className="text-red-500" />}
                                   label="Nama Tamu"
@@ -2444,6 +2496,52 @@ const selectedFolderLabel = filters.hotelId
                             </div>
                           )}
 
+                          {booking.status === "checked_out" && (
+                            <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black uppercase tracking-wide text-orange-700">
+                                    Kamar perlu dibersihkan
+                                  </p>
+                                  <p className="mt-1 text-sm font-semibold text-orange-900">
+                                    Belum ada orang yang menangani cleaning kamar ini.
+                                  </p>
+                                </div>
+
+                                <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-black text-orange-700 shadow-sm ring-1 ring-orange-100">
+                                  <Clock3 size={13} />
+                                  Menunggu tindakan
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {booking.status === "cleaning" && (
+                            <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black uppercase tracking-wide text-orange-700">
+                                    Cleaning sedang ditangani
+                                  </p>
+                                  <p className="mt-1 text-sm font-semibold text-orange-900">
+                                    Oleh: {getCleaningStartedByName(booking)}
+                                  </p>
+
+                                  {booking?.cleaning_started_at && (
+                                    <p className="mt-1 text-xs font-semibold text-orange-700">
+                                      Mulai: {formatDateTime(booking.cleaning_started_at)}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-black text-orange-700 shadow-sm ring-1 ring-orange-100">
+                                  <Clock3 size={13} />
+                                  {getCleaningTimeNote(booking)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
                           {(booking?.creator?.name ||
                             booking?.editor?.name ||
                             booking?.refunder?.name ||
@@ -2585,14 +2683,14 @@ const selectedFolderLabel = filters.hotelId
                             ) : booking.status === "checked_out" ? (
                               <ActionButton
                                 icon={<RotateCcw size={17} />}
-                                label="Mulai Cleaning"
+                                label="Tangani Cleaning"
                                 tone="orange"
                                 onClick={() => handleStartCleaning(booking)}
                               />
                             ) : booking.status === "cleaning" ? (
                               <ActionButton
                                 icon={<CircleCheck size={17} />}
-                                label="Selesai Cleaning"
+                                label="Tandai Selesai"
                                 tone="teal"
                                 onClick={() => handleFinishCleaning(booking)}
                               />
@@ -4333,27 +4431,28 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 }
 function StayScheduleMiniCard({ icon, checkIn, checkOut }) {
   return (
-    <div className="flex min-w-0 items-start gap-2.5 rounded-2xl border border-slate-100 bg-white px-3 py-3 shadow-sm">
-      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50">
+    <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 shadow-sm">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50">
         {icon}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-          Jadwal
-        </p>
-        <div className="mt-1 space-y-1 text-[12px] font-black leading-tight text-slate-900">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="w-[52px] shrink-0 text-[9px] font-black uppercase tracking-wide text-slate-400">
-              Check In
-            </span>
-            <span className="min-w-0 truncate">{checkIn || "-"}</span>
-          </div>
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="w-[52px] shrink-0 text-[9px] font-black uppercase tracking-wide text-slate-400">
-              Check Out
-            </span>
-            <span className="min-w-0 truncate">{checkOut || "-"}</span>
-          </div>
+
+      <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2.5 py-2">
+          <p className="text-[9px] font-black uppercase leading-none tracking-wide text-slate-400">
+            Check In
+          </p>
+          <p className="mt-1.5 truncate text-[12px] font-black leading-tight text-slate-950">
+            {checkIn || "-"}
+          </p>
+        </div>
+
+        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2.5 py-2">
+          <p className="text-[9px] font-black uppercase leading-none tracking-wide text-slate-400">
+            Check Out
+          </p>
+          <p className="mt-1.5 truncate text-[12px] font-black leading-tight text-slate-950">
+            {checkOut || "-"}
+          </p>
         </div>
       </div>
     </div>

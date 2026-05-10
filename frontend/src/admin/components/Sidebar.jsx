@@ -84,6 +84,12 @@ const allMenuSections = [
         icon: CalendarDays,
         end: true,
       },
+      {
+        name: "Housekeeping",
+        path: "/admin/housekeeping",
+        icon: ClipboardCheck,
+        end: true,
+      },
     ],
   },
 
@@ -105,6 +111,12 @@ const allMenuSections = [
       {
         name: "Reports",
         path: "/admin/reports",
+        icon: ChartColumn,
+        end: true,
+      },
+      {
+        name: "Analisa Kinerja Karyawan",
+        path: "/admin/analisa-kinerja-karyawan",
         icon: ChartColumn,
         end: true,
       },
@@ -141,12 +153,15 @@ const roleAllowedPaths = {
     "/admin/room-units",
     "/admin/bookings",
     "/admin/bookings/calendar",
+    "/admin/housekeeping",
   ],
+  housekeeping: ["/admin/housekeeping"],
   admin: [
     "/admin/room-units",
     "/admin/booking-availability",
     "/admin/bookings",
     "/admin/bookings/calendar",
+    "/admin/housekeeping",
     "/admin/reports",
   ],
   pengawas: [
@@ -154,6 +169,7 @@ const roleAllowedPaths = {
     "/admin/booking-availability",
     "/admin/bookings",
     "/admin/bookings/calendar",
+    "/admin/housekeeping",
     "/admin/reports",
   ],
   it: [
@@ -192,6 +208,28 @@ const roleThemes = {
     bottomCard:
       "mt-8 rounded-3xl bg-gradient-to-r from-emerald-500 to-teal-600 p-4 shadow-lg shadow-emerald-500/20",
     bottomText: "text-emerald-50/90",
+  },
+
+  housekeeping: {
+    label: "Housekeeping",
+    panelSubtitle: "Room Readiness Panel",
+    description:
+      "Akses khusus untuk memantau kamar yang perlu dibersihkan, menangani cleaning, dan memastikan kamar siap digunakan kembali.",
+    icon: ClipboardCheck,
+    aside:
+      "w-72 min-h-screen text-white border-r shadow-2xl bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_24%),linear-gradient(180deg,#06131f_0%,#082235_45%,#020b14_100%)] border-sky-400/10",
+    logoWrap:
+      "w-12 h-12 rounded-2xl overflow-hidden bg-white/95 flex items-center justify-center shadow-lg shadow-sky-500/20 border border-white/10 shrink-0",
+    sectionTitle:
+      "mb-3 text-xs uppercase tracking-[0.22em] text-sky-300/55",
+    activeNav:
+      "bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-[0_10px_24px_rgba(14,165,233,0.20)]",
+    inactiveNav: "text-sky-50/85 hover:bg-white/8 hover:text-white",
+    activeIcon: "bg-white/15",
+    inactiveIcon: "bg-white/5 group-hover:bg-white/10",
+    bottomCard:
+      "mt-8 rounded-3xl bg-gradient-to-r from-sky-500 to-cyan-500 p-4 shadow-lg shadow-sky-500/20",
+    bottomText: "text-sky-50/90",
   },
 
   admin: {

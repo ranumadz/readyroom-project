@@ -10,6 +10,7 @@ use App\Models\RoomUnit;
 use App\Models\User;
 use App\Models\Hotel;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class BookingController extends Controller
 {
@@ -31,6 +32,10 @@ class BookingController extends Controller
             $request->input('refunded_by'),
             $request->input('cancelled_by'),
             $request->input('changed_by'),
+            $request->input('actor_id'),
+            $request->query('actor_id'),
+            $request->input('cleaning_started_by'),
+            $request->input('cleaning_finished_by'),
         ];
 
         foreach ($possibleIds as $id) {
@@ -71,6 +76,81 @@ class BookingController extends Controller
             ->map(fn ($id) => (int) $id)
             ->values()
             ->toArray();
+    }
+
+
+    /**
+     * Cek kolom booking secara aman.
+     * Dipakai supaya controller ini tetap aman meskipun migration cleaning detail
+     * belum dijalankan di production.
+     */
+    private function bookingHasColumn(string $column): bool
+    {
+        static $columnCache = [];
+
+        if (!array_key_exists($column, $columnCache)) {
+            $columnCache[$column] = Schema::hasColumn('bookings', $column);
+        }
+
+        return $columnCache[$column];
+    }
+
+    /**
+     * Ambil nama user untuk data ringan di response Booking List.
+     * Detail ini boleh dipakai frontend saat status masih cleaning,
+     * tapi tidak wajib ditampilkan setelah cleaning selesai.
+     */
+    private function getUserNameById($userId): ?string
+    {
+        if (!$userId) {
+            return null;
+        }
+
+        return User::where('id', $userId)->value('name');
+    }
+
+    /**
+     * Tambahkan meta cleaning ringan ke object booking tanpa wajib relasi baru di Model.
+     */
+    private function appendCleaningMeta(Booking $booking): Booking
+    {
+        if ($this->bookingHasColumn('cleaning_started_by')) {
+            $booking->cleaning_started_by_name = $this->getUserNameById($booking->cleaning_started_by);
+        }
+
+        if ($this->bookingHasColumn('cleaning_finished_by')) {
+            $booking->cleaning_finished_by_name = $this->getUserNameById($booking->cleaning_finished_by);
+        }
+
+        if (
+            $this->bookingHasColumn('cleaning_started_at') &&
+            $this->bookingHasColumn('cleaning_estimated_minutes') &&
+            $booking->cleaning_started_at
+        ) {
+            $estimatedMinutes = (int) ($booking->cleaning_estimated_minutes ?: 15);
+            $booking->cleaning_estimated_finish_at = Carbon::parse($booking->cleaning_started_at)
+                ->addMinutes($estimatedMinutes)
+                ->toDateTimeString();
+        }
+
+        return $booking;
+    }
+
+    /**
+     * Siapkan payload update cleaning secara aman.
+     * Kalau kolom belum ada, field tersebut otomatis dilewati.
+     */
+    private function buildSafeBookingUpdate(array $payload): array
+    {
+        $safePayload = [];
+
+        foreach ($payload as $column => $value) {
+            if ($column === 'status' || $this->bookingHasColumn($column)) {
+                $safePayload[$column] = $value;
+            }
+        }
+
+        return $safePayload;
     }
 
     /**
@@ -128,7 +208,7 @@ class BookingController extends Controller
 
                 $booking->total_penalty = (float) $booking->penalties->sum('amount');
 
-                return $booking;
+                return $this->appendCleaningMeta($booking);
             })
             ->values();
 
@@ -719,9 +799,16 @@ class BookingController extends Controller
     }
 
     // 🧹 START CLEANING
-    public function startCleaning($id)
+    public function startCleaning(Request $request, $id)
     {
-        $booking = Booking::findOrFail($id);
+        $booking = Booking::with(['hotel', 'room', 'roomUnit'])->findOrFail($id);
+        $actor = $this->resolveActorFromRequest($request);
+
+        if ($actor && !$this->userCanAccessHotel($actor, $booking->hotel_id)) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses ke cabang booking ini'
+            ], 403);
+        }
 
         if ($booking->status !== 'checked_out') {
             return response()->json([
@@ -729,20 +816,42 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $booking->update([
+        $estimatedMinutes = (int) $request->input('cleaning_estimated_minutes', 15);
+        $estimatedMinutes = max(5, min($estimatedMinutes, 180));
+
+        $updatePayload = $this->buildSafeBookingUpdate([
             'status' => 'cleaning',
+            'cleaning_started_by' => $actor?->id,
+            'cleaning_started_at' => now(),
+            'cleaning_finished_by' => null,
+            'cleaning_finished_at' => null,
+            'cleaning_estimated_minutes' => $estimatedMinutes,
         ]);
 
+        $booking->forceFill($updatePayload)->save();
+
+        $booking = Booking::with(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
+            ->findOrFail($booking->id);
+
         return response()->json([
-            'message' => 'Kamar masuk proses cleaning',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
+            'message' => $actor
+                ? 'Cleaning sedang ditangani oleh ' . $actor->name
+                : 'Kamar masuk proses cleaning',
+            'data' => $this->appendCleaningMeta($booking)
         ]);
     }
 
     // ✅ FINISH CLEANING / ROOM READY
-    public function finishCleaning($id)
+    public function finishCleaning(Request $request, $id)
     {
-        $booking = Booking::findOrFail($id);
+        $booking = Booking::with(['hotel', 'room', 'roomUnit'])->findOrFail($id);
+        $actor = $this->resolveActorFromRequest($request);
+
+        if ($actor && !$this->userCanAccessHotel($actor, $booking->hotel_id)) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses ke cabang booking ini'
+            ], 403);
+        }
 
         if ($booking->status !== 'cleaning') {
             return response()->json([
@@ -750,13 +859,22 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $booking->update([
+        $updatePayload = $this->buildSafeBookingUpdate([
             'status' => 'completed',
+            'cleaning_finished_by' => $actor?->id,
+            'cleaning_finished_at' => now(),
         ]);
 
+        $booking->forceFill($updatePayload)->save();
+
+        $booking = Booking::with(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
+            ->findOrFail($booking->id);
+
         return response()->json([
-            'message' => 'Cleaning selesai, kamar siap digunakan kembali',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
+            'message' => $actor
+                ? 'Cleaning selesai oleh ' . $actor->name . ', kamar siap digunakan kembali'
+                : 'Cleaning selesai, kamar siap digunakan kembali',
+            'data' => $this->appendCleaningMeta($booking)
         ]);
     }
 

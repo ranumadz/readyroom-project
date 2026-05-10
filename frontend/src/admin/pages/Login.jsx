@@ -28,6 +28,17 @@ export default function AdminLogin() {
     });
   };
 
+  const getAdminRedirectPath = (role) => {
+    switch (role) {
+      case "receptionist":
+        return "/admin/bookings";
+      case "housekeeping":
+        return "/admin/housekeeping";
+      default:
+        return "/admin/dashboard";
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -42,15 +53,16 @@ export default function AdminLogin() {
       const response = await api.post("/admin/login", form);
       const loggedInUser = response?.data?.user || null;
 
+      if (!loggedInUser) {
+        toast.error("Data user tidak ditemukan");
+        return;
+      }
+
       localStorage.setItem("adminUser", JSON.stringify(loggedInUser));
 
       toast.success("Login admin berhasil");
 
-      if (loggedInUser?.role === "receptionist") {
-        navigate("/admin/bookings");
-      } else {
-        navigate("/admin/dashboard");
-      }
+      navigate(getAdminRedirectPath(loggedInUser?.role));
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || "Login gagal");

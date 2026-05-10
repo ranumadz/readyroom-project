@@ -17,7 +17,15 @@ class UserController extends Controller
     public function adminUsers()
     {
         $users = User::with(['hotels:id,name'])
-            ->whereIn('role', ['admin', 'super_admin', 'boss', 'receptionist', 'pengawas', 'it'])
+            ->whereIn('role', [
+                'admin',
+                'super_admin',
+                'boss',
+                'receptionist',
+                'pengawas',
+                'it',
+                'housekeeping',
+            ])
             ->latest()
             ->get();
 
@@ -46,7 +54,17 @@ class UserController extends Controller
             'email' => 'required|email|max:255|unique:users,email',
             'phone' => 'nullable|string|max:50',
             'password' => 'required|string|min:6',
-            'role' => ['required', Rule::in(['admin', 'super_admin', 'receptionist', 'pengawas', 'it'])],
+            'role' => [
+                'required',
+                Rule::in([
+                    'admin',
+                    'super_admin',
+                    'receptionist',
+                    'pengawas',
+                    'it',
+                    'housekeeping',
+                ]),
+            ],
             'status' => 'nullable|boolean',
             'hotel_ids' => 'nullable|array',
             'hotel_ids.*' => 'exists:hotels,id',
@@ -75,7 +93,7 @@ class UserController extends Controller
             ->values()
             ->toArray();
 
-        if (in_array($user->role, ['admin', 'receptionist', 'pengawas'])) {
+        if (in_array($user->role, ['admin', 'receptionist', 'pengawas', 'housekeeping'])) {
             $user->hotels()->sync($hotelIds);
         } else {
             $user->hotels()->sync([]);
@@ -101,7 +119,18 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
             'phone' => 'nullable|string|max:50',
-            'role' => ['required', Rule::in(['admin', 'super_admin', 'boss', 'receptionist', 'pengawas', 'it'])],
+            'role' => [
+                'required',
+                Rule::in([
+                    'admin',
+                    'super_admin',
+                    'boss',
+                    'receptionist',
+                    'pengawas',
+                    'it',
+                    'housekeeping',
+                ]),
+            ],
             'status' => 'required|boolean',
             'hotel_ids' => 'nullable|array',
             'hotel_ids.*' => 'exists:hotels,id',
@@ -159,7 +188,7 @@ class UserController extends Controller
             ->values()
             ->toArray();
 
-        if (in_array($user->role, ['admin', 'receptionist', 'pengawas'])) {
+        if (in_array($user->role, ['admin', 'receptionist', 'pengawas', 'housekeeping'])) {
             $user->hotels()->sync($hotelIds);
         } else {
             $user->hotels()->sync([]);
