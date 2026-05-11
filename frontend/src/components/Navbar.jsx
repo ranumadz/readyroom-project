@@ -356,16 +356,14 @@ export default function Navbar() {
     <header
       className={`fixed left-0 right-0 top-0 z-[999] w-full border-b transition-all duration-300 ${
         isTransparentNavbar
-          ? "border-transparent bg-transparent shadow-none backdrop-blur-0"
+          ? "border-transparent bg-black/35 shadow-[0_4px_20px_rgba(0,0,0,0.25)]"
           : "border-gray-200 bg-white/95 shadow-sm backdrop-blur-md"
       }`}
     >
       <div className="mx-auto max-w-7xl px-4 md:px-6">
         <div className="flex h-14 items-center justify-between md:h-20">
           <Link to="/" className="flex items-center gap-2 md:gap-3">
-            <span
-              className="flex h-8 w-8 items-center justify-center transition md:h-11 md:w-11"
-            >
+            <span className="flex h-8 w-8 items-center justify-center transition md:h-11 md:w-11">
               <img
                 src="/readyroom.png"
                 alt="ReadyRoom"

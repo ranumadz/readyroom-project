@@ -8,10 +8,10 @@ export default function Navbar() {
 
   const [customer, setCustomer] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     const storedCustomer = localStorage.getItem("customer");
-
     if (storedCustomer) {
       setCustomer(JSON.parse(storedCustomer));
     }
@@ -20,6 +20,14 @@ export default function Navbar() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("customer");
@@ -42,7 +50,13 @@ export default function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[999] w-full border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-md">
+    <header
+      className={`fixed top-0 left-0 right-0 z-[999] w-full border-b transition-all duration-300 ${
+        scrolled
+          ? "border-gray-200 bg-white/90 shadow-sm backdrop-blur-md"
+          : "border-transparent bg-black/35 shadow-[0_4px_20px_rgba(0,0,0,0.25)]"
+      }`}
+    >
       <div className="mx-auto max-w-7xl px-4 md:px-6">
         <div className="flex h-20 items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
@@ -51,21 +65,30 @@ export default function Navbar() {
               alt="ReadyRoom"
               className="h-10 w-10 object-contain"
             />
-            <span className="text-xl font-bold text-red-600">ReadyRoom</span>
+            <span
+              className={`text-xl font-bold transition-colors duration-300 ${
+                scrolled ? "text-red-600" : "text-white"
+              }`}
+            >
+              ReadyRoom
+            </span>
           </Link>
 
           <nav className="hidden items-center gap-3 md:flex">
             {navItems.map((item) => {
               const active = isActive(item.to);
-
               return (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                  className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 ${
                     active
-                      ? "bg-red-50 text-red-600 shadow-sm"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-red-600"
+                      ? scrolled
+                        ? "bg-red-50 text-red-600 shadow-sm"
+                        : "bg-white/20 text-white shadow-sm"
+                      : scrolled
+                      ? "text-gray-700 hover:bg-gray-50 hover:text-red-600"
+                      : "text-white/90 hover:bg-white/15 hover:text-white"
                   }`}
                 >
                   {item.label}
@@ -81,7 +104,6 @@ export default function Navbar() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 font-semibold text-white">
                     {customer.name?.charAt(0).toUpperCase() || "U"}
                   </div>
-
                   <div className="leading-tight">
                     <p className="text-sm font-semibold text-gray-800">
                       {customer.name}
@@ -89,7 +111,6 @@ export default function Navbar() {
                     <p className="text-xs text-gray-500">{customer.email}</p>
                   </div>
                 </div>
-
                 <button
                   onClick={handleLogout}
                   className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 font-medium text-white transition hover:bg-red-700"
@@ -102,7 +123,11 @@ export default function Navbar() {
               <>
                 <Link
                   to="/login"
-                  className="rounded-xl px-4 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 hover:text-red-600"
+                  className={`rounded-xl px-4 py-2.5 font-medium transition-all duration-300 ${
+                    scrolled
+                      ? "text-gray-700 hover:bg-gray-50 hover:text-red-600"
+                      : "text-white/90 hover:bg-white/15 hover:text-white"
+                  }`}
                 >
                   Login
                 </Link>
@@ -118,7 +143,9 @@ export default function Navbar() {
 
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="text-gray-700 md:hidden"
+            className={`transition-colors duration-300 md:hidden ${
+              scrolled ? "text-gray-700" : "text-white"
+            }`}
           >
             {mobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -129,7 +156,6 @@ export default function Navbar() {
             <div className="space-y-2">
               {navItems.map((item) => {
                 const active = isActive(item.to);
-
                 return (
                   <Link
                     key={item.to}
@@ -160,7 +186,6 @@ export default function Navbar() {
                     <p className="text-xs text-gray-500">{customer.email}</p>
                   </div>
                 </div>
-
                 <button
                   onClick={() => {
                     handleLogout();
