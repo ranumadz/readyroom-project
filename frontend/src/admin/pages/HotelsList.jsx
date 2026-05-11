@@ -1157,19 +1157,27 @@ export default function HotelsList() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/10">
-                  {headerFilterLabel}
-                </span>
+              <div className="flex flex-col gap-2 md:items-end">
+                <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                  <StatusPill color="bg-red-500" label={`Total Hotel: ${hotelStats.total}`} />
+                  <StatusPill color="bg-emerald-500" label={`Aktif: ${hotelStats.active}`} />
+                  <StatusPill color="bg-slate-400" label={`Nonaktif: ${hotelStats.inactive}`} />
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => navigate("/admin/hotels/add")}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700"
-                >
-                  <Plus size={17} />
-                  Add Hotel
-                </button>
+                <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                  <span className="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/10">
+                    {headerFilterLabel}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/hotels/add")}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700"
+                  >
+                    <Plus size={17} />
+                    Add Hotel
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1213,11 +1221,6 @@ export default function HotelsList() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 pb-4 md:px-5">
-              <StatusPill color="bg-red-500" label={`Total Hotel: ${hotelStats.total}`} />
-              <StatusPill color="bg-emerald-500" label={`Aktif: ${hotelStats.active}`} />
-              <StatusPill color="bg-slate-400" label={`Nonaktif: ${hotelStats.inactive}`} />
-            </div>
           </div>
 
           <div className="min-h-[360px] rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm md:p-5">

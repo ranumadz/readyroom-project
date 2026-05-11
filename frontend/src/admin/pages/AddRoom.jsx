@@ -33,6 +33,7 @@ import {
   CheckCircle2,
   ShieldCheck,
   ArrowLeft,
+  Plus,
 } from "lucide-react";
 
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
@@ -49,6 +50,21 @@ const facilityIconOptions = [
   { value: "utensils-crossed", icon: UtensilsCrossed },
   { value: "bed-double", icon: BedDouble },
 ];
+
+const DEFAULT_ROOM_TYPE_OPTIONS = [
+  "Standard",
+  "Superior",
+  "Deluxe",
+  "Family",
+  "Suite",
+];
+
+const ROOM_TYPE_STORAGE_KEY = "readyroom_custom_room_types";
+const ROOM_TYPE_DELETED_STORAGE_KEY = "readyroom_deleted_default_room_types";
+
+const normalizeRoomTypeValue = (value) => {
+  return String(value || "").trim().replace(/\s+/g, " ");
+};
 
 const getFacilityIconComponent = (iconName) => {
   const found = facilityIconOptions.find((item) => item.value === iconName);
@@ -132,6 +148,43 @@ export default function AddRoom() {
     status: true,
   });
 
+  const [customRoomTypes, setCustomRoomTypes] = useState(() => {
+    if (typeof window === "undefined") return [];
+
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(ROOM_TYPE_STORAGE_KEY) || "[]"
+      );
+
+      return Array.isArray(saved)
+        ? saved.map(normalizeRoomTypeValue).filter(Boolean)
+        : [];
+    } catch (error) {
+      console.error("READ CUSTOM ROOM TYPES ERROR:", error);
+      return [];
+    }
+  });
+
+  const [deletedDefaultRoomTypes, setDeletedDefaultRoomTypes] = useState(() => {
+    if (typeof window === "undefined") return [];
+
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(ROOM_TYPE_DELETED_STORAGE_KEY) || "[]"
+      );
+
+      return Array.isArray(saved)
+        ? saved.map(normalizeRoomTypeValue).filter(Boolean)
+        : [];
+    } catch (error) {
+      console.error("READ DELETED ROOM TYPES ERROR:", error);
+      return [];
+    }
+  });
+
+  const [showRoomTypeManager, setShowRoomTypeManager] = useState(false);
+  const [newRoomType, setNewRoomType] = useState("");
+
   useEffect(() => {
     fetchHotels();
     fetchFacilities();
@@ -207,6 +260,32 @@ export default function AddRoom() {
 
     return isActive && normalizeFacilityScope(facility) === "room";
   });
+
+  const roomTypeOptions = useMemo(() => {
+    const deletedKeys = deletedDefaultRoomTypes.map((item) =>
+      item.toLowerCase()
+    );
+
+    const visibleDefaults = DEFAULT_ROOM_TYPE_OPTIONS.filter((type) => {
+      return !deletedKeys.includes(type.toLowerCase());
+    });
+
+    const combined = [...visibleDefaults, ...customRoomTypes];
+    const uniqueTypes = [];
+
+    combined.forEach((type) => {
+      const cleanType = normalizeRoomTypeValue(type);
+      if (!cleanType) return;
+
+      const alreadyExists = uniqueTypes.some(
+        (item) => item.toLowerCase() === cleanType.toLowerCase()
+      );
+
+      if (!alreadyExists) uniqueTypes.push(cleanType);
+    });
+
+    return uniqueTypes;
+  }, [customRoomTypes, deletedDefaultRoomTypes]);
 
   const selectedFacilityCount = form.facility_ids.length;
 
@@ -480,11 +559,145 @@ export default function AddRoom() {
     }
   };
 
+  const persistCustomRoomTypes = (nextTypes) => {
+    const uniqueTypes = [];
+
+    nextTypes.forEach((type) => {
+      const cleanType = normalizeRoomTypeValue(type);
+      if (!cleanType) return;
+
+      const alreadyExists = uniqueTypes.some(
+        (item) => item.toLowerCase() === cleanType.toLowerCase()
+      );
+
+      if (!alreadyExists) uniqueTypes.push(cleanType);
+    });
+
+    setCustomRoomTypes(uniqueTypes);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(ROOM_TYPE_STORAGE_KEY, JSON.stringify(uniqueTypes));
+    }
+  };
+
+  const persistDeletedDefaultRoomTypes = (nextTypes) => {
+    const uniqueTypes = [];
+
+    nextTypes.forEach((type) => {
+      const cleanType = normalizeRoomTypeValue(type);
+      if (!cleanType) return;
+
+      const alreadyExists = uniqueTypes.some(
+        (item) => item.toLowerCase() === cleanType.toLowerCase()
+      );
+
+      if (!alreadyExists) uniqueTypes.push(cleanType);
+    });
+
+    setDeletedDefaultRoomTypes(uniqueTypes);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        ROOM_TYPE_DELETED_STORAGE_KEY,
+        JSON.stringify(uniqueTypes)
+      );
+    }
+  };
+
+  const handleSelectRoomType = (type) => {
+    setForm((prev) => ({
+      ...prev,
+      type,
+    }));
+  };
+
+  const handleAddRoomType = () => {
+    const cleanType = normalizeRoomTypeValue(newRoomType);
+
+    if (!cleanType) {
+      toast.error("Isi nama tipe kamar baru");
+      return;
+    }
+
+    const defaultType = DEFAULT_ROOM_TYPE_OPTIONS.find(
+      (type) => type.toLowerCase() === cleanType.toLowerCase()
+    );
+
+    if (defaultType) {
+      persistDeletedDefaultRoomTypes(
+        deletedDefaultRoomTypes.filter(
+          (type) => type.toLowerCase() !== defaultType.toLowerCase()
+        )
+      );
+
+      setForm((prev) => ({
+        ...prev,
+        type: defaultType,
+      }));
+      setNewRoomType("");
+      toast.success("Tipe kamar tersedia di daftar");
+      return;
+    }
+
+    const existingType = roomTypeOptions.find(
+      (type) => type.toLowerCase() === cleanType.toLowerCase()
+    );
+
+    if (existingType) {
+      setForm((prev) => ({
+        ...prev,
+        type: existingType,
+      }));
+      setNewRoomType("");
+      toast.error("Tipe kamar sudah ada di daftar");
+      return;
+    }
+
+    persistCustomRoomTypes([...customRoomTypes, cleanType]);
+
+    setForm((prev) => ({
+      ...prev,
+      type: cleanType,
+    }));
+    setNewRoomType("");
+    toast.success("Tipe kamar baru berhasil ditambahkan");
+  };
+
+  const handleDeleteRoomType = (type) => {
+    const cleanType = normalizeRoomTypeValue(type);
+    if (!cleanType) return;
+
+    const isDefaultType = DEFAULT_ROOM_TYPE_OPTIONS.some(
+      (item) => item.toLowerCase() === cleanType.toLowerCase()
+    );
+
+    if (isDefaultType) {
+      persistDeletedDefaultRoomTypes([...deletedDefaultRoomTypes, cleanType]);
+    } else {
+      persistCustomRoomTypes(
+        customRoomTypes.filter(
+          (item) => item.toLowerCase() !== cleanType.toLowerCase()
+        )
+      );
+    }
+
+    if (String(form.type || "").toLowerCase() === cleanType.toLowerCase()) {
+      setForm((prev) => ({
+        ...prev,
+        type: "",
+      }));
+    }
+
+    toast.success("Tipe kamar dihapus dari daftar pilihan");
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.hotel_id) return toast.error("Pilih hotel terlebih dahulu");
-    if (!form.type) return toast.error("Pilih tipe kamar");
+    const cleanRoomType = String(form.type || "").trim();
+
+    if (!cleanRoomType) return toast.error("Isi tipe kamar");
     if (!form.capacity) return toast.error("Kapasitas wajib diisi");
     if (!form.total_rooms) return toast.error("Total kamar wajib diisi");
     if (!form.price_per_night) return toast.error("Harga per malam wajib diisi");
@@ -499,8 +712,8 @@ export default function AddRoom() {
       const payload = new FormData();
 
       payload.append("hotel_id", form.hotel_id);
-      payload.append("name", `${form.type} Room`);
-      payload.append("type", form.type);
+      payload.append("name", `${cleanRoomType} Room`);
+      payload.append("type", cleanRoomType);
       payload.append("capacity", form.capacity);
       payload.append("price_per_night", form.price_per_night || 0);
       payload.append("price_transit_3h", form.price_transit_3h || 0);
@@ -626,9 +839,20 @@ export default function AddRoom() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Tipe Kamar
-                  </label>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Tipe Kamar
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowRoomTypeManager((prev) => !prev)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100"
+                    >
+                      <Plus size={14} />
+                      Tambah Tipe Kamar Baru
+                    </button>
+                  </div>
 
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
@@ -639,20 +863,96 @@ export default function AddRoom() {
                       name="type"
                       value={form.type}
                       onChange={handleChange}
-                      className="w-full appearance-none rounded-2xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 pl-12 pr-12 py-3.5 text-gray-700 shadow-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                      className="w-full appearance-none rounded-2xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 py-3.5 pl-12 pr-12 text-gray-700 shadow-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
                     >
                       <option value="">Pilih Tipe Kamar</option>
-                      <option value="Standard">Standard</option>
-                      <option value="Superior">Superior</option>
-                      <option value="Deluxe">Deluxe</option>
-                      <option value="Family">Family</option>
-                      <option value="Suite">Suite</option>
+                      {roomTypeOptions.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
                     </select>
 
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                       <ChevronDown size={18} className="text-gray-400" />
                     </div>
                   </div>
+
+                  {showRoomTypeManager && (
+                    <div className="mt-3 rounded-3xl border border-red-100 bg-red-50/40 p-4">
+                      <div className="mb-3">
+                        <p className="text-sm font-black text-gray-900">
+                          Master Tipe Kamar
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                          Tambahkan tipe kamar baru untuk pilihan dropdown. Perubahan ini aman di browser admin dan tidak mengubah logic simpan kamar.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <input
+                          type="text"
+                          value={newRoomType}
+                          onChange={(e) => setNewRoomType(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddRoomType();
+                            }
+                          }}
+                          placeholder="Contoh: Executive, Royal Suite, Couple Room"
+                          className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={handleAddRoomType}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700"
+                        >
+                          <Plus size={16} />
+                          Tambah
+                        </button>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {roomTypeOptions.length > 0 ? (
+                          roomTypeOptions.map((type) => (
+                            <div
+                              key={type}
+                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold transition ${
+                                form.type === type
+                                  ? "border-red-200 bg-white text-red-700 shadow-sm"
+                                  : "border-gray-200 bg-white text-gray-700"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleSelectRoomType(type)}
+                                className="max-w-[180px] truncate"
+                                title={`Pilih ${type}`}
+                              >
+                                {type}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRoomType(type)}
+                                className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
+                                title={`Hapus ${type}`}
+                                aria-label={`Hapus ${type}`}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-3 text-xs font-semibold text-gray-500">
+                            Belum ada tipe kamar. Tambahkan tipe kamar baru terlebih dahulu.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>

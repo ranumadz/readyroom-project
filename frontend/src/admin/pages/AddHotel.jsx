@@ -16,6 +16,7 @@ import {
   Link as LinkIcon,
   CheckSquare,
   Plus,
+  Trash2,
   X,
   Images,
   Upload,
@@ -32,6 +33,7 @@ export default function AddHotel() {
 
   const [showCityModal, setShowCityModal] = useState(false);
   const [savingCity, setSavingCity] = useState(false);
+  const [deletingCityId, setDeletingCityId] = useState(null);
   const [newCityName, setNewCityName] = useState("");
 
   const [form, setForm] = useState({
@@ -214,6 +216,108 @@ export default function AddHotel() {
         ),
       };
     });
+  };
+
+  const deleteCityRequest = async (cityId) => {
+    try {
+      return await api.delete(`/admin/cities/${cityId}`);
+    } catch (error) {
+      const statusCode = error?.response?.status;
+
+      if (statusCode === 404 || statusCode === 405) {
+        return await api.post(`/admin/cities/${cityId}`, {
+          _method: "DELETE",
+        });
+      }
+
+      throw error;
+    }
+  };
+
+  const handleDeleteCity = async () => {
+    if (!form.city_id || deletingCityId) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Pilih kota dulu",
+        text: "Pilih kota yang ingin dihapus terlebih dahulu.",
+        confirmButtonColor: "#dc2626",
+      });
+    }
+
+    const selectedCity = cities.find(
+      (city) => String(city.id) === String(form.city_id)
+    );
+
+    if (!selectedCity?.id) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Data kota tidak terbaca",
+        text: "Refresh halaman lalu pilih kota kembali.",
+        confirmButtonColor: "#dc2626",
+      });
+    }
+
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "Hapus kota?",
+      html: `
+        <div style="text-align:left;line-height:1.65">
+          <p style="margin:0 0 10px;color:#4b5563">
+            Kota <b>${selectedCity.name}</b> akan dihapus dari daftar pilihan.
+          </p>
+          <div style="padding:12px 14px;border:1px solid #fed7aa;background:#fff7ed;border-radius:16px;color:#9a3412;font-size:14px">
+            Jika kota ini sudah dipakai oleh hotel/cabang, backend bisa menolak penghapusan supaya data hotel tetap aman.
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Ya, hapus kota",
+      cancelButtonText: "Batal",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setDeletingCityId(selectedCity.id);
+
+      await deleteCityRequest(selectedCity.id);
+
+      setForm((prev) => ({
+        ...prev,
+        city_id: "",
+      }));
+
+      await fetchFormData();
+
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "Kota berhasil dihapus",
+        confirmButtonColor: "#dc2626",
+        timer: 1600,
+        showConfirmButton: false,
+      });
+    } catch (err) {
+      console.error("DELETE CITY ERROR:", err.response?.data || err);
+
+      const statusCode = err.response?.status;
+      const backendMessage = err.response?.data?.message;
+
+      Swal.fire({
+        icon: "error",
+        title: statusCode === 409 ? "Kota tidak bisa dihapus" : "Gagal",
+        text:
+          backendMessage ||
+          (statusCode === 409
+            ? "Kota ini sudah dipakai oleh hotel/cabang. Hapus atau pindahkan data hotel terlebih dahulu jika memang ingin menghapus kota."
+            : "Kota gagal dihapus"),
+        confirmButtonColor: "#dc2626",
+      });
+    } finally {
+      setDeletingCityId(null);
+    }
   };
 
   const handleSaveCity = async () => {
@@ -427,19 +531,31 @@ export default function AddHotel() {
 
                   <div className="space-y-6 p-6 md:p-8">
                     <div>
-                      <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <label className="block text-sm font-semibold text-gray-700">
                           Kota
                         </label>
 
-                        <button
-                          type="button"
-                          onClick={() => setShowCityModal(true)}
-                          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100"
-                        >
-                          <Plus size={16} />
-                          Tambah Kota Baru
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowCityModal(true)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                          >
+                            <Plus size={16} />
+                            Tambah Kota Baru
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleDeleteCity}
+                            disabled={!form.city_id || Boolean(deletingCityId)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 size={16} />
+                            {deletingCityId ? "Menghapus..." : "Hapus Kota"}
+                          </button>
+                        </div>
                       </div>
 
                       <div className="group relative">
