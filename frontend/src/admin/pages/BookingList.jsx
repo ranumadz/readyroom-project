@@ -108,7 +108,6 @@ export default function BookingList() {
   });
 
   const [viewMode, setViewMode] = useState("today_active");
-  const [showFilterModal, setShowFilterModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportShift, setReportShift] = useState("all");
   const [reportPaymentMethod, setReportPaymentMethod] = useState("all");
@@ -1034,7 +1033,7 @@ const handlePrintReport = () => {
               <p class="meta-value">${branchName}</p>
             </div>
             <div class="meta-card">
-              <p class="meta-label">Tanggal</p>
+              <p class="meta-label">Tanggal Check In</p>
               <p class="meta-value">${reportDateLabel}</p>
             </div>
             <div class="meta-card">
@@ -1465,14 +1464,7 @@ const handlePrintReport = () => {
   };
 
   const getReportTransactionDate = (booking) => {
-    return (
-      booking?.paid_at ||
-      booking?.completed_at ||
-      booking?.updated_at ||
-      booking?.created_at ||
-      booking?.check_in ||
-      null
-    );
+    return booking?.check_in || null;
   };
 
   const matchesReportShift = (booking) => {
@@ -1934,7 +1926,7 @@ const buildWhatsAppMessage = (booking) => {
   }, [bookings, filters, viewMode, assignedHotelIds, canAccessAllHotels]);
 
 const reportBookings = useMemo(() => {
-  return filteredBookings.filter((booking) => {
+  return bookings.filter((booking) => {
     const status = String(booking?.status || "").toLowerCase();
     const paymentStatus = String(booking?.payment_status || "").toLowerCase();
 
@@ -1946,18 +1938,35 @@ const reportBookings = useMemo(() => {
       return false;
     }
 
-    const transactionDate = getReportTransactionDate(booking);
+    const matchesAccessHotel = canAccessAllHotels
+      ? true
+      : assignedHotelIds.includes(String(booking?.hotel?.id));
+
+    const matchesHotel =
+      !filters.hotelId || String(booking?.hotel?.id) === String(filters.hotelId);
+
+    const reportCheckInDate = getReportTransactionDate(booking);
     const matchesReportDate = reportDate
-      ? normalizeDateOnlyValue(transactionDate) === reportDate
+      ? normalizeDateOnlyValue(reportCheckInDate) === reportDate
       : true;
 
     return (
+      matchesAccessHotel &&
+      matchesHotel &&
       matchesReportDate &&
       matchesReportShift(booking) &&
       matchesReportPaymentMethod(booking)
     );
   });
-}, [filteredBookings, reportDate, reportShift, reportPaymentMethod]);
+}, [
+  bookings,
+  filters.hotelId,
+  assignedHotelIds,
+  canAccessAllHotels,
+  reportDate,
+  reportShift,
+  reportPaymentMethod,
+]);
 
   const reportTotalValue = useMemo(() => {
     return reportBookings.reduce((sum, booking) => sum + Number(booking?.total_price || 0), 0);
@@ -2019,7 +2028,6 @@ const selectedFolderLabel = filters.hotelId
 
         <div className="min-w-0 overflow-x-hidden p-4 md:p-6">
   <div className="relative mb-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-    {/* background motif lebih soft */}
     <div className="pointer-events-none absolute inset-0">
       <div className="absolute -left-16 -top-16 h-40 w-40 rounded-full bg-red-100/50 blur-3xl" />
       <div className="absolute right-0 top-0 h-44 w-44 rounded-full bg-orange-100/40 blur-3xl" />
@@ -2027,11 +2035,10 @@ const selectedFolderLabel = filters.hotelId
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.95)_50%,rgba(255,247,237,0.92))]" />
     </div>
 
-    <div className="relative z-10">
-      <div className="grid grid-cols-1 gap-4 p-4 md:p-5 xl:grid-cols-12 xl:items-start">
-        {/* KIRI */}
-        <div className="xl:col-span-5">
-          <div className="space-y-3">
+    <div className="relative z-10 p-4 md:p-5">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(210px,1.15fr)_minmax(220px,1.2fr)_minmax(145px,0.8fr)_minmax(150px,0.85fr)_minmax(135px,0.75fr)_auto]">
+          <div className="min-w-0">
             <select
               value={filters.hotelId}
               onChange={(e) => {
@@ -2042,7 +2049,7 @@ const selectedFolderLabel = filters.hotelId
                   markHotelAsSeen(value);
                 }
               }}
-              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
             >
               {canAccessAllHotels && <option value="">Semua Cabang</option>}
               {!canAccessAllHotels && (
@@ -2060,48 +2067,107 @@ const selectedFolderLabel = filters.hotelId
                 );
               })}
             </select>
-
-            {loadingUserAccessHotels && (
-              <p className="text-xs font-semibold text-gray-500">
-                Sedang memuat akses cabang user...
-              </p>
-            )}
-
-            {/* Filter kanan dipindah masuk ke modal Filter */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowFilterModal(true)}
-                disabled={!hasSelectedFolder}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Filter size={16} />
-                Filter
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowReportModal(true)}
-                disabled={!hasSelectedFolder}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <ReceiptText size={16} />
-                Laporan
-              </button>
-
-              <button
-                type="button"
-                onClick={openManualModal}
-                disabled={!hasSelectedFolder}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Plus size={16} />
-                Booking Manual
-              </button>
-            </div>
           </div>
+
+          <div className="relative min-w-0">
+            <Search
+              size={15}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-red-500"
+            />
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => handleFilterChange("search", e.target.value)}
+              disabled={!hasSelectedFolder}
+              placeholder="Cari kode, tamu, hotel, kamar"
+              className="h-11 w-full rounded-2xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-semibold text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+
+          <select
+            value={filters.status === "pending" ? "approval" : viewMode}
+            onChange={(e) => {
+              const value = e.target.value;
+              setViewMode(value);
+              if (value !== "approval" && filters.status === "pending") {
+                handleFilterChange("status", "");
+              }
+              if (value === "approval") {
+                setViewMode("all");
+                handleFilterChange("status", "pending");
+              }
+            }}
+            disabled={!hasSelectedFolder}
+            className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="today_active">Aktif Hari Ini</option>
+            <option value="all">Riwayat Booking</option>
+            <option value="approval">Approval</option>
+          </select>
+
+          <select
+            value={filters.status}
+            onChange={(e) => handleFilterChange("status", e.target.value)}
+            disabled={!hasSelectedFolder}
+            className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="">Semua Status</option>
+            <option value="checked_in">Check In</option>
+            <option value="checked_out">Check Out</option>
+            <option value="cleaning">Proses Cleaning</option>
+            <option value="completed">Selesai</option>
+          </select>
+
+          <select
+            value={filters.bookingType}
+            onChange={(e) => handleFilterChange("bookingType", e.target.value)}
+            disabled={!hasSelectedFolder}
+            className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="">Semua Tipe</option>
+            <option value="transit">Transit</option>
+            <option value="overnight">Full Day</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={resetFilters}
+            disabled={!hasSelectedFolder}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RotateCcw size={15} />
+            Reset
+          </button>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
+          <button
+            type="button"
+            onClick={() => setShowReportModal(true)}
+            disabled={!hasSelectedFolder}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <ReceiptText size={16} />
+            Laporan
+          </button>
+
+          <button
+            type="button"
+            onClick={openManualModal}
+            disabled={!hasSelectedFolder}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus size={16} />
+            Booking Manual
+          </button>
         </div>
       </div>
+
+      {loadingUserAccessHotels && (
+        <p className="mt-2 text-xs font-semibold text-gray-500">
+          Sedang memuat akses cabang user...
+        </p>
+      )}
     </div>
   </div>
 
@@ -2249,7 +2315,7 @@ const selectedFolderLabel = filters.hotelId
                                 )}
                               </div>
 
-                              <div className="grid w-full grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-[minmax(155px,1.18fr)_minmax(180px,1.28fr)_minmax(150px,1fr)_minmax(285px,1.55fr)_150px] 2xl:grid-cols-[minmax(160px,1.18fr)_minmax(190px,1.28fr)_minmax(155px,1fr)_minmax(315px,1.6fr)_160px]">
+                              <div className="grid w-full grid-cols-1 gap-2.5 text-sm md:grid-cols-2 xl:grid-cols-[minmax(135px,1fr)_minmax(155px,1.08fr)_minmax(120px,0.85fr)_minmax(345px,1.9fr)_minmax(120px,0.78fr)] 2xl:grid-cols-[minmax(150px,1.05fr)_minmax(180px,1.16fr)_minmax(135px,0.9fr)_minmax(380px,2fr)_minmax(135px,0.82fr)]">
                                 <InfoMiniCard
                                   icon={<User size={16} className="text-red-500" />}
                                   label="Nama Tamu"
@@ -3688,148 +3754,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
               </div>
             </div>
           )}
-{showFilterModal && (
-  <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
-    <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl border border-gray-100 overflow-hidden">
-      <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
-        <div>
-          <h3 className="text-xl font-bold text-gray-800">Filter Booking</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Atur mode booking dan status dari satu tempat.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowFilterModal(false)}
-          className="rounded-full bg-gray-100 p-2 text-gray-500 hover:bg-gray-200"
-        >
-          <X size={18} />
-        </button>
-      </div>
-
-      <div className="max-h-[72vh] space-y-5 overflow-y-auto px-6 py-5">
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-gray-700">
-            Pencarian
-          </label>
-          <div className="relative">
-            <Search
-              size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-            />
-            <input
-              type="text"
-              value={filters.search}
-              onChange={(e) => handleFilterChange("search", e.target.value)}
-              placeholder="Cari kode booking, nama tamu, hotel, tipe kamar"
-              className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-12 pr-4 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-gray-700">
-            Mode Booking
-          </label>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <button
-              type="button"
-              onClick={() => setViewMode("all")}
-              className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                viewMode === "all"
-                  ? "bg-slate-900 text-white shadow-sm"
-                  : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              <History size={16} />
-              Riwayat Booking
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setViewMode("today_active")}
-              className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                viewMode === "today_active"
-                  ? "bg-slate-900 text-white shadow-sm"
-                  : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              <Layers3 size={16} />
-              Aktif Hari Ini
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setViewMode("all");
-                handleFilterChange("status", "pending");
-              }}
-              className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                filters.status === "pending"
-                  ? "bg-red-600 text-white shadow-sm"
-                  : "bg-red-50 text-red-600 hover:bg-red-100"
-              }`}
-            >
-              <CircleCheck size={16} />
-              Approval
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-gray-700">
-            Status Booking
-          </label>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {[
-              { label: "Semua Status", value: "" },
-              { label: "Check In", value: "checked_in" },
-              { label: "Check Out", value: "checked_out" },
-              { label: "Proses Cleaning", value: "cleaning" },
-              { label: "Selesai", value: "completed" },
-            ].map((item) => {
-              const active = filters.status === item.value;
-
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => handleFilterChange("status", item.value)}
-                  className={`inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                    active
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 px-6 py-5">
-        <button
-          type="button"
-          onClick={resetFilters}
-          className="rounded-2xl bg-gray-100 px-5 py-3 font-semibold text-gray-700 transition hover:bg-gray-200"
-        >
-          Reset
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowFilterModal(false)}
-          className="rounded-2xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
-        >
-          Terapkan
-        </button>
-      </div>
-    </div>
-  </div>
-)}{showReportModal && (
+{showReportModal && (
   <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
     <div className="w-full max-w-6xl rounded-3xl bg-white shadow-2xl border border-gray-100 p-6">
       <div className="flex items-start justify-between gap-4 mb-5">
@@ -3898,7 +3823,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
           <p className="text-sm font-semibold text-red-600">Total Booking</p>
           <p className="mt-2 text-3xl font-bold text-gray-900">{reportBookings.length}</p>
-          <p className="mt-1 text-xs text-gray-500">Data aktif setelah filter shift report</p>
+          <p className="mt-1 text-xs text-gray-500">Data report berdasarkan tanggal dan jam check-in</p>
         </div>
 
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
@@ -3956,7 +3881,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
               <thead className="bg-gray-50">
                 <tr className="text-left text-gray-600">
                   <th className="px-4 py-3 font-semibold">No</th>
-                  <th className="px-4 py-3 font-semibold">Tanggal Transaksi</th>
+                  <th className="px-4 py-3 font-semibold">Tanggal Check In</th>
                   <th className="px-4 py-3 font-semibold">Kode Booking</th>
                   <th className="px-4 py-3 font-semibold">Nama Tamu</th>
                   <th className="px-4 py-3 font-semibold">No Telp</th>
@@ -4431,26 +4356,26 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 }
 function StayScheduleMiniCard({ icon, checkIn, checkOut }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 shadow-sm">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50">
+    <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-100 bg-white px-2.5 py-2.5 shadow-sm">
+      <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 sm:flex">
         {icon}
       </div>
 
       <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2.5 py-2">
-          <p className="text-[9px] font-black uppercase leading-none tracking-wide text-slate-400">
+        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2 py-2">
+          <p className="text-[8px] font-black uppercase leading-none tracking-wide text-slate-400">
             Check In
           </p>
-          <p className="mt-1.5 truncate text-[12px] font-black leading-tight text-slate-950">
+          <p className="mt-1.5 whitespace-normal break-words text-[11px] font-black leading-snug text-slate-950">
             {checkIn || "-"}
           </p>
         </div>
 
-        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2.5 py-2">
-          <p className="text-[9px] font-black uppercase leading-none tracking-wide text-slate-400">
+        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2 py-2">
+          <p className="text-[8px] font-black uppercase leading-none tracking-wide text-slate-400">
             Check Out
           </p>
-          <p className="mt-1.5 truncate text-[12px] font-black leading-tight text-slate-950">
+          <p className="mt-1.5 whitespace-normal break-words text-[11px] font-black leading-snug text-slate-950">
             {checkOut || "-"}
           </p>
         </div>

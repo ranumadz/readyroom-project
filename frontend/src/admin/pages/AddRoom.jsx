@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -75,6 +75,32 @@ const normalizeFacilityScope = (facility) => {
 
 export default function AddRoom() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const initialHotelIdFromQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("hotel_id") || "";
+  }, [location.search]);
+
+  const backToRoomsUrl = useMemo(() => {
+    const currentParams = new URLSearchParams(location.search);
+    const hotelId = currentParams.get("hotel_id") || "";
+    const returnUrl = currentParams.get("return") || "";
+
+    const nextParams = new URLSearchParams();
+
+    if (hotelId) {
+      nextParams.set("hotel_id", hotelId);
+    }
+
+    if (returnUrl && returnUrl.startsWith("/admin/hotels")) {
+      nextParams.set("return", returnUrl);
+    }
+
+    const queryString = nextParams.toString();
+
+    return queryString ? `/admin/rooms?${queryString}` : "/admin/rooms";
+  }, [location.search]);
 
   const [hotels, setHotels] = useState([]);
   const [facilities, setFacilities] = useState([]);
@@ -90,7 +116,7 @@ export default function AddRoom() {
   const galleryInputRef = useRef(null);
 
   const [form, setForm] = useState({
-    hotel_id: "",
+    hotel_id: initialHotelIdFromQuery || "",
     type: "",
     capacity: "",
     price_per_night: "",
@@ -110,6 +136,21 @@ export default function AddRoom() {
     fetchHotels();
     fetchFacilities();
   }, []);
+
+  useEffect(() => {
+    if (!initialHotelIdFromQuery) return;
+
+    setForm((prev) => {
+      if (String(prev.hotel_id) === String(initialHotelIdFromQuery)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        hotel_id: initialHotelIdFromQuery,
+      };
+    });
+  }, [initialHotelIdFromQuery]);
 
   const fetchHotels = async () => {
     try {
@@ -371,7 +412,7 @@ export default function AddRoom() {
     });
 
     setForm({
-      hotel_id: "",
+      hotel_id: initialHotelIdFromQuery || "",
       type: "",
       capacity: "",
       price_per_night: "",
@@ -530,10 +571,9 @@ export default function AddRoom() {
 
         <div className="p-6 md:p-8">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-
             <button
               type="button"
-              onClick={() => navigate("/admin/rooms")}
+              onClick={() => navigate(backToRoomsUrl)}
               className="inline-flex w-fit items-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 shadow-sm transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
             >
               <ArrowLeft size={18} />

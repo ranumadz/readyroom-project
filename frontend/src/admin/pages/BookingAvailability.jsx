@@ -24,7 +24,6 @@ export default function BookingAvailability() {
   const [loading, setLoading] = useState(false);
   const [updatingRoomId, setUpdatingRoomId] = useState(null);
 
-  const [selectedCityKey, setSelectedCityKey] = useState("");
   const [selectedHotelId, setSelectedHotelId] = useState("");
   const [search, setSearch] = useState("");
 
@@ -113,36 +112,6 @@ export default function BookingAvailability() {
     );
   };
 
-  const getHotelCityKey = (hotel) => {
-    const cityId = hotel?.city?.id || hotel?.city_id;
-
-    if (cityId) return `city-id-${cityId}`;
-
-    const cityName = getHotelCityName(hotel);
-
-    return `city-name-${String(cityName || "-").toLowerCase()}`;
-  };
-
-  const cityOptions = useMemo(() => {
-    const map = new Map();
-
-    hotels.forEach((hotel) => {
-      const key = getHotelCityKey(hotel);
-      const name = getHotelCityName(hotel);
-
-      if (!map.has(key)) {
-        map.set(key, {
-          key,
-          name,
-        });
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) =>
-      String(a.name || "").localeCompare(String(b.name || ""))
-    );
-  }, [hotels]);
-
   const hotelsById = useMemo(() => {
     const map = new Map();
 
@@ -155,19 +124,11 @@ export default function BookingAvailability() {
     return map;
   }, [hotels]);
 
-  const selectedCityHotels = useMemo(() => {
-    if (!selectedCityKey) return [];
-
-    return hotels
-      .filter((hotel) => getHotelCityKey(hotel) === selectedCityKey)
-      .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
-  }, [hotels, selectedCityKey]);
-
-  const handleCityChange = (value) => {
-    setSelectedCityKey(value);
-    setSelectedHotelId("");
-    setSearch("");
-  };
+  const hotelOptions = useMemo(() => {
+    return [...hotels].sort((a, b) =>
+      String(a?.name || "").localeCompare(String(b?.name || ""))
+    );
+  }, [hotels]);
 
   const handleHotelChange = (value) => {
     setSelectedHotelId(value);
@@ -585,7 +546,7 @@ export default function BookingAvailability() {
   const filteredRooms = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
-    if (!selectedCityKey || !selectedHotelId) return [];
+    if (!selectedHotelId) return [];
 
     return rooms
       .filter((room) => getRoomHotelId(room) === String(selectedHotelId))
@@ -614,13 +575,7 @@ export default function BookingAvailability() {
 
         return String(a?.name || "").localeCompare(String(b?.name || ""));
       });
-  }, [
-    rooms,
-    search,
-    selectedCityKey,
-    selectedHotelId,
-    hotelsById,
-  ]);
+  }, [rooms, search, selectedHotelId, hotelsById]);
 
   const availabilityStats = useMemo(() => {
     const activeRooms = filteredRooms.filter((room) => isRoomActive(room)).length;
@@ -638,8 +593,11 @@ export default function BookingAvailability() {
     };
   }, [filteredRooms]);
 
-  const selectedCityLabel =
-    cityOptions.find((city) => city.key === selectedCityKey)?.name || "Pilih kota";
+  const selectedHotelData = selectedHotelId
+    ? hotelsById.get(String(selectedHotelId)) || null
+    : null;
+
+  const selectedHotelLabel = selectedHotelData?.name || "Belum pilih cabang";
 
   const selectedCloseRoomHotel = selectedCloseRoom
     ? getRoomHotel(selectedCloseRoom)
@@ -669,78 +627,53 @@ export default function BookingAvailability() {
             <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 px-5 py-4 text-white">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-black">Filter </h2>
+                  <h2 className="text-base font-black">Filter</h2>
                   <p className="mt-1 text-xs text-white/70">
-                    Pilih kota dulu, lanjut pilih hotel, baru kamar akan tampil.
+                    Pilih cabang/hotel, lalu kamar akan langsung tampil.
                   </p>
                 </div>
 
                 <div className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white">
-                  {selectedCityLabel}
+                  {selectedHotelLabel}
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-12 md:p-5">
-              <div className="md:col-span-4">
+              <div className="md:col-span-5">
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                  Kota
-                </label>
-                <select
-                  value={selectedCityKey}
-                  onChange={(e) => handleCityChange(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                >
-                  <option value="">Pilih Kota</option>
-                  {cityOptions.map((city) => (
-                    <option key={city.key} value={city.key}>
-                      {city.name}
-                    </option>
-                  ))}
-                </select>
-
-                {selectedCityKey && !selectedHotelId && (
-                  <p className="mt-2 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-700">
-                    Kota sudah dipilih. Lanjut pilih hotel/cabang di kolom sebelah kanan.
-                  </p>
-                )}
-              </div>
-
-              <div className="md:col-span-4">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                  Hotel
+                  Cabang / Hotel
                 </label>
                 <select
                   value={selectedHotelId}
                   onChange={(e) => handleHotelChange(e.target.value)}
-                  disabled={!selectedCityKey}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
                 >
                   <option value="">
-                    {selectedCityKey ? "Pilih Hotel / Cabang" : "Pilih kota dulu"}
+                    {loading ? "Memuat cabang..." : "Pilih Cabang / Hotel"}
                   </option>
 
-                  {selectedCityHotels.map((hotel) => (
+                  {hotelOptions.map((hotel) => (
                     <option key={hotel.id} value={hotel.id}>
                       {hotel.name}
                     </option>
                   ))}
                 </select>
 
-                {selectedCityKey && !selectedHotelId && (
+                {!selectedHotelId && (
                   <p className="mt-2 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold leading-relaxed text-red-700">
-                    Wajib pilih hotel dulu agar daftar kamar tampil.
+                    Wajib pilih cabang/hotel dulu agar daftar kamar tampil.
                   </p>
                 )}
 
-                {selectedCityKey && selectedHotelId && (
+                {selectedHotelId && (
                   <p className="mt-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold leading-relaxed text-emerald-700">
-                    Hotel dipilih. Silakan atur kamar yang mau dibuka atau ditutup.
+                    Cabang dipilih. Silakan atur kamar yang mau dibuka atau ditutup.
                   </p>
                 )}
               </div>
 
-              <div className="md:col-span-4">
+              <div className="md:col-span-7">
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
                   Cari Kamar
                 </label>
@@ -753,15 +686,15 @@ export default function BookingAvailability() {
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder={selectedHotelId ? "Cari kamar atau tipe..." : "Pilih hotel dulu"}
-                    disabled={!selectedCityKey || !selectedHotelId}
+                    placeholder={selectedHotelId ? "Cari kamar atau tipe..." : "Pilih cabang dulu"}
+                    disabled={!selectedHotelId}
                     className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                   />
                 </div>
               </div>
             </div>
 
-            {selectedCityKey && selectedHotelId && (
+            {selectedHotelId && (
               <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 pb-4 md:px-5">
                 <StatusPill label={`Total Kamar: ${availabilityStats.totalRooms}`} />
                 <StatusPill
@@ -801,14 +734,9 @@ export default function BookingAvailability() {
               <div className="py-16 text-center text-gray-500">
                 Memuat data ketersediaan...
               </div>
-            ) : !selectedCityKey ? (
-              <EmptyState
-                title="Pilih kota dulu"
-                description="Setelah kota dipilih, daftar hotel di kota tersebut akan tersedia."
-              />
             ) : !selectedHotelId ? (
               <EmptyState
-                title="Pilih hotel dulu"
+                title="Pilih cabang dulu"
                 description="Kamar baru akan tampil setelah hotel atau cabang dipilih."
               />
             ) : filteredRooms.length === 0 ? (

@@ -75,6 +75,24 @@ export default function RoomsList() {
     return "/admin/hotels";
   }, []);
 
+  const currentRoomsUrl = useMemo(() => {
+    if (typeof window === "undefined") return "/admin/rooms";
+
+    return `${window.location.pathname}${window.location.search || ""}`;
+  }, []);
+
+  const addRoomUrl = useMemo(() => {
+    const params = new URLSearchParams();
+
+    if (selectedHotelId !== "all") {
+      params.set("hotel_id", selectedHotelId);
+    }
+
+    params.set("return", currentRoomsUrl || "/admin/rooms");
+
+    return `/admin/rooms/add?${params.toString()}`;
+  }, [selectedHotelId, currentRoomsUrl]);
+
   useEffect(() => {
     fetchRooms();
     fetchHotels();
@@ -1531,7 +1549,7 @@ export default function RoomsList() {
             </a>
 
             <a
-              href="/admin/rooms/add"
+              href={addRoomUrl}
               className="inline-flex items-center justify-center rounded-2xl bg-gray-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-gray-200 transition hover:bg-black"
             >
               + Add Room
