@@ -11,6 +11,8 @@ use App\Models\Booking;
 
 class RoomUnitController extends Controller
 {
+    private $bookingUserNameCache = [];
+
     public function indexByRoom($roomId)
     {
         $units = RoomUnit::where('room_id', $roomId)
@@ -364,7 +366,7 @@ class RoomUnitController extends Controller
 
         $statusColumn = Schema::hasColumn('bookings', 'status') ? 'status' : null;
 
-        $query = Booking::query()
+        $query = $this->bookingQueryWithNameRelations()
             ->where('room_unit_id', $roomUnitId);
 
         /*
@@ -450,7 +452,7 @@ class RoomUnitController extends Controller
             return collect();
         }
 
-        $query = Booking::query()
+        $query = $this->bookingQueryWithNameRelations()
             ->where('room_unit_id', $roomUnitId)
             ->whereIn('status', [
                 'confirmed',
@@ -575,21 +577,24 @@ class RoomUnitController extends Controller
             return null;
         }
 
+        $guestName = $this->getBookingPersonName($booking);
+
         return [
             'id' => $booking->id ?? null,
             'booking_code' => $booking->booking_code ?? $booking->code ?? null,
             'code' => $booking->code ?? $booking->booking_code ?? null,
             'status' => $booking->status ?? null,
 
-            'customer_name' => $booking->customer_name
-                ?? $booking->guest_name
-                ?? optional($booking->customer ?? null)->name
-                ?? null,
-
-            'guest_name' => $booking->guest_name
-                ?? $booking->customer_name
-                ?? optional($booking->customer ?? null)->name
-                ?? null,
+            /*
+             * Nama tamu dibuat lebih kuat:
+             * - booking manual: customer_name / guest_name
+             * - customer login: user.name dari user_id
+             * - fallback: relasi customer / user kalau ada
+             */
+            'customer_name' => $guestName,
+            'guest_name' => $guestName,
+            'name' => $guestName,
+            'user_name' => $guestName,
 
             'check_in' => $booking->check_in
                 ?? $booking->checkin
@@ -656,6 +661,132 @@ class RoomUnitController extends Controller
                 ?? $booking->hour_duration
                 ?? null,
         ];
+    }
+
+    private function bookingQueryWithNameRelations()
+    {
+        $query = Booking::query();
+        $relations = $this->getBookingNameRelations();
+
+        if (!empty($relations)) {
+            $query->with($relations);
+        }
+
+        return $query;
+    }
+
+    private function getBookingNameRelations()
+    {
+        $relations = [];
+        $bookingModel = new Booking();
+
+        if (method_exists($bookingModel, 'customer')) {
+            $relations[] = 'customer';
+        }
+
+        if (method_exists($bookingModel, 'user')) {
+            $relations[] = 'user';
+        }
+
+        return $relations;
+    }
+
+    private function getBookingPersonName($booking)
+    {
+        if (!$booking) {
+            return null;
+        }
+
+        $candidates = [
+            $booking->customer_name ?? null,
+            $booking->guest_name ?? null,
+            $booking->name ?? null,
+            $booking->user_name ?? null,
+            $booking->customer_full_name ?? null,
+            $booking->guest_full_name ?? null,
+        ];
+
+        $customer = $this->safeGetBookingRelation($booking, 'customer');
+        if ($customer) {
+            $candidates[] = $customer->name ?? null;
+            $candidates[] = $customer->full_name ?? null;
+            $candidates[] = $customer->username ?? null;
+            $candidates[] = $customer->email ?? null;
+        }
+
+        $user = $this->safeGetBookingRelation($booking, 'user');
+        if ($user) {
+            $candidates[] = $user->name ?? null;
+            $candidates[] = $user->full_name ?? null;
+            $candidates[] = $user->username ?? null;
+            $candidates[] = $user->email ?? null;
+        }
+
+        if (!empty($booking->user_id)) {
+            $candidates[] = $this->getUserNameById($booking->user_id);
+        }
+
+        foreach ($candidates as $candidate) {
+            $name = trim((string) $candidate);
+
+            if ($name !== '' && $name !== '-') {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    private function safeGetBookingRelation($booking, $relation)
+    {
+        if (!$booking || !method_exists($booking, $relation)) {
+            return null;
+        }
+
+        try {
+            if ($booking->relationLoaded($relation)) {
+                return $booking->getRelation($relation);
+            }
+
+            return $booking->{$relation};
+        } catch (\Throwable $error) {
+            return null;
+        }
+    }
+
+    private function getUserNameById($userId)
+    {
+        $userId = (int) $userId;
+
+        if (!$userId) {
+            return null;
+        }
+
+        if (array_key_exists($userId, $this->bookingUserNameCache)) {
+            return $this->bookingUserNameCache[$userId];
+        }
+
+        if (!class_exists(\App\Models\User::class) || !Schema::hasTable('users')) {
+            $this->bookingUserNameCache[$userId] = null;
+            return null;
+        }
+
+        try {
+            $user = \App\Models\User::find($userId);
+
+            $name = $user?->name
+                ?? $user?->full_name
+                ?? $user?->username
+                ?? $user?->email
+                ?? null;
+
+            $this->bookingUserNameCache[$userId] = $name;
+
+            return $name;
+        } catch (\Throwable $error) {
+            $this->bookingUserNameCache[$userId] = null;
+            return null;
+        }
     }
 
     private function getFirstExistingBookingColumn(array $columns)

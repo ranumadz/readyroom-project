@@ -364,8 +364,15 @@ export default function RoomUnits() {
       booking?.customer_name ||
       booking?.guest_name ||
       booking?.name ||
+      booking?.user_name ||
+      booking?.full_name ||
+      booking?.customer_full_name ||
+      booking?.guest_full_name ||
       booking?.customer?.name ||
+      booking?.customer?.full_name ||
       booking?.user?.name ||
+      booking?.user?.full_name ||
+      booking?.user?.email ||
       "-"
     );
   };
@@ -463,8 +470,53 @@ export default function RoomUnits() {
     return text;
   };
 
-  const getBookingTimeText = (booking) => {
-    const start =
+  const formatDateTime = (value) => {
+    if (!value) return "-";
+
+    const text = String(value);
+    const dateTimeMatch = text.match(
+      /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/
+    );
+
+    if (dateTimeMatch) {
+      const [, year, month, day, hour, minute] = dateTimeMatch;
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Agu",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ];
+
+      return `${Number(day)} ${monthNames[Number(month) - 1]} ${year}, ${hour}:${minute}`;
+    }
+
+    const date = new Date(value);
+
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }) + `, ${date.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })}`;
+    }
+
+    return text;
+  };
+
+  const getBookingStartValue = (booking) => {
+    return (
       booking?.check_in ||
       booking?.checkin ||
       booking?.check_in_at ||
@@ -473,9 +525,12 @@ export default function RoomUnits() {
       booking?.start_at ||
       booking?.booking_start ||
       booking?.from_time ||
-      "";
+      ""
+    );
+  };
 
-    const end =
+  const getBookingEndValue = (booking) => {
+    return (
       booking?.check_out ||
       booking?.checkout ||
       booking?.check_out_at ||
@@ -484,7 +539,21 @@ export default function RoomUnits() {
       booking?.end_at ||
       booking?.booking_end ||
       booking?.to_time ||
-      "";
+      ""
+    );
+  };
+
+  const getBookingCheckInText = (booking) => {
+    return formatDateTime(getBookingStartValue(booking));
+  };
+
+  const getBookingCheckOutText = (booking) => {
+    return formatDateTime(getBookingEndValue(booking));
+  };
+
+  const getBookingTimeText = (booking) => {
+    const start = getBookingStartValue(booking);
+    const end = getBookingEndValue(booking);
 
     const startText = formatTimeOnly(start);
     const endText = formatTimeOnly(end);
@@ -519,6 +588,8 @@ export default function RoomUnits() {
             getBookingCode(booking),
             getBookingGuestName(booking),
             getBookingTimeText(booking),
+            getBookingCheckInText(booking),
+            getBookingCheckOutText(booking),
             getBookingTypeText(booking),
           ].join(" ");
         })
@@ -776,13 +847,6 @@ export default function RoomUnits() {
       activeClass: "border-gray-900 bg-gray-950 text-white",
     },
     {
-      value: "cleaning",
-      label: "Cleaning",
-      helper: "Tandai kamar yang dipilih sebagai perlu dibersihkan.",
-      buttonClass: "bg-amber-500 text-white hover:bg-amber-600",
-      activeClass: "border-amber-500 bg-amber-500 text-white",
-    },
-    {
       value: "available",
       label: "Aktifkan",
       helper: "Aktifkan kembali kamar yang dipilih.",
@@ -915,8 +979,8 @@ export default function RoomUnits() {
         <div className="p-4 md:p-6">
           <div className="mb-5 overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">
             <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-6 py-5 text-white">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="max-w-3xl">
                   <h2 className="text-lg font-black">Filter Monitoring Kamar</h2>
                   <p className="mt-1 text-sm leading-relaxed text-white/65">
                     Pilih cabang terlebih dahulu. Sistem akan menampilkan semua kamar
@@ -924,13 +988,35 @@ export default function RoomUnits() {
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-bold text-white/90">
-                  {selectedHotelData?.name || "Belum pilih cabang"}
+                <div className="flex flex-col gap-3 xl:items-end">
+                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                    {["available", "occupied", "cleaning", "maintenance", "inactive"].map(
+                      (status) => {
+                        const meta = getStatusMeta(status);
+
+                        return (
+                          <div
+                            key={status}
+                            className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-bold text-white/90 shadow-sm backdrop-blur"
+                          >
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`}
+                            />
+                            {meta.label}
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+
+                  <div className="w-fit rounded-2xl bg-white/10 px-4 py-2 text-sm font-bold text-white/90 shadow-sm ring-1 ring-white/10">
+                    {selectedHotelData?.name || "Belum pilih cabang"}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 p-6 pb-4 xl:grid-cols-12">
+            <div className="grid grid-cols-1 gap-4 p-6 xl:grid-cols-12">
               <div className="xl:col-span-3">
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
                   Cabang / Hotel
@@ -1020,28 +1106,6 @@ export default function RoomUnits() {
                     </option>
                   ))}
                 </select>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-100 px-6 py-4">
-              <div className="flex flex-wrap gap-3 text-xs font-bold text-gray-600">
-                {["available", "occupied", "cleaning", "maintenance", "inactive"].map(
-                  (status) => {
-                    const meta = getStatusMeta(status);
-
-                    return (
-                      <div
-                        key={status}
-                        className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2"
-                      >
-                        <span
-                          className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`}
-                        />
-                        {meta.label}
-                      </div>
-                    );
-                  }
-                )}
               </div>
             </div>
           </div>
@@ -1494,14 +1558,23 @@ export default function RoomUnits() {
 
                           <div className="rounded-xl bg-white/80 px-3 py-3">
                             <p className="text-xs font-bold uppercase text-gray-400">
-                              Jam
+                              Check In
                             </p>
                             <p className="mt-1 font-black text-gray-900">
-                              {getBookingTimeText(booking)}
+                              {getBookingCheckInText(booking)}
                             </p>
                           </div>
 
                           <div className="rounded-xl bg-white/80 px-3 py-3">
+                            <p className="text-xs font-bold uppercase text-gray-400">
+                              Check Out
+                            </p>
+                            <p className="mt-1 font-black text-gray-900">
+                              {getBookingCheckOutText(booking)}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-white/80 px-3 py-3 md:col-span-2">
                             <p className="text-xs font-bold uppercase text-gray-400">
                               Status
                             </p>
