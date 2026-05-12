@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Room;
 use App\Models\RoomImage;
 use App\Models\Facility;
@@ -15,12 +16,24 @@ class RoomController extends Controller
 {
     /**
      * GET rooms (ADMIN)
+     *
+     * Dipakai oleh:
+     * - Rooms List
+     * - Monitoring Kamar
+     * - Booking List / form tertentu yang ambil data kamar
+     *
+     * Scope akses cabang:
+     * - boss / super_admin / it = semua cabang
+     * - admin / receptionist / pengawas = hanya cabang yang diberikan di Kelola Users
      */
     public function index()
     {
-        $rooms = Room::with(['hotel.city', 'hotel.facilities', 'images', 'units'])
-            ->orderByDesc('id')
-            ->get();
+        $query = Room::with(['hotel.city', 'hotel.facilities', 'images', 'units'])
+            ->orderByDesc('id');
+
+        $this->applyAdminHotelAccessScope($query);
+
+        $rooms = $query->get();
 
         $this->attachRoomFacilitiesToRooms($rooms);
         $this->attachRoomBookingProtectionToRooms($rooms);
@@ -369,6 +382,323 @@ class RoomController extends Controller
         return response()->json([
             'message' => 'Kamar berhasil dihapus',
         ]);
+    }
+
+    /**
+     * Scope cabang untuk data room admin.
+     * Ini membuat Monitoring Kamar otomatis hanya menampilkan cabang akses user.
+     */
+    private function applyAdminHotelAccessScope($query): void
+    {
+        $user = Auth::user();
+
+        /*
+         * Kalau Auth belum tersedia di environment lama,
+         * biarkan behavior lama tetap jalan supaya tidak merusak endpoint.
+         * Nanti kalau perlu, frontend bisa ikut difilter juga seperti Booking List.
+         */
+        if (!$user) {
+            return;
+        }
+
+        $role = strtolower((string) ($user->role ?? ''));
+
+        if ($this->roleCanAccessAllHotels($role)) {
+            return;
+        }
+
+        if (!$this->roleNeedsHotelScope($role)) {
+            return;
+        }
+
+        $hotelIds = $this->getUserAccessibleHotelIds($user);
+
+        /*
+         * Kalau role wajib punya cabang tapi belum dikasih akses,
+         * jangan tampilkan semua cabang. Lebih aman kosong.
+         */
+        if (empty($hotelIds)) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $query->whereIn('hotel_id', $hotelIds);
+    }
+
+    /**
+     * Role yang boleh lihat semua cabang.
+     */
+    private function roleCanAccessAllHotels(string $role): bool
+    {
+        return in_array($role, ['boss', 'super_admin', 'it'], true);
+    }
+
+    /**
+     * Role yang harus mengikuti cabang akses dari Kelola Users.
+     */
+    private function roleNeedsHotelScope(string $role): bool
+    {
+        return in_array($role, ['admin', 'receptionist', 'pengawas'], true);
+    }
+
+    /**
+     * Ambil ID hotel/cabang yang boleh diakses user.
+     * Dibuat fleksibel supaya aman dengan beberapa kemungkinan struktur:
+     * - relasi User::hotels()
+     * - attribute hotel_ids / hotel_id
+     * - pivot table hotel_user / user_hotel / user_hotel_accesses, dll.
+     */
+    private function getUserAccessibleHotelIds($user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        $ids = [];
+
+        $ids = array_merge($ids, $this->getHotelIdsFromUserRelation($user));
+        $ids = array_merge($ids, $this->getHotelIdsFromUserAttributes($user));
+        $ids = array_merge($ids, $this->getHotelIdsFromPivotTables($user));
+
+        return collect($ids)
+            ->map(function ($id) {
+                return (int) $id;
+            })
+            ->filter(function ($id) {
+                return $id > 0;
+            })
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Ambil dari relasi hotels jika ada di User model.
+     */
+    private function getHotelIdsFromUserRelation($user): array
+    {
+        $ids = [];
+
+        try {
+            if (method_exists($user, 'hotels')) {
+                try {
+                    $relationIds = $user->hotels()->pluck('hotels.id')->toArray();
+                    $ids = array_merge($ids, $relationIds);
+                } catch (\Throwable $error) {
+                    $relationIds = $user->hotels()->pluck('id')->toArray();
+                    $ids = array_merge($ids, $relationIds);
+                }
+            }
+        } catch (\Throwable $error) {
+            // Abaikan agar endpoint lama tidak error.
+        }
+
+        try {
+            $loadedHotels = $user->hotels ?? null;
+
+            if ($loadedHotels instanceof \Illuminate\Support\Collection) {
+                foreach ($loadedHotels as $hotel) {
+                    $ids[] = $hotel->id ?? $hotel->hotel_id ?? null;
+                }
+            }
+
+            if (is_array($loadedHotels)) {
+                foreach ($loadedHotels as $hotel) {
+                    if (is_array($hotel)) {
+                        $ids[] = $hotel['id'] ?? $hotel['hotel_id'] ?? null;
+                    } elseif (is_object($hotel)) {
+                        $ids[] = $hotel->id ?? $hotel->hotel_id ?? null;
+                    }
+                }
+            }
+        } catch (\Throwable $error) {
+            // Abaikan agar endpoint lama tidak error.
+        }
+
+        return $this->normalizeHotelIds($ids);
+    }
+
+    /**
+     * Ambil dari attribute langsung di users.
+     */
+    private function getHotelIdsFromUserAttributes($user): array
+    {
+        $ids = [];
+
+        $attributeNames = [
+            'hotel_ids',
+            'hotel_id',
+            'branch_ids',
+            'branch_id',
+            'cabang_ids',
+            'cabang_id',
+            'assigned_hotel_ids',
+            'access_hotel_ids',
+            'accessible_hotel_ids',
+            'hotel_access_ids',
+            'branch_access_ids',
+        ];
+
+        foreach ($attributeNames as $attribute) {
+            try {
+                $value = $user->{$attribute} ?? null;
+                $ids = array_merge($ids, $this->normalizeHotelIds($value));
+            } catch (\Throwable $error) {
+                // Abaikan attribute yang tidak ada.
+            }
+        }
+
+        return $this->normalizeHotelIds($ids);
+    }
+
+    /**
+     * Ambil dari pivot table kalau relasi model belum terbaca.
+     */
+    private function getHotelIdsFromPivotTables($user): array
+    {
+        $userId = (int) ($user->id ?? 0);
+
+        if (!$userId) {
+            return [];
+        }
+
+        $candidateTables = [
+            'hotel_user',
+            'user_hotel',
+            'hotel_users',
+            'user_hotels',
+            'hotel_user_access',
+            'hotel_user_accesses',
+            'user_hotel_access',
+            'user_hotel_accesses',
+            'user_branch_access',
+            'user_branch_accesses',
+            'branch_user',
+            'user_branch',
+            'branch_users',
+            'user_branches',
+        ];
+
+        $ids = [];
+
+        foreach ($candidateTables as $table) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
+
+            $userColumn = $this->firstExistingColumn($table, [
+                'user_id',
+                'admin_user_id',
+                'internal_user_id',
+            ]);
+
+            $hotelColumn = $this->firstExistingColumn($table, [
+                'hotel_id',
+                'branch_id',
+                'cabang_id',
+            ]);
+
+            if (!$userColumn || !$hotelColumn) {
+                continue;
+            }
+
+            try {
+                $tableIds = DB::table($table)
+                    ->where($userColumn, $userId)
+                    ->pluck($hotelColumn)
+                    ->toArray();
+
+                $ids = array_merge($ids, $tableIds);
+            } catch (\Throwable $error) {
+                // Abaikan table yang tidak cocok struktur.
+            }
+        }
+
+        return $this->normalizeHotelIds($ids);
+    }
+
+    /**
+     * Normalisasi value ID hotel dari array, JSON string, comma string, collection, object.
+     */
+    private function normalizeHotelIds($value): array
+    {
+        if ($value instanceof \Illuminate\Support\Collection) {
+            $value = $value->all();
+        }
+
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        if (is_numeric($value)) {
+            return [(int) $value];
+        }
+
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $value = $decoded;
+            } else {
+                $value = explode(',', $value);
+            }
+        }
+
+        if (is_object($value)) {
+            $value = [$value];
+        }
+
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $ids = [];
+
+        foreach ($value as $item) {
+            if ($item instanceof \Illuminate\Database\Eloquent\Model) {
+                $ids[] = $item->id ?? $item->hotel_id ?? null;
+                continue;
+            }
+
+            if (is_object($item)) {
+                $ids[] = $item->id ?? $item->hotel_id ?? $item->branch_id ?? null;
+                continue;
+            }
+
+            if (is_array($item)) {
+                $ids[] = $item['id'] ?? $item['hotel_id'] ?? $item['branch_id'] ?? null;
+                continue;
+            }
+
+            if (is_numeric($item)) {
+                $ids[] = (int) $item;
+            }
+        }
+
+        return collect($ids)
+            ->map(function ($id) {
+                return (int) $id;
+            })
+            ->filter(function ($id) {
+                return $id > 0;
+            })
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Ambil kolom pertama yang ada di table.
+     */
+    private function firstExistingColumn(string $table, array $columns): ?string
+    {
+        foreach ($columns as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 
     /**

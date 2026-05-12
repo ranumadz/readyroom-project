@@ -89,6 +89,7 @@ const allMenuSections = [
         path: "/admin/housekeeping",
         icon: ClipboardCheck,
         end: true,
+        allowedRoles: ["boss", "housekeeping"],
       },
     ],
   },
@@ -139,6 +140,13 @@ const allMenuSections = [
         end: true,
       },
       {
+        name: "Internal Broadcast",
+        path: "/admin/internal-broadcasts",
+        icon: BellRing,
+        end: true,
+        allowedRoles: ["it"],
+      },
+      {
         name: "Settings",
         path: "/admin/settings",
         icon: Settings,
@@ -153,7 +161,6 @@ const roleAllowedPaths = {
     "/admin/room-units",
     "/admin/bookings",
     "/admin/bookings/calendar",
-    "/admin/housekeeping",
   ],
   housekeeping: ["/admin/housekeeping"],
   admin: [
@@ -161,7 +168,6 @@ const roleAllowedPaths = {
     "/admin/booking-availability",
     "/admin/bookings",
     "/admin/bookings/calendar",
-    "/admin/housekeeping",
     "/admin/reports",
   ],
   pengawas: [
@@ -169,7 +175,6 @@ const roleAllowedPaths = {
     "/admin/booking-availability",
     "/admin/bookings",
     "/admin/bookings/calendar",
-    "/admin/housekeeping",
     "/admin/reports",
   ],
   it: [
@@ -181,6 +186,7 @@ const roleAllowedPaths = {
     "/admin/partner-applications",
     "/admin/users",
     "/admin/master-content",
+    "/admin/internal-broadcasts",
     "/admin/settings",
   ],
   super_admin: "all",
@@ -323,7 +329,7 @@ const roleThemes = {
     label: "IT",
     panelSubtitle: "System Control Panel",
     description:
-      "Akses khusus sistem, konfigurasi, konten, user, dan kontrol teknis ReadyRoom.",
+      "Akses khusus sistem, konfigurasi, konten, user, broadcast internal, dan kontrol teknis ReadyRoom.",
     icon: Cpu,
     aside:
       "w-72 min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_22%),linear-gradient(180deg,#03111f_0%,#071827_45%,#020817_100%)] text-white border-r border-cyan-400/10 shadow-2xl",
@@ -398,11 +404,24 @@ export default function Sidebar() {
 
   const currentRole = (adminUser?.role || "").toLowerCase();
 
+  const roleCanSeeMenuItem = (item) => {
+    if (!Array.isArray(item.allowedRoles) || item.allowedRoles.length === 0) {
+      return true;
+    }
+
+    return item.allowedRoles.includes(currentRole);
+  };
+
   const filteredMenuSections = useMemo(() => {
     const allowed = roleAllowedPaths[currentRole];
 
     if (allowed === "all") {
-      return allMenuSections;
+      return allMenuSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => roleCanSeeMenuItem(item)),
+        }))
+        .filter((section) => section.items.length > 0);
     }
 
     const fallbackAllowed = [
@@ -415,7 +434,9 @@ export default function Sidebar() {
     return allMenuSections
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => allowedPaths.includes(item.path)),
+        items: section.items.filter(
+          (item) => allowedPaths.includes(item.path) && roleCanSeeMenuItem(item)
+        ),
       }))
       .filter((section) => section.items.length > 0);
   }, [currentRole]);
@@ -428,8 +449,7 @@ export default function Sidebar() {
 
     if (Array.isArray(item.activePaths)) {
       return item.activePaths.some(
-        (path) =>
-          currentPath === path || currentPath.startsWith(`${path}/`)
+        (path) => currentPath === path || currentPath.startsWith(`${path}/`)
       );
     }
 

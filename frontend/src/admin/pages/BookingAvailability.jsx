@@ -37,6 +37,19 @@ export default function BookingAvailability() {
   });
   const [selectedQuickCloseHours, setSelectedQuickCloseHours] = useState(null);
 
+  const [userAccessHotels, setUserAccessHotels] = useState([]);
+  const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
+
+  const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
+  const adminRole = String(adminUser?.role || "").toLowerCase();
+
+  /*
+   * Mengikuti kebutuhan halaman Ketersediaan Booking:
+   * - boss / super_admin / it boleh melihat semua cabang.
+   * - admin / pengawas / receptionist mengikuti akses cabang yang dipilih di Kelola Users.
+   */
+  const canAccessAllHotels = ["boss", "super_admin", "it"].includes(adminRole);
+
   const normalizeArrayResponse = (payload) => {
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.data?.data)) return payload.data.data;
@@ -54,6 +67,50 @@ export default function BookingAvailability() {
   const fetchRooms = async () => {
     const res = await api.get("/admin/rooms");
     return normalizeArrayResponse(res.data);
+  };
+
+  const normalizeHotelIdsFromList = (list) => {
+    if (!Array.isArray(list)) return [];
+
+    return list
+      .map((hotel) => hotel?.id || hotel?.hotel_id || hotel?.value || null)
+      .filter((id) => id !== null && id !== undefined && id !== "")
+      .map((id) => String(id));
+  };
+
+  const fetchUserAccessHotels = async () => {
+    if (!adminUser?.id || canAccessAllHotels) {
+      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+      return;
+    }
+
+    try {
+      setLoadingUserAccessHotels(true);
+
+      const res = await api.get("/admin/users/admin");
+      const usersData = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+        ? res.data
+        : [];
+
+      const currentUser = usersData.find(
+        (user) => String(user.id) === String(adminUser.id)
+      );
+
+      const currentUserHotels = Array.isArray(currentUser?.hotels)
+        ? currentUser.hotels
+        : Array.isArray(adminUser?.hotels)
+        ? adminUser.hotels
+        : [];
+
+      setUserAccessHotels(currentUserHotels);
+    } catch (error) {
+      console.error("GET USER ACCESS HOTELS ERROR:", error.response?.data || error);
+      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+    } finally {
+      setLoadingUserAccessHotels(false);
+    }
   };
 
   const fetchAvailabilityData = async () => {
@@ -85,6 +142,7 @@ export default function BookingAvailability() {
 
   useEffect(() => {
     fetchAvailabilityData();
+    fetchUserAccessHotels();
   }, []);
 
   useEffect(() => {
@@ -112,6 +170,10 @@ export default function BookingAvailability() {
     );
   };
 
+  const getRoomHotelId = (room) => {
+    return String(room?.hotel_id || room?.hotel?.id || "");
+  };
+
   const hotelsById = useMemo(() => {
     const map = new Map();
 
@@ -124,19 +186,88 @@ export default function BookingAvailability() {
     return map;
   }, [hotels]);
 
+  const assignedHotelIds = useMemo(() => {
+    if (canAccessAllHotels) return [];
+
+    const sourceHotels =
+      Array.isArray(userAccessHotels) && userAccessHotels.length > 0
+        ? userAccessHotels
+        : Array.isArray(adminUser?.hotels)
+        ? adminUser.hotels
+        : [];
+
+    return normalizeHotelIdsFromList(sourceHotels);
+  }, [adminUser, canAccessAllHotels, userAccessHotels]);
+
+  const accessScopedHotels = useMemo(() => {
+    if (canAccessAllHotels) {
+      return hotels;
+    }
+
+    if (assignedHotelIds.length === 0) {
+      return [];
+    }
+
+    return hotels.filter((hotel) => assignedHotelIds.includes(String(hotel?.id)));
+  }, [hotels, assignedHotelIds, canAccessAllHotels]);
+
+  const accessScopedRooms = useMemo(() => {
+    if (canAccessAllHotels) {
+      return rooms;
+    }
+
+    if (assignedHotelIds.length === 0) {
+      return [];
+    }
+
+    return rooms.filter((room) => assignedHotelIds.includes(getRoomHotelId(room)));
+  }, [rooms, assignedHotelIds, canAccessAllHotels]);
+
   const hotelOptions = useMemo(() => {
-    return [...hotels].sort((a, b) =>
+    const map = new Map();
+
+    accessScopedHotels.forEach((hotel) => {
+      if (!hotel?.id) return;
+
+      map.set(String(hotel.id), hotel);
+    });
+
+    accessScopedRooms.forEach((room) => {
+      const hotelId = getRoomHotelId(room);
+      if (!hotelId) return;
+
+      const hotelFromRoom = room?.hotel || null;
+      const hotelFromList = hotelsById.get(String(hotelId)) || null;
+      const hotel = hotelFromRoom || hotelFromList;
+
+      map.set(String(hotelId), {
+        ...(hotel || {}),
+        id: hotel?.id || hotelId,
+        name: hotel?.name || room?.hotel_name || `Hotel #${hotelId}`,
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) =>
       String(a?.name || "").localeCompare(String(b?.name || ""))
     );
-  }, [hotels]);
+  }, [accessScopedHotels, accessScopedRooms, hotelsById]);
+
+  useEffect(() => {
+    if (!selectedHotelId) return;
+
+    const stillAllowed = hotelOptions.some(
+      (hotel) => String(hotel?.id) === String(selectedHotelId)
+    );
+
+    if (!stillAllowed) {
+      setSelectedHotelId("");
+      setSearch("");
+    }
+  }, [hotelOptions, selectedHotelId]);
 
   const handleHotelChange = (value) => {
     setSelectedHotelId(value);
     setSearch("");
-  };
-
-  const getRoomHotelId = (room) => {
-    return String(room?.hotel_id || room?.hotel?.id || "");
   };
 
   const getRoomHotel = (room) => {
@@ -272,7 +403,9 @@ export default function BookingAvailability() {
       let shouldRefresh = false;
 
       for (const [roomId] of entries) {
-        const room = rooms.find((item) => String(item?.id) === String(roomId));
+        const room = accessScopedRooms.find(
+          (item) => String(item?.id) === String(roomId)
+        );
 
         if (!room) {
           delete nextMap[roomId];
@@ -313,7 +446,7 @@ export default function BookingAvailability() {
     const intervalId = window.setInterval(autoOpenExpiredRooms, 30000);
 
     return () => window.clearInterval(intervalId);
-  }, [rooms, roomCloseMetaMap]);
+  }, [accessScopedRooms, roomCloseMetaMap]);
 
   const getDateTimeLocalAfterHours = (hours) => {
     const date = new Date();
@@ -421,7 +554,10 @@ export default function BookingAvailability() {
     const minTime = new Date();
     minTime.setMinutes(minTime.getMinutes() + 4);
 
-    if (Number.isNaN(reopenTime.getTime()) || reopenTime.getTime() <= minTime.getTime()) {
+    if (
+      Number.isNaN(reopenTime.getTime()) ||
+      reopenTime.getTime() <= minTime.getTime()
+    ) {
       return Swal.fire({
         icon: "warning",
         title: "Jam belum valid",
@@ -433,7 +569,9 @@ export default function BookingAvailability() {
     const roomHotel = getRoomHotel(selectedCloseRoom);
     const result = await Swal.fire({
       title: "Tutup booking kamar?",
-      text: `${selectedCloseRoom?.name || "Kamar"} di ${roomHotel?.name || "hotel ini"} akan ditutup sampai ${formatDateTime(closeForm.booking_reopen_at)}.`,
+      text: `${selectedCloseRoom?.name || "Kamar"} di ${
+        roomHotel?.name || "hotel ini"
+      } akan ditutup sampai ${formatDateTime(closeForm.booking_reopen_at)}.`,
       icon: "question",
       showCancelButton: true,
       confirmButtonColor: "#dc2626",
@@ -499,7 +637,9 @@ export default function BookingAvailability() {
 
     const result = await Swal.fire({
       title: "Buka booking kamar?",
-      text: `${room?.name || "Kamar"} di ${roomHotel?.name || "hotel ini"} akan dibuka kembali untuk booking customer.`,
+      text: `${room?.name || "Kamar"} di ${
+        roomHotel?.name || "hotel ini"
+      } akan dibuka kembali untuk booking customer.`,
       icon: "question",
       showCancelButton: true,
       confirmButtonColor: "#16a34a",
@@ -548,7 +688,7 @@ export default function BookingAvailability() {
 
     if (!selectedHotelId) return [];
 
-    return rooms
+    return accessScopedRooms
       .filter((room) => getRoomHotelId(room) === String(selectedHotelId))
       .filter((room) => {
         if (!keyword) return true;
@@ -575,7 +715,7 @@ export default function BookingAvailability() {
 
         return String(a?.name || "").localeCompare(String(b?.name || ""));
       });
-  }, [rooms, search, selectedHotelId, hotelsById]);
+  }, [accessScopedRooms, search, selectedHotelId, hotelsById]);
 
   const availabilityStats = useMemo(() => {
     const activeRooms = filteredRooms.filter((room) => isRoomActive(room)).length;
@@ -594,7 +734,9 @@ export default function BookingAvailability() {
   }, [filteredRooms]);
 
   const selectedHotelData = selectedHotelId
-    ? hotelsById.get(String(selectedHotelId)) || null
+    ? hotelOptions.find((hotel) => String(hotel?.id) === String(selectedHotelId)) ||
+      hotelsById.get(String(selectedHotelId)) ||
+      null
     : null;
 
   const selectedHotelLabel = selectedHotelData?.name || "Belum pilih cabang";
@@ -602,6 +744,9 @@ export default function BookingAvailability() {
   const selectedCloseRoomHotel = selectedCloseRoom
     ? getRoomHotel(selectedCloseRoom)
     : null;
+
+  const hasHotelAccess =
+    canAccessAllHotels || loadingUserAccessHotels || assignedHotelIds.length > 0;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -614,7 +759,10 @@ export default function BookingAvailability() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
-              onClick={fetchAvailabilityData}
+              onClick={() => {
+                fetchAvailabilityData();
+                fetchUserAccessHotels();
+              }}
               disabled={loading}
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -647,10 +795,13 @@ export default function BookingAvailability() {
                 <select
                   value={selectedHotelId}
                   onChange={(e) => handleHotelChange(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                  disabled={!hasHotelAccess}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                 >
                   <option value="">
-                    {loading ? "Memuat cabang..." : "Pilih Cabang / Hotel"}
+                    {loading || loadingUserAccessHotels
+                      ? "Memuat cabang..."
+                      : "Pilih Cabang / Hotel"}
                   </option>
 
                   {hotelOptions.map((hotel) => (
@@ -660,7 +811,19 @@ export default function BookingAvailability() {
                   ))}
                 </select>
 
-                {!selectedHotelId && (
+                {loadingUserAccessHotels && (
+                  <p className="mt-2 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold leading-relaxed text-slate-600">
+                    Sedang memuat akses cabang user...
+                  </p>
+                )}
+
+                {!loadingUserAccessHotels && !hasHotelAccess && (
+                  <p className="mt-2 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-700">
+                    Akun ini belum memiliki akses cabang. Atur akses cabang dari Kelola Users.
+                  </p>
+                )}
+
+                {!selectedHotelId && hasHotelAccess && (
                   <p className="mt-2 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold leading-relaxed text-red-700">
                     Wajib pilih cabang/hotel dulu agar daftar kamar tampil.
                   </p>
@@ -686,7 +849,9 @@ export default function BookingAvailability() {
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder={selectedHotelId ? "Cari kamar atau tipe..." : "Pilih cabang dulu"}
+                    placeholder={
+                      selectedHotelId ? "Cari kamar atau tipe..." : "Pilih cabang dulu"
+                    }
                     disabled={!selectedHotelId}
                     className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                   />
@@ -734,6 +899,11 @@ export default function BookingAvailability() {
               <div className="py-16 text-center text-gray-500">
                 Memuat data ketersediaan...
               </div>
+            ) : !hasHotelAccess ? (
+              <EmptyState
+                title="Belum ada akses cabang"
+                description="Akun ini belum memiliki akses cabang. Atur akses cabang dari Kelola Users terlebih dahulu."
+              />
             ) : !selectedHotelId ? (
               <EmptyState
                 title="Pilih cabang dulu"
@@ -887,7 +1057,8 @@ export default function BookingAvailability() {
                   Tutup Booking Kamar
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  {selectedCloseRoom?.name || "Kamar"} • {selectedCloseRoomHotel?.name || "Hotel"}
+                  {selectedCloseRoom?.name || "Kamar"} •{" "}
+                  {selectedCloseRoomHotel?.name || "Hotel"}
                 </p>
               </div>
 

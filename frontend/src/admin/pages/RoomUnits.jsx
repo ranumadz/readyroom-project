@@ -29,8 +29,22 @@ export default function RoomUnits() {
   const [bulkAction, setBulkAction] = useState("");
   const [selectedBulkUnitIds, setSelectedBulkUnitIds] = useState([]);
 
+  const [userAccessHotels, setUserAccessHotels] = useState([]);
+  const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
+
+  const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
+  const adminRole = String(adminUser?.role || "").toLowerCase();
+
+  /*
+   * Scope akses cabang untuk Monitoring Kamar:
+   * - boss / super_admin / it bisa melihat semua cabang.
+   * - admin / pengawas / receptionist mengikuti cabang yang dipilih di Kelola Users.
+   */
+  const canAccessAllHotels = ["boss", "super_admin", "it"].includes(adminRole);
+
   useEffect(() => {
     fetchRooms();
+    fetchUserAccessHotels();
   }, []);
 
   useEffect(() => {
@@ -45,6 +59,50 @@ export default function RoomUnits() {
     if (Array.isArray(payload?.rooms)) return payload.rooms;
     if (Array.isArray(payload?.units)) return payload.units;
     return [];
+  };
+
+  const normalizeHotelIdsFromList = (list) => {
+    if (!Array.isArray(list)) return [];
+
+    return list
+      .map((hotel) => hotel?.id || hotel?.hotel_id || hotel?.value || null)
+      .filter((id) => id !== null && id !== undefined && id !== "")
+      .map((id) => String(id));
+  };
+
+  const fetchUserAccessHotels = async () => {
+    if (!adminUser?.id || canAccessAllHotels) {
+      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+      return;
+    }
+
+    try {
+      setLoadingUserAccessHotels(true);
+
+      const res = await api.get("/admin/users/admin");
+      const usersData = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+        ? res.data
+        : [];
+
+      const currentUser = usersData.find(
+        (user) => String(user.id) === String(adminUser.id)
+      );
+
+      const currentUserHotels = Array.isArray(currentUser?.hotels)
+        ? currentUser.hotels
+        : Array.isArray(adminUser?.hotels)
+        ? adminUser.hotels
+        : [];
+
+      setUserAccessHotels(currentUserHotels);
+    } catch (error) {
+      console.error("GET USER ACCESS HOTELS ERROR:", error.response?.data || error);
+      setUserAccessHotels(Array.isArray(adminUser?.hotels) ? adminUser.hotels : []);
+    } finally {
+      setLoadingUserAccessHotels(false);
+    }
   };
 
   const fetchRooms = async () => {
@@ -67,6 +125,77 @@ export default function RoomUnits() {
 
   const getRoomHotelId = (room) => room?.hotel_id || room?.hotel?.id;
 
+  const assignedHotelIds = useMemo(() => {
+    if (canAccessAllHotels) return [];
+
+    const sourceHotels =
+      Array.isArray(userAccessHotels) && userAccessHotels.length > 0
+        ? userAccessHotels
+        : Array.isArray(adminUser?.hotels)
+        ? adminUser.hotels
+        : [];
+
+    return normalizeHotelIdsFromList(sourceHotels);
+  }, [adminUser, canAccessAllHotels, userAccessHotels]);
+
+  const accessScopedRooms = useMemo(() => {
+    if (canAccessAllHotels) return rooms;
+
+    if (assignedHotelIds.length === 0) return [];
+
+    return rooms.filter((room) =>
+      assignedHotelIds.includes(String(getRoomHotelId(room)))
+    );
+  }, [rooms, assignedHotelIds, canAccessAllHotels]);
+
+  const accessScopedHotels = useMemo(() => {
+    const map = new Map();
+
+    accessScopedRooms.forEach((room) => {
+      const hotel = room?.hotel;
+      const hotelId = getRoomHotelId(room);
+
+      if (hotel?.id && hotel?.name) {
+        map.set(String(hotel.id), hotel);
+        return;
+      }
+
+      if (hotelId) {
+        map.set(String(hotelId), {
+          id: hotelId,
+          name: room?.hotel_name || `Hotel #${hotelId}`,
+        });
+      }
+    });
+
+    const sourceHotels =
+      canAccessAllHotels || userAccessHotels.length > 0
+        ? userAccessHotels
+        : Array.isArray(adminUser?.hotels)
+        ? adminUser.hotels
+        : [];
+
+    sourceHotels.forEach((hotel) => {
+      const hotelId = hotel?.id || hotel?.hotel_id || hotel?.value;
+
+      if (!hotelId) return;
+
+      if (!canAccessAllHotels && !assignedHotelIds.includes(String(hotelId))) {
+        return;
+      }
+
+      if (!map.has(String(hotelId))) {
+        map.set(String(hotelId), {
+          ...hotel,
+          id: hotelId,
+          name: hotel?.name || hotel?.hotel_name || `Hotel #${hotelId}`,
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [accessScopedRooms, adminUser, assignedHotelIds, canAccessAllHotels, userAccessHotels]);
+
   const enrichUnits = (unitList, room) => {
     return normalizeArrayResponse(unitList).map((unit) => ({
       ...unit,
@@ -84,7 +213,7 @@ export default function RoomUnits() {
       return;
     }
 
-    const room = rooms.find((item) => String(item.id) === String(roomId));
+    const room = accessScopedRooms.find((item) => String(item.id) === String(roomId));
 
     try {
       setLoadingUnits(true);
@@ -100,24 +229,10 @@ export default function RoomUnits() {
   };
 
   const hotelOptions = useMemo(() => {
-    const mappedHotels = rooms
-      .map((room) => room.hotel)
-      .filter((hotel) => hotel?.id && hotel?.name);
-
-    const uniqueHotels = [];
-
-    mappedHotels.forEach((hotel) => {
-      const exists = uniqueHotels.some(
-        (item) => Number(item.id) === Number(hotel.id)
-      );
-
-      if (!exists) uniqueHotels.push(hotel);
-    });
-
-    return uniqueHotels.sort((a, b) =>
+    return [...accessScopedHotels].sort((a, b) =>
       String(a.name || "").localeCompare(String(b.name || ""))
     );
-  }, [rooms]);
+  }, [accessScopedHotels]);
 
   const selectedHotelData = useMemo(() => {
     if (!selectedHotelId) return null;
@@ -130,7 +245,7 @@ export default function RoomUnits() {
   const roomsBySelectedHotel = useMemo(() => {
     if (!selectedHotelId) return [];
 
-    const filteredRooms = rooms.filter((room) => {
+    const filteredRooms = accessScopedRooms.filter((room) => {
       const hotelId = getRoomHotelId(room);
       return String(hotelId) === String(selectedHotelId);
     });
@@ -140,7 +255,7 @@ export default function RoomUnits() {
       const typeB = String(b?.type || b?.name || "");
       return typeA.localeCompare(typeB);
     });
-  }, [rooms, selectedHotelId]);
+  }, [accessScopedRooms, selectedHotelId]);
 
   const fetchAllUnitsByHotel = async (hotelId) => {
     if (!hotelId) {
@@ -148,7 +263,7 @@ export default function RoomUnits() {
       return;
     }
 
-    const hotelRooms = rooms.filter((room) => {
+    const hotelRooms = accessScopedRooms.filter((room) => {
       const roomHotelId = getRoomHotelId(room);
       return String(roomHotelId) === String(hotelId);
     });
@@ -618,7 +733,7 @@ export default function RoomUnits() {
 
     if (!hotelId) return;
 
-    const availableRooms = rooms.filter((room) => {
+    const availableRooms = accessScopedRooms.filter((room) => {
       const roomHotelId = getRoomHotelId(room);
       return String(roomHotelId) === String(hotelId);
     });
@@ -1025,11 +1140,17 @@ export default function RoomUnits() {
                 <select
                   value={selectedHotelId}
                   onChange={(e) => handleHotelChange(e.target.value)}
-                  disabled={loadingRooms}
+                  disabled={
+                    loadingRooms ||
+                    loadingUserAccessHotels ||
+                    (!canAccessAllHotels && assignedHotelIds.length === 0)
+                  }
                   className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="">
-                    {loadingRooms ? "Memuat cabang..." : "Pilih Cabang / Hotel"}
+                    {loadingRooms || loadingUserAccessHotels
+                      ? "Memuat cabang..."
+                      : "Pilih Cabang / Hotel"}
                   </option>
 
                   {hotelOptions.map((hotel) => (
@@ -1038,6 +1159,20 @@ export default function RoomUnits() {
                     </option>
                   ))}
                 </select>
+
+                {loadingUserAccessHotels && (
+                  <p className="mt-2 text-xs font-bold text-gray-500">
+                    Sedang memuat akses cabang user...
+                  </p>
+                )}
+
+                {!loadingUserAccessHotels &&
+                  !canAccessAllHotels &&
+                  assignedHotelIds.length === 0 && (
+                    <p className="mt-2 text-xs font-bold text-red-600">
+                      Akun ini belum memiliki akses cabang. Atur dari Kelola Users.
+                    </p>
+                  )}
               </div>
 
               <div className="xl:col-span-3">
