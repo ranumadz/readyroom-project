@@ -356,9 +356,7 @@ export default function Dashboard() {
                   </h1>
 
                   <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300 md:text-base">
-                    Dashboard khusus tim IT untuk memantau sistem ReadyRoom,
-                    akses internal, struktur data utama, dan persiapan fitur
-                    broadcast internal ke seluruh role selain boss.
+                    Dashboard IT Readyrooom
                   </p>
                 </div>
 
