@@ -434,6 +434,33 @@ class HotelController extends Controller
         ], 201);
     }
 
+
+    public function destroyCity($id)
+    {
+        $city = City::findOrFail($id);
+
+        /*
+         * Kota tidak boleh dihapus kalau masih dipakai hotel/cabang.
+         * Ini menjaga data hotel, booking, laporan, dan relasi lama tetap aman.
+         */
+        $hasHotels = Hotel::where('city_id', $city->id)->exists();
+
+        if ($hasHotels) {
+            return response()->json([
+                'message' => 'Kota tidak bisa dihapus karena masih digunakan oleh hotel/cabang.',
+            ], 422);
+        }
+
+        $cityName = $city->name;
+
+        $city->delete();
+
+        return response()->json([
+            'message' => 'Kota berhasil dihapus.',
+            'deleted_city' => $cityName,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([

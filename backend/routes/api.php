@@ -98,6 +98,11 @@ Route::prefix('admin')->group(function () {
     // =========================
     Route::post('/cities', [HotelController::class, 'storeCity']);
 
+    // ✅ FIX HAPUS KOTA DI ADD HOTEL
+    // Dipakai frontend AddHotel.jsx:
+    // DELETE /api/admin/cities/{id}
+    Route::delete('/cities/{id}', [HotelController::class, 'destroyCity']);
+
     // =========================
     // Rooms
     // =========================
