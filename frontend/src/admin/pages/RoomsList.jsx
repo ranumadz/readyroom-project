@@ -820,6 +820,16 @@ export default function RoomsList() {
       .filter((item, index, array) => array.indexOf(item) === index);
   };
 
+  const buildRoomNameFromType = (type, fallback = "") => {
+    const cleanType = String(type || "").trim();
+    const cleanFallback = String(fallback || "").trim();
+
+    if (!cleanType) return cleanFallback;
+    if (/\broom\b/i.test(cleanType)) return cleanType;
+
+    return `${cleanType} Room`;
+  };
+
   const buildUpdatePayload = (room, formData, statusOverride = null) => {
     const price3Key = getTransitPayloadKey(
       room,
@@ -843,7 +853,10 @@ export default function RoomsList() {
         : Number(formData.status ?? (isRoomActive(room) ? 1 : 0));
 
     const payload = {
-      name: formData.name ?? room?.name ?? "",
+      name: buildRoomNameFromType(
+        formData.type ?? room?.type ?? "",
+        formData.name ?? room?.name ?? ""
+      ),
       hotel_id:
         Number(formData.hotel_id || room?.hotel_id || room?.hotel?.id || 0) ||
         "",
@@ -1362,8 +1375,8 @@ export default function RoomsList() {
       return;
     }
 
-    if (!editForm.name.trim()) {
-      toast.error("Nama room wajib diisi");
+    if (!String(editForm.type || "").trim()) {
+      toast.error("Tipe kamar wajib diisi");
       return;
     }
 
@@ -1938,20 +1951,6 @@ export default function RoomsList() {
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Nama Kamar
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={editForm.name}
-                      onChange={handleEditFormChange}
-                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
-                      placeholder="Contoh: Deluxe Room"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Tipe Kamar
                     </label>
                     <input
@@ -1992,21 +1991,6 @@ export default function RoomsList() {
                       className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
                       placeholder="Harga full day"
                     />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Status
-                    </label>
-                    <select
-                      name="status"
-                      value={editForm.status}
-                      onChange={handleEditFormChange}
-                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
-                    >
-                      <option value={1}>Aktif</option>
-                      <option value={0}>Nonaktif</option>
-                    </select>
                   </div>
 
                   <div>
