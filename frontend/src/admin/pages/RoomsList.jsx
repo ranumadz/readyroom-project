@@ -1459,7 +1459,7 @@ export default function RoomsList() {
     if (roomToDeleteHasBookingHistory || !roomToDeleteCanDelete) {
       toast.error(
         roomToDeleteProtectionMessage ||
-          "Room ini sudah punya riwayat booking. Gunakan Disable agar laporan, receipt, dan riwayat customer tetap aman."
+          "Room ini sudah punya riwayat booking. Gunakan Nonaktifkan agar laporan, receipt, dan riwayat customer tetap aman."
       );
       return;
     }
@@ -1482,8 +1482,8 @@ export default function RoomsList() {
       toast.error(
         backendMessage ||
           (statusCode === 409
-            ? "Room ini sudah punya riwayat booking. Gunakan Disable agar laporan, receipt, dan riwayat customer tetap aman."
-            : "Gagal menghapus room. Jika room sudah punya booking atau room unit, gunakan Disable saja.")
+            ? "Room ini sudah punya riwayat booking. Gunakan Nonaktifkan agar laporan, receipt, dan riwayat customer tetap aman."
+            : "Gagal menghapus room. Jika room sudah punya booking atau room unit, gunakan Nonaktifkan saja.")
       );
     } finally {
       setDeletingRoomId(null);
@@ -1517,7 +1517,7 @@ export default function RoomsList() {
 
   const roomToDeleteProtectionMessage =
     roomToDelete?.delete_protection_message ||
-    "Room ini sudah memiliki riwayat booking, tidak bisa dihapus. Gunakan Disable agar data booking, laporan, receipt, dan riwayat customer tetap aman.";
+    "Room ini sudah memiliki riwayat booking, tidak bisa dihapus. Gunakan Nonaktifkan agar data booking, laporan, receipt, dan riwayat customer tetap aman.";
 
   const roomToDeleteIsActive = roomToDelete ? isRoomActive(roomToDelete) : false;
 
@@ -1682,24 +1682,11 @@ export default function RoomsList() {
 
                               <button
                                 type="button"
-                                onClick={() => handleToggleStatus(room)}
-                                disabled={isToggling || isDeleting}
-                                className={`rounded-xl px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                                  active
-                                    ? "bg-red-50 text-red-600 hover:bg-red-100"
-                                    : "bg-green-50 text-green-700 hover:bg-green-100"
-                                }`}
-                              >
-                                {active ? "Disable" : "Enable"}
-                              </button>
-
-                              <button
-                                type="button"
                                 onClick={() => openDeleteModal(room)}
                                 disabled={isDeleting || isToggling}
                                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                               >
-                                {isDeleting ? "Deleting..." : "Delete"}
+                                {isDeleting ? "Menghapus..." : "Hapus"}
                               </button>
                             </div>
                           </td>
@@ -1824,14 +1811,6 @@ export default function RoomsList() {
 
                     <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4">
                       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">
-                            Atur gallery kamar
-                          </p>
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            Geser urutan foto dengan tombol kiri/kanan atau drag. Simpan Perubahan untuk menyimpan.
-                          </p>
-                        </div>
 
                         <label className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-red-100 bg-white px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50">
                           Tambah Gambar
@@ -1901,35 +1880,11 @@ export default function RoomsList() {
                                       Hapus
                                     </button>
                                   </div>
-
-                                  <div className="grid grid-cols-2 gap-2 p-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => moveCurrentGalleryImage(index, index - 1)}
-                                      disabled={index === 0}
-                                      className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
-                                    >
-                                      ← 
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => moveCurrentGalleryImage(index, index + 1)}
-                                      disabled={
-                                        index ===
-                                        editCurrentGalleryItems.filter((item) => !item.id || !deletedGalleryImageIds.includes(Number(item.id))).length - 1
-                                      }
-                                      className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
-                                    >
-                                       →
-                                    </button>
-                                  </div>
                                 </div>
                               ))}
                           </div>
 
-                          <p className="mt-2 text-xs leading-relaxed text-gray-500">
-                            Urutan gallery dan gambar yang dihapus akan diproses saat klik Simpan Perubahan.
-                          </p>
+                          
                         </div>
                       )}
 
@@ -1978,39 +1933,11 @@ export default function RoomsList() {
                                     ×
                                   </button>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-2 p-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => moveNewGalleryImage(index, index - 1)}
-                                    disabled={index === 0}
-                                    className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
-                                  >
-                                    ← 
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => moveNewGalleryImage(index, index + 1)}
-                                    disabled={index === editGalleryPreviews.length - 1}
-                                    className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
-                                  >
-                                     →
-                                  </button>
-                                </div>
                               </div>
                             ))}
                           </div>
                         </div>
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center">
-                          <p className="text-sm font-bold text-gray-800">
-                            Belum ada gambar baru dipilih
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Klik Tambah Gambar kalau ingin menambah gallery room.
-                          </p>
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -2057,24 +1984,6 @@ export default function RoomsList() {
                       className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
                       placeholder="Kapasitas tamu"
                     />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Total Unit
-                    </label>
-                    <input
-                      type="number"
-                      name="total_rooms"
-                      min="0"
-                      value={editForm.total_rooms}
-                      readOnly
-                      className="w-full cursor-not-allowed rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500 outline-none"
-                      placeholder="Otomatis dari nomor kamar fisik"
-                    />
-                    <p className="mt-1 text-xs text-gray-400">
-                      Total unit mengikuti jumlah nomor kamar fisik di bawah.
-                    </p>
                   </div>
 
                   <div>
@@ -2596,7 +2505,7 @@ export default function RoomsList() {
                   Catatan aman operasional
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-amber-700">
-                  Kalau room sudah pernah dipakai booking, gunakan <b>Disable</b> agar laporan, receipt, monitoring, dan riwayat customer tetap aman.
+                  Kalau room sudah pernah dipakai booking, gunakan <b>Nonaktifkan</b> agar laporan, receipt, monitoring, dan riwayat customer tetap aman.
                 </p>
               </div>
             </div>
@@ -2618,7 +2527,7 @@ export default function RoomsList() {
                   disabled={Boolean(deletingRoomId) || Boolean(togglingRoomId)}
                   className="rounded-2xl border border-red-100 bg-white px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {togglingRoomId ? "Memproses..." : "Disable Saja"}
+                  {togglingRoomId ? "Memproses..." : "Nonaktifkan Saja"}
                 </button>
               )}
 

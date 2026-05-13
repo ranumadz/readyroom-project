@@ -507,8 +507,8 @@ export default function AddHotel() {
                     onClick={() => navigate("/admin/hotels")}
                     className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-gray-50"
                   >
-                    <List size={18} />
-                    Hotels List
+                    <span className="text-lg leading-none">←</span>
+                    Kembali
                   </button>
                 </div>
 

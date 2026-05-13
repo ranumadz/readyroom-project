@@ -1096,10 +1096,9 @@ export default function RoomUnits() {
             <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-6 py-5 text-white">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="max-w-3xl">
-                  <h2 className="text-lg font-black">Filter Monitoring Kamar</h2>
+                  <h2 className="text-lg font-black">Monitoring Kamar</h2>
                   <p className="mt-1 text-sm leading-relaxed text-white/65">
-                    Pilih cabang terlebih dahulu. Sistem akan menampilkan semua kamar
-                    dari cabang tersebut, lalu bisa difilter berdasarkan tipe kamar.
+                    Pilih cabang terlebih dahulu. 
                   </p>
                 </div>
 
@@ -1124,9 +1123,7 @@ export default function RoomUnits() {
                     )}
                   </div>
 
-                  <div className="w-fit rounded-2xl bg-white/10 px-4 py-2 text-sm font-bold text-white/90 shadow-sm ring-1 ring-white/10">
-                    {selectedHotelData?.name || "Belum pilih cabang"}
-                  </div>
+                 
                 </div>
               </div>
             </div>

@@ -13,7 +13,6 @@ import {
   Clock3,
   Clock6,
   Clock12,
-  Boxes,
   ChevronDown,
   Save,
   Upload,
@@ -21,15 +20,6 @@ import {
   Image as ImageIcon,
   Images,
   DoorOpen,
-  Wifi,
-  Car,
-  Tv,
-  Bath,
-  Coffee,
-  Dumbbell,
-  Waves,
-  AirVent,
-  UtensilsCrossed,
   CheckCircle2,
   ShieldCheck,
   ArrowLeft,
@@ -37,19 +27,6 @@ import {
 } from "lucide-react";
 
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
-
-const facilityIconOptions = [
-  { value: "wifi", icon: Wifi },
-  { value: "car", icon: Car },
-  { value: "tv", icon: Tv },
-  { value: "bath", icon: Bath },
-  { value: "coffee", icon: Coffee },
-  { value: "dumbbell", icon: Dumbbell },
-  { value: "waves", icon: Waves },
-  { value: "air-vent", icon: AirVent },
-  { value: "utensils-crossed", icon: UtensilsCrossed },
-  { value: "bed-double", icon: BedDouble },
-];
 
 const DEFAULT_ROOM_TYPE_OPTIONS = [
   "Standard",
@@ -64,11 +41,6 @@ const ROOM_TYPE_DELETED_STORAGE_KEY = "readyroom_deleted_default_room_types";
 
 const normalizeRoomTypeValue = (value) => {
   return String(value || "").trim().replace(/\s+/g, " ");
-};
-
-const getFacilityIconComponent = (iconName) => {
-  const found = facilityIconOptions.find((item) => item.value === iconName);
-  return found ? found.icon : ShieldCheck;
 };
 
 const normalizeFacilityScope = (facility) => {
@@ -699,12 +671,12 @@ export default function AddRoom() {
 
     if (!cleanRoomType) return toast.error("Isi tipe kamar");
     if (!form.capacity) return toast.error("Kapasitas wajib diisi");
-    if (!form.total_rooms) return toast.error("Total kamar wajib diisi");
+    if (roomNumberList.length === 0) {
+      return toast.error("Isi nomor kamar fisik terlebih dahulu");
+    }
     if (!form.price_per_night) return toast.error("Harga per malam wajib diisi");
 
-    if (roomNumberList.length > Number(form.total_rooms || 0)) {
-      return toast.error("Jumlah nomor kamar fisik lebih banyak dari total kamar");
-    }
+    const autoTotalRooms = roomNumberList.length;
 
     try {
       setSaving(true);
@@ -719,7 +691,7 @@ export default function AddRoom() {
       payload.append("price_transit_3h", form.price_transit_3h || 0);
       payload.append("price_transit_6h", form.price_transit_6h || 0);
       payload.append("price_transit_12h", form.price_transit_12h || 0);
-      payload.append("total_rooms", form.total_rooms);
+      payload.append("total_rooms", autoTotalRooms);
       payload.append("description", form.description || "");
       payload.append("status", form.status ? 1 : 0);
 
@@ -790,7 +762,7 @@ export default function AddRoom() {
               className="inline-flex w-fit items-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 shadow-sm transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
             >
               <ArrowLeft size={18} />
-              Kembali ke Rooms List
+              Kembali
             </button>
           </div>
 
@@ -801,7 +773,7 @@ export default function AddRoom() {
                   Informasi Kamar
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  Pilih hotel, tipe kamar, kapasitas, dan jumlah stok kamar.
+                  Pilih hotel, tipe kamar, kapasitas, dan nomor kamar fisik.
                 </p>
               </div>
 
@@ -883,9 +855,6 @@ export default function AddRoom() {
                       <div className="mb-3">
                         <p className="text-sm font-black text-gray-900">
                           Master Tipe Kamar
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                          Tambahkan tipe kamar baru untuk pilihan dropdown. Perubahan ini aman di browser admin dan tidak mengubah logic simpan kamar.
                         </p>
                       </div>
 
@@ -976,26 +945,6 @@ export default function AddRoom() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Total Kamar
-                  </label>
-
-                  <div className="relative">
-                    <input
-                      type="number"
-                      name="total_rooms"
-                      value={form.total_rooms}
-                      onChange={handleChange}
-                      placeholder="Contoh: 10"
-                      className={`${inputClass} pl-12`}
-                    />
-                    <Boxes
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -1005,7 +954,7 @@ export default function AddRoom() {
                   Kamar Fisik / Nomor Kamar
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  Isi nomor kamar fisik yang akan langsung dibuat untuk monitoring kamar.
+                  Isi nomor kamar fisik. Jumlah kamar akan otomatis mengikuti daftar ini.
                 </p>
               </div>
 
@@ -1036,7 +985,7 @@ export default function AddRoom() {
                       : "Belum ada nomor kamar fisik yang diisi"}
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-blue-700">
-                    Pisahkan nomor kamar dengan koma atau enter. Contoh: 101, 102, 201, A01.
+                    Pisahkan nomor kamar dengan koma atau enter. Jumlah kamar otomatis dihitung dari daftar ini.
                   </p>
                 </div>
 
@@ -1118,7 +1067,6 @@ export default function AddRoom() {
               ) : (
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {roomFacilities.map((facility) => {
-                    const FacilityIcon = getFacilityIconComponent(facility.icon);
                     const isSelected = form.facility_ids
                       .map((item) => Number(item))
                       .includes(Number(facility.id));
@@ -1134,25 +1082,10 @@ export default function AddRoom() {
                             : "border-gray-200 bg-gray-50 hover:border-red-100 hover:bg-white"
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
-                              isSelected
-                                ? "bg-red-600 text-white"
-                                : "bg-white text-red-600"
-                            }`}
-                          >
-                            <FacilityIcon size={19} />
-                          </div>
-
-                          <div>
-                            <p className="text-sm font-black text-gray-900">
-                              {facility.name}
-                            </p>
-                            <p className="text-xs font-semibold text-gray-400">
-                              Icon: {facility.icon || "-"}
-                            </p>
-                          </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-gray-900">
+                            {facility.name}
+                          </p>
                         </div>
 
                         <div
