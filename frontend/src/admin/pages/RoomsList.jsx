@@ -4,6 +4,21 @@ import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import toast from "react-hot-toast";
 
+const DEFAULT_ROOM_TYPE_OPTIONS = [
+  "Standard",
+  "Superior",
+  "Deluxe",
+  "Family",
+  "Suite",
+];
+
+const ROOM_TYPE_STORAGE_KEY = "readyroom_custom_room_types";
+const ROOM_TYPE_DELETED_STORAGE_KEY = "readyroom_deleted_default_room_types";
+
+const normalizeRoomTypeValue = (value) => {
+  return String(value || "").trim().replace(/\s+/g, " ");
+};
+
 export default function RoomsList() {
   const [rooms, setRooms] = useState([]);
   const [hotels, setHotels] = useState([]);
@@ -19,6 +34,36 @@ export default function RoomsList() {
   });
   const [selectedRoomType, setSelectedRoomType] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [customRoomTypes] = useState(() => {
+    if (typeof window === "undefined") return [];
+
+    try {
+      const saved = JSON.parse(localStorage.getItem(ROOM_TYPE_STORAGE_KEY) || "[]");
+
+      return Array.isArray(saved)
+        ? saved.map(normalizeRoomTypeValue).filter(Boolean)
+        : [];
+    } catch (error) {
+      console.error("READ CUSTOM ROOM TYPES ERROR:", error);
+      return [];
+    }
+  });
+  const [deletedDefaultRoomTypes] = useState(() => {
+    if (typeof window === "undefined") return [];
+
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(ROOM_TYPE_DELETED_STORAGE_KEY) || "[]"
+      );
+
+      return Array.isArray(saved)
+        ? saved.map(normalizeRoomTypeValue).filter(Boolean)
+        : [];
+    } catch (error) {
+      console.error("READ DELETED ROOM TYPES ERROR:", error);
+      return [];
+    }
+  });
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -487,6 +532,44 @@ export default function RoomsList() {
 
     return [...new Set(types)].sort((a, b) => a.localeCompare(b));
   }, [rooms]);
+
+  const editRoomTypeOptions = useMemo(() => {
+    const deletedKeys = deletedDefaultRoomTypes.map((item) =>
+      item.toLowerCase()
+    );
+
+    const visibleDefaults = DEFAULT_ROOM_TYPE_OPTIONS.filter((type) => {
+      return !deletedKeys.includes(type.toLowerCase());
+    });
+
+    const existingRoomTypes = rooms
+      .map((room) => room?.type)
+      .filter(Boolean)
+      .map(normalizeRoomTypeValue)
+      .filter(Boolean);
+
+    const combined = [
+      ...visibleDefaults,
+      ...customRoomTypes,
+      ...existingRoomTypes,
+      editForm.type,
+    ];
+
+    const uniqueTypes = [];
+
+    combined.forEach((type) => {
+      const cleanType = normalizeRoomTypeValue(type);
+      if (!cleanType) return;
+
+      const alreadyExists = uniqueTypes.some(
+        (item) => item.toLowerCase() === cleanType.toLowerCase()
+      );
+
+      if (!alreadyExists) uniqueTypes.push(cleanType);
+    });
+
+    return uniqueTypes;
+  }, [customRoomTypes, deletedDefaultRoomTypes, editForm.type, rooms]);
 
   const filteredRooms = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -1953,14 +2036,19 @@ export default function RoomsList() {
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Tipe Kamar
                     </label>
-                    <input
-                      type="text"
+                    <select
                       name="type"
                       value={editForm.type}
                       onChange={handleEditFormChange}
                       className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
-                      placeholder="Contoh: Standard / Deluxe"
-                    />
+                    >
+                      <option value="">Pilih Tipe Kamar</option>
+                      {editRoomTypeOptions.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>

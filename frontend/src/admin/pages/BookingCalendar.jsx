@@ -18,7 +18,7 @@ import {
 export default function BookingCalendar() {
   const today = new Date();
   const FOLDER_SEEN_STORAGE_KEY = "readyroom_calendar_seen_hotels";
-  const AUTO_REFRESH_INTERVAL = 5000;
+  const AUTO_REFRESH_INTERVAL = 30000;
 
   const adminUser =
     JSON.parse(localStorage.getItem("adminUser") || "null") ||
@@ -993,7 +993,7 @@ export default function BookingCalendar() {
                           <div className="sticky left-0 z-[60] min-w-[170px] max-w-[170px] border-r border-b border-gray-200 bg-white/95 px-3 py-3 shadow-[10px_0_22px_rgba(15,23,42,0.10)] backdrop-blur-sm">
                             <div className="min-w-0">
                               <p className="truncate text-[13px] font-semibold text-gray-800">
-                                Room {unit.room_number}
+                                Kamar {unit.room_number}
                               </p>
                               <p className="truncate text-[11px] font-medium text-gray-500">
                                 {getCalendarUnitTypeLabel(unit)}
