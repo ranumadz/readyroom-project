@@ -1577,9 +1577,8 @@ export default function RoomsList() {
               <table className="w-full min-w-[1250px]">
                 <thead className="border-b border-gray-200 bg-gray-50">
                   <tr className="text-left text-sm text-gray-600">
-                    <th className="px-6 py-4 font-semibold">Nama Kamar</th>
+                    <th className="px-6 py-4 font-semibold">Tipe Kamar</th>
                     <th className="px-6 py-4 font-semibold">Cabang</th>
-                    <th className="px-6 py-4 font-semibold">Tipe</th>
                     <th className="px-6 py-4 font-semibold">Kapasitas</th>
                     <th className="px-6 py-4 font-semibold">
                       Harga Full Day
@@ -1609,7 +1608,7 @@ export default function RoomsList() {
                         >
                           <td className="px-6 py-4">
                             <p className="font-bold text-gray-900">
-                              {room.name || "-"}
+                              {room.type || room.name || "-"}
                             </p>
                             <p className="mt-0.5 text-xs font-medium text-gray-400">
                               ID: {room.id}
@@ -1618,12 +1617,6 @@ export default function RoomsList() {
 
                           <td className="px-6 py-4 text-gray-600">
                             {room.hotel?.name || "-"}
-                          </td>
-
-                          <td className="px-6 py-4">
-                            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700">
-                              {room.type || "-"}
-                            </span>
                           </td>
 
                           <td className="px-6 py-4 text-gray-600">

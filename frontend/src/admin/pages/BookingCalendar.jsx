@@ -18,7 +18,7 @@ import {
 export default function BookingCalendar() {
   const today = new Date();
   const FOLDER_SEEN_STORAGE_KEY = "readyroom_calendar_seen_hotels";
-  const AUTO_REFRESH_INTERVAL = 30000;
+  const AUTO_REFRESH_INTERVAL = 5000;
 
   const adminUser =
     JSON.parse(localStorage.getItem("adminUser") || "null") ||
@@ -648,6 +648,26 @@ export default function BookingCalendar() {
     return hotel?.name || "-";
   };
 
+  const normalizeRoomTypeLabel = (value) => {
+    const text = String(value || "").trim();
+
+    if (!text) return "-";
+
+    const cleaned = text.replace(/\s+room$/i, "").trim();
+
+    return cleaned || text;
+  };
+
+  const getCalendarUnitTypeLabel = (unit) => {
+    return normalizeRoomTypeLabel(
+      unit?.room_type ||
+        unit?.type ||
+        unit?.room?.type ||
+        unit?.room_name ||
+        unit?.room?.name
+    );
+  };
+
   const isSameCalendarDay = (dateA, dateB) => {
     const a = new Date(dateA);
     const b = new Date(dateB);
@@ -976,7 +996,7 @@ export default function BookingCalendar() {
                                 Room {unit.room_number}
                               </p>
                               <p className="truncate text-[11px] font-medium text-gray-500">
-                                {unit.room_name || "-"}
+                                {getCalendarUnitTypeLabel(unit)}
                               </p>
                             </div>
                           </div>
@@ -1110,13 +1130,23 @@ function BookingDetailModal({
   getStatusBadgeClass,
   getPaymentBadgeClass,
 }) {
+  const normalizeRoomTypeLabel = (value) => {
+    const text = String(value || "").trim();
+
+    if (!text) return "Kamar";
+
+    const cleaned = text.replace(/\s+room$/i, "").trim();
+
+    return cleaned || text;
+  };
+
   const getBookingTypeText = (bookingType) => {
     if (bookingType === "overnight") return "Full Day";
     if (bookingType === "transit") return "Transit";
     return bookingType || "-";
   };
 
-  const roomLabel = booking.room?.type || booking.room?.name || "Kamar";
+  const roomLabel = normalizeRoomTypeLabel(booking.room?.type || booking.room?.name || "Kamar");
   const unitNumber = booking.room_unit?.room_number || booking.room_number || "-";
   const roomUnitText = unitNumber === "-" ? roomLabel : `${roomLabel} / ${unitNumber}`;
   const totalPriceText = booking.total_price

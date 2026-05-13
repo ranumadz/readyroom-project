@@ -11,7 +11,6 @@ import {
   Lock,
   RefreshCw,
   Save,
-  Search,
   Unlock,
   X,
 } from "lucide-react";
@@ -717,29 +716,11 @@ export default function BookingAvailability() {
       });
   }, [accessScopedRooms, search, selectedHotelId, hotelsById]);
 
-  const availabilityStats = useMemo(() => {
-    const activeRooms = filteredRooms.filter((room) => isRoomActive(room)).length;
-    const closedRooms = filteredRooms.length - activeRooms;
-    const totalUnits = filteredRooms.reduce(
-      (sum, room) => sum + Number(room?.total_rooms || 0),
-      0
-    );
-
-    return {
-      totalRooms: filteredRooms.length,
-      activeRooms,
-      closedRooms,
-      totalUnits,
-    };
-  }, [filteredRooms]);
-
   const selectedHotelData = selectedHotelId
     ? hotelOptions.find((hotel) => String(hotel?.id) === String(selectedHotelId)) ||
       hotelsById.get(String(selectedHotelId)) ||
       null
     : null;
-
-  const selectedHotelLabel = selectedHotelData?.name || "Belum pilih cabang";
 
   const selectedCloseRoomHotel = selectedCloseRoom
     ? getRoomHotel(selectedCloseRoom)
@@ -781,14 +762,11 @@ export default function BookingAvailability() {
                   </p>
                 </div>
 
-                <div className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white">
-                  {selectedHotelLabel}
-                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-12 md:p-5">
-              <div className="md:col-span-5">
+              <div className="md:col-span-6 lg:col-span-5 xl:col-span-4">
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
                   Cabang / Hotel
                 </label>
@@ -822,60 +800,8 @@ export default function BookingAvailability() {
                     Akun ini belum memiliki akses cabang. Atur akses cabang dari Kelola Users.
                   </p>
                 )}
-
-                {!selectedHotelId && hasHotelAccess && (
-                  <p className="mt-2 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold leading-relaxed text-red-700">
-                    Wajib pilih cabang/hotel dulu agar daftar kamar tampil.
-                  </p>
-                )}
-
-                {selectedHotelId && (
-                  <p className="mt-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold leading-relaxed text-emerald-700">
-                    Cabang dipilih. Silakan atur kamar yang mau dibuka atau ditutup.
-                  </p>
-                )}
-              </div>
-
-              <div className="md:col-span-7">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                  Cari Kamar
-                </label>
-                <div className="relative">
-                  <Search
-                    size={17}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder={
-                      selectedHotelId ? "Cari kamar atau tipe..." : "Pilih cabang dulu"
-                    }
-                    disabled={!selectedHotelId}
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-                  />
-                </div>
               </div>
             </div>
-
-            {selectedHotelId && (
-              <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 pb-4 md:px-5">
-                <StatusPill label={`Total Kamar: ${availabilityStats.totalRooms}`} />
-                <StatusPill
-                  color="bg-emerald-500"
-                  label={`Dibuka: ${availabilityStats.activeRooms}`}
-                />
-                <StatusPill
-                  color="bg-amber-500"
-                  label={`Ditutup: ${availabilityStats.closedRooms}`}
-                />
-                <StatusPill
-                  color="bg-slate-500"
-                  label={`Total Unit: ${availabilityStats.totalUnits}`}
-                />
-              </div>
-            )}
           </div>
 
           <div className="overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm">
@@ -1173,15 +1099,6 @@ export default function BookingAvailability() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function StatusPill({ color = "bg-red-500", label }) {
-  return (
-    <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm">
-      <span className={`h-2 w-2 rounded-full ${color}`} />
-      <span>{label}</span>
     </div>
   );
 }
