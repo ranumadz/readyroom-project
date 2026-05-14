@@ -1613,16 +1613,15 @@ export default function Home() {
         <div className="mx-auto grid max-w-7xl gap-5 px-4 md:px-6 lg:grid-cols-[0.88fr_1.12fr] lg:gap-10">
           <div data-aos="fade-right" className="flex flex-col justify-center">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-red-100/80 md:text-sm">
-              Penawaran Tambahan
+              Jangkauan ReadyRoom
             </p>
 
             <h2 className="mt-2.5 text-xl font-bold leading-tight md:text-5xl">
-              Bikin properti kamu lebih menarik di mata tamu
+              Temukan ReadyRoom di Berbagai Tempat
             </h2>
 
             <p className="mt-3 max-w-xl text-[11px] leading-relaxed text-red-50/85 md:mt-5 md:text-base">
-              Tampilan yang rapi, modern, dan siap meningkatkan daya tarik
-              properti kamu di setiap pencarian.
+              Nikmati pilihan hotel ReadyRoom di berbagai area strategis untuk kebutuhan transit, istirahat, maupun perjalanan singkat.
             </p>
 
             <div className="mt-5 flex flex-wrap gap-2.5 md:mt-8 md:gap-4">
