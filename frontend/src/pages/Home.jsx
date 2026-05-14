@@ -1449,7 +1449,7 @@ export default function Home() {
               image: infoImage,
               title: infoTitle,
               desc: infoDescription,
-              label: "Informasi Highlight",
+             
               icon: Newspaper,
               color: "text-red-600",
             },
@@ -1457,7 +1457,7 @@ export default function Home() {
               image: promo2Image,
               title: promo2Title,
               desc: promo2Description,
-              label: "Promo Highlight",
+              
               icon: Award,
               color: "text-green-600",
             },
@@ -1465,37 +1465,32 @@ export default function Home() {
             const Icon = item.icon;
 
             return (
-              <div
-                key={item.label}
-                className="overflow-hidden rounded-[1.15rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl md:rounded-[2rem]"
-              >
-                <div className="relative h-40 md:h-80">
-                  <img
-                    draggable={false}
-                    src={item.image}
-                    alt={item.title}
-                    className="h-full w-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+  <div
+    key={`${item.title}-${item.image}`}
+    className="overflow-hidden rounded-[1.15rem] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl md:rounded-[2rem]"
+  >
+    <div className="relative h-40 md:h-80">
+      <img
+        draggable={false}
+        src={item.image}
+        alt={item.title}
+        className="h-full w-full object-cover"
+      />
 
-                  <div
-                    className={`absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold ${item.color} shadow md:top-5 md:left-5 md:px-4 md:py-2 md:text-sm`}
-                  >
-                    <Icon size={13} />
-                    {item.label}
-                  </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-                  <div className="absolute right-0 bottom-0 left-0 p-3.5 text-white md:p-8">
-                    <h3 className="text-base font-bold leading-tight md:text-3xl">
-                      {item.title}
-                    </h3>
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-white/85 md:mt-3 md:text-base">
-                      {item.desc}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
+      <div className="absolute right-0 bottom-0 left-0 p-3.5 text-white md:p-8">
+        <h3 className="text-base font-bold leading-tight md:text-3xl">
+          {item.title}
+        </h3>
+
+        <p className="mt-1.5 text-[11px] leading-relaxed text-white/85 md:mt-3 md:text-base">
+          {item.desc}
+        </p>
+      </div>
+    </div>
+  </div>
+);
           })}
         </div>
       </section>
