@@ -382,8 +382,76 @@ export default function Home() {
     });
   };
 
+  const getHotelBookingScore = (hotel) => {
+    const scoreOptions = [
+      hotel?.bookings_count,
+      hotel?.booking_count,
+      hotel?.total_bookings,
+      hotel?.booked_count,
+      hotel?.reservation_count,
+      hotel?.order_count,
+      hotel?.total_orders,
+      hotel?.completed_bookings_count,
+      hotel?.paid_bookings_count,
+    ]
+      .map((value) => Number(value || 0))
+      .filter((value) => value > 0 && !Number.isNaN(value));
+
+    return scoreOptions.length ? Math.max(...scoreOptions) : 0;
+  };
+
+  const bookingCrowdHotels = useMemo(() => {
+    if (!popularHotels.length) return [];
+
+    const hotelScores = popularHotels.map((hotel, index) => ({
+      hotel,
+      index,
+      score: getHotelBookingScore(hotel),
+    }));
+
+    const hasBookingScore = hotelScores.some((item) => item.score > 0);
+
+    if (!hasBookingScore) return popularHotels;
+
+    return hotelScores
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map((item) => item.hotel);
+  }, [popularHotels]);
+
+  const getHotelRecommendationScore = (hotel) => {
+    const startingPrice = getHotelStartingPrice(hotel);
+    const facilitiesCount = Array.isArray(hotel?.facilities)
+      ? hotel.facilities.length
+      : 0;
+    const roomsCount = Array.isArray(hotel?.rooms) ? hotel.rooms.length : 0;
+    const hasImage = hotel?.thumbnail || hotel?.hero_image ? 1 : 0;
+    const bookingScore = getHotelBookingScore(hotel);
+    const priceScore =
+      startingPrice?.price > 0
+        ? Math.max(0, 12 - Math.min(startingPrice.price / 50000, 12))
+        : 0;
+
+    return (
+      bookingScore * 2.5 +
+      facilitiesCount * 1.4 +
+      roomsCount * 1.2 +
+      hasImage * 2 +
+      priceScore
+    );
+  };
+
   const recommendedHotels = useMemo(() => {
-    return popularHotels.slice(0, 6);
+    if (!popularHotels.length) return [];
+
+    return [...popularHotels]
+      .map((hotel, index) => ({
+        hotel,
+        index,
+        score: getHotelRecommendationScore(hotel),
+      }))
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map((item) => item.hotel)
+      .slice(0, 6);
   }, [popularHotels]);
 
   const heroMainImage = buildImageUrl(
@@ -765,8 +833,8 @@ export default function Home() {
     variant === "recent"
       ? "Baru Dilihat"
       : variant === "recommended"
-      ? "Pilihan Kurasi"
-      : "Popular Choice";
+      ? "Pilihan ReadyRoom"
+      : "Ramai Dibooking";
 
   const BadgeIcon =
     variant === "recommended"
@@ -1368,7 +1436,11 @@ export default function Home() {
         </ScrollRow>
       </section>
 
-      <BrandSection />
+      {/*
+        SECTION "Cari Berdasarkan Brand" sementara di-hide dulu sesuai revisi bos.
+        Kode BrandSection tidak dihapus, hanya pemanggilannya yang dikomentari.
+        Kalau nanti mau ditampilkan lagi, aktifkan kembali baris ini: <BrandSection />
+      */}
 
       <section className="mx-auto max-w-7xl px-4 py-7 md:px-6 md:py-16">
         <div className="grid grid-cols-1 gap-3 md:gap-8 lg:grid-cols-2">
@@ -1474,7 +1546,7 @@ export default function Home() {
             </div>
 
             <p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
-              Properti yang paling sering dilihat dan dipilih customer.
+              Properti yang ramai dibooking dan sering dipilih customer ReadyRoom.
             </p>
           </div>
 
@@ -1483,7 +1555,7 @@ export default function Home() {
             onClick={forceNextPageStartFromTop}
             className="shrink-0 text-[11px] font-semibold text-red-600 hover:underline md:text-base"
           >
-            View All
+            Lihat Semua
           </Link>
         </div>
 
@@ -1491,7 +1563,7 @@ export default function Home() {
           loading={loadingHotels}
           emptyText="Belum ada hotel aktif yang tampil."
         >
-          {popularHotels.map((hotel, i) => (
+          {bookingCrowdHotels.map((hotel, i) => (
             <HotelCard
               key={hotel.id}
               hotel={hotel}
@@ -1512,7 +1584,7 @@ export default function Home() {
             </div>
 
             <p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
-              Pilihan hotel yang dikurasi untuk pengalaman menginap yang lebih nyaman.
+              Pilihan hotel yang terasa paling value dari harga, fasilitas, dan kenyamanan.
             </p>
           </div>
 
@@ -1521,7 +1593,7 @@ export default function Home() {
             onClick={forceNextPageStartFromTop}
             className="shrink-0 text-[11px] font-semibold text-red-600 hover:underline md:text-base"
           >
-            Explore More
+            Lihat Semua
           </Link>
         </div>
 
@@ -1540,6 +1612,7 @@ export default function Home() {
           ))}
         </HorizontalHotelSection>
       </section>
+
 
       <section className="bg-[#8f0f0f] py-10 text-white md:py-20">
         <div className="mx-auto grid max-w-7xl gap-5 px-4 md:px-6 lg:grid-cols-[0.88fr_1.12fr] lg:gap-10">
