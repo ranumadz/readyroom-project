@@ -99,6 +99,14 @@ export default function BookingList() {
     admin_note: "",
   });
 
+  const [manualDatePickerOpen, setManualDatePickerOpen] = useState(false);
+  const [manualCheckInDraft, setManualCheckInDraft] = useState({
+    date: "",
+    hour: "14",
+    minute: "00",
+  });
+  const [manualCalendarMonth, setManualCalendarMonth] = useState(() => new Date());
+
   const [filters, setFilters] = useState({
     search: "",
     status: "",
@@ -712,6 +720,13 @@ export default function BookingList() {
       admin_note: "",
     });
     setManualRoomUnits([]);
+    setManualDatePickerOpen(false);
+    setManualCheckInDraft({
+      date: "",
+      hour: "14",
+      minute: "00",
+    });
+    setManualCalendarMonth(new Date());
   };
 
   const handleManualChange = (e) => {
@@ -746,6 +761,112 @@ export default function BookingList() {
       }
 
       return next;
+    });
+  };
+
+
+  const padTwo = (value) => String(value).padStart(2, "0");
+
+  const getLocalDateValue = (date) => {
+    return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(date.getDate())}`;
+  };
+
+  const getManualPickerDefaultDraft = () => {
+    if (manualForm.check_in) {
+      const [datePart, timePart = "14:00"] = String(manualForm.check_in).split("T");
+      const [hour = "14", minute = "00"] = timePart.split(":");
+
+      return {
+        date: datePart || getLocalDateValue(new Date()),
+        hour: padTwo(hour),
+        minute: padTwo(minute),
+      };
+    }
+
+    const now = new Date();
+    const roundedDate = new Date(now);
+    const roundedMinute = Math.ceil(now.getMinutes() / 15) * 15;
+
+    if (roundedMinute >= 60) {
+      roundedDate.setHours(roundedDate.getHours() + 1, 0, 0, 0);
+    } else {
+      roundedDate.setMinutes(roundedMinute, 0, 0);
+    }
+
+    return {
+      date: getLocalDateValue(roundedDate),
+      hour: padTwo(roundedDate.getHours()),
+      minute: padTwo(roundedDate.getMinutes()),
+    };
+  };
+
+  const openManualCheckInPicker = () => {
+    const draft = getManualPickerDefaultDraft();
+    const draftDate = new Date(`${draft.date}T00:00:00`);
+
+    setManualCheckInDraft(draft);
+    setManualCalendarMonth(
+      Number.isNaN(draftDate.getTime()) ? new Date() : draftDate
+    );
+    setManualDatePickerOpen(true);
+  };
+
+  const handleManualCalendarMonthChange = (direction) => {
+    setManualCalendarMonth((prev) => {
+      const next = new Date(prev);
+      next.setDate(1);
+      next.setMonth(next.getMonth() + direction);
+      return next;
+    });
+  };
+
+  const handleManualCalendarDayClick = (day) => {
+    if (!day) return;
+
+    setManualCheckInDraft((prev) => ({
+      ...prev,
+      date: getLocalDateValue(day),
+    }));
+  };
+
+  const confirmManualCheckInPicker = () => {
+    if (!manualCheckInDraft.date) {
+      toast.error("Pilih tanggal check-in dulu");
+      return;
+    }
+
+    setManualForm((prev) => ({
+      ...prev,
+      check_in: `${manualCheckInDraft.date}T${manualCheckInDraft.hour}:${manualCheckInDraft.minute}`,
+    }));
+    setManualDatePickerOpen(false);
+  };
+
+  const clearManualCheckInPicker = () => {
+    setManualForm((prev) => ({
+      ...prev,
+      check_in: "",
+    }));
+    setManualCheckInDraft({
+      date: "",
+      hour: "14",
+      minute: "00",
+    });
+    setManualDatePickerOpen(false);
+  };
+
+  const getManualCheckInDisplay = (value) => {
+    if (!value) return "Pilih tanggal & jam";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Pilih tanggal & jam";
+
+    return date.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -1145,32 +1266,23 @@ const handlePrintReport = () => {
     );
   };
 
-  const getCleaningTimeNote = (booking) => {
-    const startedAt = booking?.cleaning_started_at;
-
-    if (!startedAt) {
-      return "Waktu mulai belum tercatat";
-    }
-
-    const startedDate = new Date(startedAt);
-
-    if (Number.isNaN(startedDate.getTime())) {
-      return "Waktu mulai belum tercatat";
-    }
-
-    const estimationMinutes = Number(booking?.cleaning_estimation_minutes || 15);
-    const estimatedFinish = new Date(startedDate.getTime() + estimationMinutes * 60 * 1000);
-    const now = new Date();
-
-    if (now > estimatedFinish) {
-      const lateMinutes = Math.max(1, Math.ceil((now.getTime() - estimatedFinish.getTime()) / 60000));
-      return `Lewat estimasi ${lateMinutes} menit`;
-    }
-
-    return `Estimasi selesai ${estimatedFinish.toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`;
+  const getCleaningByName = (booking) => {
+    return (
+      booking?.cleaningFinisher?.name ||
+      booking?.cleaning_finisher?.name ||
+      booking?.cleaning_finished_by_user?.name ||
+      booking?.cleaningFinishedBy?.name ||
+      booking?.cleaning_finished_by_name ||
+      booking?.cleaningCompleter?.name ||
+      booking?.cleaning_completer?.name ||
+      booking?.cleaning_completed_by_user?.name ||
+      booking?.cleaningCompletedBy?.name ||
+      booking?.cleaning_completed_by_name ||
+      booking?.cleanedBy?.name ||
+      booking?.cleaned_by_user?.name ||
+      booking?.cleaned_by_name ||
+      getCleaningStartedByName(booking)
+    );
   };
 
   const getReceiptSourceLabel = (booking) => {
@@ -2003,6 +2115,8 @@ const reportBookings = useMemo(() => {
 
   const inputClass =
     "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100";
+  const manualInputClass =
+    "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none shadow-sm transition placeholder:text-slate-400 focus:border-red-400 focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400";
 
   const needsFolderSelection = !canAccessAllHotels;
 const hasSelectedFolder = canAccessAllHotels ? true : !!filters.hotelId;
@@ -2016,6 +2130,33 @@ const selectedFolderLabel = filters.hotelId
   : canAccessAllHotels
   ? "Semua Cabang"
   : "Belum pilih cabang";
+
+
+const manualCalendarDays = useMemo(() => {
+  const year = manualCalendarMonth.getFullYear();
+  const month = manualCalendarMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const totalSlots = Math.ceil((startOffset + totalDays) / 7) * 7;
+
+  return Array.from({ length: totalSlots }, (_, index) => {
+    const dayNumber = index - startOffset + 1;
+
+    if (dayNumber < 1 || dayNumber > totalDays) {
+      return null;
+    }
+
+    return new Date(year, month, dayNumber);
+  });
+}, [manualCalendarMonth]);
+
+const manualCalendarMonthLabel = manualCalendarMonth.toLocaleDateString("id-ID", {
+  month: "long",
+  year: "numeric",
+});
+
+const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
@@ -2246,6 +2387,11 @@ const selectedFolderLabel = filters.hotelId
                   const showNotifyButton =
                     !!booking.guest_phone &&
                     ["pending", "confirmed", "checked_in"].includes(booking.status);
+
+                  const cleaningByName = getCleaningByName(booking);
+                  const hasCleaningHistory =
+                    ["cleaning", "completed"].includes(String(booking?.status || "").toLowerCase()) &&
+                    !!cleaningByName;
 
                   return (
                     <div
@@ -2602,7 +2748,7 @@ const selectedFolderLabel = filters.hotelId
 
                                 <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-black text-orange-700 shadow-sm ring-1 ring-orange-100">
                                   <Clock3 size={13} />
-                                  {getCleaningTimeNote(booking)}
+                                  Sedang diproses
                                 </span>
                               </div>
                             </div>
@@ -2611,7 +2757,8 @@ const selectedFolderLabel = filters.hotelId
                           {(booking?.creator?.name ||
                             booking?.editor?.name ||
                             booking?.refunder?.name ||
-                            booking?.canceller?.name) && (
+                            booking?.canceller?.name ||
+                            hasCleaningHistory) && (
                             <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-3 py-3">
                               <div className="mb-2 flex items-center gap-2">
                                 <History size={14} className="text-red-500" />
@@ -2635,6 +2782,10 @@ const selectedFolderLabel = filters.hotelId
 
                                 {booking?.canceller?.name && (
                                   <HistoryPill label="Batalkan" value={getCancelledByName(booking)} />
+                                )}
+
+                                {hasCleaningHistory && (
+                                  <HistoryPill label="Cleaning oleh" value={cleaningByName} />
                                 )}
                               </div>
                             </div>
@@ -3961,41 +4112,56 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
   </div>
 )}
           {showManualModal && (
-            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-              <div className="bg-white rounded-3xl p-5 md:p-6 w-full max-w-4xl shadow-xl my-8">
-                <div className="flex items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-800">
-                      Manual Booking
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Input booking manual untuk resepsionis, walk-in, atau OTS.
-                    </p>
+            <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm md:p-5">
+              <div className="my-5 w-full max-w-[900px] overflow-hidden rounded-[34px] border border-red-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+                <div className="relative overflow-hidden border-b border-red-100 bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-5 py-4 text-white md:px-6">
+                  <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/15 blur-2xl" />
+                  <div className="pointer-events-none absolute right-5 top-2 text-[86px] font-black leading-none text-white/10">
+                    RR
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={closeManualModal}
-                    className="rounded-2xl bg-gray-200 px-4 py-2 text-gray-700 font-medium hover:bg-gray-300 transition"
-                  >
-                    Tutup
-                  </button>
-                </div>
-
-                <div className="space-y-5">
-                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                    <div className="mb-5">
-                      <h3 className="text-lg font-bold text-gray-800">
-                        Data Tamu
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Isi data tamu langsung tanpa harus memakai akun customer.
+                  <div className="relative z-10 flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.32em] text-red-100">
+                        ReadyRoom Manual Ops
+                      </p>
+                      <h2 className="mt-1 text-xl font-black leading-tight md:text-2xl">
+                        Manual Booking
+                      </h2>
+                      <p className="mt-1 max-w-xl text-xs font-medium text-red-50 md:text-sm">
+                        Input booking OTS/walk-in dengan pilihan check-in yang dikunci lewat tombol OK.
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <button
+                      type="button"
+                      onClick={closeManualModal}
+                      className="shrink-0 rounded-2xl bg-white/15 px-4 py-2 text-xs font-bold text-white ring-1 ring-white/25 transition hover:bg-white/25"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-[78vh] space-y-3 overflow-y-auto bg-[radial-gradient(circle_at_top_right,_rgba(254,202,202,0.42),_transparent_24%),linear-gradient(180deg,_#fff_0%,_#fff7f7_100%)] p-4 md:p-5">
+                  <div className="rounded-[28px] border border-slate-100 bg-white/95 p-4 shadow-sm">
+                    <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
+                          Step 01
+                        </p>
+                        <h3 className="text-base font-black text-slate-900">
+                          Data Tamu
+                        </h3>
+                      </div>
+                      <div className="hidden rounded-2xl bg-red-50 px-3 py-1 text-xs font-bold text-red-600 sm:block">
+                        Walk-in / OTS
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Nama Tamu
                         </label>
                         <div className="relative">
@@ -4005,17 +4171,17 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             value={manualForm.guest_name}
                             onChange={handleManualChange}
                             placeholder="Contoh: Budi Santoso"
-                            className={`${inputClass} pl-12`}
+                            className={`${manualInputClass} pl-11`}
                           />
                           <User
-                            size={18}
+                            size={17}
                             className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Nomor HP
                         </label>
                         <div className="relative">
@@ -4025,17 +4191,17 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             value={manualForm.guest_phone}
                             onChange={handleManualChange}
                             placeholder="Contoh: 08123456789"
-                            className={`${inputClass} pl-12`}
+                            className={`${manualInputClass} pl-11`}
                           />
                           <Phone
-                            size={18}
+                            size={17}
                             className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Email (Opsional)
                         </label>
                         <div className="relative">
@@ -4045,10 +4211,10 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             value={manualForm.guest_email}
                             onChange={handleManualChange}
                             placeholder="Contoh: tamu@mail.com"
-                            className={`${inputClass} pl-12`}
+                            className={`${manualInputClass} pl-11`}
                           />
                           <Mail
-                            size={18}
+                            size={17}
                             className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                           />
                         </div>
@@ -4056,16 +4222,19 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                    <div className="mb-5">
-                      <h3 className="text-lg font-bold text-gray-800">
+                  <div className="rounded-[28px] border border-slate-100 bg-white/95 p-4 shadow-sm">
+                    <div className="mb-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
+                        Step 02
+                      </p>
+                      <h3 className="text-base font-black text-slate-900">
                         Pilih Hotel & Kamar
                       </h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Hotel
                         </label>
                         <div className="relative">
@@ -4073,7 +4242,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             name="hotel_id"
                             value={manualForm.hotel_id}
                             onChange={handleManualChange}
-                            className={`${inputClass} pl-12`}
+                            className={`${manualInputClass} pl-11`}
                           >
                             <option value="">
                               {loadingHotels ? "Memuat hotel..." : "Pilih hotel"}
@@ -4085,14 +4254,14 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             ))}
                           </select>
                           <Building2
-                            size={18}
+                            size={17}
                             className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Tipe Kamar
                         </label>
                         <div className="relative">
@@ -4100,7 +4269,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             name="room_id"
                             value={manualForm.room_id}
                             onChange={handleManualChange}
-                            className={`${inputClass} pl-12`}
+                            className={`${manualInputClass} pl-11`}
                             disabled={!manualForm.hotel_id}
                           >
                             <option value="">
@@ -4117,14 +4286,14 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             ))}
                           </select>
                           <BedDouble
-                            size={18}
+                            size={17}
                             className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Kamar Fisik
                         </label>
                         <div className="relative">
@@ -4132,7 +4301,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             name="room_unit_id"
                             value={manualForm.room_unit_id}
                             onChange={handleManualChange}
-                            className={`${inputClass} pl-12`}
+                            className={`${manualInputClass} pl-11`}
                             disabled={!manualForm.room_id}
                           >
                             <option value="">
@@ -4149,7 +4318,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             ))}
                           </select>
                           <DoorOpen
-                            size={18}
+                            size={17}
                             className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                           />
                         </div>
@@ -4157,51 +4326,196 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                    <div className="mb-5">
-                      <h3 className="text-lg font-bold text-gray-800">
-                        Data Booking
-                      </h3>
+                  <div className="rounded-[28px] border border-slate-100 bg-white/95 p-4 shadow-sm">
+                    <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
+                          Step 03
+                        </p>
+                        <h3 className="text-base font-black text-slate-900">
+                          Data Booking
+                        </h3>
+                      </div>
+                      
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Jenis Booking
                         </label>
                         <select
                           name="booking_type"
                           value={manualForm.booking_type}
                           onChange={handleManualChange}
-                          className={inputClass}
+                          className={manualInputClass}
                         >
                           <option value="transit">Transit</option>
                           <option value="overnight">Full Day</option>
                         </select>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <div className="relative xl:col-span-2">
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Check In
                         </label>
-                        <div className="relative">
-                          <input
-                            type="datetime-local"
-                            name="check_in"
-                            value={manualForm.check_in}
-                            onChange={handleManualChange}
-                            className={`${inputClass} pl-12`}
-                          />
-                          <CalendarDays
-                            size={18}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-                          />
-                        </div>
+                        <button
+                          type="button"
+                          onClick={openManualCheckInPicker}
+                          className="flex w-full items-center gap-3 rounded-2xl border border-red-100 bg-gradient-to-br from-white to-red-50/80 px-4 py-3 text-left shadow-sm outline-none transition hover:border-red-300 hover:shadow-md focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-600 text-white shadow-lg shadow-red-100">
+                            <CalendarDays size={18} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-black text-slate-900">
+                              {manualCheckInDisplay}
+                            </span>
+                            <span className="mt-0.5 block text-[11px] font-bold text-slate-500">
+                              {manualForm.check_in
+                                ? "Tanggal & jam sudah dikunci"
+                                : "Klik untuk pilih tanggal dan jam"}
+                            </span>
+                          </span>
+                        </button>
+
+                        {manualDatePickerOpen && (
+                          <div className="absolute left-0 top-[calc(100%+10px)] z-[90] w-full min-w-[320px] rounded-[28px] border border-red-100 bg-white p-3 shadow-[0_24px_70px_rgba(15,23,42,0.22)] md:w-[430px]">
+                            <div className="flex items-center justify-between gap-3 rounded-3xl bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-4 py-3 text-white">
+                              <button
+                                type="button"
+                                onClick={() => handleManualCalendarMonthChange(-1)}
+                                className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/15 text-lg font-black transition hover:bg-white/25"
+                              >
+                                ‹
+                              </button>
+                              <div className="text-center">
+                                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-red-100">
+                                  Kalender Check-in
+                                </p>
+                                <p className="mt-0.5 text-sm font-black capitalize">
+                                  {manualCalendarMonthLabel}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleManualCalendarMonthChange(1)}
+                                className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/15 text-lg font-black transition hover:bg-white/25"
+                              >
+                                ›
+                              </button>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-7 gap-1 text-center">
+                              {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => (
+                                <div key={day} className="py-1 text-[10px] font-black uppercase text-slate-400">
+                                  {day}
+                                </div>
+                              ))}
+
+                              {manualCalendarDays.map((day, index) => {
+                                const dateValue = day ? getLocalDateValue(day) : "";
+                                const selected = dateValue && dateValue === manualCheckInDraft.date;
+                                const today = day && isSameDay(day, new Date());
+
+                                return (
+                                  <button
+                                    key={dateValue || `empty-${index}`}
+                                    type="button"
+                                    disabled={!day}
+                                    onClick={() => handleManualCalendarDayClick(day)}
+                                    className={`h-9 rounded-2xl text-xs font-black transition ${
+                                      !day
+                                        ? "cursor-default bg-transparent"
+                                        : selected
+                                        ? "bg-red-600 text-white shadow-lg shadow-red-100"
+                                        : today
+                                        ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                                        : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                    }`}
+                                  >
+                                    {day ? day.getDate() : ""}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <div className="mt-3 rounded-3xl border border-slate-100 bg-slate-50 p-3">
+                              <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
+                                <Clock3 size={14} className="text-red-500" />
+                                Pilih Jam
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <select
+                                  value={manualCheckInDraft.hour}
+                                  onChange={(e) =>
+                                    setManualCheckInDraft((prev) => ({
+                                      ...prev,
+                                      hour: e.target.value,
+                                    }))
+                                  }
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                                >
+                                  {Array.from({ length: 24 }, (_, index) => padTwo(index)).map((hour) => (
+                                    <option key={hour} value={hour}>
+                                      {hour}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  value={manualCheckInDraft.minute}
+                                  onChange={(e) =>
+                                    setManualCheckInDraft((prev) => ({
+                                      ...prev,
+                                      minute: e.target.value,
+                                    }))
+                                  }
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                                >
+                                  {Array.from({ length: 60 }, (_, index) => padTwo(index)).map((minute) => (
+                                    <option key={minute} value={minute}>
+                                      {minute}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={clearManualCheckInPicker}
+                                className="rounded-2xl bg-slate-100 px-4 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200"
+                              >
+                                Hapus
+                              </button>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setManualDatePickerOpen(false)}
+                                  className="rounded-2xl bg-slate-200 px-4 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-300"
+                                >
+                                  Batal
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={confirmManualCheckInPicker}
+                                  className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-2 text-xs font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700"
+                                >
+                                  <CheckCircle2 size={15} />
+                                  OK
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {manualForm.booking_type === "transit" ? (
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                             Durasi Transit
                           </label>
                           <div className="relative">
@@ -4209,21 +4523,21 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                               name="duration_hours"
                               value={manualForm.duration_hours}
                               onChange={handleManualChange}
-                              className={`${inputClass} pl-12`}
+                              className={`${manualInputClass} pl-11`}
                             >
                               <option value="3">3 Jam</option>
                               <option value="6">6 Jam</option>
                               <option value="12">12 Jam</option>
                             </select>
                             <Clock3
-                              size={18}
+                              size={17}
                               className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                             />
                           </div>
                         </div>
                       ) : (
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                             Durasi Hari
                           </label>
                           <div className="relative">
@@ -4233,10 +4547,10 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                               name="duration_days"
                               value={manualForm.duration_days}
                               onChange={handleManualChange}
-                              className={`${inputClass} pl-12`}
+                              className={`${manualInputClass} pl-11`}
                             />
                             <MoonStar
-                              size={18}
+                              size={17}
                               className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                             />
                           </div>
@@ -4244,7 +4558,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                       )}
 
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Estimasi Harga
                         </label>
                         <div className="relative">
@@ -4252,10 +4566,10 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             type="text"
                             value={formatCurrency(estimatedManualPrice)}
                             readOnly
-                            className={`${inputClass} pl-12 font-semibold`}
+                            className={`${manualInputClass} pl-11 font-black text-emerald-700`}
                           />
                           <Wallet
-                            size={18}
+                            size={17}
                             className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                           />
                         </div>
@@ -4263,7 +4577,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 
                       {canEditBooking && (
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                             Diskon (%)
                           </label>
                           <div className="relative">
@@ -4275,9 +4589,9 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                               value={manualForm.manual_discount_percent}
                               onChange={handleManualChange}
                               placeholder="Contoh: 20"
-                              className={`${inputClass} pr-12`}
+                              className={`${manualInputClass} pr-12`}
                             />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
                               %
                             </span>
                           </div>
@@ -4286,21 +4600,21 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                     </div>
 
                     {canEditBooking && manualDiscountPercent > 0 && (
-                      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-                          <p className="text-sm text-amber-700 font-medium">
+                          <p className="text-xs font-black uppercase tracking-wide text-amber-700">
                             Potongan Diskon
                           </p>
-                          <p className="text-lg font-bold text-amber-800">
+                          <p className="mt-1 text-lg font-black text-amber-800">
                             - {formatCurrency(manualDiscountAmount)}
                           </p>
                         </div>
 
                         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                          <p className="text-sm text-emerald-700 font-medium">
+                          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
                             Total Setelah Diskon
                           </p>
-                          <p className="text-lg font-bold text-emerald-800">
+                          <p className="mt-1 text-lg font-black text-emerald-800">
                             {formatCurrency(finalManualPrice)}
                           </p>
                         </div>
@@ -4308,9 +4622,12 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                     )}
                   </div>
 
-                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6">
-                    <div className="mb-5">
-                      <h3 className="text-lg font-bold text-gray-800">
+                  <div className="rounded-[28px] border border-slate-100 bg-white/95 p-4 shadow-sm">
+                    <div className="mb-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
+                        Step 04
+                      </p>
+                      <h3 className="text-base font-black text-slate-900">
                         Catatan Admin
                       </h3>
                     </div>
@@ -4319,30 +4636,40 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                       name="admin_note"
                       value={manualForm.admin_note}
                       onChange={handleManualChange}
-                      rows={4}
+                      rows={3}
                       placeholder="Contoh: Booking walk-in dari resepsionis, tamu datang langsung."
-                      className={inputClass}
+                      className={`${manualInputClass} resize-none`}
                     />
                   </div>
 
-                  <div className="flex justify-end gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={closeManualModal}
-                      className="rounded-2xl bg-gray-200 px-5 py-3 text-gray-700 font-semibold hover:bg-gray-300 transition"
-                    >
-                      Batal
-                    </button>
+                  <div className="sticky bottom-0 -mx-4 -mb-4 border-t border-red-100 bg-white/95 px-4 py-3 backdrop-blur md:-mx-5 md:-mb-5 md:px-5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
+                        {manualForm.check_in
+                          ? `Check-in: ${manualCheckInDisplay}`
+                          : "Check-in belum dipilih"}
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={handleSaveManualBooking}
-                      disabled={savingManual}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-semibold hover:bg-red-700 transition disabled:opacity-70"
-                    >
-                      <Save size={18} />
-                      {savingManual ? "Menyimpan..." : "Simpan Booking Manual"}
-                    </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={closeManualModal}
+                          className="rounded-2xl bg-slate-200 px-5 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-300"
+                        >
+                          Batal
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleSaveManualBooking}
+                          disabled={savingManual}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:opacity-70"
+                        >
+                          <Save size={18} />
+                          {savingManual ? "Menyimpan..." : "Simpan Booking Manual"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

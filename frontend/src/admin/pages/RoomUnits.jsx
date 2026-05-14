@@ -309,16 +309,64 @@ export default function RoomUnits() {
     { value: "inactive", label: "Nonaktif" },
   ];
 
+  const isBookingInUseStatus = (booking) => {
+    const raw = String(booking?.status || "").toLowerCase();
+    return ["checked_in", "check_in", "checkin"].includes(raw);
+  };
+
+  const isBookingCleaningProcessStatus = (booking) => {
+    const raw = String(booking?.status || "").toLowerCase();
+    return ["cleaning", "start_cleaning", "in_cleaning", "proses_cleaning"].includes(raw);
+  };
+
+  const isBookingNeedsCleaningStatus = (booking) => {
+    const raw = String(booking?.status || "").toLowerCase();
+    return ["checked-out", "checked_out", "check_out", "checkout"].includes(raw);
+  };
+
+  const isBookingCleaningRelatedStatus = (booking) => {
+    return isBookingCleaningProcessStatus(booking) || isBookingNeedsCleaningStatus(booking);
+  };
+
+  const getBookingVisualTone = (booking, isCurrentRoomBooking = false) => {
+    if (isBookingInUseStatus(booking)) {
+      return {
+        cardClass: "border-red-100 bg-red-50",
+        badgeClass: "bg-red-100 text-red-700",
+        label: isCurrentRoomBooking ? "Sedang Dipakai Sekarang" : getBookingStatusText(booking),
+      };
+    }
+
+    if (isBookingCleaningProcessStatus(booking)) {
+      return {
+        cardClass: "border-amber-100 bg-amber-50",
+        badgeClass: "bg-amber-100 text-amber-700",
+        label: "Sedang Cleaning",
+      };
+    }
+
+    if (isBookingNeedsCleaningStatus(booking)) {
+      return {
+        cardClass: "border-amber-100 bg-amber-50",
+        badgeClass: "bg-amber-100 text-amber-700",
+        label: "Perlu Dibersihkan",
+      };
+    }
+
+    return {
+      cardClass: "border-blue-100 bg-blue-50/70",
+      badgeClass: "bg-blue-100 text-blue-700",
+      label: getBookingStatusText(booking),
+    };
+  };
+
   const getRoomUnitStatus = (unit) => {
     const monitoringStatus = String(unit?.monitoring_status || "").toLowerCase();
     const rawStatus = String(unit?.status ?? "").toLowerCase();
+    const currentBooking = unit?.current_booking || unit?.active_booking || null;
 
     if (monitoringStatus === "maintenance") return "maintenance";
     if (monitoringStatus === "cleaning") return "cleaning";
-    if (monitoringStatus === "occupied" || monitoringStatus === "booked")
-      return "occupied";
-    if (monitoringStatus === "inactive") return "inactive";
-    if (monitoringStatus === "available") return "available";
 
     if (
       rawStatus === "maintenance" ||
@@ -328,6 +376,17 @@ export default function RoomUnits() {
     ) {
       return "maintenance";
     }
+
+    if (isBookingCleaningRelatedStatus(currentBooking)) {
+      return "cleaning";
+    }
+
+    if (monitoringStatus === "occupied" || monitoringStatus === "booked") {
+      return "occupied";
+    }
+
+    if (monitoringStatus === "inactive") return "inactive";
+    if (monitoringStatus === "available") return "available";
 
     if (
       rawStatus === "cleaning" ||
@@ -385,7 +444,7 @@ export default function RoomUnits() {
       },
       cleaning: {
         label: "Cleaning",
-        shortLabel: "Perlu Dibersihkan",
+        shortLabel: "Sedang Cleaning",
         cardClass:
           "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-800",
         badgeClass: "bg-amber-100 text-amber-700",
@@ -516,25 +575,19 @@ export default function RoomUnits() {
   };
 
   const getBookingStatusText = (booking) => {
-    const raw = String(booking?.status || "").toLowerCase();
-
-    if (["checked_in", "check_in", "checkin"].includes(raw)) {
+    if (isBookingInUseStatus(booking)) {
       return "Sedang Dipakai";
     }
 
-    if (
-      [
-        "checked-out",
-        "checked_out",
-        "check_out",
-        "checkout",
-        "cleaning",
-        "start_cleaning",
-        "in_cleaning",
-      ].includes(raw)
-    ) {
-      return "Cleaning";
+    if (isBookingCleaningProcessStatus(booking)) {
+      return "Sedang Cleaning";
     }
+
+    if (isBookingNeedsCleaningStatus(booking)) {
+      return "Perlu Dibersihkan";
+    }
+
+    const raw = String(booking?.status || "").toLowerCase();
 
     if (
       ["approved", "approve", "confirmed", "paid", "booked", "reserved"].includes(
@@ -1545,7 +1598,7 @@ export default function RoomUnits() {
               {statusAction === "cleaning" && (
                 <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-4">
                   <p className="text-sm font-black text-amber-800">
-                    Tandai kamar sebagai cleaning?
+                    Tandai kamar sedang cleaning?
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-amber-700">
                     Kamar tidak boleh muncul di pilihan approve sampai statusnya
@@ -1627,37 +1680,28 @@ export default function RoomUnits() {
               ) : (
                 <div className="space-y-3">
                   {bookingModalBookings.map((booking, index) => {
-                    const isCurrent =
+                    const isCurrentRoomBooking =
                       String(booking?.id || "") ===
-                        String(
-                          bookingModalUnit?.current_booking?.id ||
-                            bookingModalUnit?.active_booking?.id ||
-                            ""
-                        ) ||
-                      ["checked_in", "check_in", "checkin"].includes(
-                        String(booking?.status || "").toLowerCase()
+                      String(
+                        bookingModalUnit?.current_booking?.id ||
+                          bookingModalUnit?.active_booking?.id ||
+                          ""
                       );
+                    const visualTone = getBookingVisualTone(
+                      booking,
+                      isCurrentRoomBooking
+                    );
 
                     return (
                       <div
                         key={`${getBookingCode(booking)}-${index}`}
-                        className={`rounded-2xl border px-4 py-4 ${
-                          isCurrent
-                            ? "border-red-100 bg-red-50"
-                            : "border-blue-100 bg-blue-50/70"
-                        }`}
+                        className={`rounded-2xl border px-4 py-4 ${visualTone.cardClass}`}
                       >
                         <div className="mb-3 flex flex-wrap items-center gap-2">
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-black ${
-                              isCurrent
-                                ? "bg-red-100 text-red-700"
-                                : "bg-blue-100 text-blue-700"
-                            }`}
+                            className={`rounded-full px-3 py-1 text-xs font-black ${visualTone.badgeClass}`}
                           >
-                            {isCurrent
-                              ? "Sedang Dipakai Sekarang"
-                              : getBookingStatusText(booking)}
+                            {visualTone.label}
                           </span>
 
                           <span
