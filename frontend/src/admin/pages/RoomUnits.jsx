@@ -860,47 +860,79 @@ export default function RoomUnits() {
   const buildStatusPayloadByAction = (action, reason = "") => {
     if (action === "available") {
       return {
-        status: true,
+        status: "available",
+        monitoring_status: "available",
         reason: "",
         inactive_reason: "",
         maintenance_reason: "",
+        is_active: true,
+        active: true,
+        available: true,
         is_maintenance: false,
+        maintenance_status: false,
         is_cleaning: false,
+        cleaning_status: false,
       };
     }
 
     if (action === "inactive") {
       return {
-        status: false,
+        status: "inactive",
+        monitoring_status: "inactive",
         reason,
         inactive_reason: reason,
+        is_active: false,
+        active: false,
+        available: false,
         is_maintenance: false,
+        maintenance_status: false,
         is_cleaning: false,
+        cleaning_status: false,
       };
     }
 
     if (action === "maintenance") {
       return {
         status: "maintenance",
+        monitoring_status: "maintenance",
         reason,
         maintenance_reason: reason,
+        is_active: true,
+        active: true,
+        available: false,
         is_maintenance: true,
+        maintenance_status: true,
         is_cleaning: false,
+        cleaning_status: false,
       };
     }
 
     if (action === "cleaning") {
       return {
         status: "cleaning",
+        monitoring_status: "cleaning",
         reason,
+        is_active: true,
+        active: true,
+        available: false,
         is_maintenance: false,
+        maintenance_status: false,
         is_cleaning: true,
+        cleaning_status: true,
       };
     }
 
     return {
-      status: true,
+      status: "available",
+      monitoring_status: "available",
       reason,
+      is_active: true,
+      active: true,
+      available: true,
+      is_maintenance: false,
+      maintenance_status: false,
+      is_cleaning: false,
+      cleaning_status: false,
     };
   };
 
@@ -1044,7 +1076,19 @@ export default function RoomUnits() {
 
     if (status === "occupied") return false;
 
-    return true;
+    if (action === "available") {
+      return status !== "available";
+    }
+
+    if (action === "inactive") {
+      return status !== "inactive";
+    }
+
+    if (action === "maintenance") {
+      return status !== "maintenance" && status !== "inactive";
+    }
+
+    return false;
   };
 
   const isUnitSelectedForBulk = (unit) => {
@@ -1086,7 +1130,34 @@ export default function RoomUnits() {
     if (!bulkAction) return;
 
     if (!canSelectUnitForBulk(unit)) {
-      toast.error("Kamar yang sedang dipakai booking tidak bisa dipilih.");
+      const status = getRoomUnitStatus(unit);
+
+      if (status === "occupied") {
+        toast.error("Kamar yang sedang dipakai booking tidak bisa dipilih.");
+        return;
+      }
+
+      if (bulkAction === "available" && status === "available") {
+        toast.error("Kamar ini sudah aktif.");
+        return;
+      }
+
+      if (bulkAction === "inactive" && status === "inactive") {
+        toast.error("Kamar ini sudah nonaktif.");
+        return;
+      }
+
+      if (bulkAction === "maintenance" && status === "maintenance") {
+        toast.error("Kamar ini sudah maintenance.");
+        return;
+      }
+
+      if (bulkAction === "maintenance" && status === "inactive") {
+        toast.error("Kamar nonaktif harus diaktifkan dulu sebelum maintenance.");
+        return;
+      }
+
+      toast.error("Kamar ini tidak bisa dipilih untuk tindakan tersebut.");
       return;
     }
 

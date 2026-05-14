@@ -1116,6 +1116,7 @@ export default function RoomDetail() {
         <Navbar />
 
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-12">
+          
           <div className="animate-pulse space-y-6">
             <div className="h-10 w-40 bg-gray-200 rounded-xl" />
 
@@ -1248,11 +1249,17 @@ export default function RoomDetail() {
       <div className="min-h-screen bg-gray-100 text-gray-800">
         <Navbar />
 
-        <section className="max-w-7xl mx-auto px-4 md:px-6 pt-20 sm:pt-24 md:pt-10 pb-6 md:pb-10">
-          <div className="mb-4 flex items-center">
+        <section className="max-w-7xl mx-auto px-4 md:px-6 pt-28 sm:pt-28 md:pt-28 pb-6 md:pb-10">
+          <div className="relative z-30 mb-5 flex items-center">
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate("/rooms");
+                }
+              }}
               className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/95 px-3.5 py-2 text-xs font-bold text-gray-700 shadow-sm backdrop-blur transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 md:px-4 md:py-2.5 md:text-sm"
             >
               <ArrowLeft size={15} />
