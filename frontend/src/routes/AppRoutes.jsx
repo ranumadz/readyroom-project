@@ -48,7 +48,7 @@ function PageTitleManager() {
       // CUSTOMER SIDE
       // =========================
       if (pathname === "/") {
-        return "ReadyRoom | Booking Hotel Transit & Overnight Lebih Mudah";
+        return "ReadyRoom | Booking Hotel Transit & Fullday Lebih Mudah";
       }
 
       if (pathname === "/hotels") {
