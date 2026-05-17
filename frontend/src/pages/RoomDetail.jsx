@@ -68,6 +68,8 @@ export default function RoomDetail() {
   const [bookingSuccess, setBookingSuccess] = useState({
     open: false,
     requestNumber: "",
+    isGuest: false,
+    whatsappLink: "",
   });
 
   const [bookingError, setBookingError] = useState("");
@@ -986,7 +988,12 @@ export default function RoomDetail() {
   };
 
   const closeSuccessModal = () =>
-    setBookingSuccess({ open: false, requestNumber: "" });
+    setBookingSuccess({
+      open: false,
+      requestNumber: "",
+      isGuest: false,
+      whatsappLink: "",
+    });
 
   const resolveCustomerUserId = () => {
     if (customerUser?.id) return customerUser.id;
@@ -1029,18 +1036,122 @@ export default function RoomDetail() {
       return false;
     }
 
-    if (!room?.hotel?.wa_admin) {
-      setGuestError("WhatsApp admin hotel belum tersedia.");
-      return false;
-    }
-
     return true;
   };
 
-  const handleManualGuestBooking = () => {
+  const getBookingRequestNumber = (response) => {
+    const data = response?.data || {};
+
+    const bookingCode =
+      data?.data?.booking_code ||
+      data?.booking?.booking_code ||
+      data?.booking_code ||
+      null;
+
+    if (bookingCode) return bookingCode;
+
+    const bookingId =
+      data?.data?.id ||
+      data?.data?.booking_id ||
+      data?.booking?.id ||
+      data?.id ||
+      data?.booking_id ||
+      null;
+
+    return bookingId ? `REQ-${bookingId}` : "Menunggu konfirmasi";
+  };
+
+  const buildBookingPayload = ({ userId = null, asGuest = false } = {}) => {
+    return {
+      ...(userId ? { user_id: userId } : {}),
+      ...(asGuest
+        ? {
+            guest_name: guestForm.guest_name.trim(),
+            guest_phone: normalizePhone(guestForm.guest_phone),
+            guest_email: null,
+            booking_source: "customer_guest",
+          }
+        : {}),
+      hotel_id: room.hotel_id || room.hotel?.id,
+      room_id: room.id,
+      booking_type: bookingMode,
+      duration_hours: bookingMode === "transit" ? Number(transitDuration) : null,
+      duration_days:
+        bookingMode === "overnight" ? Number(overnightDurationDays) : null,
+      check_in: bookingForm.check_in,
+      check_out:
+        bookingMode === "overnight" && selectedOvernightCheckOutDateTime
+          ? formatDateTimeLocalValue(selectedOvernightCheckOutDateTime)
+          : null,
+      total_price: mainPrice,
+      payment_status: "unpaid",
+      status: "pending",
+    };
+  };
+
+  const createGuestBookingRequest = async (payload) => {
+    const endpoints = ["/bookings/guest", "/guest/bookings", "/bookings"];
+    let lastError = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        return await api.post(endpoint, payload);
+      } catch (error) {
+        lastError = error;
+
+        const status = error?.response?.status;
+        if (![404, 405].includes(status)) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
+  };
+
+  const handleManualGuestBooking = async () => {
     if (!validateGuestManualBooking()) return;
 
-    window.open(guestWaLink, "_blank", "noopener,noreferrer");
+    try {
+      setSubmittingBooking(true);
+      setGuestError("");
+
+      const payload = buildBookingPayload({ asGuest: true });
+      const res = await createGuestBookingRequest(payload);
+      const requestNumber = getBookingRequestNumber(res);
+
+      const successWaLink = guestWaLink || "";
+
+      setBookingForm({ check_in: "", overnight_end_date: "" });
+      setGuestForm({ guest_name: "", guest_phone: "" });
+      setShowDatePanel(false);
+      setShowTimePanel(false);
+      setShowFullDayDurationPanel(false);
+      setBookingSuccess({
+        open: true,
+        requestNumber,
+        isGuest: true,
+        whatsappLink: successWaLink,
+      });
+
+      if (successWaLink) {
+        window.open(successWaLink, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      console.error("GUEST BOOKING ERROR:", error.response?.data || error);
+
+      const message =
+        error.response?.data?.message ||
+        error.response?.data?.errors?.guest_name?.[0] ||
+        error.response?.data?.errors?.guest_phone?.[0] ||
+        error.response?.data?.errors?.check_in?.[0] ||
+        error.response?.data?.errors?.check_out?.[0] ||
+        "Reservasi gagal diajukan. Silakan coba lagi atau hubungi admin.";
+
+      setGuestError(message);
+    } finally {
+      setSubmittingBooking(false);
+    }
   };
 
   const handleSubmitBooking = async () => {
@@ -1082,18 +1193,18 @@ export default function RoomDetail() {
       };
 
       const res = await api.post("/bookings", payload);
-      const bookingId =
-        res.data?.data?.id ||
-        res.data?.data?.booking_id ||
-        res.data?.booking?.id ||
-        null;
-      const requestNumber = bookingId ? `REQ-${bookingId}` : "Menunggu konfirmasi";
+      const requestNumber = getBookingRequestNumber(res);
 
       setBookingForm({ check_in: "", overnight_end_date: "" });
       setShowDatePanel(false);
       setShowTimePanel(false);
       setShowFullDayDurationPanel(false);
-      setBookingSuccess({ open: true, requestNumber });
+      setBookingSuccess({
+        open: true,
+        requestNumber,
+        isGuest: false,
+        whatsappLink: waAdminLink || "",
+      });
     } catch (error) {
       console.error("SUBMIT BOOKING ERROR:", error.response?.data || error);
 
@@ -1999,10 +2110,20 @@ export default function RoomDetail() {
                         <button
                           type="button"
                           onClick={handleManualGuestBooking}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3.5 text-white font-semibold hover:bg-green-700 transition"
+                          disabled={submittingBooking}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3.5 text-white font-semibold hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                          <MessageCircle size={18} />
-                          Reservasi Manual via WhatsApp
+                          {submittingBooking ? (
+                            <>
+                              <Loader2 size={18} className="animate-spin" />
+                              Mengajukan Reservasi...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 size={18} />
+                              Ajukan Reservasi
+                            </>
+                          )}
                         </button>
 
                         <button
@@ -2107,7 +2228,7 @@ export default function RoomDetail() {
 
             <div className="mt-6 text-center">
               <p className="inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
-                Booking Berhasil Dibuat
+                Reservasi Berhasil Diajukan
               </p>
 
               <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 leading-tight mt-5">
@@ -2115,14 +2236,14 @@ export default function RoomDetail() {
               </h2>
 
               <p className="mt-3 text-gray-500 leading-relaxed">
-                Booking kamu sudah berhasil dibuat dan sekarang sedang menunggu
-                persetujuan admin ReadyRoom.
+                Reservasi kamu sudah masuk ke sistem ReadyRoom dan sedang
+                menunggu konfirmasi admin.
               </p>
             </div>
 
             <div className="mt-6 rounded-3xl border border-red-100 bg-gradient-to-br from-red-50 to-rose-50 p-5">
               <p className="text-sm text-red-600 font-semibold mb-2">
-                Nomor Pengajuan
+                Kode / Nomor Pengajuan
               </p>
 
               <p className="text-2xl font-extrabold tracking-wide text-gray-800">
@@ -2130,18 +2251,19 @@ export default function RoomDetail() {
               </p>
 
               <p className="mt-2 text-xs text-gray-500">
-                Ini bukan kode booking final. Kode booking akan muncul setelah
-                admin menyetujui pengajuan booking kamu.
+                Simpan kode ini untuk membantu admin mengecek pengajuan
+                reservasi kamu.
               </p>
             </div>
 
             <div className="mt-6 rounded-3xl border border-gray-100 bg-gray-50 p-5">
               <p className="text-sm font-semibold text-gray-800 mb-2">
-                Sambil menunggu approval admin
+                Sambil menunggu konfirmasi admin
               </p>
 
               <p className="text-sm text-gray-600 leading-relaxed">
-                Yuk cek booking kamu di halaman daftar booking customer.
+                Admin akan mengecek ketersediaan kamar terlebih dahulu. Jika
+                perlu, kamu bisa lanjut konfirmasi lewat WhatsApp admin.
               </p>
             </div>
 
@@ -2158,17 +2280,41 @@ export default function RoomDetail() {
                 Kembali ke Beranda
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  closeSuccessModal();
-                  navigate("/my-bookings");
-                }}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-gray-700 font-semibold hover:bg-gray-50 transition"
-              >
-                <FileText size={18} />
-                Lihat My Bookings
-              </button>
+              {bookingSuccess.isGuest ? (
+                bookingSuccess.whatsappLink ? (
+                  <a
+                    href={bookingSuccess.whatsappLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={closeSuccessModal}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-5 py-3.5 text-green-700 font-semibold hover:bg-green-100 transition"
+                  >
+                    <MessageCircle size={18} />
+                    Hubungi Admin WA
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={closeSuccessModal}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-gray-700 font-semibold hover:bg-gray-50 transition"
+                  >
+                    <CheckCircle2 size={18} />
+                    Tutup
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeSuccessModal();
+                    navigate("/my-bookings");
+                  }}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-gray-700 font-semibold hover:bg-gray-50 transition"
+                >
+                  <FileText size={18} />
+                  Lihat My Bookings
+                </button>
+              )}
             </div>
           </div>
         </div>

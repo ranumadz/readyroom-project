@@ -193,6 +193,21 @@ export default function BookingCalendar() {
     .booking-calendar-fullscreen-shell:-webkit-full-screen {
       background: #f3f4f6;
     }
+
+    @keyframes rr-calendar-danger-blink {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.78), 0 18px 28px rgba(127, 29, 29, 0.32);
+        filter: brightness(1);
+      }
+      50% {
+        box-shadow: 0 0 0 7px rgba(220, 38, 38, 0.08), 0 18px 36px rgba(127, 29, 29, 0.46);
+        filter: brightness(1.12);
+      }
+    }
+
+    .rr-calendar-danger-pulse {
+      animation: rr-calendar-danger-blink 0.95s ease-in-out infinite;
+    }
   `;
 
   const monthNames = [
@@ -525,7 +540,96 @@ export default function BookingCalendar() {
     );
   };
 
+  const toSafeDate = (value) => {
+    if (!value) return null;
+
+    const normalized = String(value).includes("T")
+      ? String(value)
+      : String(value).replace(" ", "T");
+
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const getOperationalMetaFromNote = (note) => {
+    const raw = String(note || "");
+    const match = raw.match(
+      /\[RR_OPS\s+actual_check_in="([^"]*)"\s+expected_check_out="([^"]*)"\]/i
+    );
+
+    return {
+      actualCheckIn: match?.[1] || null,
+      expectedCheckOut: match?.[2] || null,
+    };
+  };
+
+  const getOperationalMeta = (booking) => {
+    const noteMeta = getOperationalMetaFromNote(booking?.payment_note);
+
+    return {
+      actualCheckIn:
+        booking?.actual_check_in ||
+        booking?.check_in_actual ||
+        booking?.actual_checkin_at ||
+        booking?.actual_checked_in_at ||
+        booking?.checked_in_at ||
+        booking?.checkin_at ||
+        booking?.paid_at ||
+        booking?.payment?.paid_at ||
+        booking?.transaction?.paid_at ||
+        noteMeta.actualCheckIn ||
+        null,
+      expectedCheckOut:
+        booking?.expected_check_out ||
+        booking?.expected_checkout ||
+        booking?.target_check_out ||
+        booking?.target_checkout ||
+        booking?.checkout_target ||
+        booking?.operational_check_out ||
+        booking?.actual_check_out_target ||
+        booking?.payment?.expected_check_out ||
+        booking?.transaction?.expected_check_out ||
+        noteMeta.expectedCheckOut ||
+        null,
+    };
+  };
+
+  const getCalendarCheckInTime = (booking) => {
+    const meta = getOperationalMeta(booking);
+    return meta.actualCheckIn || booking?.check_in || null;
+  };
+
+  const getCalendarCheckOutTime = (booking) => {
+    const meta = getOperationalMeta(booking);
+
+    return (
+      booking?.actual_check_out ||
+      booking?.check_out_actual ||
+      booking?.actual_checkout_at ||
+      booking?.checked_out_at ||
+      booking?.checkout_at ||
+      meta.expectedCheckOut ||
+      booking?.check_out ||
+      null
+    );
+  };
+
+  const isBookingCheckoutDanger = (booking) => {
+    const status = String(booking?.status || "").toLowerCase();
+
+    if (status !== "checked_in") return false;
+
+    const targetCheckOut = toSafeDate(getCalendarCheckOutTime(booking));
+    if (!targetCheckOut) return false;
+
+    return currentDate.getTime() > targetCheckOut.getTime();
+  };
+
   const getBlockColor = (booking) => {
+    if (isBookingCheckoutDanger(booking)) {
+      return "bg-red-700 border-red-900 text-white shadow-red-300 ring-2 ring-red-300";
+    }
+
     if (booking.status === "checked_in") {
       return "bg-green-500 border-green-600 text-white shadow-green-200";
     }
@@ -581,17 +685,32 @@ export default function BookingCalendar() {
     return (calendarData.bookings || [])
       .filter((booking) => booking.room_unit_id === unitId)
       .filter((booking) => {
-        const checkIn = new Date(booking.check_in);
-        const checkOut = new Date(booking.check_out);
+        const checkIn = toSafeDate(getCalendarCheckInTime(booking));
+        const checkOut = toSafeDate(getCalendarCheckOutTime(booking));
+
+        if (!checkIn || !checkOut) return false;
+
         return checkIn <= monthEnd && checkOut >= monthStart;
       })
       .filter((booking) => isBookingMatchStatus(booking))
-      .sort((a, b) => new Date(a.check_in) - new Date(b.check_in));
+      .sort((a, b) => {
+        const dateA = toSafeDate(getCalendarCheckInTime(a));
+        const dateB = toSafeDate(getCalendarCheckInTime(b));
+
+        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+      });
   };
 
   const getBookingBlockStyle = (booking) => {
-    const checkIn = new Date(booking.check_in);
-    const checkOut = new Date(booking.check_out);
+    const checkIn = toSafeDate(getCalendarCheckInTime(booking));
+    const checkOut = toSafeDate(getCalendarCheckOutTime(booking));
+
+    if (!checkIn || !checkOut) {
+      return {
+        left: "0%",
+        width: `${(1 / daysInMonth) * 100}%`,
+      };
+    }
 
     const visibleStart = checkIn < monthStart ? monthStart : checkIn;
     const visibleEnd = checkOut > monthEnd ? monthEnd : checkOut;
@@ -610,10 +729,11 @@ export default function BookingCalendar() {
   };
 
   const formatTimeRange = (booking) => {
-    const checkIn = new Date(booking.check_in);
-    const checkOut = new Date(booking.check_out);
-
+    const checkIn = toSafeDate(getCalendarCheckInTime(booking));
+    const checkOut = toSafeDate(getCalendarCheckOutTime(booking));
     const pad = (num) => String(num).padStart(2, "0");
+
+    if (!checkIn || !checkOut) return "-";
 
     return `${pad(checkIn.getHours())}:${pad(checkIn.getMinutes())} - ${pad(
       checkOut.getHours()
@@ -623,7 +743,9 @@ export default function BookingCalendar() {
   const formatDateTime = (dateString) => {
     if (!dateString) return "-";
 
-    const date = new Date(dateString);
+    const date = toSafeDate(dateString);
+    if (!date) return "-";
+
     const pad = (num) => String(num).padStart(2, "0");
 
     return `${pad(date.getDate())} ${
@@ -669,8 +791,10 @@ export default function BookingCalendar() {
   };
 
   const isSameCalendarDay = (dateA, dateB) => {
-    const a = new Date(dateA);
-    const b = new Date(dateB);
+    const a = toSafeDate(dateA);
+    const b = toSafeDate(dateB);
+
+    if (!a || !b) return false;
 
     return (
       a.getFullYear() === b.getFullYear() &&
@@ -682,10 +806,17 @@ export default function BookingCalendar() {
   const getRelatedBookingsSameDay = (booking) => {
     if (!booking?.room_unit_id) return [];
 
+    const selectedCheckIn = getCalendarCheckInTime(booking);
+
     return (calendarData.bookings || [])
       .filter((item) => item.room_unit_id === booking.room_unit_id)
-      .filter((item) => isSameCalendarDay(item.check_in, booking.check_in))
-      .sort((a, b) => new Date(a.check_in) - new Date(b.check_in));
+      .filter((item) => isSameCalendarDay(getCalendarCheckInTime(item), selectedCheckIn))
+      .sort((a, b) => {
+        const dateA = toSafeDate(getCalendarCheckInTime(a));
+        const dateB = toSafeDate(getCalendarCheckInTime(b));
+
+        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+      });
   };
 
   const getBookingSlotCount = (booking) => {
@@ -883,6 +1014,7 @@ export default function BookingCalendar() {
                   <Legend color="bg-green-500" label="Check-in" />
                   <Legend color="bg-orange-500" label="Pembersihan" />
                   <Legend color="bg-slate-500" label="Selesai" />
+                  <Legend color="bg-red-700" label="Waktunya Check-out" />
                 </div>
               </div>
             </div>
@@ -1035,6 +1167,7 @@ export default function BookingCalendar() {
                               const slotCount = getBookingSlotCount(booking);
                               const relatedBookings =
                                 getRelatedBookingsSameDay(booking);
+                              const checkoutDanger = isBookingCheckoutDanger(booking);
 
                               return (
                                 <button
@@ -1048,7 +1181,7 @@ export default function BookingCalendar() {
                                         relatedBookings,
                                     })
                                   }
-                                  className={`absolute top-2.5 h-[52px] overflow-hidden rounded-[13px] border px-2.5 py-1 text-left shadow-[0_10px_18px_rgba(15,23,42,0.15)] transition-all duration-200 hover:z-50 hover:scale-[1.03] hover:shadow-[0_14px_24px_rgba(15,23,42,0.20)] ${getBlockColor(
+                                  className={`absolute top-2.5 h-[52px] overflow-hidden rounded-[13px] border px-2.5 py-1 text-left shadow-[0_10px_18px_rgba(15,23,42,0.15)] transition-all duration-200 hover:z-50 hover:scale-[1.03] hover:shadow-[0_14px_24px_rgba(15,23,42,0.20)] ${checkoutDanger ? "rr-calendar-danger-pulse" : ""} ${getBlockColor(
                                     booking
                                   )}`}
                                   style={blockStyle}
@@ -1057,6 +1190,12 @@ export default function BookingCalendar() {
                                   } | ${booking.booking_code}`}
                                 >
                                   <div className="absolute left-0 top-0 h-1 w-full rounded-t-2xl bg-white/30" />
+
+                                  {checkoutDanger && (
+                                    <p className="truncate pr-8 text-[8px] font-black uppercase tracking-[0.14em] text-yellow-100">
+                                      Waktunya Check-out
+                                    </p>
+                                  )}
 
                                   {slotCount > 0 && (
                                     <div className="absolute right-1.5 top-1.5 z-10">
@@ -1104,6 +1243,9 @@ export default function BookingCalendar() {
           getHotelName={getHotelName}
           getStatusBadgeClass={getStatusBadgeClass}
           getPaymentBadgeClass={getPaymentBadgeClass}
+          getCalendarCheckInTime={getCalendarCheckInTime}
+          getCalendarCheckOutTime={getCalendarCheckOutTime}
+          isBookingCheckoutDanger={isBookingCheckoutDanger}
         />
       )}
     </div>
@@ -1129,6 +1271,9 @@ function BookingDetailModal({
   getHotelName,
   getStatusBadgeClass,
   getPaymentBadgeClass,
+  getCalendarCheckInTime,
+  getCalendarCheckOutTime,
+  isBookingCheckoutDanger,
 }) {
   const normalizeRoomTypeLabel = (value) => {
     const text = String(value || "").trim();
@@ -1152,6 +1297,15 @@ function BookingDetailModal({
   const totalPriceText = booking.total_price
     ? `Rp ${Number(booking.total_price).toLocaleString("id-ID")}`
     : "-";
+  const actualCheckInTime = getCalendarCheckInTime
+    ? getCalendarCheckInTime(booking)
+    : booking.check_in;
+  const targetCheckOutTime = getCalendarCheckOutTime
+    ? getCalendarCheckOutTime(booking)
+    : booking.check_out;
+  const checkoutDanger = isBookingCheckoutDanger
+    ? isBookingCheckoutDanger(booking)
+    : false;
 
   const handlePickRelatedBooking = (item) => {
     if (!onSelectBooking) return;
@@ -1218,6 +1372,17 @@ function BookingDetailModal({
             )}
           </div>
 
+          {checkoutDanger && (
+            <div className="mb-4 rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-red-700">
+              <p className="text-sm font-black uppercase tracking-wide">
+                Waktunya Check-out
+              </p>
+              <p className="mt-1 text-xs font-semibold">
+                Booking ini sudah melewati target check-out dan belum ditekan Check-out.
+              </p>
+            </div>
+          )}
+
           <div className="rounded-[24px] border border-gray-100 bg-gray-50/70 p-3">
             <div className="space-y-2">
               <InfoCard
@@ -1246,20 +1411,20 @@ function BookingDetailModal({
 
               <InfoCard
                 icon={<Clock3 size={17} className="text-red-500" />}
-                label="Check In"
-                value={formatDateTime(booking.check_in)}
+                label="Jam Masuk Tamu"
+                value={formatDateTime(actualCheckInTime)}
               />
 
               <InfoCard
                 icon={<Clock3 size={17} className="text-red-500" />}
-                label="Check Out"
-                value={formatDateTime(booking.check_out)}
+                label="Target Check-out"
+                value={formatDateTime(targetCheckOutTime)}
               />
 
               <InfoCard
                 icon={<Clock3 size={17} className="text-red-500" />}
-                label="Jam Booking"
-                value={formatTimeRange(booking)}
+                label="Jadwal Booking Awal"
+                value={`${formatDateTime(booking.check_in)} - ${formatDateTime(booking.check_out)}`}
               />
 
               <InfoCard

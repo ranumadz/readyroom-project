@@ -138,7 +138,10 @@ export default function BookingList() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paidAmountInput, setPaidAmountInput] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
+  const [actualCheckInInput, setActualCheckInInput] = useState("");
+  const [expectedCheckOutInput, setExpectedCheckOutInput] = useState("");
   const [paying, setPaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
 
   const [selectedPenaltyBooking, setSelectedPenaltyBooking] = useState(null);
   const [savingPenalty, setSavingPenalty] = useState(false);
@@ -171,6 +174,14 @@ export default function BookingList() {
     }, 15000);
 
     return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const clockIntervalId = window.setInterval(() => {
+      setCurrentTime(new Date());
+    }, 30000);
+
+    return () => window.clearInterval(clockIntervalId);
   }, []);
 
   useEffect(() => {
@@ -424,11 +435,161 @@ export default function BookingList() {
     }
   };
 
+  const toSafeDate = (value) => {
+    if (!value) return null;
+
+    const normalizedValue =
+      value instanceof Date
+        ? value
+        : new Date(String(value).replace(" ", "T"));
+
+    if (Number.isNaN(normalizedValue.getTime())) return null;
+
+    return normalizedValue;
+  };
+
+  const getDateTimeLocalInputValue = (value) => {
+    const date = value instanceof Date ? value : toSafeDate(value);
+    if (!date) return "";
+
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  };
+
+  const normalizeBackendDateTime = (value) => {
+    if (!value) return null;
+
+    const [datePart, rawTimePart = "00:00"] = String(value).split("T");
+    const timePart = rawTimePart.length === 5 ? `${rawTimePart}:00` : rawTimePart;
+
+    return `${datePart} ${timePart}`;
+  };
+
+  const getBookingDurationMs = (booking) => {
+    const checkIn = toSafeDate(booking?.check_in);
+    const checkOut = toSafeDate(booking?.check_out);
+
+    if (checkIn && checkOut && checkOut.getTime() > checkIn.getTime()) {
+      return checkOut.getTime() - checkIn.getTime();
+    }
+
+    if (booking?.booking_type === "transit" && Number(booking?.duration_hours || 0) > 0) {
+      return Number(booking.duration_hours) * 60 * 60 * 1000;
+    }
+
+    if (Number(booking?.duration_days || 0) > 0) {
+      return Number(booking.duration_days) * 24 * 60 * 60 * 1000;
+    }
+
+    return 3 * 60 * 60 * 1000;
+  };
+
+  const calculateExpectedCheckoutInput = (booking, actualCheckInValue) => {
+    const actualCheckIn = toSafeDate(actualCheckInValue);
+    if (!actualCheckIn) {
+      return getDateTimeLocalInputValue(booking?.check_out);
+    }
+
+    const expectedCheckout = new Date(
+      actualCheckIn.getTime() + getBookingDurationMs(booking)
+    );
+
+    return getDateTimeLocalInputValue(expectedCheckout);
+  };
+
+  const getOperationalMetaFromNote = (note) => {
+    const rawNote = String(note || "");
+    const match = rawNote.match(
+      /\[RR_OPS\s+actual_check_in="([^"]*)"\s+expected_check_out="([^"]*)"\]/i
+    );
+
+    return {
+      actualCheckIn: match?.[1] || null,
+      expectedCheckOut: match?.[2] || null,
+    };
+  };
+
+  const cleanPaymentNote = (note) => {
+    return String(note || "")
+      .replace(/\[RR_OPS\s+actual_check_in="[^"]*"\s+expected_check_out="[^"]*"\]/gi, "")
+      .trim();
+  };
+
+  const buildPaymentNoteWithOperationalTime = (
+    note,
+    actualCheckInValue,
+    expectedCheckOutValue
+  ) => {
+    const cleanNote = cleanPaymentNote(note);
+    const actualCheckIn = normalizeBackendDateTime(actualCheckInValue) || "";
+    const expectedCheckOut = normalizeBackendDateTime(expectedCheckOutValue) || "";
+    const meta = `[RR_OPS actual_check_in="${actualCheckIn}" expected_check_out="${expectedCheckOut}"]`;
+
+    return cleanNote ? `${cleanNote}\n\n${meta}` : meta;
+  };
+
+  const getOperationalTimeMeta = (booking) => {
+    const noteMeta = getOperationalMetaFromNote(booking?.payment_note);
+
+    return {
+      actualCheckIn:
+        booking?.actual_check_in ||
+        booking?.check_in_actual ||
+        booking?.checked_in_at ||
+        booking?.checkin_at ||
+        noteMeta.actualCheckIn ||
+        null,
+      expectedCheckOut:
+        booking?.expected_check_out ||
+        booking?.check_out_target ||
+        booking?.checkout_target ||
+        booking?.estimated_check_out ||
+        booking?.operational_check_out ||
+        noteMeta.expectedCheckOut ||
+        null,
+    };
+  };
+
+  const getOperationalCheckInTime = (booking) => {
+    const meta = getOperationalTimeMeta(booking);
+    return meta.actualCheckIn || booking?.check_in || null;
+  };
+
+  const getOperationalCheckoutTime = (booking) => {
+    const meta = getOperationalTimeMeta(booking);
+    return (
+      booking?.actual_check_out ||
+      booking?.checked_out_at ||
+      meta.expectedCheckOut ||
+      booking?.check_out ||
+      null
+    );
+  };
+
+  const isBookingCheckoutOverdue = (booking) => {
+    const status = String(booking?.status || "").toLowerCase();
+    if (status !== "checked_in") return false;
+
+    const checkoutDate = toSafeDate(getOperationalCheckoutTime(booking));
+    if (!checkoutDate) return false;
+
+    return currentTime.getTime() > checkoutDate.getTime();
+  };
+
   const handleMarkPaid = (booking) => {
+    const nowInput = getDateTimeLocalInputValue(new Date());
+    const existingMeta = getOperationalTimeMeta(booking);
+    const defaultActualCheckIn =
+      getDateTimeLocalInputValue(existingMeta.actualCheckIn) || nowInput;
+    const defaultExpectedCheckOut =
+      getDateTimeLocalInputValue(existingMeta.expectedCheckOut) ||
+      calculateExpectedCheckoutInput(booking, defaultActualCheckIn);
+
     setSelectedPaidBooking(booking);
-    setPaymentMethod("cash");
+    setPaymentMethod(booking?.payment_method || "cash");
     setPaidAmountInput(String(Math.round(Number(booking?.total_price || 0))));
-    setPaymentNote(booking?.payment_note || "");
+    setPaymentNote(cleanPaymentNote(booking?.payment_note || ""));
+    setActualCheckInInput(defaultActualCheckIn);
+    setExpectedCheckOutInput(defaultExpectedCheckOut);
   };
 
   const closePaidModal = () => {
@@ -436,6 +597,8 @@ export default function BookingList() {
     setPaymentMethod("cash");
     setPaidAmountInput("");
     setPaymentNote("");
+    setActualCheckInInput("");
+    setExpectedCheckOutInput("");
   };
 
   const confirmPayment = async () => {
@@ -448,16 +611,64 @@ export default function BookingList() {
       return;
     }
 
+    if (!actualCheckInInput) {
+      toast.error("Jam check-in aktual wajib diisi");
+      return;
+    }
+
+    if (!expectedCheckOutInput) {
+      toast.error("Jam check-out wajib diisi");
+      return;
+    }
+
+    const actualCheckInDate = toSafeDate(actualCheckInInput);
+    const expectedCheckOutDate = toSafeDate(expectedCheckOutInput);
+
+    if (!actualCheckInDate || !expectedCheckOutDate) {
+      toast.error("Format jam check-in atau check-out tidak valid");
+      return;
+    }
+
+    if (expectedCheckOutDate.getTime() <= actualCheckInDate.getTime()) {
+      toast.error("Jam check-out harus lebih besar dari jam check-in");
+      return;
+    }
+
+    const actualCheckInBackend = normalizeBackendDateTime(actualCheckInInput);
+    const expectedCheckOutBackend = normalizeBackendDateTime(expectedCheckOutInput);
+    const noteWithOperationalTime = buildPaymentNoteWithOperationalTime(
+      paymentNote,
+      actualCheckInInput,
+      expectedCheckOutInput
+    );
+
     try {
       setPaying(true);
 
       await api.post(`/admin/bookings/${selectedPaidBooking.id}/paid`, {
         payment_method: paymentMethod,
         paid_amount: parsedPaidAmount,
-        payment_note: paymentNote.trim() || null,
+        payment_note: noteWithOperationalTime,
+        actual_check_in: actualCheckInBackend,
+        expected_check_out: expectedCheckOutBackend,
+        check_in_actual: actualCheckInBackend,
+        check_out_target: expectedCheckOutBackend,
       });
 
-      toast.success("Pembayaran berhasil dikonfirmasi");
+      try {
+        await api.post(`/admin/bookings/${selectedPaidBooking.id}/check-in`, {
+          actual_check_in: actualCheckInBackend,
+          expected_check_out: expectedCheckOutBackend,
+          check_in_actual: actualCheckInBackend,
+          check_out_target: expectedCheckOutBackend,
+        });
+
+        toast.success("Pembayaran tersimpan dan tamu berhasil check-in");
+      } catch (checkInError) {
+        console.error("CHECK IN AFTER PAYMENT ERROR:", checkInError.response?.data || checkInError);
+        toast.success("Pembayaran tersimpan, tapi check-in belum otomatis. Silakan tekan Check In jika masih muncul.");
+      }
+
       closePaidModal();
       fetchBookings();
     } catch (error) {
@@ -1561,6 +1772,102 @@ const handlePrintReport = () => {
     };
   };
 
+  const getPenaltyTypeLabelForReport = (value) => {
+    const type = String(value || "").trim().toLowerCase();
+
+    if (!type) return "Denda Operasional";
+    if (type === "smoking") return "Merokok di kamar";
+    if (type === "damage") return "Kerusakan fasilitas";
+    if (type === "lost_item") return "Barang hotel hilang";
+    if (type === "extra_cleaning") return "Extra cleaning";
+    if (type === "late_checkout") return "Telat check-out";
+
+    return String(value)
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  const getPenaltyInputByForReport = (penalty, booking) => {
+    return (
+      penalty?.creator?.name ||
+      penalty?.created_by_user?.name ||
+      penalty?.createdBy?.name ||
+      penalty?.admin?.name ||
+      penalty?.user?.name ||
+      penalty?.creator_name ||
+      penalty?.created_by_name ||
+      booking?.creator?.name ||
+      booking?.created_by_user?.name ||
+      "-"
+    );
+  };
+
+  const getPenaltyRowsForReport = (booking) => {
+    const summary = getPenaltySummary(booking);
+    const penalties = Array.isArray(summary.penalties) ? summary.penalties : [];
+
+    if (penalties.length > 0) {
+      return penalties
+        .map((penalty, index) => {
+          const amount = Number(penalty?.amount || penalty?.total || 0);
+          const title =
+            penalty?.title ||
+            penalty?.name ||
+            getPenaltyTypeLabelForReport(penalty?.penalty_type || penalty?.type);
+          const note =
+            penalty?.note ||
+            penalty?.reason ||
+            penalty?.description ||
+            penalty?.keterangan ||
+            title ||
+            "-";
+
+          return {
+            id: `${booking?.id || "booking"}-${penalty?.id || index}`,
+            booking,
+            penalty,
+            amount: Number.isNaN(amount) ? 0 : amount,
+            title: title || "Denda Operasional",
+            note,
+            type: getPenaltyTypeLabelForReport(
+              penalty?.penalty_type || penalty?.type || title
+            ),
+            inputBy: getPenaltyInputByForReport(penalty, booking),
+            createdAt:
+              penalty?.created_at ||
+              penalty?.createdAt ||
+              booking?.updated_at ||
+              booking?.created_at ||
+              null,
+          };
+        })
+        .filter((item) => Number(item.amount || 0) > 0);
+    }
+
+    if (Number(summary.totalPenalty || 0) <= 0) return [];
+
+    return [
+      {
+        id: `${booking?.id || "booking"}-total-penalty`,
+        booking,
+        penalty: null,
+        amount: Number(summary.totalPenalty || 0),
+        title: "Denda Operasional",
+        note: "Denda booking",
+        type: "Denda Operasional",
+        inputBy: getCreatedByName(booking),
+        createdAt: booking?.updated_at || booking?.created_at || null,
+      },
+    ];
+  };
+
+  const getReportBookingAmount = (booking) => {
+    const paidAmount = Number(booking?.paid_amount || 0);
+    if (!Number.isNaN(paidAmount) && paidAmount > 0) return paidAmount;
+
+    return Number(booking?.total_price || 0);
+  };
+
   const formatDateTime = (value) => {
     if (!value) return "-";
     return new Date(value).toLocaleString("id-ID", {
@@ -1576,7 +1883,7 @@ const handlePrintReport = () => {
   };
 
   const getReportTransactionDate = (booking) => {
-    return booking?.check_in || null;
+    return getOperationalCheckInTime(booking) || booking?.check_in || null;
   };
 
   const matchesReportShift = (booking) => {
@@ -2041,12 +2348,18 @@ const reportBookings = useMemo(() => {
   return bookings.filter((booking) => {
     const status = String(booking?.status || "").toLowerCase();
     const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+    const validOperationalStatuses = [
+      "checked_in",
+      "checked_out",
+      "cleaning",
+      "completed",
+    ];
 
-    if (["cancelled", "rejected"].includes(status)) {
+    if (!validOperationalStatuses.includes(status)) {
       return false;
     }
 
-    if (paymentStatus === "refunded") {
+    if (paymentStatus !== "paid") {
       return false;
     }
 
@@ -2080,9 +2393,27 @@ const reportBookings = useMemo(() => {
   reportPaymentMethod,
 ]);
 
-  const reportTotalValue = useMemo(() => {
-    return reportBookings.reduce((sum, booking) => sum + Number(booking?.total_price || 0), 0);
+  const reportPenaltyRows = useMemo(() => {
+    return reportBookings.flatMap((booking) => getPenaltyRowsForReport(booking));
   }, [reportBookings]);
+
+  const reportTotalValue = useMemo(() => {
+    return reportBookings.reduce(
+      (sum, booking) => sum + getReportBookingAmount(booking),
+      0
+    );
+  }, [reportBookings]);
+
+  const reportTotalPenalty = useMemo(() => {
+    return reportPenaltyRows.reduce(
+      (sum, item) => sum + Number(item?.amount || 0),
+      0
+    );
+  }, [reportPenaltyRows]);
+
+  const reportGrandTotalValue = useMemo(() => {
+    return reportTotalValue + reportTotalPenalty;
+  }, [reportTotalValue, reportTotalPenalty]);
 
   const branchUnreadCounts = useMemo(() => {
     const counts = {};
@@ -2393,12 +2724,28 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                     ["cleaning", "completed"].includes(String(booking?.status || "").toLowerCase()) &&
                     !!cleaningByName;
 
+                  const operationalMeta = getOperationalTimeMeta(booking);
+                  const operationalCheckIn = getOperationalCheckInTime(booking);
+                  const operationalCheckOut = getOperationalCheckoutTime(booking);
+                  const isOverdueCheckout = isBookingCheckoutOverdue(booking);
+                  const visiblePaymentNote = cleanPaymentNote(booking.payment_note);
+
                   return (
                     <div
                       key={booking.id}
-                      className="group relative overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-red-100 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)]"
+                      className={`group relative overflow-hidden rounded-[30px] border bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)] ${
+                        isOverdueCheckout
+                          ? "border-red-400 ring-2 ring-red-200 shadow-red-100"
+                          : "border-slate-200 hover:border-red-100"
+                      }`}
                     >
-                      <div className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-red-600 via-red-500 to-rose-400" />
+                      <div
+                        className={`pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${
+                          isOverdueCheckout
+                            ? "from-red-700 via-red-600 to-orange-500"
+                            : "from-red-600 via-red-500 to-rose-400"
+                        }`}
+                      />
                       <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-red-50 blur-3xl transition group-hover:bg-red-100" />
                       <div className="pointer-events-none absolute -bottom-24 left-1/3 h-40 w-40 rounded-full bg-amber-50 blur-3xl" />
 
@@ -2459,7 +2806,32 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                                     Unit {getBookingRoomUnit(booking)}
                                   </span>
                                 )}
+
+                                {isOverdueCheckout && (
+                                  <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full border border-red-200 bg-red-600 px-3 py-1 text-[11px] font-black text-white shadow-sm shadow-red-100">
+                                    <Clock3 size={12} />
+                                    Waktunya Check-out
+                                  </span>
+                                )}
                               </div>
+
+                              {isOverdueCheckout && (
+                                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
+                                  <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                      <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
+                                        Peringatan Operasional
+                                      </p>
+                                      <p className="mt-1 font-black">
+                                        Booking ini sudah melewati waktu check-out. Mohon resepsionis segera cek kamar/tamu.
+                                      </p>
+                                    </div>
+                                    <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-red-700 shadow-sm ring-1 ring-red-100">
+                                      Target: {formatDateTime(operationalCheckOut)}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
 
                               <div className="grid w-full grid-cols-1 gap-2.5 text-sm md:grid-cols-2 xl:grid-cols-[minmax(135px,1fr)_minmax(155px,1.08fr)_minmax(120px,0.85fr)_minmax(345px,1.9fr)_minmax(120px,0.78fr)] 2xl:grid-cols-[minmax(150px,1.05fr)_minmax(180px,1.16fr)_minmax(135px,0.9fr)_minmax(380px,2fr)_minmax(135px,0.82fr)]">
                                 <InfoMiniCard
@@ -2484,6 +2856,9 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                                   icon={<CalendarDays size={16} className="text-red-500" />}
                                   checkIn={formatDateTime(booking.check_in)}
                                   checkOut={formatDateTime(booking.check_out)}
+                                  actualCheckIn={operationalMeta.actualCheckIn ? formatDateTime(operationalCheckIn) : ""}
+                                  targetCheckOut={operationalMeta.expectedCheckOut ? formatDateTime(operationalCheckOut) : ""}
+                                  overdue={isOverdueCheckout}
                                 />
 
                                 <InfoMiniCard
@@ -2552,7 +2927,11 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                             </div>
                           </div>
 
-                          {(booking.payment_method || booking.paid_amount || booking.payment_note) && (
+                          {(booking.payment_method ||
+                            booking.paid_amount ||
+                            visiblePaymentNote ||
+                            operationalMeta.actualCheckIn ||
+                            operationalMeta.expectedCheckOut) && (
                             <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
                               <div className="flex flex-wrap items-center gap-3">
                                 {booking.payment_method && (
@@ -2565,10 +2944,26 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                                     Dibayar: {formatCurrency(booking.paid_amount)}
                                   </span>
                                 ) : null}
+                                {operationalMeta.actualCheckIn && (
+                                  <span className="rounded-full border border-emerald-200 bg-white/90 px-3 py-1 text-xs font-semibold text-emerald-700">
+                                    Check-in aktual: {formatDateTime(operationalCheckIn)}
+                                  </span>
+                                )}
+                                {operationalMeta.expectedCheckOut && (
+                                  <span
+                                    className={`rounded-full border bg-white/90 px-3 py-1 text-xs font-semibold ${
+                                      isOverdueCheckout
+                                        ? "border-red-200 text-red-700"
+                                        : "border-sky-200 text-sky-700"
+                                    }`}
+                                  >
+                                    Target check-out: {formatDateTime(operationalCheckOut)}
+                                  </span>
+                                )}
                               </div>
-                              {booking.payment_note && (
+                              {visiblePaymentNote && (
                                 <p className="mt-2 leading-relaxed">
-                                  <strong>Catatan Pembayaran:</strong> {booking.payment_note}
+                                  <strong>Catatan Pembayaran:</strong> {visiblePaymentNote}
                                 </p>
                               )}
                             </div>
@@ -2836,8 +3231,8 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                               booking.payment_status !== "refunded" ? (
                               <>
                                 <ActionButton
-                                  icon={<Wallet size={17} />}
-                                  label="Tandai Lunas"
+                                  icon={<DoorOpen size={17} />}
+                                  label="Check-in & Bayar"
                                   tone="emerald"
                                   onClick={() => handleMarkPaid(booking)}
                                 />
@@ -2887,6 +3282,15 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                                   tone="slate"
                                   onClick={() => handleCheckOut(booking)}
                                 />
+
+                                {canEditBooking && booking.payment_status !== "refunded" && (
+                                  <ActionButton
+                                    icon={<Wallet size={17} />}
+                                    label="Refund"
+                                    tone="purple"
+                                    onClick={() => openRefundModal(booking)}
+                                  />
+                                )}
 
                                 {showCancelButton && (
                                   <ActionButton
@@ -3785,11 +4189,13 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 
           {selectedPaidBooking && (
             <div className="fixed inset-0 z-[70] bg-black/50 p-4 backdrop-blur-sm flex items-center justify-center">
-              <div className="w-full max-w-lg rounded-3xl border border-gray-200 bg-white shadow-2xl">
+              <div className="w-full max-w-2xl rounded-3xl border border-gray-200 bg-white shadow-2xl">
                 <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800">Konfirmasi Pembayaran</h3>
-                    <p className="mt-1 text-sm text-gray-500">Pilih metode pembayaran untuk booking ini.</p>
+                    <h3 className="text-xl font-bold text-gray-800">Check-in & Pembayaran</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Isi waktu tamu benar-benar masuk, estimasi check-out, dan pembayaran.
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -3800,7 +4206,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                   </button>
                 </div>
 
-                <div className="space-y-5 px-6 py-6">
+                <div className="max-h-[75vh] space-y-5 overflow-y-auto px-6 py-6">
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
@@ -3822,10 +4228,56 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Jadwal Booking</p>
                         <p className="mt-1 text-sm font-bold text-gray-800">
-                          {selectedPaidBooking.payment_status || "unpaid"}
+                          {formatDateTime(selectedPaidBooking.check_in)} → {formatDateTime(selectedPaidBooking.check_out)}
                         </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <DoorOpen size={17} className="text-emerald-700" />
+                      <div>
+                        <p className="text-sm font-black text-emerald-900">
+                          Waktu Operasional Check-in
+                        </p>
+                        <p className="text-xs font-semibold text-emerald-700">
+                          Dipakai untuk label booking dan peringatan waktu check-out.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Jam Check-in Aktual
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={actualCheckInInput}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setActualCheckInInput(value);
+                            setExpectedCheckOutInput(
+                              calculateExpectedCheckoutInput(selectedPaidBooking, value)
+                            );
+                          }}
+                          className="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-3.5 outline-none shadow-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Target Check-out
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={expectedCheckOutInput}
+                          onChange={(e) => setExpectedCheckOutInput(e.target.value)}
+                          className="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-3.5 outline-none shadow-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                        />
                       </div>
                     </div>
                   </div>
@@ -3881,6 +4333,11 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                       />
                     </div>
                   </div>
+
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold leading-relaxed text-amber-800">
+                    Setelah disimpan, sistem akan menandai booking sebagai lunas lalu langsung melakukan check-in.
+                    
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-5">
@@ -3898,8 +4355,8 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                     disabled={paying}
                     className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 text-white font-semibold hover:bg-emerald-700 transition disabled:opacity-70"
                   >
-                    <Wallet size={18} />
-                    {paying ? "Menyimpan..." : "Simpan & Tandai Paid"}
+                    <DoorOpen size={18} />
+                    {paying ? "Menyimpan..." : "Simpan, Lunas & Check-in"}
                   </button>
                 </div>
               </div>
@@ -3907,12 +4364,12 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           )}
 {showReportModal && (
   <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
-    <div className="w-full max-w-6xl rounded-3xl bg-white shadow-2xl border border-gray-100 p-6">
+    <div className="w-full max-w-7xl rounded-3xl bg-white shadow-2xl border border-gray-100 p-6 max-h-[92vh] overflow-y-auto">
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
           <h3 className="text-2xl font-bold text-gray-800">Laporan Booking</h3>
           <p className="text-sm text-gray-500 mt-1">
-            Laporan booking operasional resepsionis tanpa data cancel, reject, refund, dan tanpa kolom status.
+            Laporan hanya mengambil booking yang sudah check-in dan sudah lunas. Pending, belum disetujui, belum check-in, cancel, reject, dan refund tidak masuk report.
           </p>
         </div>
 
@@ -3925,8 +4382,8 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </button>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <div className="mb-5 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-7 gap-4">
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 xl:col-span-2">
           <label className="mb-2 block text-sm font-semibold text-gray-700">
             Filter Tanggal
           </label>
@@ -3937,6 +4394,9 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             onChange={(e) => setReportDate(e.target.value || getTodayDateValue())}
             className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
           />
+          <p className="mt-2 text-xs font-medium text-gray-500">
+            Patokan: Jam Masuk Tamu / aktual check-in
+          </p>
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
@@ -3974,15 +4434,23 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
           <p className="text-sm font-semibold text-red-600">Total Booking</p>
           <p className="mt-2 text-3xl font-bold text-gray-900">{reportBookings.length}</p>
-          <p className="mt-1 text-xs text-gray-500">Data report berdasarkan tanggal dan jam check-in</p>
+          <p className="mt-1 text-xs text-gray-500">Sudah check-in & lunas</p>
         </div>
 
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-          <p className="text-sm font-semibold text-emerald-700">Total Nilai</p>
+          <p className="text-sm font-semibold text-emerald-700">Pendapatan Booking</p>
           <p className="mt-2 text-3xl font-bold text-gray-900">
             {formatCurrency(reportTotalValue)}
           </p>
-          <p className="mt-1 text-xs text-gray-500">Akumulasi total harga booking report</p>
+          <p className="mt-1 text-xs text-gray-500">Dari transaksi lunas</p>
+        </div>
+
+        <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+          <p className="text-sm font-semibold text-rose-700">Total Denda</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">
+            {formatCurrency(reportTotalPenalty)}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">Denda pada filter ini</p>
         </div>
       </div>
 
@@ -4024,67 +4492,177 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Keterangan</p>
               <p className="mt-1 text-sm font-semibold text-gray-700">Filter aktif: {reportDate ? formatDate(reportDate) : "Semua Tanggal"} • {reportShift === "all" ? "Semua Shift" : reportShift === "pagi" ? "Shift Pagi" : "Shift Malam"} • {getReportPaymentMethodLabel(reportPaymentMethod)}</p>
+              <p className="mt-1 text-xs font-medium text-gray-500">Patokan tanggal dan shift menggunakan Jam Masuk Tamu / check-in aktual.</p>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-left text-gray-600">
-                  <th className="px-4 py-3 font-semibold">No</th>
-                  <th className="px-4 py-3 font-semibold">Tanggal Check In</th>
-                  <th className="px-4 py-3 font-semibold">Kode Booking</th>
-                  <th className="px-4 py-3 font-semibold">Nama Tamu</th>
-                  <th className="px-4 py-3 font-semibold">No Telp</th>
-                  <th className="px-4 py-3 font-semibold">Metode Pembayaran</th>
-                  <th className="px-4 py-3 font-semibold text-right">Total Harga</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportBookings.length > 0 ? (
-                  reportBookings.map((booking, index) => (
-                    <tr key={booking.id} className="border-t border-gray-100">
-                      <td className="px-4 py-3">{index + 1}</td>
-                      <td className="px-4 py-3">
-                        {formatDateTime(getReportTransactionDate(booking))}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-700">
-                        {booking.booking_code || "-"}
-                      </td>
-                      <td className="px-4 py-3">
-                        {booking.user?.name || booking.guest_name || "Tamu"}
-                      </td>
-                      <td className="px-4 py-3">{booking.guest_phone || "-"}</td>
-                      <td className="px-4 py-3">
-                        {booking.payment_method
-                          ? getPaymentMethodLabel(booking.payment_method)
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                        {formatCurrency(booking.total_price || 0)}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
-                      Belum ada data booking untuk report ini.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+              <p className="text-xs font-bold text-red-600">Total Booking</p>
+              <p className="mt-1 text-xl font-black text-gray-900">{reportBookings.length}</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+              <p className="text-xs font-bold text-emerald-700">Pendapatan Booking</p>
+              <p className="mt-1 text-xl font-black text-gray-900">{formatCurrency(reportTotalValue)}</p>
+            </div>
+            <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
+              <p className="text-xs font-bold text-rose-700">Total Denda</p>
+              <p className="mt-1 text-xl font-black text-gray-900">{formatCurrency(reportTotalPenalty)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-bold text-slate-600">Total Nilai</p>
+              <p className="mt-1 text-xl font-black text-gray-900">{formatCurrency(reportGrandTotalValue)}</p>
+            </div>
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mb-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h5 className="text-lg font-black text-gray-900">Tabel Booking</h5>
+                <p className="text-xs font-medium text-gray-500">Hanya booking yang sudah check-in dan lunas.</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                {reportBookings.length} booking
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-gray-100">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-gray-600">
+                    <th className="px-4 py-3 font-semibold">No</th>
+                    <th className="px-4 py-3 font-semibold">Jam Masuk Tamu</th>
+                    <th className="px-4 py-3 font-semibold">Target Check-out</th>
+                    <th className="px-4 py-3 font-semibold">Kode Booking</th>
+                    <th className="px-4 py-3 font-semibold">Nama Tamu</th>
+                    <th className="px-4 py-3 font-semibold">No Telp</th>
+                    <th className="px-4 py-3 font-semibold">Metode Pembayaran</th>
+                    <th className="px-4 py-3 font-semibold text-right">Total Harga</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportBookings.length > 0 ? (
+                    reportBookings.map((booking, index) => (
+                      <tr key={booking.id} className="border-t border-gray-100">
+                        <td className="px-4 py-3">{index + 1}</td>
+                        <td className="px-4 py-3">
+                          {formatDateTime(getReportTransactionDate(booking))}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatDateTime(getOperationalCheckoutTime(booking))}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-gray-700">
+                          {booking.booking_code || "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {booking.user?.name || booking.guest_name || "Tamu"}
+                        </td>
+                        <td className="px-4 py-3">{booking.guest_phone || "-"}</td>
+                        <td className="px-4 py-3">
+                          {booking.payment_method
+                            ? getPaymentMethodLabel(booking.payment_method)
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                          {formatCurrency(getReportBookingAmount(booking))}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                        Belum ada data booking yang sudah check-in dan lunas untuk report ini.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h5 className="text-lg font-black text-gray-900">Tabel Denda</h5>
+                <p className="text-xs font-medium text-gray-500">Denda dipisahkan agar mudah dicek oleh boss dan keuangan.</p>
+              </div>
+              <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
+                {reportPenaltyRows.length} item denda
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-rose-100">
+              <table className="min-w-full text-sm">
+                <thead className="bg-rose-50">
+                  <tr className="text-left text-rose-700">
+                    <th className="px-4 py-3 font-semibold">No</th>
+                    <th className="px-4 py-3 font-semibold">Kode Booking</th>
+                    <th className="px-4 py-3 font-semibold">Nama Tamu</th>
+                    <th className="px-4 py-3 font-semibold">Jenis Denda</th>
+                    <th className="px-4 py-3 font-semibold">Alasan / Catatan</th>
+                    <th className="px-4 py-3 font-semibold">Input Oleh</th>
+                    <th className="px-4 py-3 font-semibold">Tanggal Input</th>
+                    <th className="px-4 py-3 font-semibold text-right">Nominal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportPenaltyRows.length > 0 ? (
+                    reportPenaltyRows.map((item, index) => (
+                      <tr key={item.id} className="border-t border-rose-100 bg-rose-50/35">
+                        <td className="px-4 py-3">{index + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-800">
+                          {item.booking?.booking_code || "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-gray-800">
+                            {item.booking?.user?.name || item.booking?.guest_name || "Tamu"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.booking?.guest_phone || "-"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-gray-800">
+                          {item.type || item.title || "Denda Operasional"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {item.note || item.title || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {item.inputBy || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {formatDateTime(item.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-rose-700">
+                          {formatCurrency(item.amount || 0)}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                        Tidak ada denda pada filter report ini.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="mt-5 flex justify-end">
             <div className="w-full max-w-md rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-sm font-semibold text-emerald-700">Total Booking</span>
-                <span className="text-lg font-extrabold text-gray-900">{reportBookings.length}</span>
+                <span className="text-sm font-semibold text-emerald-700">Pendapatan Booking</span>
+                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalValue)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between gap-4">
-                <span className="text-sm font-semibold text-emerald-700">Total Nilai</span>
-                <span className="text-xl font-extrabold text-gray-900">{formatCurrency(reportTotalValue)}</span>
+                <span className="text-sm font-semibold text-rose-700">Total Denda</span>
+                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalPenalty)}</span>
+              </div>
+              <div className="mt-2 border-t border-emerald-200 pt-2 flex items-center justify-between gap-4">
+                <span className="text-sm font-bold text-emerald-800">Total Nilai</span>
+                <span className="text-xl font-extrabold text-gray-900">{formatCurrency(reportGrandTotalValue)}</span>
               </div>
             </div>
           </div>
@@ -4681,30 +5259,73 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
     </div>
   );
 }
-function StayScheduleMiniCard({ icon, checkIn, checkOut }) {
+function StayScheduleMiniCard({
+  icon,
+  checkIn,
+  checkOut,
+  actualCheckIn = "",
+  targetCheckOut = "",
+  overdue = false,
+}) {
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-100 bg-white px-2.5 py-2.5 shadow-sm">
-      <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 sm:flex">
+    <div
+      className={`flex min-w-0 items-center gap-2 rounded-2xl border bg-white px-2.5 py-2.5 shadow-sm ${
+        overdue ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"
+      }`}
+    >
+      <div
+        className={`hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:flex ${
+          overdue ? "bg-red-100" : "bg-red-50"
+        }`}
+      >
         {icon}
       </div>
 
       <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
         <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2 py-2">
           <p className="text-[8px] font-black uppercase leading-none tracking-wide text-slate-400">
-            Check In
+            Jadwal Check In
           </p>
           <p className="mt-1.5 whitespace-normal break-words text-[11px] font-black leading-snug text-slate-950">
             {checkIn || "-"}
           </p>
+          {actualCheckIn && (
+            <p className="mt-1 rounded-lg bg-emerald-50 px-2 py-1 text-[9px] font-black leading-snug text-emerald-700">
+              Aktual: {actualCheckIn}
+            </p>
+          )}
         </div>
 
-        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2 py-2">
-          <p className="text-[8px] font-black uppercase leading-none tracking-wide text-slate-400">
-            Check Out
+        <div
+          className={`min-w-0 rounded-xl border px-2 py-2 ${
+            overdue
+              ? "border-red-200 bg-red-50"
+              : "border-slate-100 bg-slate-50/80"
+          }`}
+        >
+          <p
+            className={`text-[8px] font-black uppercase leading-none tracking-wide ${
+              overdue ? "text-red-500" : "text-slate-400"
+            }`}
+          >
+            Jadwal Check Out
           </p>
-          <p className="mt-1.5 whitespace-normal break-words text-[11px] font-black leading-snug text-slate-950">
+          <p
+            className={`mt-1.5 whitespace-normal break-words text-[11px] font-black leading-snug ${
+              overdue ? "text-red-700" : "text-slate-950"
+            }`}
+          >
             {checkOut || "-"}
           </p>
+          {targetCheckOut && (
+            <p
+              className={`mt-1 rounded-lg px-2 py-1 text-[9px] font-black leading-snug ${
+                overdue ? "bg-white text-red-700" : "bg-sky-50 text-sky-700"
+              }`}
+            >
+              Target: {targetCheckOut}
+            </p>
+          )}
         </div>
       </div>
     </div>
