@@ -1514,25 +1514,26 @@ export default function BookingCalendar() {
             </div>
           )}
 
+          {selectedBooking && (
+            <BookingDetailModal
+              booking={selectedBooking}
+              relatedBookings={selectedBookingRelated}
+              onClose={() => setSelectedBooking(null)}
+              onSelectBooking={setSelectedBooking}
+              formatDateTime={formatDateTime}
+              formatTimeRange={formatTimeRange}
+              getHotelName={getHotelName}
+              getStatusBadgeClass={getStatusBadgeClass}
+              getPaymentBadgeClass={getPaymentBadgeClass}
+              getCalendarCheckInTime={getCalendarCheckInTime}
+              getCalendarCheckOutTime={getCalendarCheckOutTime}
+              isBookingCheckoutDanger={isBookingCheckoutDanger}
+            />
+          )}
+
         </div>
       </div>
 
-      {selectedBooking && (
-        <BookingDetailModal
-          booking={selectedBooking}
-          relatedBookings={selectedBookingRelated}
-          onClose={() => setSelectedBooking(null)}
-          onSelectBooking={setSelectedBooking}
-          formatDateTime={formatDateTime}
-          formatTimeRange={formatTimeRange}
-          getHotelName={getHotelName}
-          getStatusBadgeClass={getStatusBadgeClass}
-          getPaymentBadgeClass={getPaymentBadgeClass}
-          getCalendarCheckInTime={getCalendarCheckInTime}
-          getCalendarCheckOutTime={getCalendarCheckOutTime}
-          isBookingCheckoutDanger={isBookingCheckoutDanger}
-        />
-      )}
     </div>
   );
 }

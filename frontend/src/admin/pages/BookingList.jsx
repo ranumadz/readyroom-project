@@ -33,6 +33,8 @@ import {
   ReceiptText,
   Printer,
   Download,
+  Maximize2,
+  Minimize2,
   X,
 } from "lucide-react";
 
@@ -77,6 +79,7 @@ export default function BookingList() {
   });
 
   const [showManualModal, setShowManualModal] = useState(false);
+  const [manualModalFullscreen, setManualModalFullscreen] = useState(false);
   const [hotels, setHotels] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [manualRoomUnits, setManualRoomUnits] = useState([]);
@@ -917,6 +920,7 @@ export default function BookingList() {
 
   const closeManualModal = () => {
     setShowManualModal(false);
+    setManualModalFullscreen(false);
     setManualForm({
       guest_name: "",
       guest_phone: "",
@@ -4756,11 +4760,21 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
   </div>
 )}
           {showManualModal && (
-            <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm md:p-5">
-              <div className="my-5 w-full max-w-[900px] overflow-hidden rounded-[34px] border border-red-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
-                <div className="relative overflow-hidden border-b border-red-100 bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-5 py-4 text-white md:px-6">
+            <div
+              className={`fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/55 backdrop-blur-sm ${
+                manualModalFullscreen ? "p-0" : "p-3 md:p-5"
+              }`}
+            >
+              <div
+                className={`flex w-full flex-col overflow-hidden border border-red-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] ${
+                  manualModalFullscreen
+                    ? "h-screen max-h-screen max-w-none rounded-none border-0"
+                    : "my-5 max-h-[calc(100vh-40px)] max-w-[980px] rounded-[34px]"
+                }`}
+              >
+                <div className="relative shrink-0 overflow-hidden border-b border-red-100 bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-5 py-4 text-white md:px-6">
                   <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/15 blur-2xl" />
-                  <div className="pointer-events-none absolute right-5 top-2 text-[86px] font-black leading-none text-white/10">
+                  <div className="pointer-events-none absolute right-16 top-2 text-[86px] font-black leading-none text-white/10">
                     RR
                   </div>
 
@@ -4777,33 +4791,35 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={closeManualModal}
-                      className="shrink-0 rounded-2xl bg-white/15 px-4 py-2 text-xs font-bold text-white ring-1 ring-white/25 transition hover:bg-white/25"
-                    >
-                      Tutup
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                     
+
+                      <button
+                        type="button"
+                        onClick={closeManualModal}
+                        className="rounded-2xl bg-white/15 px-4 py-2 text-xs font-bold text-white ring-1 ring-white/25 transition hover:bg-white/25"
+                      >
+                        Tutup
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="max-h-[78vh] space-y-3 overflow-y-auto bg-[radial-gradient(circle_at_top_right,_rgba(254,202,202,0.42),_transparent_24%),linear-gradient(180deg,_#fff_0%,_#fff7f7_100%)] p-4 md:p-5">
-                  <div className="rounded-[28px] border border-slate-100 bg-white/95 p-4 shadow-sm">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
-                          Step 01
-                        </p>
-                        <h3 className="text-base font-black text-slate-900">
-                          Data Tamu
-                        </h3>
-                      </div>
-                      <div className="hidden rounded-2xl bg-red-50 px-3 py-1 text-xs font-bold text-red-600 sm:block">
+                <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top_right,_rgba(254,202,202,0.42),_transparent_24%),linear-gradient(180deg,_#fff_0%,_#fff7f7_100%)] p-4 md:p-5">
+                  <div className="rounded-[30px] border border-slate-100 bg-white/95 p-4 shadow-sm md:p-5">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="rounded-2xl bg-red-50 px-3 py-1.5 text-xs font-black text-red-600">
                         Walk-in / OTS
+                      </div>
+
+                      <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
+                        {manualForm.check_in
+                          ? `Check-in: ${manualCheckInDisplay}`
+                          : "Check-in belum dipilih"}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                       <div>
                         <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Nama Tamu
@@ -4844,39 +4860,6 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         </div>
                       </div>
 
-                      <div>
-                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                          Email (Opsional)
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="email"
-                            name="guest_email"
-                            value={manualForm.guest_email}
-                            onChange={handleManualChange}
-                            placeholder="Contoh: tamu@mail.com"
-                            className={`${manualInputClass} pl-11`}
-                          />
-                          <Mail
-                            size={17}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-[28px] border border-slate-100 bg-white/95 p-4 shadow-sm">
-                    <div className="mb-3">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
-                        Step 02
-                      </p>
-                      <h3 className="text-base font-black text-slate-900">
-                        Pilih Hotel & Kamar
-                      </h3>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       <div>
                         <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Hotel
@@ -4967,23 +4950,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                           />
                         </div>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="rounded-[28px] border border-slate-100 bg-white/95 p-4 shadow-sm">
-                    <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
-                          Step 03
-                        </p>
-                        <h3 className="text-base font-black text-slate-900">
-                          Data Booking
-                        </h3>
-                      </div>
-                      
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <div>
                         <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Jenis Booking
@@ -5004,24 +4971,20 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                           Check In
                         </label>
                         <button
-                          type="button"
-                          onClick={openManualCheckInPicker}
-                          className="flex w-full items-center gap-3 rounded-2xl border border-red-100 bg-gradient-to-br from-white to-red-50/80 px-4 py-3 text-left shadow-sm outline-none transition hover:border-red-300 hover:shadow-md focus:border-red-400 focus:ring-4 focus:ring-red-100"
-                        >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-600 text-white shadow-lg shadow-red-100">
-                            <CalendarDays size={18} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-black text-slate-900">
-                              {manualCheckInDisplay}
-                            </span>
-                            <span className="mt-0.5 block text-[11px] font-bold text-slate-500">
-                              {manualForm.check_in
-                                ? "Tanggal & jam sudah dikunci"
-                                : "Klik untuk pilih tanggal dan jam"}
-                            </span>
-                          </span>
-                        </button>
+  type="button"
+  onClick={openManualCheckInPicker}
+  className="flex h-[46px] w-full items-center gap-3 rounded-2xl border border-red-100 bg-gradient-to-br from-white to-red-50/80 px-4 text-left shadow-sm outline-none transition hover:border-red-300 hover:shadow-md focus:border-red-400 focus:ring-4 focus:ring-red-100"
+>
+  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-100">
+    <CalendarDays size={17} />
+  </span>
+
+  <span className="min-w-0 flex-1">
+    <span className="block truncate text-sm font-black text-slate-900">
+      {manualCheckInDisplay}
+    </span>
+  </span>
+</button>
 
                         {manualDatePickerOpen && (
                           <div className="absolute left-0 top-[calc(100%+10px)] z-[90] w-full min-w-[320px] rounded-[28px] border border-red-100 bg-white p-3 shadow-[0_24px_70px_rgba(15,23,42,0.22)] md:w-[430px]">
@@ -5241,10 +5204,24 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                           </div>
                         </div>
                       )}
+
+                      <div className="md:col-span-2 xl:col-span-3">
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                          Catatan Admin
+                        </label>
+                        <textarea
+                          name="admin_note"
+                          value={manualForm.admin_note}
+                          onChange={handleManualChange}
+                          rows={manualModalFullscreen ? 4 : 3}
+                          placeholder="Contoh: Booking walk-in dari resepsionis, tamu datang langsung."
+                          className={`${manualInputClass} resize-none`}
+                        />
+                      </div>
                     </div>
 
                     {canEditBooking && manualDiscountPercent > 0 && (
-                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
                           <p className="text-xs font-black uppercase tracking-wide text-amber-700">
                             Potongan Diskon
@@ -5265,54 +5242,34 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                       </div>
                     )}
                   </div>
+                </div>
 
-                  <div className="rounded-[28px] border border-slate-100 bg-white/95 p-4 shadow-sm">
-                    <div className="mb-3">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
-                        Step 04
-                      </p>
-                      <h3 className="text-base font-black text-slate-900">
-                        Catatan Admin
-                      </h3>
+                <div className="shrink-0 border-t border-red-100 bg-white/95 px-4 py-3 backdrop-blur md:px-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
+                      {manualForm.check_in
+                        ? `Check-in: ${manualCheckInDisplay}`
+                        : "Check-in belum dipilih"}
                     </div>
 
-                    <textarea
-                      name="admin_note"
-                      value={manualForm.admin_note}
-                      onChange={handleManualChange}
-                      rows={3}
-                      placeholder="Contoh: Booking walk-in dari resepsionis, tamu datang langsung."
-                      className={`${manualInputClass} resize-none`}
-                    />
-                  </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={closeManualModal}
+                        className="rounded-2xl bg-slate-200 px-5 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-300"
+                      >
+                        Batal
+                      </button>
 
-                  <div className="sticky bottom-0 -mx-4 -mb-4 border-t border-red-100 bg-white/95 px-4 py-3 backdrop-blur md:-mx-5 md:-mb-5 md:px-5">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
-                        {manualForm.check_in
-                          ? `Check-in: ${manualCheckInDisplay}`
-                          : "Check-in belum dipilih"}
-                      </div>
-
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={closeManualModal}
-                          className="rounded-2xl bg-slate-200 px-5 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-300"
-                        >
-                          Batal
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleSaveManualBooking}
-                          disabled={savingManual}
-                          className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:opacity-70"
-                        >
-                          <Save size={18} />
-                          {savingManual ? "Menyimpan..." : "Simpan Booking Manual"}
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSaveManualBooking}
+                        disabled={savingManual}
+                        className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:opacity-70"
+                      >
+                        <Save size={18} />
+                        {savingManual ? "Menyimpan..." : "Simpan Booking Manual"}
+                      </button>
                     </div>
                   </div>
                 </div>
