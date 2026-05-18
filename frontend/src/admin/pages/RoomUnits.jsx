@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { BedDouble, CalendarDays, ClipboardList } from "lucide-react";
+import { BedDouble, CalendarDays, ClipboardList, Maximize2, Minimize2 } from "lucide-react";
 import api from "../../services/api";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -33,6 +33,9 @@ export default function RoomUnits() {
 
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
+
+  const [isRoomUnitsFullscreen, setIsRoomUnitsFullscreen] = useState(false);
+  const roomUnitsFullscreenRef = useRef(null);
 
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
   const adminRole = String(adminUser?.role || "").toLowerCase();
@@ -76,6 +79,51 @@ export default function RoomUnits() {
     fetchRooms();
     fetchUserAccessHotels();
   }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const fullscreenElement =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+
+      setIsRoomUnitsFullscreen(
+        fullscreenElement === roomUnitsFullscreenRef.current
+      );
+    };
+
+    const handleEscapeKey = (event) => {
+      if (event.key !== "Escape") return;
+
+      const hasNativeFullscreen =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+
+      if (!hasNativeFullscreen && isRoomUnitsFullscreen) {
+        setIsRoomUnitsFullscreen(false);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+    document.addEventListener("keydown", handleEscapeKey);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        handleFullscreenChange
+      );
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+      document.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, [isRoomUnitsFullscreen]);
 
   useEffect(() => {
     setBulkAction("");
@@ -1268,6 +1316,51 @@ export default function RoomUnits() {
     setShowStatusModal(true);
   };
 
+  const handleToggleRoomUnitsFullscreen = async () => {
+    const target = roomUnitsFullscreenRef.current;
+
+    if (!target) return;
+
+    const nativeFullscreenElement =
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement;
+
+    try {
+      if (nativeFullscreenElement) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          await document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+          await document.msExitFullscreen();
+        } else {
+          setIsRoomUnitsFullscreen(false);
+        }
+
+        return;
+      }
+
+      if (target.requestFullscreen) {
+        await target.requestFullscreen();
+      } else if (target.webkitRequestFullscreen) {
+        await target.webkitRequestFullscreen();
+      } else if (target.mozRequestFullScreen) {
+        await target.mozRequestFullScreen();
+      } else if (target.msRequestFullscreen) {
+        await target.msRequestFullscreen();
+      } else {
+        setIsRoomUnitsFullscreen((prev) => !prev);
+      }
+    } catch (error) {
+      console.error("GAGAL TOGGLE FULLSCREEN MONITORING KAMAR:", error);
+      setIsRoomUnitsFullscreen((prev) => !prev);
+    }
+  };
+
   const bookingModalBookings = bookingModalUnit
     ? getAllBookingsForUnit(bookingModalUnit)
     : [];
@@ -1279,10 +1372,17 @@ export default function RoomUnits() {
       <div className="flex-1">
         <Topbar />
 
-        <div className="p-4 md:p-6">
+        <div
+          ref={roomUnitsFullscreenRef}
+          className={`transition-all ${
+            isRoomUnitsFullscreen
+              ? "fixed inset-0 z-[1300] overflow-auto bg-[#f4f5f7] p-4 pb-10 md:p-5 md:pb-12"
+              : "p-4 md:p-6"
+          }`}
+        >
           {visibleOperationalNavigationTabs.length > 1 && (
-            <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
-              <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-slate-100 p-1 md:grid-cols-3">
+            <div className="mb-3 overflow-hidden rounded-[24px] border border-slate-900/10 bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 p-2 shadow-[0_18px_42px_rgba(15,23,42,0.18)]">
+              <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-white/5 p-1 md:grid-cols-3">
                 {visibleOperationalNavigationTabs.map((tab) => {
                   const Icon = tab.icon;
 
@@ -1294,8 +1394,8 @@ export default function RoomUnits() {
                       className={({ isActive }) =>
                         `flex items-center justify-center gap-2 rounded-[15px] px-3 py-3 text-left transition md:justify-start md:px-4 ${
                           isActive
-                            ? "bg-white text-red-600 shadow-sm"
-                            : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+                            ? "bg-white text-red-600 shadow-[0_12px_30px_rgba(15,23,42,0.18)]"
+                            : "text-white/70 hover:bg-white/10 hover:text-white"
                         }`
                       }
                     >
@@ -1305,7 +1405,7 @@ export default function RoomUnits() {
                             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
                               isActive
                                 ? "bg-red-50 text-red-600"
-                                : "bg-white/70 text-slate-500"
+                                : "bg-white/10 text-white/70"
                             }`}
                           >
                             <Icon size={17} />
@@ -1315,7 +1415,11 @@ export default function RoomUnits() {
                             <span className="block truncate text-sm font-black">
                               {tab.name}
                             </span>
-                            <span className="hidden truncate text-[11px] font-semibold text-slate-400 md:block">
+                            <span
+                              className={`hidden truncate text-[11px] font-semibold md:block ${
+                                isActive ? "text-slate-400" : "text-white/45"
+                              }`}
+                            >
                               {tab.helper}
                             </span>
                           </span>
@@ -1328,106 +1432,102 @@ export default function RoomUnits() {
             </div>
           )}
 
-          <div className="mb-5 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-4">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(170px,240px)_minmax(170px,260px)_minmax(220px,1fr)_minmax(150px,220px)]">
-                <div>
-                  <select
-                    value={selectedHotelId}
-                    onChange={(e) => handleHotelChange(e.target.value)}
-                    disabled={
-                      loadingRooms ||
-                      loadingUserAccessHotels ||
-                      (!canAccessAllHotels && assignedHotelIds.length === 0)
-                    }
-                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">
-                      {loadingRooms || loadingUserAccessHotels
-                        ? "Memuat cabang..."
-                        : "Pilih Cabang / Hotel"}
-                    </option>
+          <div className="mb-5 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedHotelId}
+                onChange={(e) => handleHotelChange(e.target.value)}
+                disabled={
+                  loadingRooms ||
+                  loadingUserAccessHotels ||
+                  (!canAccessAllHotels && assignedHotelIds.length === 0)
+                }
+                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-[220px] lg:w-[230px]"
+                aria-label="Pilih cabang atau hotel"
+              >
+                <option value="">
+                  {loadingRooms || loadingUserAccessHotels
+                    ? "Memuat cabang..."
+                    : "Pilih Cabang / Hotel"}
+                </option>
 
-                    {hotelOptions.map((hotel) => (
-                      <option key={hotel.id} value={hotel.id}>
-                        {hotel.name}
-                      </option>
-                    ))}
-                  </select>
+                {hotelOptions.map((hotel) => (
+                  <option key={hotel.id} value={hotel.id}>
+                    {hotel.name}
+                  </option>
+                ))}
+              </select>
 
-                  {loadingUserAccessHotels && (
-                    <p className="mt-2 text-xs font-bold text-gray-500">
-                      Sedang memuat akses cabang user...
-                    </p>
-                  )}
+              <select
+                value={selectedRoom}
+                onMouseDown={handleRoomSelectMouseDown}
+                onChange={(e) => handleRoomChange(e.target.value)}
+                disabled={
+                  loadingRooms ||
+                  !selectedHotelId ||
+                  Boolean(selectedHotelId && roomsBySelectedHotel.length === 0)
+                }
+                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-[210px] lg:w-[220px]"
+                aria-label="Pilih tipe kamar"
+              >
+                {selectedHotelId && roomsBySelectedHotel.length > 0 && (
+                  <option value="all">Semua Tipe Kamar</option>
+                )}
 
-                  {!loadingUserAccessHotels &&
-                    !canAccessAllHotels &&
-                    assignedHotelIds.length === 0 && (
-                      <p className="mt-2 text-xs font-bold text-red-600">
-                        Akun ini belum memiliki akses cabang. Atur dari Kelola Users.
-                      </p>
-                    )}
-                </div>
+                {roomsBySelectedHotel.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.name} - {room.type || "Tipe"}
+                  </option>
+                ))}
+              </select>
 
-                <div>
-                  <select
-                    value={selectedRoom}
-                    onMouseDown={handleRoomSelectMouseDown}
-                    onChange={(e) => handleRoomChange(e.target.value)}
-                    disabled={
-                      loadingRooms ||
-                      !selectedHotelId ||
-                      Boolean(selectedHotelId && roomsBySelectedHotel.length === 0)
-                    }
-                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {selectedHotelId && roomsBySelectedHotel.length > 0 && (
-                      <option value="all">Semua Tipe Kamar</option>
-                    )}
+              <input
+                type="text"
+                value={searchUnit}
+                onChange={(e) => setSearchUnit(e.target.value)}
+                placeholder="Cari 101, Rici, RR-..."
+                disabled={!selectedHotelId}
+                className="h-10 min-w-[220px] flex-1 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Cari nomor kamar, tamu, atau kode booking"
+              />
 
-                    {roomsBySelectedHotel.map((room) => (
-                      <option key={room.id} value={room.id}>
-                        {room.name} - {room.type || "Tipe"}
-                      </option>
-                    ))}
-                  </select>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                disabled={!selectedHotelId}
+                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-[150px] lg:w-[160px]"
+                aria-label="Filter status kamar"
+              >
+                {statusTabs.map((tab) => (
+                  <option key={tab.value} value={tab.value}>
+                    {tab.label}
+                  </option>
+                ))}
+              </select>
 
-                  {roomSelectWarning && (
-                    <p className="mt-2 text-xs font-bold text-red-600">
-                      {roomSelectWarning}
-                    </p>
-                  )}
-                </div>
+              <button
+                type="button"
+                onClick={handleToggleRoomUnitsFullscreen}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 shadow-sm transition hover:border-red-200 hover:bg-red-100"
+                title={
+                  isRoomUnitsFullscreen
+                    ? "Kembali ke tampilan biasa"
+                    : "Perbesar Monitoring Kamar"
+                }
+                aria-label={
+                  isRoomUnitsFullscreen
+                    ? "Kembali ke tampilan biasa"
+                    : "Perbesar Monitoring Kamar"
+                }
+              >
+                {isRoomUnitsFullscreen ? (
+                  <Minimize2 size={17} />
+                ) : (
+                  <Maximize2 size={17} />
+                )}
+              </button>
 
-                <div>
-                  <input
-                    type="text"
-                    value={searchUnit}
-                    onChange={(e) => setSearchUnit(e.target.value)}
-                    placeholder="Cari 101, Rici, RR-..."
-                    disabled={!selectedHotelId}
-                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  />
-                </div>
-
-                <div>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    disabled={!selectedHotelId}
-                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {statusTabs.map((tab) => (
-                      <option key={tab.value} value={tab.value}>
-                        {tab.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
+              <div className="flex flex-wrap items-center gap-1.5 lg:ml-auto">
                 {["available", "occupied", "cleaning", "maintenance", "inactive"].map(
                   (status) => {
                     const meta = getStatusMeta(status);
@@ -1447,6 +1547,34 @@ export default function RoomUnits() {
                 )}
               </div>
             </div>
+
+            {(loadingUserAccessHotels ||
+              roomSelectWarning ||
+              (!loadingUserAccessHotels &&
+                !canAccessAllHotels &&
+                assignedHotelIds.length === 0)) && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold">
+                {loadingUserAccessHotels && (
+                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-500">
+                    Sedang memuat akses cabang user...
+                  </span>
+                )}
+
+                {roomSelectWarning && (
+                  <span className="rounded-full bg-red-50 px-3 py-1.5 text-red-600">
+                    {roomSelectWarning}
+                  </span>
+                )}
+
+                {!loadingUserAccessHotels &&
+                  !canAccessAllHotels &&
+                  assignedHotelIds.length === 0 && (
+                    <span className="rounded-full bg-red-50 px-3 py-1.5 text-red-600">
+                      Akun ini belum memiliki akses cabang. Atur dari Kelola Users.
+                    </span>
+                  )}
+              </div>
+            )}
           </div>
 
           <div className="overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">

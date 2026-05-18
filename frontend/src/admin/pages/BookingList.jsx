@@ -146,6 +146,7 @@ export default function BookingList() {
   const [expectedCheckOutInput, setExpectedCheckOutInput] = useState("");
   const [paying, setPaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [isBookingListFullscreen, setIsBookingListFullscreen] = useState(false);
 
   const [selectedPenaltyBooking, setSelectedPenaltyBooking] = useState(null);
   const [savingPenalty, setSavingPenalty] = useState(false);
@@ -187,6 +188,22 @@ export default function BookingList() {
 
     return () => window.clearInterval(clockIntervalId);
   }, []);
+
+  useEffect(() => {
+    if (!isBookingListFullscreen) return undefined;
+
+    const handleEscapeFullscreen = (event) => {
+      if (event.key === "Escape") {
+        setIsBookingListFullscreen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscapeFullscreen);
+
+    return () => {
+      document.removeEventListener("keydown", handleEscapeFullscreen);
+    };
+  }, [isBookingListFullscreen]);
 
   useEffect(() => {
     const storageKey = `readyroom_booking_seen_map_${adminUser?.id || "guest"}`;
@@ -2503,9 +2520,15 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
       <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         <Topbar />
 
-        <div className="min-w-0 overflow-x-hidden p-4 md:p-6">
-          <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
-            <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-slate-100 p-1 md:grid-cols-3">
+        <div
+          className={`min-w-0 overflow-x-hidden transition-all ${
+            isBookingListFullscreen
+              ? "fixed inset-0 z-[1300] overflow-y-auto bg-gray-100 p-4 pb-10 md:p-6 md:pb-12"
+              : "p-4 md:p-6"
+          }`}
+        >
+          <div className="mb-3 overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 p-2 shadow-[0_18px_44px_rgba(15,23,42,0.12)]">
+            <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-white/5 p-1 md:grid-cols-3">
               {[
                 {
                   name: "Booking Calendar",
@@ -2537,7 +2560,7 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                       `flex items-center justify-center gap-2 rounded-[15px] px-3 py-3 text-left transition md:justify-start md:px-4 ${
                         isActive
                           ? "bg-white text-red-600 shadow-sm"
-                          : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+                          : "text-white/70 hover:bg-white/10 hover:text-white"
                       }`
                     }
                   >
@@ -2547,7 +2570,7 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
                             isActive
                               ? "bg-red-50 text-red-600"
-                              : "bg-white/70 text-slate-500"
+                              : "bg-white/10 text-white/75"
                           }`}
                         >
                           <Icon size={17} />
@@ -2557,7 +2580,11 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                           <span className="block truncate text-sm font-black">
                             {item.name}
                           </span>
-                          <span className="hidden truncate text-[11px] font-semibold text-slate-400 md:block">
+                          <span
+                            className={`hidden truncate text-[11px] font-semibold md:block ${
+                              isActive ? "text-slate-400" : "text-white/45"
+                            }`}
+                          >
                             {item.helper}
                           </span>
                         </span>
@@ -2569,149 +2596,158 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
             </div>
           </div>
 
-  <div className="relative mb-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-    <div className="pointer-events-none absolute inset-0">
-      <div className="absolute -left-16 -top-16 h-40 w-40 rounded-full bg-red-100/50 blur-3xl" />
-      <div className="absolute right-0 top-0 h-44 w-44 rounded-full bg-orange-100/40 blur-3xl" />
-      <div className="absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-blue-100/30 blur-3xl" />
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.95)_50%,rgba(255,247,237,0.92))]" />
-    </div>
+          <div className="relative mb-4 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={filters.hotelId}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  handleFilterChange("hotelId", value);
 
-    <div className="relative z-10 p-4 md:p-5">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(210px,1.15fr)_minmax(220px,1.2fr)_minmax(145px,0.8fr)_minmax(150px,0.85fr)_minmax(135px,0.75fr)_auto]">
-          <div className="min-w-0">
-            <select
-              value={filters.hotelId}
-              onChange={(e) => {
-                const value = e.target.value;
-                handleFilterChange("hotelId", value);
+                  if (value) {
+                    markHotelAsSeen(value);
+                  }
+                }}
+                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 sm:w-[220px] lg:w-[230px]"
+              >
+                {canAccessAllHotels && <option value="">Semua Cabang</option>}
+                {!canAccessAllHotels && (
+                  <option value="">Pilih Cabang / Hotel</option>
+                )}
 
-                if (value) {
-                  markHotelAsSeen(value);
+                {folderHotels.map((hotel) => {
+                  const unreadCount = branchUnreadCounts[String(hotel.id)] || 0;
+
+                  return (
+                    <option key={hotel.id} value={hotel.id}>
+                      {hotel.name}
+                      {unreadCount > 0 ? ` (${unreadCount} baru)` : ""}
+                    </option>
+                  );
+                })}
+              </select>
+
+              <div className="relative min-w-0 sm:w-[255px] lg:w-[285px]">
+                <Search
+                  size={15}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-red-500"
+                />
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange("search", e.target.value)}
+                  disabled={!hasSelectedFolder}
+                  placeholder="Cari kode, tamu, hotel, kamar"
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-xs font-bold text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-red-400 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+
+              <select
+                value={filters.status === "pending" ? "approval" : viewMode}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setViewMode(value);
+                  if (value !== "approval" && filters.status === "pending") {
+                    handleFilterChange("status", "");
+                  }
+                  if (value === "approval") {
+                    setViewMode("all");
+                    handleFilterChange("status", "pending");
+                  }
+                }}
+                disabled={!hasSelectedFolder}
+                className="h-10 w-[155px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="today_active">Aktif Hari Ini</option>
+                <option value="all">Riwayat Booking</option>
+                <option value="approval">Approval</option>
+              </select>
+
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange("status", e.target.value)}
+                disabled={!hasSelectedFolder}
+                className="h-10 w-[155px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Semua Status</option>
+                <option value="checked_in">Check In</option>
+                <option value="checked_out">Check Out</option>
+                <option value="cleaning">Proses Cleaning</option>
+                <option value="completed">Selesai</option>
+              </select>
+
+              <select
+                value={filters.bookingType}
+                onChange={(e) => handleFilterChange("bookingType", e.target.value)}
+                disabled={!hasSelectedFolder}
+                className="h-10 w-[140px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Semua Tipe</option>
+                <option value="transit">Transit</option>
+                <option value="overnight">Full Day</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => setIsBookingListFullscreen((prev) => !prev)}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 shadow-sm transition hover:border-red-200 hover:bg-red-100"
+                title={
+                  isBookingListFullscreen
+                    ? "Kembali ke tampilan biasa"
+                    : "Perbesar halaman Booking List"
                 }
-              }}
-              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
-            >
-              {canAccessAllHotels && <option value="">Semua Cabang</option>}
-              {!canAccessAllHotels && (
-                <option value="">Pilih Cabang / Hotel</option>
-              )}
+                aria-label={
+                  isBookingListFullscreen
+                    ? "Kembali ke tampilan biasa"
+                    : "Perbesar halaman Booking List"
+                }
+              >
+                {isBookingListFullscreen ? (
+                  <Minimize2 size={17} />
+                ) : (
+                  <Maximize2 size={17} />
+                )}
+              </button>
 
-              {folderHotels.map((hotel) => {
-                const unreadCount = branchUnreadCounts[String(hotel.id)] || 0;
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={!hasSelectedFolder}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <RotateCcw size={15} />
+                Reset
+              </button>
 
-                return (
-                  <option key={hotel.id} value={hotel.id}>
-                    {hotel.name}
-                    {unreadCount > 0 ? ` (${unreadCount} baru)` : ""}
-                  </option>
-                );
-              })}
-            </select>
+              <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  disabled={!hasSelectedFolder}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 text-xs font-black text-white shadow-sm transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ReceiptText size={15} />
+                  Laporan
+                </button>
+
+                <button
+                  type="button"
+                  onClick={openManualModal}
+                  disabled={!hasSelectedFolder}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-xs font-black text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Plus size={15} />
+                  Booking Manual
+                </button>
+              </div>
+            </div>
+
+            {loadingUserAccessHotels && (
+              <p className="mt-2 text-xs font-semibold text-gray-500">
+                Sedang memuat akses cabang user...
+              </p>
+            )}
           </div>
-
-          <div className="relative min-w-0">
-            <Search
-              size={15}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-red-500"
-            />
-            <input
-              type="text"
-              value={filters.search}
-              onChange={(e) => handleFilterChange("search", e.target.value)}
-              disabled={!hasSelectedFolder}
-              placeholder="Cari kode, tamu, hotel, kamar"
-              className="h-11 w-full rounded-2xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-semibold text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-
-          <select
-            value={filters.status === "pending" ? "approval" : viewMode}
-            onChange={(e) => {
-              const value = e.target.value;
-              setViewMode(value);
-              if (value !== "approval" && filters.status === "pending") {
-                handleFilterChange("status", "");
-              }
-              if (value === "approval") {
-                setViewMode("all");
-                handleFilterChange("status", "pending");
-              }
-            }}
-            disabled={!hasSelectedFolder}
-            className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option value="today_active">Aktif Hari Ini</option>
-            <option value="all">Riwayat Booking</option>
-            <option value="approval">Approval</option>
-          </select>
-
-          <select
-            value={filters.status}
-            onChange={(e) => handleFilterChange("status", e.target.value)}
-            disabled={!hasSelectedFolder}
-            className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option value="">Semua Status</option>
-            <option value="checked_in">Check In</option>
-            <option value="checked_out">Check Out</option>
-            <option value="cleaning">Proses Cleaning</option>
-            <option value="completed">Selesai</option>
-          </select>
-
-          <select
-            value={filters.bookingType}
-            onChange={(e) => handleFilterChange("bookingType", e.target.value)}
-            disabled={!hasSelectedFolder}
-            className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option value="">Semua Tipe</option>
-            <option value="transit">Transit</option>
-            <option value="overnight">Full Day</option>
-          </select>
-
-          <button
-            type="button"
-            onClick={resetFilters}
-            disabled={!hasSelectedFolder}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RotateCcw size={15} />
-            Reset
-          </button>
-        </div>
-
-        <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
-          <button
-            type="button"
-            onClick={() => setShowReportModal(true)}
-            disabled={!hasSelectedFolder}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ReceiptText size={16} />
-            Laporan
-          </button>
-
-          <button
-            type="button"
-            onClick={openManualModal}
-            disabled={!hasSelectedFolder}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Plus size={16} />
-            Booking Manual
-          </button>
-        </div>
-      </div>
-
-      {loadingUserAccessHotels && (
-        <p className="mt-2 text-xs font-semibold text-gray-500">
-          Sedang memuat akses cabang user...
-        </p>
-      )}
-    </div>
-  </div>
 
           {!hasSelectedFolder && (
             <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">

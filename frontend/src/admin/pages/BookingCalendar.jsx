@@ -7,6 +7,7 @@ import {
   Phone,
   BedDouble,
   ClipboardList,
+  CalendarDays,
   BadgeInfo,
   CreditCard,
   Hotel,
@@ -49,6 +50,7 @@ export default function BookingCalendar() {
 
   const [filters, setFilters] = useState({
     hotel_id: "",
+    room_type: "all",
     month: today.getMonth() + 1,
     year: today.getFullYear(),
     status: "all",
@@ -401,6 +403,7 @@ export default function BookingCalendar() {
     setFilters((prev) => ({
       ...prev,
       [name]: value,
+      ...(name === "hotel_id" ? { room_type: "all" } : {}),
     }));
   };
 
@@ -1086,6 +1089,40 @@ export default function BookingCalendar() {
     });
   };
 
+  const roomTypeOptions = useMemo(() => {
+    const units = Array.isArray(calendarData.room_units)
+      ? calendarData.room_units
+      : [];
+
+    let scopedUnits = [];
+
+    if (canAccessAllHotels) {
+      scopedUnits = units;
+    } else if (assignedHotelIds.length > 0) {
+      scopedUnits = units.filter((unit) =>
+        assignedHotelIds.includes(
+          String(unit.hotel_id ?? unit.room?.hotel_id ?? unit.hotel?.id ?? "")
+        )
+      );
+    }
+
+    const types = new Set();
+
+    scopedUnits.forEach((unit) => {
+      const label = getCalendarUnitTypeLabel(unit);
+      if (label && label !== "-") {
+        types.add(label);
+      }
+    });
+
+    return Array.from(types).sort((a, b) =>
+      String(a).localeCompare(String(b), "id-ID", {
+        numeric: true,
+        sensitivity: "base",
+      })
+    );
+  }, [calendarData.room_units, assignedHotelIds, canAccessAllHotels]);
+
   const visibleRoomUnits = useMemo(() => {
     const units = Array.isArray(calendarData.room_units)
       ? calendarData.room_units
@@ -1103,8 +1140,19 @@ export default function BookingCalendar() {
       );
     }
 
+    if (filters.room_type && filters.room_type !== "all") {
+      filteredUnits = filteredUnits.filter(
+        (unit) => getCalendarUnitTypeLabel(unit) === filters.room_type
+      );
+    }
+
     return sortRoomUnitsByNumber(filteredUnits);
-  }, [calendarData.room_units, assignedHotelIds, canAccessAllHotels]);
+  }, [
+    calendarData.room_units,
+    assignedHotelIds,
+    canAccessAllHotels,
+    filters.room_type,
+  ]);
 
 
   const CALENDAR_ROW_HEIGHT = 72;
@@ -1160,14 +1208,14 @@ export default function BookingCalendar() {
         >
           <style>{calendarScrollStyle}</style>
 
-          <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
-            <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-slate-100 p-1 sm:grid-cols-3">
+          <div className="mb-3 overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 p-2 shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
+            <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-white/5 p-1 sm:grid-cols-3">
               {[
                 {
                   label: "Booking Calendar",
                   helper: "Lihat jadwal booking per kamar",
                   path: "/admin/bookings/calendar",
-                  icon: Clock3,
+                  icon: CalendarDays,
                 },
                 {
                   label: "Booking List",
@@ -1193,7 +1241,7 @@ export default function BookingCalendar() {
                       `flex items-center justify-center gap-2 rounded-[15px] px-3 py-3 text-left transition md:justify-start md:px-4 ${
                         isActive
                           ? "bg-white text-red-600 shadow-sm"
-                          : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+                          : "text-white/75 hover:bg-white/10 hover:text-white"
                       }`
                     }
                   >
@@ -1203,7 +1251,7 @@ export default function BookingCalendar() {
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
                             isActive
                               ? "bg-red-50 text-red-600"
-                              : "bg-white/70 text-slate-500"
+                              : "bg-white/10 text-white/80"
                           }`}
                         >
                           <Icon size={17} />
@@ -1213,7 +1261,11 @@ export default function BookingCalendar() {
                           <span className="block truncate text-sm font-black">
                             {tab.label}
                           </span>
-                          <span className="hidden truncate text-[11px] font-semibold text-slate-400 md:block">
+                          <span
+                            className={`hidden truncate text-[11px] font-semibold md:block ${
+                              isActive ? "text-slate-400" : "text-white/45"
+                            }`}
+                          >
                             {tab.helper}
                           </span>
                         </span>
@@ -1231,7 +1283,7 @@ export default function BookingCalendar() {
                 name="hotel_id"
                 value={filters.hotel_id}
                 onChange={handleFilterChange}
-                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 sm:w-[220px] lg:w-[230px]"
+                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 sm:w-[190px] lg:w-[205px]"
                 aria-label="Pilih cabang"
               >
                 {canAccessAllHotels && <option value="">Semua Cabang</option>}
@@ -1240,6 +1292,22 @@ export default function BookingCalendar() {
                 {accessibleHotels.map((hotel) => (
                   <option key={hotel.id} value={hotel.id}>
                     {hotel.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                name="room_type"
+                value={filters.room_type}
+                onChange={handleFilterChange}
+                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 sm:w-[170px] lg:w-[185px]"
+                aria-label="Pilih tipe kamar"
+              >
+                <option value="all">Semua Tipe Kamar</option>
+
+                {roomTypeOptions.map((typeName) => (
+                  <option key={typeName} value={typeName}>
+                    {typeName}
                   </option>
                 ))}
               </select>

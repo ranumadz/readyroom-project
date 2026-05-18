@@ -495,6 +495,73 @@ export default function Reports() {
     );
   };
 
+  const getDiscountPercent = (booking) => {
+    return Math.min(
+      100,
+      getNumberValue(
+        booking?.discount_percent,
+        booking?.manual_discount_percent,
+        booking?.discount_percentage,
+        booking?.discount_rate,
+        booking?.payment?.discount_percent,
+        booking?.transaction?.discount_percent
+      )
+    );
+  };
+
+  const getDiscountAmount = (booking) => {
+    const explicitDiscountAmount = getNumberValue(
+      booking?.discount_amount,
+      booking?.discount_value,
+      booking?.manual_discount_amount,
+      booking?.booking_discount_amount,
+      booking?.voucher_discount_amount,
+      booking?.promo_discount_amount,
+      booking?.payment?.discount_amount,
+      booking?.transaction?.discount_amount
+    );
+
+    if (explicitDiscountAmount > 0) {
+      return explicitDiscountAmount;
+    }
+
+    const discountPercent = getDiscountPercent(booking);
+
+    if (discountPercent <= 0) {
+      return 0;
+    }
+
+    const originalAmount = getNumberValue(
+      booking?.original_total_price,
+      booking?.normal_total_price,
+      booking?.subtotal_price,
+      booking?.gross_total,
+      booking?.gross_amount,
+      booking?.price_before_discount,
+      booking?.room_price_before_discount,
+      booking?.payment?.gross_amount,
+      booking?.transaction?.gross_amount
+    );
+
+    if (originalAmount > 0) {
+      return Math.round((originalAmount * discountPercent) / 100);
+    }
+
+    const finalAmount = getNumberValue(
+      booking?.total_price,
+      booking?.paid_amount,
+      booking?.amount_paid,
+      booking?.payment?.paid_amount,
+      booking?.transaction?.paid_amount
+    );
+
+    if (finalAmount > 0 && discountPercent < 100) {
+      return Math.round((finalAmount * discountPercent) / (100 - discountPercent));
+    }
+
+    return 0;
+  };
+
   const getPenaltyTypeLabel = (value) => {
     const type = String(value || "").trim().toLowerCase();
 
@@ -720,6 +787,11 @@ export default function Reports() {
       0
     );
 
+    const totalDiskon = reportBookings.reduce(
+      (sum, item) => sum + getDiscountAmount(item),
+      0
+    );
+
     const totalDenda = reportPenaltyRows.reduce(
       (sum, item) => sum + Number(item.amount || 0),
       0
@@ -738,6 +810,7 @@ export default function Reports() {
       totalCheckIn,
       totalCancelled,
       totalPendapatan,
+      totalDiskon,
       totalDenda,
       totalRefund,
       totalBersih,
@@ -774,6 +847,7 @@ export default function Reports() {
             <td>${escapeHtml(getPaymentMethodLabel(booking))}</td>
             <td>${escapeHtml(getPaymentStatusLabel(booking))}</td>
             <td>${escapeHtml(formatRupiah(getBookingRevenueAmount(booking)))}</td>
+            <td>${escapeHtml(formatRupiah(getDiscountAmount(booking)))}</td>
             <td>${escapeHtml(formatRupiah(getPenaltyAmount(booking)))}</td>
             <td>${escapeHtml(
               getPenaltyItems(booking)
@@ -966,6 +1040,10 @@ export default function Reports() {
               <div class="card-value">${escapeHtml(formatRupiah(summary.totalPendapatan))}</div>
             </div>
             <div class="card">
+              <div class="card-title">Total Diskon</div>
+              <div class="card-value">${escapeHtml(formatRupiah(summary.totalDiskon))}</div>
+            </div>
+            <div class="card">
               <div class="card-title">Total Denda</div>
               <div class="card-value">${escapeHtml(formatRupiah(summary.totalDenda))}</div>
             </div>
@@ -989,6 +1067,8 @@ export default function Reports() {
 
           <div class="note">
             Total Bersih = Pendapatan Booking + Total Denda - Total Refund.
+            Diskon ditampilkan sebagai informasi potongan booking dan tidak dikurangi lagi dari Total Bersih
+            jika Pendapatan Booking sudah memakai nominal akhir transaksi.
             Denda dipisahkan dalam tabel khusus agar mudah dibaca oleh boss dan keuangan.
           </div>
 
@@ -1011,6 +1091,7 @@ export default function Reports() {
                       <th>Metode</th>
                       <th>Status Bayar</th>
                       <th>Pendapatan</th>
+                      <th>Diskon</th>
                       <th>Denda</th>
                       <th>Alasan Denda</th>
                       <th>Refund</th>
@@ -1020,7 +1101,7 @@ export default function Reports() {
                   <tbody>
                     ${
                       bookingRowsHtml ||
-                      `<tr><td colspan="16">Tidak ada data transaksi lunas / refund pada filter ini.</td></tr>`
+                      `<tr><td colspan="17">Tidak ada data transaksi lunas / refund pada filter ini.</td></tr>`
                     }
                   </tbody>
                 </table>
@@ -1404,6 +1485,11 @@ export default function Reports() {
                 />
                 <SummaryCard
                   icon={<Wallet size={18} />}
+                  title="Total Diskon"
+                  value={loading ? "..." : formatRupiah(summary.totalDiskon)}
+                />
+                <SummaryCard
+                  icon={<Wallet size={18} />}
                   title="Total Denda"
                   value={loading ? "..." : formatRupiah(summary.totalDenda)}
                 />
@@ -1457,7 +1543,7 @@ export default function Reports() {
                   </div>
                 ) : (
                   <div className="overflow-auto">
-                    <table className="min-w-[1550px] border-separate border-spacing-y-3">
+                    <table className="min-w-[1680px] border-separate border-spacing-y-3">
                       <thead>
                         <tr className="text-left text-sm text-gray-500">
                           <th className="px-4">Kode</th>
@@ -1470,6 +1556,7 @@ export default function Reports() {
                           <th className="px-4">Metode</th>
                           <th className="px-4">Status</th>
                           <th className="px-4">Pendapatan</th>
+                          <th className="px-4">Diskon</th>
                           <th className="px-4">Denda</th>
                           <th className="px-4">Alasan Denda</th>
                           <th className="px-4">Refund</th>
@@ -1536,6 +1623,10 @@ export default function Reports() {
 
                             <td className="px-4 py-4 font-semibold text-gray-800">
                               {formatRupiah(getBookingRevenueAmount(booking))}
+                            </td>
+
+                            <td className="px-4 py-4 font-semibold text-orange-700">
+                              {formatRupiah(getDiscountAmount(booking))}
                             </td>
 
                             <td className="px-4 py-4 font-semibold text-red-700">
