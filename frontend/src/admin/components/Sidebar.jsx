@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
   Building2,
-  BedDouble,
   ClipboardList,
   Users,
   Settings,
@@ -67,22 +66,15 @@ const allMenuSections = [
     title: "Front Office",
     items: [
       {
-        name: "Booking List",
-        path: "/admin/bookings",
-        icon: ClipboardList,
-        end: true,
-      },
-      {
-        name: "Booking Calendar",
+        name: "Manajemen Booking",
         path: "/admin/bookings/calendar",
-        icon: CalendarDays,
-        end: true,
-      },
-      {
-        name: "Monitoring Kamar",
-        path: "/admin/room-units",
-        icon: BedDouble,
-        end: true,
+        icon: ClipboardList,
+        end: false,
+        activePaths: [
+          "/admin/bookings",
+          "/admin/bookings/calendar",
+          "/admin/room-units",
+        ],
       },
       {
         name: "Housekeeping",

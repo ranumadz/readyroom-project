@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { NavLink } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import api from "../../services/api";
 import {
   Phone,
   BedDouble,
+  ClipboardList,
   BadgeInfo,
   CreditCard,
   Hotel,
@@ -829,6 +831,211 @@ export default function BookingCalendar() {
     return getRelatedBookingsSameDay(selectedBooking);
   }, [selectedBooking, calendarData.bookings]);
 
+
+  const getRoomUnitOperationalStatus = (unit) => {
+    const monitoringStatus = String(unit?.monitoring_status || "").toLowerCase();
+    const rawStatus = String(unit?.status ?? "").toLowerCase();
+
+    if (
+      monitoringStatus === "maintenance" ||
+      rawStatus === "maintenance" ||
+      rawStatus === "rusak" ||
+      unit?.is_maintenance === true ||
+      unit?.maintenance_status === true
+    ) {
+      return "maintenance";
+    }
+
+    if (
+      monitoringStatus === "inactive" ||
+      rawStatus === "inactive" ||
+      rawStatus === "nonaktif" ||
+      rawStatus === "0" ||
+      rawStatus === "false" ||
+      unit?.status === false ||
+      unit?.is_active === false ||
+      unit?.available === false
+    ) {
+      return "inactive";
+    }
+
+    if (
+      monitoringStatus === "cleaning" ||
+      rawStatus === "cleaning" ||
+      rawStatus === "dirty" ||
+      unit?.is_cleaning === true ||
+      unit?.cleaning_status === true
+    ) {
+      return "cleaning";
+    }
+
+    return "available";
+  };
+
+  const getCurrentBookingsForMonitoringUnit = (unitId) => {
+    const now = currentDate.getTime();
+
+    return (calendarData.bookings || [])
+      .filter((booking) => String(booking.room_unit_id) === String(unitId))
+      .filter((booking) => {
+        const status = String(booking?.status || "").toLowerCase();
+        const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+
+        if (["cancelled", "rejected"].includes(status)) return false;
+        if (paymentStatus === "refunded") return false;
+
+        const checkIn = toSafeDate(getCalendarCheckInTime(booking));
+        const checkOut = toSafeDate(getCalendarCheckOutTime(booking));
+
+        if (!checkIn || !checkOut) {
+          return ["checked_in", "cleaning", "checked_out", "confirmed"].includes(status);
+        }
+
+        if (["checked_in", "cleaning", "checked_out"].includes(status)) {
+          return checkIn.getTime() <= now;
+        }
+
+        if (status === "confirmed") {
+          return checkOut.getTime() >= now;
+        }
+
+        return checkIn.getTime() <= now && checkOut.getTime() >= now;
+      })
+      .sort((a, b) => {
+        const statusWeight = {
+          checked_in: 1,
+          cleaning: 2,
+          checked_out: 3,
+          confirmed: 4,
+          completed: 5,
+        };
+
+        const statusA = String(a?.status || "").toLowerCase();
+        const statusB = String(b?.status || "").toLowerCase();
+
+        const weightCompare =
+          (statusWeight[statusA] || 99) - (statusWeight[statusB] || 99);
+
+        if (weightCompare !== 0) return weightCompare;
+
+        const dateA = toSafeDate(getCalendarCheckInTime(a));
+        const dateB = toSafeDate(getCalendarCheckInTime(b));
+
+        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+      });
+  };
+
+  const getMonitoringBookingForUnit = (unit) => {
+    return getCurrentBookingsForMonitoringUnit(unit.id)[0] || null;
+  };
+
+  const getMonitoringStatus = (unit) => {
+    const unitStatus = getRoomUnitOperationalStatus(unit);
+
+    if (unitStatus === "maintenance" || unitStatus === "inactive") {
+      return unitStatus;
+    }
+
+    if (unitStatus === "cleaning") {
+      return "cleaning";
+    }
+
+    const booking = getMonitoringBookingForUnit(unit);
+    const bookingStatus = String(booking?.status || "").toLowerCase();
+
+    if (booking && isBookingCheckoutDanger(booking)) {
+      return "checkout_due";
+    }
+
+    if (["checked_in", "check_in", "checkin"].includes(bookingStatus)) {
+      return "occupied";
+    }
+
+    if (["cleaning", "start_cleaning", "in_cleaning", "proses_cleaning"].includes(bookingStatus)) {
+      return "cleaning";
+    }
+
+    if (["checked_out", "check_out", "checkout"].includes(bookingStatus)) {
+      return "cleaning";
+    }
+
+    if (["confirmed", "approved", "paid", "booked", "reserved"].includes(bookingStatus)) {
+      return "reserved";
+    }
+
+    return "available";
+  };
+
+  const getMonitoringStatusMeta = (status) => {
+    const map = {
+      available: {
+        label: "Tersedia",
+        shortLabel: "Tersedia",
+        dotClass: "bg-emerald-500",
+        cardClass:
+          "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-800",
+        badgeClass: "bg-emerald-100 text-emerald-700",
+        helper: "Kamar siap digunakan.",
+      },
+      occupied: {
+        label: "Terisi",
+        shortLabel: "Sedang Dipakai",
+        dotClass: "bg-green-500",
+        cardClass:
+          "border-green-200 bg-gradient-to-br from-green-50 to-white text-green-800",
+        badgeClass: "bg-green-100 text-green-700",
+        helper: "Ada tamu sedang check-in.",
+      },
+      reserved: {
+        label: "Booking",
+        shortLabel: "Sudah Dibooking",
+        dotClass: "bg-amber-500",
+        cardClass:
+          "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-800",
+        badgeClass: "bg-amber-100 text-amber-700",
+        helper: "Ada booking terjadwal.",
+      },
+      cleaning: {
+        label: "Cleaning",
+        shortLabel: "Sedang Cleaning",
+        dotClass: "bg-orange-500",
+        cardClass:
+          "border-orange-200 bg-gradient-to-br from-orange-50 to-white text-orange-800",
+        badgeClass: "bg-orange-100 text-orange-700",
+        helper: "Kamar perlu/ sedang dibersihkan.",
+      },
+      checkout_due: {
+        label: "Waktunya Check-out",
+        shortLabel: "Check-out",
+        dotClass: "bg-red-700",
+        cardClass:
+          "border-red-300 bg-gradient-to-br from-red-50 to-white text-red-800",
+        badgeClass: "bg-red-100 text-red-700",
+        helper: "Booking melewati target check-out.",
+      },
+      maintenance: {
+        label: "Maintenance",
+        shortLabel: "Maintenance",
+        dotClass: "bg-slate-500",
+        cardClass:
+          "border-slate-300 bg-gradient-to-br from-slate-100 to-white text-slate-800",
+        badgeClass: "bg-slate-200 text-slate-700",
+        helper: "Kamar sedang maintenance.",
+      },
+      inactive: {
+        label: "Nonaktif",
+        shortLabel: "Nonaktif",
+        dotClass: "bg-gray-400",
+        cardClass:
+          "border-gray-200 bg-gradient-to-br from-gray-100 to-white text-gray-700 opacity-80",
+        badgeClass: "bg-gray-200 text-gray-600",
+        helper: "Kamar sedang dinonaktifkan.",
+      },
+    };
+
+    return map[status] || map.available;
+  };
+
   const hasSelectedFolder = canAccessAllHotels ? true : !!filters.hotel_id;
 
   const accessibleHotels = useMemo(() => {
@@ -899,6 +1106,7 @@ export default function BookingCalendar() {
     return sortRoomUnitsByNumber(filteredUnits);
   }, [calendarData.room_units, assignedHotelIds, canAccessAllHotels]);
 
+
   const CALENDAR_ROW_HEIGHT = 72;
 
   const calendarDisplayRows = useMemo(() => {
@@ -909,6 +1117,25 @@ export default function BookingCalendar() {
       isPlaceholder: false,
     }));
   }, [visibleRoomUnits]);
+
+  const monitoringSummary = useMemo(() => {
+    const base = {
+      available: 0,
+      occupied: 0,
+      reserved: 0,
+      cleaning: 0,
+      checkout_due: 0,
+      maintenance: 0,
+      inactive: 0,
+    };
+
+    calendarDisplayRows.forEach((unit) => {
+      const status = getMonitoringStatus(unit);
+      base[status] = (base[status] || 0) + 1;
+    });
+
+    return base;
+  }, [calendarDisplayRows, calendarData.bookings, currentDate]);
 
   const calendarViewportStyle = {
     maxHeight: isCalendarFullscreen
@@ -932,6 +1159,71 @@ export default function BookingCalendar() {
           }`}
         >
           <style>{calendarScrollStyle}</style>
+
+          <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
+            <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-slate-100 p-1 sm:grid-cols-3">
+              {[
+                {
+                  label: "Booking Calendar",
+                  helper: "Lihat jadwal booking per kamar",
+                  path: "/admin/bookings/calendar",
+                  icon: Clock3,
+                },
+                {
+                  label: "Booking List",
+                  helper: "Buka daftar booking operasional",
+                  path: "/admin/bookings",
+                  icon: ClipboardList,
+                },
+                {
+                  label: "Monitoring Kamar",
+                  helper: "Buka status kamar real-time",
+                  path: "/admin/room-units",
+                  icon: BedDouble,
+                },
+              ].map((tab) => {
+                const Icon = tab.icon;
+
+                return (
+                  <NavLink
+                    key={tab.path}
+                    to={tab.path}
+                    end
+                    className={({ isActive }) =>
+                      `flex items-center justify-center gap-2 rounded-[15px] px-3 py-3 text-left transition md:justify-start md:px-4 ${
+                        isActive
+                          ? "bg-white text-red-600 shadow-sm"
+                          : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <span
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                            isActive
+                              ? "bg-red-50 text-red-600"
+                              : "bg-white/70 text-slate-500"
+                          }`}
+                        >
+                          <Icon size={17} />
+                        </span>
+
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-black">
+                            {tab.label}
+                          </span>
+                          <span className="hidden truncate text-[11px] font-semibold text-slate-400 md:block">
+                            {tab.helper}
+                          </span>
+                        </span>
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-4">
             <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
@@ -1259,6 +1551,7 @@ export default function BookingCalendar() {
               )}
             </div>
           )}
+
         </div>
       </div>
 

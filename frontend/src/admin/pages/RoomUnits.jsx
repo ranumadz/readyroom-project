@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
+import { BedDouble, CalendarDays, ClipboardList } from "lucide-react";
 import api from "../../services/api";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -41,6 +43,34 @@ export default function RoomUnits() {
    * - admin / pengawas / receptionist mengikuti cabang yang dipilih di Kelola Users.
    */
   const canAccessAllHotels = ["boss", "super_admin", "it"].includes(adminRole);
+
+  const operationalNavigationTabs = [
+    {
+      name: "Booking Calendar",
+      path: "/admin/bookings/calendar",
+      icon: CalendarDays,
+      helper: "Lihat jadwal booking per kamar",
+      allowedRoles: ["receptionist", "admin", "pengawas", "super_admin", "boss"],
+    },
+    {
+      name: "Booking List",
+      path: "/admin/bookings",
+      icon: ClipboardList,
+      helper: "Kelola approval dan operasional booking",
+      allowedRoles: ["receptionist", "admin", "pengawas", "super_admin", "boss"],
+    },
+    {
+      name: "Monitoring Kamar",
+      path: "/admin/room-units",
+      icon: BedDouble,
+      helper: "Lihat status kamar secara langsung",
+      allowedRoles: ["receptionist", "admin", "pengawas", "it", "super_admin", "boss"],
+    },
+  ];
+
+  const visibleOperationalNavigationTabs = operationalNavigationTabs.filter((tab) =>
+    tab.allowedRoles.includes(adminRole)
+  );
 
   useEffect(() => {
     fetchRooms();
@@ -1250,6 +1280,54 @@ export default function RoomUnits() {
         <Topbar />
 
         <div className="p-4 md:p-6">
+          {visibleOperationalNavigationTabs.length > 1 && (
+            <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
+              <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-slate-100 p-1 md:grid-cols-3">
+                {visibleOperationalNavigationTabs.map((tab) => {
+                  const Icon = tab.icon;
+
+                  return (
+                    <NavLink
+                      key={tab.path}
+                      to={tab.path}
+                      end
+                      className={({ isActive }) =>
+                        `flex items-center justify-center gap-2 rounded-[15px] px-3 py-3 text-left transition md:justify-start md:px-4 ${
+                          isActive
+                            ? "bg-white text-red-600 shadow-sm"
+                            : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+                        }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <span
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                              isActive
+                                ? "bg-red-50 text-red-600"
+                                : "bg-white/70 text-slate-500"
+                            }`}
+                          >
+                            <Icon size={17} />
+                          </span>
+
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-black">
+                              {tab.name}
+                            </span>
+                            <span className="hidden truncate text-[11px] font-semibold text-slate-400 md:block">
+                              {tab.helper}
+                            </span>
+                          </span>
+                        </>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="mb-5 overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">
             <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-6 py-5 text-white">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">

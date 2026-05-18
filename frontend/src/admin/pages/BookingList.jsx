@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { NavLink } from "react-router-dom";
 import api from "../../services/api";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -2499,6 +2500,71 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
         <Topbar />
 
         <div className="min-w-0 overflow-x-hidden p-4 md:p-6">
+          <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
+            <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-slate-100 p-1 md:grid-cols-3">
+              {[
+                {
+                  name: "Booking Calendar",
+                  path: "/admin/bookings/calendar",
+                  icon: CalendarDays,
+                  helper: "Lihat jadwal booking per kamar",
+                },
+                {
+                  name: "Booking List",
+                  path: "/admin/bookings",
+                  icon: ClipboardList,
+                  helper: "Kelola approval dan operasional booking",
+                },
+                {
+                  name: "Monitoring Kamar",
+                  path: "/admin/room-units",
+                  icon: BedDouble,
+                  helper: "Lihat status kamar secara langsung",
+                },
+              ].map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end
+                    className={({ isActive }) =>
+                      `flex items-center justify-center gap-2 rounded-[15px] px-3 py-3 text-left transition md:justify-start md:px-4 ${
+                        isActive
+                          ? "bg-white text-red-600 shadow-sm"
+                          : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <span
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                            isActive
+                              ? "bg-red-50 text-red-600"
+                              : "bg-white/70 text-slate-500"
+                          }`}
+                        >
+                          <Icon size={17} />
+                        </span>
+
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-black">
+                            {item.name}
+                          </span>
+                          <span className="hidden truncate text-[11px] font-semibold text-slate-400 md:block">
+                            {item.helper}
+                          </span>
+                        </span>
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+
   <div className="relative mb-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
     <div className="pointer-events-none absolute inset-0">
       <div className="absolute -left-16 -top-16 h-40 w-40 rounded-full bg-red-100/50 blur-3xl" />
