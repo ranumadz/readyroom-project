@@ -42,6 +42,44 @@ const BACKEND_BASE_URL =
 const READYROOM_CS_WHATSAPP =
   "https://wa.me/62811150591?text=Halo%20CS%20ReadyRoom%2C%20saya%20butuh%20bantuan%20mencari%20hotel.";
 
+const READYROOM_INSTAGRAM_URL = "https://www.instagram.com/readyroom.id/";
+const READYROOM_TIKTOK_URL = "https://www.tiktok.com/@readyroom";
+
+
+const SocialInstagramIcon = ({ className = "" }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    aria-hidden="true"
+  >
+    <rect
+      x="3"
+      y="3"
+      width="18"
+      height="18"
+      rx="5"
+      stroke="currentColor"
+      strokeWidth="2"
+    />
+    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+    <circle cx="17.5" cy="6.5" r="1.3" fill="currentColor" />
+  </svg>
+);
+
+const SocialTiktokIcon = ({ className = "" }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d="M16.7 3c.35 2.08 1.55 3.42 3.62 3.56v3.32c-1.2.12-2.25-.28-3.53-1.02v5.96c0 7.58-8.26 9.95-11.57 4.52-2.13-3.49-.82-9.62 6.02-9.86v3.51c-.4.06-.83.16-1.22.3-1.18.4-1.86 1.14-1.67 2.45.37 2.51 4.96 3.25 4.58-1.65V3h3.77Z" />
+  </svg>
+);
+
 const READYROOM_BRANDS = [
   {
     id: "red",
@@ -106,6 +144,7 @@ export default function Home() {
         "Halo, aku Minroom. Hari ini mau kemana? Pilih panduan cepat di atas, nanti aku bantu arahkan ke hotel ReadyRoom yang paling relevan.",
     },
   ]);
+  const socialFeedScrollRef = useRef(null);
 
   useEffect(() => {
     AOS.init({ duration: 900, once: true });
@@ -507,6 +546,64 @@ export default function Home() {
     "/destinasi_surabaya.jpg",
   ];
 
+  const readyroomSocialPosts = [
+    {
+      id: "hidden-gem-jaksel",
+      platform: "Instagram Reel",
+      account: "readyroom.id",
+      image: "/social/hidden-gem-jaksel.jpg",
+      fallbackImage: "/galeri_mix.jpg",
+      title: "Hidden gem di Jaksel yang wajib masuk wishlist kamu",
+      description:
+        "Hotel nyaman, aesthetic, harga affordable, dan fasilitas lengkap banget.",
+      url: "https://www.instagram.com/reel/DYUXsz2pwqC/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==",
+    },
+    {
+      id: "behind-the-room",
+      platform: "Instagram Post",
+      account: "readyroom.id",
+      image: "/social/behind-the-room.jpg",
+      fallbackImage: infoImage,
+      title: "Di balik kamar ReadyRoom yang rapi dan nyaman",
+      description:
+        "Sanitasi, room reset, dan quality check sebelum tamu masuk kamar.",
+      url: "https://www.instagram.com/p/DX_kekPiflW/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==",
+    },
+    {
+      id: "gandaria-city",
+      platform: "Instagram Reel",
+      account: "readyroom.id",
+      image: "/social/gandaria-city.jpg",
+      fallbackImage: "/photo_jakarta.jpg",
+      title: "Rekomendasi penginapan Jakarta Selatan",
+      description:
+        "Lokasi strategis, dekat Gandaria City dan akses cepat ke Pondok Indah Mall.",
+      url: "https://www.instagram.com/reel/DYBoOwIJ7sg/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==",
+    },
+    {
+      id: "readyroom-instagram",
+      platform: "Instagram",
+      account: "readyroom.id",
+      image: "/social/readyroom-instagram.jpg",
+      fallbackImage: heroMainImage,
+      title: "Update hotel, promo, dan rekomendasi ReadyRoom",
+      description:
+        "Ikuti cerita terbaru ReadyRoom langsung dari Instagram resmi kami.",
+      url: READYROOM_INSTAGRAM_URL,
+    },
+    {
+      id: "readyroom-tiktok",
+      platform: "TikTok",
+      account: "readyroom",
+      image: "/social/readyroom-tiktok.jpg",
+      fallbackImage: promo2Image,
+      title: "Video singkat ReadyRoom untuk inspirasi stay kamu",
+      description:
+        "Lihat konten singkat ReadyRoom dan rekomendasi penginapan yang praktis.",
+      url: READYROOM_TIKTOK_URL,
+    },
+  ];
+
   const activeBrandData = useMemo(() => {
     return (
       READYROOM_BRANDS.find((brand) => brand.id === activeBrand) ||
@@ -772,6 +869,15 @@ export default function Home() {
         maximumAge: 60000,
       }
     );
+  };
+
+  const scrollReadyRoomSocialFeed = (direction = 1) => {
+    if (!socialFeedScrollRef.current) return;
+
+    socialFeedScrollRef.current.scrollBy({
+      left: direction * 360,
+      behavior: "smooth",
+    });
   };
 
   const ScrollRow = ({ children, className = "" }) => {
@@ -1700,63 +1806,100 @@ export default function Home() {
       </section>
 
 
-      <section className="bg-[#8f0f0f] py-10 text-white md:py-20">
-        <div className="mx-auto grid max-w-7xl gap-5 px-4 md:px-6 lg:grid-cols-[0.88fr_1.12fr] lg:gap-10">
-          <div data-aos="fade-right" className="flex flex-col justify-center">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-red-100/80 md:text-sm">
-              Jangkauan ReadyRoom
-            </p>
-
-            <h2 className="mt-2.5 text-xl font-bold leading-tight md:text-5xl">
-              Temukan ReadyRoom di Berbagai Tempat
-            </h2>
-
-            <p className="mt-3 max-w-xl text-[11px] leading-relaxed text-red-50/85 md:mt-5 md:text-base">
-              Nikmati pilihan hotel ReadyRoom di berbagai area strategis untuk kebutuhan transit, istirahat, maupun perjalanan singkat.
-            </p>
-
-            <div className="mt-5 flex flex-wrap gap-2.5 md:mt-8 md:gap-4">
-              <Link
-                to="/hotels"
-                onClick={forceNextPageStartFromTop}
-                className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 md:px-6 md:py-3 md:text-base"
+      <section className="overflow-hidden bg-[#9f0d0d] py-10 text-white md:py-20">
+        <div className="mx-auto max-w-7xl px-4 md:px-6">
+          <div className="mb-6 flex items-center justify-between gap-4 md:mb-8">
+            <div data-aos="fade-right" className="flex min-w-0 items-center gap-3 md:gap-4">
+              <h2
+                className="shrink-0 text-[34px] font-light leading-none tracking-[0.03em] text-white md:text-[54px]"
+                style={{ fontFamily: '"Gotham Light", "Gotham", "Montserrat", "Inter", sans-serif' }}
               >
-                Lihat Properti
-              </Link>
+                ikuti kami
+              </h2>
 
-              
+              <a
+                href={READYROOM_INSTAGRAM_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/35 bg-white text-red-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-red-50 md:h-12 md:w-12"
+                aria-label="Instagram ReadyRoom"
+              >
+                <SocialInstagramIcon className="h-5 w-5 md:h-6 md:w-6" />
+              </a>
+
+              <a
+                href={READYROOM_TIKTOK_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/35 bg-white text-gray-950 shadow-sm transition hover:-translate-y-0.5 hover:bg-red-50 md:h-12 md:w-12"
+                aria-label="TikTok ReadyRoom"
+              >
+                <SocialTiktokIcon className="h-5 w-5 md:h-6 md:w-6" />
+              </a>
+            </div>
+
+            <div data-aos="fade-left" className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => scrollReadyRoomSocialFeed(-1)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-lg font-black text-white transition hover:bg-white hover:text-red-600 md:h-12 md:w-12"
+                aria-label="Geser feed ke kiri"
+              >
+                ‹
+              </button>
+
+              <button
+                type="button"
+                onClick={() => scrollReadyRoomSocialFeed(1)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-white text-lg font-black text-red-700 transition hover:bg-red-50 md:h-12 md:w-12"
+                aria-label="Geser feed ke kanan"
+              >
+                ›
+              </button>
             </div>
           </div>
+        </div>
 
-          <div data-aos="fade-left">
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-4">
-              <div className="overflow-hidden rounded-[1.15rem] border border-white/10 bg-white/10 md:col-span-2 md:rounded-[2rem]">
-                <img
-                  draggable={false}
-                  src={offerShowcaseImages[0]}
-                  alt="Showcase utama ReadyRoom"
-                  className="h-40 w-full object-cover md:h-80"
-                />
-              </div>
+        <div
+          ref={socialFeedScrollRef}
+          data-aos="fade-up"
+          className="overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="flex w-max gap-3 px-4 md:gap-5 md:px-6 xl:px-[calc((100vw-80rem)/2+1.5rem)]">
+            {readyroomSocialPosts.map((post, index) => (
+              <a
+                key={post.id}
+                href={post.url}
+                target="_blank"
+                rel="noreferrer"
+                data-aos="zoom-in"
+                data-aos-delay={index * 60}
+                className="group block w-[250px] shrink-0 overflow-hidden rounded-[7px] bg-white text-gray-900 shadow-[0_14px_38px_rgba(24,24,27,0.14)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(24,24,27,0.22)] sm:w-[285px] md:w-[320px] lg:w-[340px]"
+                title={post.title}
+              >
+                <div className="relative h-[310px] overflow-hidden bg-red-950/20 sm:h-[350px] md:h-[410px] lg:h-[430px]">
+                  <img
+                    draggable={false}
+                    src={post.image}
+                    alt={post.title}
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.src = post.fallbackImage;
+                    }}
+                    className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
+                  />
+                </div>
 
-              <div className="overflow-hidden rounded-[1.1rem] border border-white/10 bg-white/10 md:rounded-[1.75rem]">
-                <img
-                  draggable={false}
-                  src={offerShowcaseImages[1]}
-                  alt="Showcase kedua ReadyRoom"
-                  className="h-32 w-full object-cover md:h-64"
-                />
-              </div>
-
-              <div className="overflow-hidden rounded-[1.1rem] border border-white/10 bg-white/10 md:rounded-[1.75rem]">
-                <img
-                  draggable={false}
-                  src={offerShowcaseImages[2]}
-                  alt="Showcase ketiga ReadyRoom"
-                  className="h-32 w-full object-cover md:h-64"
-                />
-              </div>
-            </div>
+                <div className="min-h-[108px] bg-white px-3.5 py-3 md:min-h-[118px] md:px-4 md:py-4">
+                  <p className="line-clamp-2 text-[13px] font-black leading-relaxed text-red-700 md:text-[15px]">
+                    {post.title}
+                  </p>
+                  <p className="mt-1.5 line-clamp-2 text-[12px] font-medium leading-relaxed text-gray-700 md:text-[14px]">
+                    {post.description}
+                  </p>
+                </div>
+              </a>
+            ))}
           </div>
         </div>
       </section>

@@ -54,24 +54,18 @@ const allMenuSections = [
         icon: BadgeCheck,
         end: true,
       },
-    ],
-  },
-
-  {
-    title: "Front Office",
-    items: [
-      {
-        name: "Monitoring Kamar",
-        path: "/admin/room-units",
-        icon: BedDouble,
-        end: true,
-      },
       {
         name: "Ketersediaan Booking",
         path: "/admin/booking-availability",
         icon: CalendarDays,
         end: true,
       },
+    ],
+  },
+
+  {
+    title: "Front Office",
+    items: [
       {
         name: "Booking List",
         path: "/admin/bookings",
@@ -82,6 +76,12 @@ const allMenuSections = [
         name: "Booking Calendar",
         path: "/admin/bookings/calendar",
         icon: CalendarDays,
+        end: true,
+      },
+      {
+        name: "Monitoring Kamar",
+        path: "/admin/room-units",
+        icon: BedDouble,
         end: true,
       },
       {
