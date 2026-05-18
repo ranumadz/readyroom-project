@@ -67,7 +67,7 @@ const allMenuSections = [
     items: [
       {
         name: "Manajemen Booking",
-        path: "/admin/bookings/calendar",
+        path: "/admin/bookings",
         icon: ClipboardList,
         end: false,
         activePaths: [

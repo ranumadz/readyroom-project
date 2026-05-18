@@ -121,6 +121,14 @@ export default function BookingList() {
 
   const [viewMode, setViewMode] = useState("today_active");
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showHousekeepingReportModal, setShowHousekeepingReportModal] = useState(false);
+  const [housekeepingReportDate, setHousekeepingReportDate] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
   const [reportShift, setReportShift] = useState("all");
   const [reportPaymentMethod, setReportPaymentMethod] = useState("all");
   const [reportDate, setReportDate] = useState(() => {
@@ -137,6 +145,7 @@ export default function BookingList() {
   const [selectedReceiptBooking, setSelectedReceiptBooking] = useState(null);
   const receiptPrintRef = useRef(null);
   const reportPrintRef = useRef(null);
+  const housekeepingPrintRef = useRef(null);
 
   const [selectedPaidBooking, setSelectedPaidBooking] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -2366,6 +2375,59 @@ const buildWhatsAppMessage = (booking) => {
     });
   }, [bookings, filters, viewMode, assignedHotelIds, canAccessAllHotels]);
 
+
+const getBookingDiscountPercent = (booking) => {
+  const value = Number(
+    booking?.discount_percent ??
+      booking?.manual_discount_percent ??
+      booking?.discountRate ??
+      booking?.discount_rate ??
+      0
+  );
+
+  if (Number.isNaN(value) || value <= 0) return 0;
+  if (value > 100) return 100;
+  return value;
+};
+
+const getBookingDiscountAmount = (booking) => {
+  const directAmount = Number(
+    booking?.discount_amount ??
+      booking?.manual_discount_amount ??
+      booking?.discount_value ??
+      booking?.discount_nominal ??
+      booking?.voucher_discount_amount ??
+      0
+  );
+
+  if (!Number.isNaN(directAmount) && directAmount > 0) {
+    return Math.round(directAmount);
+  }
+
+  const percent = getBookingDiscountPercent(booking);
+  if (!percent) return 0;
+
+  const paidOrFinalAmount = getReportBookingAmount(booking);
+  const originalAmount = Number(
+    booking?.original_price ??
+      booking?.subtotal_price ??
+      booking?.price_before_discount ??
+      booking?.room_price_before_discount ??
+      0
+  );
+
+  const baseAmount =
+    !Number.isNaN(originalAmount) && originalAmount > 0
+      ? originalAmount
+      : percent < 100 && paidOrFinalAmount > 0
+      ? paidOrFinalAmount / (1 - percent / 100)
+      : paidOrFinalAmount;
+
+  if (!baseAmount || Number.isNaN(baseAmount)) return 0;
+
+  return Math.round((baseAmount * percent) / 100);
+};
+
 const reportBookings = useMemo(() => {
   return bookings.filter((booking) => {
     const status = String(booking?.status || "").toLowerCase();
@@ -2433,9 +2495,415 @@ const reportBookings = useMemo(() => {
     );
   }, [reportPenaltyRows]);
 
+  const reportTotalDiscount = useMemo(() => {
+    return reportBookings.reduce(
+      (sum, booking) => sum + getBookingDiscountAmount(booking),
+      0
+    );
+  }, [reportBookings]);
+
   const reportGrandTotalValue = useMemo(() => {
     return reportTotalValue + reportTotalPenalty;
   }, [reportTotalValue, reportTotalPenalty]);
+
+  const getHousekeepingStartTime = (booking) => {
+    return (
+      booking?.cleaning_started_at ||
+      booking?.cleaning_start_at ||
+      booking?.started_cleaning_at ||
+      booking?.cleaningStartedAt ||
+      booking?.cleaning_started ||
+      null
+    );
+  };
+
+  const getHousekeepingFinishTime = (booking) => {
+    return (
+      booking?.cleaning_finished_at ||
+      booking?.cleaning_completed_at ||
+      booking?.cleaning_finish_at ||
+      booking?.finished_cleaning_at ||
+      booking?.cleaned_at ||
+      booking?.completed_at ||
+      booking?.cleaningFinishedAt ||
+      null
+    );
+  };
+
+  const getHousekeepingEventTime = (booking) => {
+    const status = String(booking?.status || "").toLowerCase();
+
+    if (status === "cleaning") {
+      return (
+        getHousekeepingStartTime(booking) ||
+        booking?.updated_at ||
+        getOperationalCheckoutTime(booking) ||
+        booking?.check_out ||
+        booking?.created_at ||
+        null
+      );
+    }
+
+    if (status === "completed") {
+      return (
+        getHousekeepingFinishTime(booking) ||
+        booking?.updated_at ||
+        getHousekeepingStartTime(booking) ||
+        getOperationalCheckoutTime(booking) ||
+        booking?.check_out ||
+        booking?.created_at ||
+        null
+      );
+    }
+
+    return (
+      booking?.actual_check_out ||
+      booking?.checked_out_at ||
+      booking?.check_out_actual ||
+      booking?.checkout_at ||
+      getOperationalCheckoutTime(booking) ||
+      booking?.check_out ||
+      booking?.updated_at ||
+      booking?.created_at ||
+      null
+    );
+  };
+
+  const housekeepingReportBookings = useMemo(() => {
+    return bookings.filter((booking) => {
+      const status = String(booking?.status || "").toLowerCase();
+
+      if (!["checked_out", "cleaning", "completed"].includes(status)) {
+        return false;
+      }
+
+      if (
+        filters.hotelId &&
+        String(booking.hotel_id || booking.hotel?.id) !== String(filters.hotelId)
+      ) {
+        return false;
+      }
+
+      if (
+        !canAccessAllHotels &&
+        assignedHotelIds.length > 0 &&
+        !assignedHotelIds.includes(String(booking.hotel_id || booking.hotel?.id))
+      ) {
+        return false;
+      }
+
+      if (!housekeepingReportDate) return true;
+
+      return normalizeDateOnlyValue(getHousekeepingEventTime(booking)) === housekeepingReportDate;
+    });
+  }, [
+    bookings,
+    filters.hotelId,
+    assignedHotelIds,
+    canAccessAllHotels,
+    housekeepingReportDate,
+  ]);
+
+  const housekeepingSummary = useMemo(() => {
+    return {
+      needsCleaning: housekeepingReportBookings.filter(
+        (booking) => String(booking?.status || "").toLowerCase() === "checked_out"
+      ).length,
+      inCleaning: housekeepingReportBookings.filter(
+        (booking) => String(booking?.status || "").toLowerCase() === "cleaning"
+      ).length,
+      completed: housekeepingReportBookings.filter(
+        (booking) => String(booking?.status || "").toLowerCase() === "completed"
+      ).length,
+      total: housekeepingReportBookings.length,
+    };
+  }, [housekeepingReportBookings]);
+
+  const handlePrintHousekeepingReport = () => {
+    const selectedHotel =
+      folderHotels.find((hotel) => String(hotel.id) === String(filters.hotelId)) || null;
+
+    const branchName = selectedHotel?.name || "Semua Cabang";
+    const reportDateLabel = housekeepingReportDate
+      ? formatDate(housekeepingReportDate)
+      : "Semua Tanggal";
+    const printedAt = new Date().toLocaleString("id-ID");
+
+    const escapePrintValue = (value) =>
+      String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+    const rowsHtml = housekeepingReportBookings
+      .map((booking, index) => {
+        const status = String(booking?.status || "").toLowerCase();
+        const statusLabel =
+          status === "checked_out"
+            ? "Perlu Dibersihkan"
+            : status === "cleaning"
+            ? "Proses Cleaning"
+            : status === "completed"
+            ? "Selesai Cleaning"
+            : getStatusLabel(booking.status);
+
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td><strong>${escapePrintValue(booking.booking_code || "Booking #" + booking.id)}</strong></td>
+            <td>
+              <strong>${escapePrintValue(getBookingCustomerName(booking))}</strong><br/>
+              <span>${escapePrintValue(booking.guest_phone || "-")}</span>
+            </td>
+            <td>${escapePrintValue(booking.hotel?.name || "-")}</td>
+            <td>${escapePrintValue(booking.room?.type || booking.room?.name || "-")}</td>
+            <td>${escapePrintValue(getBookingRoomUnit(booking))}</td>
+            <td>${escapePrintValue(statusLabel)}</td>
+            <td>${escapePrintValue(formatDateTime(getOperationalCheckoutTime(booking)))}</td>
+            <td>${escapePrintValue(formatDateTime(getHousekeepingStartTime(booking)))}</td>
+            <td>${escapePrintValue(formatDateTime(getHousekeepingFinishTime(booking)))}</td>
+            <td>${escapePrintValue(
+              ["cleaning", "completed"].includes(status)
+                ? getCleaningByName(booking)
+                : "Menunggu tindakan"
+            )}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const printWindow = window.open("", "_blank", "width=1280,height=900");
+
+    if (!printWindow) {
+      toast.error("Popup print diblokir browser");
+      return;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Laporan Housekeeping ReadyRoom</title>
+          <meta charset="utf-8" />
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              padding: 28px;
+              font-family: Arial, Helvetica, sans-serif;
+              color: #0f172a;
+              background:
+                radial-gradient(circle at top right, rgba(239,68,68,0.10), transparent 26%),
+                radial-gradient(circle at bottom left, rgba(16,185,129,0.10), transparent 26%),
+                linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            }
+            .sheet {
+              max-width: 1220px;
+              margin: 0 auto;
+              overflow: hidden;
+              border: 1px solid #e5e7eb;
+              border-radius: 28px;
+              background: white;
+              box-shadow: 0 25px 60px rgba(15, 23, 42, 0.12);
+            }
+            .top {
+              position: relative;
+              overflow: hidden;
+              padding: 28px 32px;
+              color: white;
+              background: linear-gradient(135deg, #020617 0%, #172554 50%, #991b1b 100%);
+            }
+            .top::after {
+              content: "HOUSEKEEPING";
+              position: absolute;
+              right: 24px;
+              top: 12px;
+              font-size: 38px;
+              font-weight: 900;
+              letter-spacing: 0.16em;
+              color: rgba(255,255,255,0.08);
+            }
+            .kicker {
+              margin: 0 0 8px;
+              font-size: 11px;
+              font-weight: 800;
+              letter-spacing: 0.22em;
+              text-transform: uppercase;
+              color: rgba(255,255,255,0.7);
+            }
+            h1 {
+              margin: 0;
+              font-size: 30px;
+              line-height: 1.15;
+            }
+            .subtitle {
+              margin: 8px 0 0;
+              max-width: 680px;
+              color: rgba(255,255,255,0.86);
+              font-size: 13px;
+              line-height: 1.6;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(6, minmax(0, 1fr));
+              gap: 12px;
+              padding: 20px 24px 0;
+            }
+            .meta-card {
+              border: 1px solid #e5e7eb;
+              border-radius: 18px;
+              padding: 12px 14px;
+              background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            }
+            .meta-label {
+              margin: 0 0 6px;
+              font-size: 10px;
+              font-weight: 800;
+              letter-spacing: 0.12em;
+              color: #64748b;
+              text-transform: uppercase;
+            }
+            .meta-value {
+              margin: 0;
+              font-size: 18px;
+              font-weight: 900;
+              color: #0f172a;
+            }
+            .content {
+              padding: 22px 24px 28px;
+            }
+            .note {
+              margin-bottom: 16px;
+              padding: 13px 16px;
+              border-radius: 16px;
+              border: 1px solid #dbeafe;
+              background: #eff6ff;
+              color: #1e40af;
+              font-size: 12px;
+              font-weight: 700;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 11px;
+            }
+            th, td {
+              border: 1px solid #e5e7eb;
+              padding: 8px 9px;
+              text-align: left;
+              vertical-align: top;
+            }
+            th {
+              background: #f8fafc;
+              color: #475569;
+              font-weight: 900;
+              white-space: nowrap;
+            }
+            tbody tr:nth-child(even) {
+              background: #fcfcfd;
+            }
+            .footer {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              padding: 0 24px 24px;
+              color: #64748b;
+              font-size: 11px;
+            }
+            @media print {
+              body { padding: 0; background: #fff; }
+              .sheet { border: none; border-radius: 0; box-shadow: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="sheet">
+            <div class="top">
+              <p class="kicker">ReadyRoom Housekeeping Report</p>
+              <h1>Laporan Housekeeping ReadyRoom</h1>
+              <p class="subtitle">
+                Rekap kamar yang perlu dibersihkan, sedang proses cleaning, dan selesai cleaning berdasarkan tanggal operasional.
+              </p>
+            </div>
+
+            <div class="meta-grid">
+              <div class="meta-card">
+                <p class="meta-label">Cabang</p>
+                <p class="meta-value">${escapePrintValue(branchName)}</p>
+              </div>
+              <div class="meta-card">
+                <p class="meta-label">Tanggal</p>
+                <p class="meta-value">${escapePrintValue(reportDateLabel)}</p>
+              </div>
+              <div class="meta-card">
+                <p class="meta-label">Total Data</p>
+                <p class="meta-value">${housekeepingSummary.total}</p>
+              </div>
+              <div class="meta-card">
+                <p class="meta-label">Perlu Cleaning</p>
+                <p class="meta-value">${housekeepingSummary.needsCleaning}</p>
+              </div>
+              <div class="meta-card">
+                <p class="meta-label">Proses</p>
+                <p class="meta-value">${housekeepingSummary.inCleaning}</p>
+              </div>
+              <div class="meta-card">
+                <p class="meta-label">Selesai</p>
+                <p class="meta-value">${housekeepingSummary.completed}</p>
+              </div>
+            </div>
+
+            <div class="content">
+              <div class="note">
+                Dicetak pada ${escapePrintValue(printedAt)} • Dokumen internal operasional ReadyRoom.
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>Kode</th>
+                    <th>Tamu</th>
+                    <th>Hotel</th>
+                    <th>Tipe Kamar</th>
+                    <th>Unit</th>
+                    <th>Status</th>
+                    <th>Check-out</th>
+                    <th>Mulai Cleaning</th>
+                    <th>Selesai Cleaning</th>
+                    <th>Petugas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${
+                    rowsHtml ||
+                    '<tr><td colspan="11">Belum ada data housekeeping pada tanggal ini.</td></tr>' 
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="footer">
+              <div>Laporan Housekeeping ReadyRoom</div>
+              <div>Dokumen internal cabang</div>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function () {
+              window.print();
+              window.onafterprint = function () {
+                window.close();
+              };
+            };
+          </script>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  };
 
   const branchUnreadCounts = useMemo(() => {
     const counts = {};
@@ -2527,40 +2995,40 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
               : "p-4 md:p-6"
           }`}
         >
-          <div className="mb-3 overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 p-2 shadow-[0_18px_44px_rgba(15,23,42,0.12)]">
-            <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-white/5 p-1 md:grid-cols-3">
+          <div className="mb-3 overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 p-2 shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
+            <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-white/5 p-1 sm:grid-cols-3">
               {[
                 {
-                  name: "Booking Calendar",
-                  path: "/admin/bookings/calendar",
-                  icon: CalendarDays,
-                  helper: "Lihat jadwal booking per kamar",
-                },
-                {
-                  name: "Booking List",
+                  label: "Booking List",
+                  helper: "Buka daftar booking operasional",
                   path: "/admin/bookings",
                   icon: ClipboardList,
-                  helper: "Kelola approval dan operasional booking",
                 },
                 {
-                  name: "Monitoring Kamar",
+                  label: "Booking Calendar",
+                  helper: "Lihat jadwal booking per kamar",
+                  path: "/admin/bookings/calendar",
+                  icon: CalendarDays,
+                },
+                {
+                  label: "Monitoring Kamar",
+                  helper: "Buka status kamar real-time",
                   path: "/admin/room-units",
                   icon: BedDouble,
-                  helper: "Lihat status kamar secara langsung",
                 },
-              ].map((item) => {
-                const Icon = item.icon;
+              ].map((tab) => {
+                const Icon = tab.icon;
 
                 return (
                   <NavLink
-                    key={item.path}
-                    to={item.path}
+                    key={tab.path}
+                    to={tab.path}
                     end
                     className={({ isActive }) =>
                       `flex items-center justify-center gap-2 rounded-[15px] px-3 py-3 text-left transition md:justify-start md:px-4 ${
                         isActive
                           ? "bg-white text-red-600 shadow-sm"
-                          : "text-white/70 hover:bg-white/10 hover:text-white"
+                          : "text-white/75 hover:bg-white/10 hover:text-white"
                       }`
                     }
                   >
@@ -2570,7 +3038,7 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
                             isActive
                               ? "bg-red-50 text-red-600"
-                              : "bg-white/10 text-white/75"
+                              : "bg-white/10 text-white/80"
                           }`}
                         >
                           <Icon size={17} />
@@ -2578,14 +3046,14 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
 
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-black">
-                            {item.name}
+                            {tab.label}
                           </span>
                           <span
                             className={`hidden truncate text-[11px] font-semibold md:block ${
                               isActive ? "text-slate-400" : "text-white/45"
                             }`}
                           >
-                            {item.helper}
+                            {tab.helper}
                           </span>
                         </span>
                       </>
@@ -2732,6 +3200,16 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
 
                 <button
                   type="button"
+                  onClick={() => setShowHousekeepingReportModal(true)}
+                  disabled={!hasSelectedFolder}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 text-xs font-black text-emerald-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <BedDouble size={15} />
+                  Laporan Housekeeping
+                </button>
+
+                <button
+                  type="button"
                   onClick={openManualModal}
                   disabled={!hasSelectedFolder}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-xs font-black text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -2830,6 +3308,14 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                     ["cleaning", "completed"].includes(String(booking?.status || "").toLowerCase()) &&
                     !!cleaningByName;
 
+                  const hasBookingHistory = Boolean(
+                    booking?.creator?.name ||
+                      booking?.editor?.name ||
+                      booking?.refunder?.name ||
+                      booking?.canceller?.name ||
+                      hasCleaningHistory
+                  );
+
                   const operationalMeta = getOperationalTimeMeta(booking);
                   const operationalCheckIn = getOperationalCheckInTime(booking);
                   const operationalCheckOut = getOperationalCheckoutTime(booking);
@@ -2913,6 +3399,33 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                                   </span>
                                 )}
 
+                                {booking.paid_amount ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-[11px] font-black text-sky-700 shadow-sm">
+                                    <Wallet size={12} />
+                                    Dibayar: {formatCurrency(booking.paid_amount)}
+                                  </span>
+                                ) : null}
+
+                                {operationalMeta.actualCheckIn && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700 shadow-sm">
+                                    <Clock3 size={12} />
+                                    Aktual: {formatDateTime(operationalCheckIn)}
+                                  </span>
+                                )}
+
+                                {operationalMeta.expectedCheckOut && (
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-black shadow-sm ${
+                                      isOverdueCheckout
+                                        ? "border-red-200 bg-red-50 text-red-700"
+                                        : "border-sky-100 bg-sky-50 text-sky-700"
+                                    }`}
+                                  >
+                                    <Clock3 size={12} />
+                                    Target: {formatDateTime(operationalCheckOut)}
+                                  </span>
+                                )}
+
                                 {isOverdueCheckout && (
                                   <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full border border-red-200 bg-red-600 px-3 py-1 text-[11px] font-black text-white shadow-sm shadow-red-100">
                                     <Clock3 size={12} />
@@ -2977,101 +3490,122 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                             </div>
                           </div>
 
-                          <div className="mt-4 rounded-[24px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-red-50/40 px-3.5 py-3 shadow-sm">
-                            <div className="flex flex-wrap items-center gap-2.5 text-sm">
-                              {customerPhone && (
-                                <span className="inline-flex items-center gap-2 rounded-2xl border border-white bg-white px-3 py-2 font-bold text-slate-700 shadow-sm">
-                                  <Phone size={14} className="text-red-500" />
-                                  {customerPhone}
-                                </span>
-                              )}
-
-                              {showNotifyButton && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleNotifyWhatsApp(booking)}
-                                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-600 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg"
-                                >
-                                  <MessageCircle size={15} />
-                                  Kirim WA
-                                </button>
-                              )}
-
-                              {canEditBooking && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditClick(booking)}
-                                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-black text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-100"
-                                >
-                                  <Pencil size={15} />
-                                  Ubah
-                                </button>
-                              )}
-
-                              <button
-                                type="button"
-                                onClick={() => handleOpenReceipt(booking)}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-950 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-black hover:shadow-lg"
-                              >
-                                <ReceiptText size={15} />
-                                Kuitansi
-                              </button>
-
-                              {customerEmail && (
-                                <span className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-white bg-white px-3 py-2 font-semibold text-slate-600 shadow-sm">
-                                  <Mail size={14} className="text-red-500" />
-                                  <span className="truncate">{customerEmail}</span>
-                                </span>
-                              )}
-
-                              {!customerPhone && !customerEmail && (
-                                <span className="inline-flex items-center gap-2 rounded-2xl border border-white bg-white px-3 py-2 font-semibold text-slate-500 shadow-sm">
-                                  <Phone size={14} className="text-slate-400" />
-                                  Kontak tamu belum tersedia
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {(booking.payment_method ||
-                            booking.paid_amount ||
-                            visiblePaymentNote ||
-                            operationalMeta.actualCheckIn ||
-                            operationalMeta.expectedCheckOut) && (
-                            <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-                              <div className="flex flex-wrap items-center gap-3">
-                                {booking.payment_method && (
-                                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getPaymentMethodClass(booking.payment_method)}`}>
-                                    Metode: {getPaymentMethodLabel(booking.payment_method)}
+                          <div
+                            className={`mt-4 grid gap-3 ${
+                              hasBookingHistory
+                                ? "xl:grid-cols-[minmax(0,0.92fr)_minmax(280px,0.78fr)]"
+                                : "grid-cols-1"
+                            }`}
+                          >
+                            <div className="rounded-[24px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-red-50/40 px-3.5 py-3 shadow-sm">
+                              <div className="flex flex-wrap items-center gap-2.5 text-sm">
+                                {customerPhone && (
+                                  <span className="inline-flex items-center gap-2 rounded-2xl border border-white bg-white px-3 py-2 font-bold text-slate-700 shadow-sm">
+                                    <Phone size={14} className="text-red-500" />
+                                    {customerPhone}
                                   </span>
                                 )}
-                                {booking.paid_amount ? (
-                                  <span className="rounded-full border border-sky-200 bg-white/90 px-3 py-1 text-xs font-semibold text-sky-700">
-                                    Dibayar: {formatCurrency(booking.paid_amount)}
-                                  </span>
-                                ) : null}
-                                {operationalMeta.actualCheckIn && (
-                                  <span className="rounded-full border border-emerald-200 bg-white/90 px-3 py-1 text-xs font-semibold text-emerald-700">
-                                    Check-in aktual: {formatDateTime(operationalCheckIn)}
-                                  </span>
-                                )}
-                                {operationalMeta.expectedCheckOut && (
-                                  <span
-                                    className={`rounded-full border bg-white/90 px-3 py-1 text-xs font-semibold ${
-                                      isOverdueCheckout
-                                        ? "border-red-200 text-red-700"
-                                        : "border-sky-200 text-sky-700"
-                                    }`}
+
+                                {showNotifyButton && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleNotifyWhatsApp(booking)}
+                                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-600 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg"
                                   >
-                                    Target check-out: {formatDateTime(operationalCheckOut)}
+                                    <MessageCircle size={15} />
+                                    Kirim WA
+                                  </button>
+                                )}
+
+                                {canEditBooking && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditClick(booking)}
+                                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-black text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-100"
+                                  >
+                                    <Pencil size={15} />
+                                    Ubah
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenReceipt(booking)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-950 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-black hover:shadow-lg"
+                                >
+                                  <ReceiptText size={15} />
+                                  Kuitansi
+                                </button>
+
+                                {booking.status === "checked_out" && (
+                                  <span className="inline-flex items-center gap-2 rounded-2xl border border-orange-100 bg-orange-50 px-3.5 py-2.5 text-xs font-black text-orange-700 shadow-sm">
+                                    <Clock3 size={15} />
+                                    Kamar perlu dibersihkan
+                                  </span>
+                                )}
+
+                                {booking.status === "cleaning" && (
+                                  <span className="inline-flex items-center gap-2 rounded-2xl border border-orange-100 bg-orange-50 px-3.5 py-2.5 text-xs font-black text-orange-700 shadow-sm">
+                                    <Clock3 size={15} />
+                                    Cleaning: {getCleaningStartedByName(booking)}
+                                  </span>
+                                )}
+
+                                {customerEmail && (
+                                  <span className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-white bg-white px-3 py-2 font-semibold text-slate-600 shadow-sm">
+                                    <Mail size={14} className="text-red-500" />
+                                    <span className="truncate">{customerEmail}</span>
+                                  </span>
+                                )}
+
+                                {!customerPhone && !customerEmail && (
+                                  <span className="inline-flex items-center gap-2 rounded-2xl border border-white bg-white px-3 py-2 font-semibold text-slate-500 shadow-sm">
+                                    <Phone size={14} className="text-slate-400" />
+                                    Kontak tamu belum tersedia
                                   </span>
                                 )}
                               </div>
-                              {visiblePaymentNote && (
-                                <p className="mt-2 leading-relaxed">
-                                  <strong>Catatan Pembayaran:</strong> {visiblePaymentNote}
-                                </p>
-                              )}
+                            </div>
+
+                            {hasBookingHistory && (
+                              <div className="rounded-[24px] border border-slate-200 bg-white px-3.5 py-3 shadow-sm">
+                                <div className="mb-2 flex items-center gap-2">
+                                  <History size={14} className="text-red-500" />
+                                  <p className="text-xs font-black uppercase tracking-wide text-slate-600">
+                                    Riwayat Booking
+                                  </p>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  {booking?.creator?.name && (
+                                    <HistoryPill label="Dibuat" value={getCreatedByName(booking)} />
+                                  )}
+
+                                  {booking?.editor?.name && (
+                                    <HistoryPill label="Diedit" value={getEditedByName(booking)} />
+                                  )}
+
+                                  {booking?.refunder?.name && (
+                                    <HistoryPill label="Refund" value={getRefundedByName(booking)} />
+                                  )}
+
+                                  {booking?.canceller?.name && (
+                                    <HistoryPill label="Batalkan" value={getCancelledByName(booking)} />
+                                  )}
+
+                                  {hasCleaningHistory && (
+                                    <HistoryPill label="Cleaning oleh" value={cleaningByName} />
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {visiblePaymentNote && (
+                            <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                              <p className="leading-relaxed">
+                                <strong>Catatan Pembayaran:</strong> {visiblePaymentNote}
+                              </p>
                             </div>
                           )}
 
@@ -3209,90 +3743,7 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                             </div>
                           )}
 
-                          {booking.status === "checked_out" && (
-                            <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="text-xs font-black uppercase tracking-wide text-orange-700">
-                                    Kamar perlu dibersihkan
-                                  </p>
-                                  <p className="mt-1 text-sm font-semibold text-orange-900">
-                                    Belum ada orang yang menangani cleaning kamar ini.
-                                  </p>
-                                </div>
-
-                                <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-black text-orange-700 shadow-sm ring-1 ring-orange-100">
-                                  <Clock3 size={13} />
-                                  Menunggu tindakan
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          {booking.status === "cleaning" && (
-                            <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="text-xs font-black uppercase tracking-wide text-orange-700">
-                                    Cleaning sedang ditangani
-                                  </p>
-                                  <p className="mt-1 text-sm font-semibold text-orange-900">
-                                    Oleh: {getCleaningStartedByName(booking)}
-                                  </p>
-
-                                  {booking?.cleaning_started_at && (
-                                    <p className="mt-1 text-xs font-semibold text-orange-700">
-                                      Mulai: {formatDateTime(booking.cleaning_started_at)}
-                                    </p>
-                                  )}
-                                </div>
-
-                                <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-black text-orange-700 shadow-sm ring-1 ring-orange-100">
-                                  <Clock3 size={13} />
-                                  Sedang diproses
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          {(booking?.creator?.name ||
-                            booking?.editor?.name ||
-                            booking?.refunder?.name ||
-                            booking?.canceller?.name ||
-                            hasCleaningHistory) && (
-                            <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-3 py-3">
-                              <div className="mb-2 flex items-center gap-2">
-                                <History size={14} className="text-red-500" />
-                                <p className="text-xs font-black uppercase tracking-wide text-slate-600">
-                                  Riwayat Booking
-                                </p>
-                              </div>
-
-                              <div className="flex flex-wrap gap-2 text-xs">
-                                {booking?.creator?.name && (
-                                  <HistoryPill label="Dibuat" value={getCreatedByName(booking)} />
-                                )}
-
-                                {booking?.editor?.name && (
-                                  <HistoryPill label="Diedit" value={getEditedByName(booking)} />
-                                )}
-
-                                {booking?.refunder?.name && (
-                                  <HistoryPill label="Refund" value={getRefundedByName(booking)} />
-                                )}
-
-                                {booking?.canceller?.name && (
-                                  <HistoryPill label="Batalkan" value={getCancelledByName(booking)} />
-                                )}
-
-                                {hasCleaningHistory && (
-                                  <HistoryPill label="Cleaning oleh" value={cleaningByName} />
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {booking.rejection_reason_customer && (
+                                                    {booking.rejection_reason_customer && (
                             <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                               <strong>Alasan untuk tamu:</strong>{" "}
                               {booking.rejection_reason_customer}
@@ -4468,6 +4919,190 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
               </div>
             </div>
           )}
+{showHousekeepingReportModal && (
+  <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+    <div className="max-h-[92vh] w-full max-w-7xl overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-2xl">
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-red-950 px-6 py-5 text-white">
+        <div className="pointer-events-none absolute -right-10 -top-10 text-[92px] font-black tracking-[0.12em] text-white/5">
+          HK
+        </div>
+
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/55">
+              ReadyRoom Housekeeping
+            </p>
+            <h3 className="mt-1 text-2xl font-black">
+              Laporan Housekeeping
+            </h3>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/70">
+              Riwayat kamar perlu dibersihkan, sedang cleaning, dan selesai cleaning per hari.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowHousekeepingReportModal(false)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="max-h-[calc(92vh-120px)] overflow-y-auto p-5 md:p-6">
+        <div className="mb-5 flex flex-col gap-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+              Filter Tanggal
+            </label>
+            <input
+              type="date"
+              value={housekeepingReportDate}
+              onChange={(e) => setHousekeepingReportDate(e.target.value)}
+              className="h-10 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+            />
+            <span className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-500 shadow-sm">
+              {housekeepingReportDate ? formatDate(housekeepingReportDate) : "Semua tanggal"}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handlePrintHousekeepingReport}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-xs font-black text-white shadow-sm transition hover:bg-black"
+          >
+            <Printer size={15} />
+            Print / Simpan PDF
+          </button>
+        </div>
+
+        <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-500">Total Data</p>
+            <p className="mt-1 text-2xl font-black text-slate-900">{housekeepingSummary.total}</p>
+          </div>
+          <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-wide text-orange-600">Perlu Dibersihkan</p>
+            <p className="mt-1 text-2xl font-black text-orange-800">{housekeepingSummary.needsCleaning}</p>
+          </div>
+          <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-600">Sedang Cleaning</p>
+            <p className="mt-1 text-2xl font-black text-amber-800">{housekeepingSummary.inCleaning}</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-600">Selesai</p>
+            <p className="mt-1 text-2xl font-black text-emerald-800">{housekeepingSummary.completed}</p>
+          </div>
+        </div>
+
+        <div
+          ref={housekeepingPrintRef}
+          className="overflow-hidden rounded-[26px] border border-gray-100 bg-white shadow-sm"
+        >
+          <div className="border-b border-gray-100 bg-gradient-to-r from-white via-slate-50 to-red-50 px-5 py-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-red-500">
+                  Laporan Housekeeping ReadyRoom
+                </p>
+                <h4 className="mt-1 text-lg font-black text-slate-900">
+                  {housekeepingReportDate ? formatDate(housekeepingReportDate) : "Semua Tanggal"}
+                </h4>
+              </div>
+              <p className="text-xs font-bold text-slate-500">
+                Total data: {housekeepingReportBookings.length}
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-[1250px] w-full text-sm">
+              <thead className="bg-gray-50 text-left text-gray-500">
+                <tr>
+                  <th className="px-4 py-3 font-black">Kode</th>
+                  <th className="px-4 py-3 font-black">Tamu</th>
+                  <th className="px-4 py-3 font-black">Hotel</th>
+                  <th className="px-4 py-3 font-black">Kamar / Unit</th>
+                  <th className="px-4 py-3 font-black">Status</th>
+                  <th className="px-4 py-3 font-black">Check-out</th>
+                  <th className="px-4 py-3 font-black">Mulai Cleaning</th>
+                  <th className="px-4 py-3 font-black">Selesai Cleaning</th>
+                  <th className="px-4 py-3 font-black">Petugas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {housekeepingReportBookings.length > 0 ? (
+                  housekeepingReportBookings.map((booking) => {
+                    const status = String(booking?.status || "").toLowerCase();
+
+                    return (
+                      <tr key={booking.id} className="border-t border-gray-100">
+                        <td className="px-4 py-3 font-black text-gray-900">
+                          {booking.booking_code || `Booking #${booking.id}`}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-gray-800">{getBookingCustomerName(booking)}</p>
+                          <p className="text-xs text-gray-500">{booking.guest_phone || "-"}</p>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">{booking.hotel?.name || "-"}</td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {booking.room?.type || booking.room?.name || "-"} / Unit {getBookingRoomUnit(booking)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-3 py-1 text-xs font-black ${getStatusClass(booking.status)}`}>
+                            {status === "checked_out"
+                              ? "Perlu Dibersihkan"
+                              : status === "cleaning"
+                              ? "Proses Cleaning"
+                              : status === "completed"
+                              ? "Selesai Cleaning"
+                              : getStatusLabel(booking.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {formatDateTime(getOperationalCheckoutTime(booking))}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {formatDateTime(getHousekeepingStartTime(booking))}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {formatDateTime(getHousekeepingFinishTime(booking))}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {["cleaning", "completed"].includes(status)
+                            ? getCleaningByName(booking)
+                            : "Menunggu tindakan"}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="9" className="px-4 py-10 text-center text-gray-500">
+                      Belum ada data housekeeping pada tanggal ini.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowHousekeepingReportModal(false)}
+            className="rounded-2xl bg-gray-900 px-5 py-3 text-sm font-black text-white transition hover:bg-black"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 {showReportModal && (
   <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
     <div className="w-full max-w-7xl rounded-3xl bg-white shadow-2xl border border-gray-100 p-6 max-h-[92vh] overflow-y-auto">
@@ -4551,6 +5186,14 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           <p className="mt-1 text-xs text-gray-500">Dari transaksi lunas</p>
         </div>
 
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-700">Total Diskon</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">
+            {formatCurrency(reportTotalDiscount)}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">Potongan dari booking</p>
+        </div>
+
         <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
           <p className="text-sm font-semibold text-rose-700">Total Denda</p>
           <p className="mt-2 text-3xl font-bold text-gray-900">
@@ -4602,7 +5245,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             </div>
           </div>
 
-          <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-5">
             <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
               <p className="text-xs font-bold text-red-600">Total Booking</p>
               <p className="mt-1 text-xl font-black text-gray-900">{reportBookings.length}</p>
@@ -4610,6 +5253,10 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
               <p className="text-xs font-bold text-emerald-700">Pendapatan Booking</p>
               <p className="mt-1 text-xl font-black text-gray-900">{formatCurrency(reportTotalValue)}</p>
+            </div>
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+              <p className="text-xs font-bold text-amber-700">Total Diskon</p>
+              <p className="mt-1 text-xl font-black text-gray-900">{formatCurrency(reportTotalDiscount)}</p>
             </div>
             <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
               <p className="text-xs font-bold text-rose-700">Total Denda</p>
@@ -4644,6 +5291,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                     <th className="px-4 py-3 font-semibold">No Telp</th>
                     <th className="px-4 py-3 font-semibold">Metode Pembayaran</th>
                     <th className="px-4 py-3 font-semibold text-right">Total Harga</th>
+                    <th className="px-4 py-3 font-semibold text-right">Diskon</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -4672,11 +5320,14 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         <td className="px-4 py-3 text-right font-semibold text-gray-800">
                           {formatCurrency(getReportBookingAmount(booking))}
                         </td>
+                        <td className="px-4 py-3 text-right font-semibold text-amber-700">
+                          {formatCurrency(getBookingDiscountAmount(booking))}
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
                         Belum ada data booking yang sudah check-in dan lunas untuk report ini.
                       </td>
                     </tr>
@@ -4761,6 +5412,10 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
               <div className="flex items-center justify-between gap-4">
                 <span className="text-sm font-semibold text-emerald-700">Pendapatan Booking</span>
                 <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalValue)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <span className="text-sm font-semibold text-amber-700">Total Diskon</span>
+                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalDiscount)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between gap-4">
                 <span className="text-sm font-semibold text-rose-700">Total Denda</span>
@@ -5023,7 +5678,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 </button>
 
                         {manualDatePickerOpen && (
-                          <div className="absolute left-0 top-[calc(100%+10px)] z-[90] w-full min-w-[320px] rounded-[28px] border border-red-100 bg-white p-3 shadow-[0_24px_70px_rgba(15,23,42,0.22)] md:w-[430px]">
+                          <div className="absolute left-0 top-[calc(100%+10px)] z-[90] w-full min-w-[320px] rounded-[28px] border border-red-100 bg-white p-3 shadow-[0_24px_70px_rgba(15,23,42,0.22)] md:w-[680px]">
                             <div className="flex items-center justify-between gap-3 rounded-3xl bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-4 py-3 text-white">
                               <button
                                 type="button"
@@ -5049,79 +5704,90 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                               </button>
                             </div>
 
-                            <div className="mt-3 grid grid-cols-7 gap-1 text-center">
-                              {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => (
-                                <div key={day} className="py-1 text-[10px] font-black uppercase text-slate-400">
-                                  {day}
+                            <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_185px]">
+                              <div>
+                                <div className="grid grid-cols-7 gap-1 text-center">
+                                  {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => (
+                                    <div key={day} className="py-1 text-[10px] font-black uppercase text-slate-400">
+                                      {day}
+                                    </div>
+                                  ))}
+
+                                  {manualCalendarDays.map((day, index) => {
+                                    const dateValue = day ? getLocalDateValue(day) : "";
+                                    const selected = dateValue && dateValue === manualCheckInDraft.date;
+                                    const today = day && isSameDay(day, new Date());
+
+                                    return (
+                                      <button
+                                        key={dateValue || `empty-${index}`}
+                                        type="button"
+                                        disabled={!day}
+                                        onClick={() => handleManualCalendarDayClick(day)}
+                                        className={`h-9 rounded-2xl text-xs font-black transition ${
+                                          !day
+                                            ? "cursor-default bg-transparent"
+                                            : selected
+                                            ? "bg-red-600 text-white shadow-lg shadow-red-100"
+                                            : today
+                                            ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                                            : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                        }`}
+                                      >
+                                        {day ? day.getDate() : ""}
+                                      </button>
+                                    );
+                                  })}
                                 </div>
-                              ))}
-
-                              {manualCalendarDays.map((day, index) => {
-                                const dateValue = day ? getLocalDateValue(day) : "";
-                                const selected = dateValue && dateValue === manualCheckInDraft.date;
-                                const today = day && isSameDay(day, new Date());
-
-                                return (
-                                  <button
-                                    key={dateValue || `empty-${index}`}
-                                    type="button"
-                                    disabled={!day}
-                                    onClick={() => handleManualCalendarDayClick(day)}
-                                    className={`h-9 rounded-2xl text-xs font-black transition ${
-                                      !day
-                                        ? "cursor-default bg-transparent"
-                                        : selected
-                                        ? "bg-red-600 text-white shadow-lg shadow-red-100"
-                                        : today
-                                        ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                                        : "bg-slate-50 text-slate-700 hover:bg-slate-100"
-                                    }`}
-                                  >
-                                    {day ? day.getDate() : ""}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            <div className="mt-3 rounded-3xl border border-slate-100 bg-slate-50 p-3">
-                              <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
-                                <Clock3 size={14} className="text-red-500" />
-                                Pilih Jam
                               </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <select
-                                  value={manualCheckInDraft.hour}
-                                  onChange={(e) =>
-                                    setManualCheckInDraft((prev) => ({
-                                      ...prev,
-                                      hour: e.target.value,
-                                    }))
-                                  }
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
-                                >
-                                  {Array.from({ length: 24 }, (_, index) => padTwo(index)).map((hour) => (
-                                    <option key={hour} value={hour}>
-                                      {hour}
-                                    </option>
-                                  ))}
-                                </select>
 
-                                <select
-                                  value={manualCheckInDraft.minute}
-                                  onChange={(e) =>
-                                    setManualCheckInDraft((prev) => ({
-                                      ...prev,
-                                      minute: e.target.value,
-                                    }))
-                                  }
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
-                                >
-                                  {Array.from({ length: 60 }, (_, index) => padTwo(index)).map((minute) => (
-                                    <option key={minute} value={minute}>
-                                      {minute}
-                                    </option>
-                                  ))}
-                                </select>
+                              <div className="rounded-3xl border border-slate-100 bg-slate-50 p-3">
+                                <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
+                                  <Clock3 size={14} className="text-red-500" />
+                                  Pilih Jam
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
+                                  <select
+                                    value={manualCheckInDraft.hour}
+                                    onChange={(e) =>
+                                      setManualCheckInDraft((prev) => ({
+                                        ...prev,
+                                        hour: e.target.value,
+                                      }))
+                                    }
+                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                                  >
+                                    {Array.from({ length: 24 }, (_, index) => padTwo(index)).map((hour) => (
+                                      <option key={hour} value={hour}>
+                                        {hour}
+                                      </option>
+                                    ))}
+                                  </select>
+
+                                  <select
+                                    value={manualCheckInDraft.minute}
+                                    onChange={(e) =>
+                                      setManualCheckInDraft((prev) => ({
+                                        ...prev,
+                                        minute: e.target.value,
+                                      }))
+                                    }
+                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                                  >
+                                    {Array.from({ length: 60 }, (_, index) => padTwo(index)).map((minute) => (
+                                      <option key={minute} value={minute}>
+                                        {minute}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-[11px] font-bold text-slate-500">
+                                  {manualCheckInDraft.date
+                                    ? `${manualCheckInDraft.date} • ${manualCheckInDraft.hour}:${manualCheckInDraft.minute}`
+                                    : "Tanggal belum dipilih"}
+                                </div>
                               </div>
                             </div>
 

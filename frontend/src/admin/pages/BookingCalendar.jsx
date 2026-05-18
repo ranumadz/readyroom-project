@@ -1212,16 +1212,16 @@ export default function BookingCalendar() {
             <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-white/5 p-1 sm:grid-cols-3">
               {[
                 {
-                  label: "Booking Calendar",
-                  helper: "Lihat jadwal booking per kamar",
-                  path: "/admin/bookings/calendar",
-                  icon: CalendarDays,
-                },
-                {
                   label: "Booking List",
                   helper: "Buka daftar booking operasional",
                   path: "/admin/bookings",
                   icon: ClipboardList,
+                },
+                {
+                  label: "Booking Calendar",
+                  helper: "Lihat jadwal booking per kamar",
+                  path: "/admin/bookings/calendar",
+                  icon: CalendarDays,
                 },
                 {
                   label: "Monitoring Kamar",

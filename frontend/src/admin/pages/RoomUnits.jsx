@@ -49,17 +49,17 @@ export default function RoomUnits() {
 
   const operationalNavigationTabs = [
     {
-      name: "Booking Calendar",
-      path: "/admin/bookings/calendar",
-      icon: CalendarDays,
-      helper: "Lihat jadwal booking per kamar",
-      allowedRoles: ["receptionist", "admin", "pengawas", "super_admin", "boss"],
-    },
-    {
       name: "Booking List",
       path: "/admin/bookings",
       icon: ClipboardList,
       helper: "Kelola approval dan operasional booking",
+      allowedRoles: ["receptionist", "admin", "pengawas", "super_admin", "boss"],
+    },
+    {
+      name: "Booking Calendar",
+      path: "/admin/bookings/calendar",
+      icon: CalendarDays,
+      helper: "Lihat jadwal booking per kamar",
       allowedRoles: ["receptionist", "admin", "pengawas", "super_admin", "boss"],
     },
     {
