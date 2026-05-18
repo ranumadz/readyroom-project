@@ -849,24 +849,54 @@ export default function BookingCalendar() {
     return [];
   }, [calendarData.hotels, assignedHotelIds, canAccessAllHotels]);
 
+  const getRoomUnitSortText = (unit) => {
+    return String(
+      unit?.room_number ||
+        unit?.unit_number ||
+        unit?.number ||
+        unit?.name ||
+        unit?.room?.room_number ||
+        unit?.room?.name ||
+        ""
+    ).trim();
+  };
+
+  const sortRoomUnitsByNumber = (units = []) => {
+    const collator = new Intl.Collator("id-ID", {
+      numeric: true,
+      sensitivity: "base",
+    });
+
+    return [...units].sort((a, b) => {
+      const roomCompare = collator.compare(
+        getRoomUnitSortText(a),
+        getRoomUnitSortText(b)
+      );
+
+      if (roomCompare !== 0) return roomCompare;
+
+      return Number(a?.id || 0) - Number(b?.id || 0);
+    });
+  };
+
   const visibleRoomUnits = useMemo(() => {
     const units = Array.isArray(calendarData.room_units)
       ? calendarData.room_units
       : [];
 
-    if (canAccessAllHotels) {
-      return units;
-    }
+    let filteredUnits = [];
 
-    if (assignedHotelIds.length > 0) {
-      return units.filter((unit) =>
+    if (canAccessAllHotels) {
+      filteredUnits = units;
+    } else if (assignedHotelIds.length > 0) {
+      filteredUnits = units.filter((unit) =>
         assignedHotelIds.includes(
           String(unit.hotel_id ?? unit.room?.hotel_id ?? unit.hotel?.id ?? "")
         )
       );
     }
 
-    return [];
+    return sortRoomUnitsByNumber(filteredUnits);
   }, [calendarData.room_units, assignedHotelIds, canAccessAllHotels]);
 
   const CALENDAR_ROW_HEIGHT = 72;

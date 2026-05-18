@@ -1571,41 +1571,132 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-7 md:px-6 md:py-16">
-        <div className="mb-4 flex items-center justify-between gap-4 md:mb-8">
-          <div>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[0.78fr_1.7fr] lg:items-center lg:gap-8">
+          <div data-aos="fade-right" className="max-w-xl">
             <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 md:mb-4 md:px-4 md:py-2 md:text-sm">
               <ShieldCheck size={13} />
               Pilihan ReadyRoom
             </div>
 
-            <p className="mt-1 text-[11px] text-gray-500 md:mt-2 md:text-base">
-              Pilihan hotel yang terasa paling value dari harga, fasilitas, dan kenyamanan.
+            <h2 className="text-xl font-extrabold leading-tight text-gray-950 md:text-4xl">
+              Pilihan Hotel Terbaik Untukmu
+            </h2>
+
+            <p className="mt-2 text-[11px] leading-relaxed text-gray-500 md:mt-4 md:text-base">
+              Pilihan hotel yang terasa paling value dari harga, fasilitas, dan kenyamanan
+              untuk kebutuhan transit maupun Full Day.
             </p>
+
+            <Link
+              to="/hotels"
+              onClick={forceNextPageStartFromTop}
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-gray-950 px-4 py-2.5 text-[11px] font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-red-600 hover:shadow-lg md:mt-6 md:px-5 md:py-3 md:text-sm"
+            >
+              Lihat Semua Hotel
+              <ArrowRight size={14} />
+            </Link>
           </div>
 
-          <Link
-            to="/hotels"
-            onClick={forceNextPageStartFromTop}
-            className="shrink-0 text-[11px] font-semibold text-red-600 hover:underline md:text-base"
-          >
-            Lihat Semua
-          </Link>
+          <div data-aos="fade-left" className="min-w-0 overflow-hidden">
+            <HorizontalHotelSection
+              loading={loadingHotels}
+              emptyText="Belum ada hotel rekomendasi yang tampil."
+            >
+              {recommendedHotels.map((hotel, i) => (
+                <HotelCard
+                  key={hotel.id}
+                  hotel={hotel}
+                  i={i}
+                  variant="recommended"
+                  borderClass="border-red-100"
+                />
+              ))}
+            </HorizontalHotelSection>
+          </div>
         </div>
+      </section>
 
-        <HorizontalHotelSection
-          loading={loadingHotels}
-          emptyText="Belum ada hotel rekomendasi yang tampil."
-        >
-          {recommendedHotels.map((hotel, i) => (
-            <HotelCard
-              key={hotel.id}
-              hotel={hotel}
-              i={i}
-              variant="recommended"
-              borderClass="border-red-100"
-            />
-          ))}
-        </HorizontalHotelSection>
+
+      <section className="relative overflow-hidden bg-[#f8f8f8] px-4 py-8 md:px-6 md:py-14">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-6 md:mb-10">
+            <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 md:mb-4 md:px-4 md:py-2 md:text-sm">
+              <BadgeCheck size={13} />
+              Cara Booking ReadyRoom
+            </div>
+
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-xl font-extrabold leading-tight text-gray-950 md:text-4xl">
+                  Booking Mudah dalam 4 Langkah
+                </h2>
+
+                <p className="mt-2 max-w-2xl text-[11px] leading-relaxed text-gray-500 md:mt-3 md:text-base">
+                  Cari hotel, tentukan tanggal, tunggu konfirmasi admin, lalu check-in
+                  dengan kode booking ReadyRoom.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 md:gap-4">
+            {[
+              {
+                number: "01",
+                icon: <MapPin size={22} />,
+                title: "Cari Hotel",
+                desc: "Pilih hotel atau cabang ReadyRoom yang sesuai dengan area tujuanmu.",
+              },
+              {
+                number: "02",
+                icon: <Clock size={22} />,
+                title: "Tentukan Tanggal",
+                desc: "Pilih tanggal check-in dan tipe booking Transit atau Full Day.",
+              },
+              {
+                number: "03",
+                icon: <ShieldCheck size={22} />,
+                title: "Tunggu Konfirmasi Admin",
+                desc: "Reservasi masuk ke sistem dan admin akan mengecek ketersediaan kamar.",
+              },
+              {
+                number: "04",
+                icon: <BadgeCheck size={22} />,
+                title: "Langsung Check-in",
+                desc: "Setelah dikonfirmasi, tamu datang dan check-in menggunakan kode booking.",
+              },
+            ].map((step, index) => (
+              <div
+                key={step.number}
+                data-aos="fade-up"
+                data-aos-delay={index * 70}
+                className="group relative overflow-hidden rounded-[1.2rem] border border-gray-100 bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-red-100 hover:shadow-xl md:rounded-[1.75rem] md:p-5"
+              >
+                <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-red-50 transition duration-300 group-hover:scale-125" />
+
+                <div className="relative">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 transition duration-300 group-hover:bg-red-600 group-hover:text-white">
+                      {step.icon}
+                    </div>
+
+                    <span className="text-3xl font-black text-red-50 transition duration-300 group-hover:text-red-100 md:text-4xl">
+                      {step.number}
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm font-extrabold text-gray-950 md:text-base">
+                    {step.title}
+                  </h3>
+
+                  <p className="mt-2 text-[11px] leading-relaxed text-gray-500 md:text-sm">
+                    {step.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
 

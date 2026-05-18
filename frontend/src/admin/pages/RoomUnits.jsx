@@ -733,12 +733,45 @@ export default function RoomUnits() {
     return "-";
   };
 
+  const getRoomUnitSortText = (unit) => {
+    return String(
+      unit?.room_number ||
+        unit?.number ||
+        unit?.unit_number ||
+        unit?.name ||
+        ""
+    ).trim();
+  };
+
+  const getRoomUnitSortNumber = (unit) => {
+    const text = getRoomUnitSortText(unit);
+    const match = text.match(/\d+/);
+    const number = match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+
+    return Number.isFinite(number) ? number : Number.MAX_SAFE_INTEGER;
+  };
+
+  const sortRoomUnitsByNumber = (a, b) => {
+    const numberA = getRoomUnitSortNumber(a);
+    const numberB = getRoomUnitSortNumber(b);
+
+    if (numberA !== numberB) {
+      return numberA - numberB;
+    }
+
+    return getRoomUnitSortText(a).localeCompare(getRoomUnitSortText(b), "id", {
+      numeric: true,
+      sensitivity: "base",
+    });
+  };
+
   const filteredUnits = useMemo(() => {
     const keyword = searchUnit.trim().toLowerCase();
 
-    return units.filter((unit) => {
-      const status = getRoomUnitStatus(unit);
-      const roomNumberText = String(unit?.room_number || "").toLowerCase();
+    return units
+      .filter((unit) => {
+        const status = getRoomUnitStatus(unit);
+        const roomNumberText = String(unit?.room_number || "").toLowerCase();
       const reasonText = getUnitReason(unit).toLowerCase();
       const roomTypeText = String(
         unit?.room_type_name ||
@@ -772,8 +805,9 @@ export default function RoomUnits() {
         roomTypeText.includes(keyword) ||
         bookingText.includes(keyword);
 
-      return matchStatus && matchKeyword;
-    });
+        return matchStatus && matchKeyword;
+      })
+      .sort(sortRoomUnitsByNumber);
   }, [units, searchUnit, selectedStatus]);
 
   const handleHotelChange = (hotelId) => {
