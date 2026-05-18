@@ -20,7 +20,7 @@ import {
 export default function BookingCalendar() {
   const today = new Date();
   const FOLDER_SEEN_STORAGE_KEY = "readyroom_calendar_seen_hotels";
-  const AUTO_REFRESH_INTERVAL = 30000;
+  const AUTO_REFRESH_INTERVAL = 15000;
 
   const adminUser =
     JSON.parse(localStorage.getItem("adminUser") || "null") ||
@@ -1225,119 +1225,81 @@ export default function BookingCalendar() {
             </div>
           </div>
 
-          <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-4">
-            <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h3 className="text-base font-bold text-gray-800">
-                  Filter Kalender
-                </h3>
-                <p className="text-xs text-gray-500">
-                  Pilih cabang, tahun, dan bulan. Kalender otomatis mengikuti
-                  filter.
-                </p>
-              </div>
+          <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                name="hotel_id"
+                value={filters.hotel_id}
+                onChange={handleFilterChange}
+                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 sm:w-[220px] lg:w-[230px]"
+                aria-label="Pilih cabang"
+              >
+                {canAccessAllHotels && <option value="">Semua Cabang</option>}
+                {!canAccessAllHotels && <option value="">Pilih Cabang</option>}
 
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleToggleCalendarFullscreen}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-black text-red-600 shadow-sm transition hover:border-red-200 hover:bg-red-100"
-                  title={
-                    isCalendarFullscreen
-                      ? "Kembali ke tampilan biasa"
-                      : "Perbesar halaman Booking Calendar"
-                  }
-                >
-                  {isCalendarFullscreen ? (
-                    <Minimize2 size={15} />
-                  ) : (
-                    <Maximize2 size={15} />
-                  )}
-                  {isCalendarFullscreen ? "Tampilan Biasa" : "Fullscreen"}
-                  <span className="hidden text-[10px] font-bold text-red-400 sm:inline">
-                    ESC
-                  </span>
-                </button>
+                {accessibleHotels.map((hotel) => (
+                  <option key={hotel.id} value={hotel.id}>
+                    {hotel.name}
+                  </option>
+                ))}
+              </select>
 
-                <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 shadow-sm">
-                  <RefreshCw
-                    size={14}
-                    className={loading ? "animate-spin text-emerald-600" : ""}
-                  />
-                  <span>Auto update aktif</span>
-                  <span className="hidden text-emerald-600/80 sm:inline">
-                    • {formatLastUpdated(lastUpdated)}
-                  </span>
-                </div>
-              </div>
-            </div>
+              <select
+                name="month"
+                value={filters.month}
+                onChange={handleFilterChange}
+                className="h-10 w-[145px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50"
+                aria-label="Pilih bulan"
+              >
+                {monthNames.map((monthName, index) => (
+                  <option key={index + 1} value={index + 1}>
+                    {monthName}
+                  </option>
+                ))}
+              </select>
 
-            <div className="grid grid-cols-1 gap-2 lg:grid-cols-12 lg:items-start">
-              <div className="lg:col-span-4">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                  Cabang
-                </label>
-                <select
-                  name="hotel_id"
-                  value={filters.hotel_id}
-                  onChange={handleFilterChange}
-                  className={inputClass}
-                >
-                  {canAccessAllHotels && <option value="">Semua Cabang</option>}
-                  {!canAccessAllHotels && <option value="">Pilih Cabang</option>}
+              <select
+                name="year"
+                value={filters.year}
+                onChange={handleFilterChange}
+                className="h-10 w-[112px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50"
+                aria-label="Pilih tahun"
+              >
+                {[2025, 2026, 2027, 2028].map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
 
-                  {accessibleHotels.map((hotel) => (
-                    <option key={hotel.id} value={hotel.id}>
-                      {hotel.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <button
+                type="button"
+                onClick={handleToggleCalendarFullscreen}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 shadow-sm transition hover:border-red-200 hover:bg-red-100"
+                title={
+                  isCalendarFullscreen
+                    ? "Kembali ke tampilan biasa"
+                    : "Perbesar halaman Booking Calendar"
+                }
+                aria-label={
+                  isCalendarFullscreen
+                    ? "Kembali ke tampilan biasa"
+                    : "Perbesar halaman Booking Calendar"
+                }
+              >
+                {isCalendarFullscreen ? (
+                  <Minimize2 size={17} />
+                ) : (
+                  <Maximize2 size={17} />
+                )}
+              </button>
 
-              <div className="lg:col-span-2">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                  Tahun
-                </label>
-                <select
-                  name="year"
-                  value={filters.year}
-                  onChange={handleFilterChange}
-                  className={inputClass}
-                >
-                  {[2025, 2026, 2027, 2028].map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="lg:col-span-2">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                  Bulan
-                </label>
-                <select
-                  name="month"
-                  value={filters.month}
-                  onChange={handleFilterChange}
-                  className={inputClass}
-                >
-                  {monthNames.map((monthName, index) => (
-                    <option key={index + 1} value={index + 1}>
-                      {monthName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="lg:col-span-4 lg:pt-6">
-                <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
-                  <Legend color="bg-amber-600" label="Disetujui" />
-                  <Legend color="bg-green-500" label="Check-in" />
-                  <Legend color="bg-orange-500" label="Pembersihan" />
-                  <Legend color="bg-slate-500" label="Selesai" />
-                  <Legend color="bg-red-700" label="Waktunya Check-out" />
-                </div>
+              <div className="flex flex-wrap items-center gap-1.5 lg:ml-auto">
+                <Legend color="bg-amber-600" label="Disetujui" />
+                <Legend color="bg-green-500" label="Check-in" />
+                <Legend color="bg-orange-500" label="Pembersihan" />
+                <Legend color="bg-slate-500" label="Selesai" />
+                <Legend color="bg-red-700" label="Waktunya Check-out" />
               </div>
             </div>
           </div>
@@ -1353,7 +1315,7 @@ export default function BookingCalendar() {
                     Pilih cabang dulu
                   </h3>
                   <p className="mt-1 text-sm text-amber-800">
-                    Pilih cabang dari dropdown Filter Kalender untuk membuka isi
+                    Pilih cabang dari dropdown untuk membuka isi
                     kalender sesuai akses user ini.
                   </p>
                   {loadingUserAccessHotels && (

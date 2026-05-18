@@ -1328,152 +1328,123 @@ export default function RoomUnits() {
             </div>
           )}
 
-          <div className="mb-5 overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-sm">
-            <div className="border-b border-gray-100 bg-gradient-to-r from-gray-950 via-gray-900 to-red-950 px-6 py-5 text-white">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="max-w-3xl">
-                  <h2 className="text-lg font-black">Monitoring Kamar</h2>
-                  <p className="mt-1 text-sm leading-relaxed text-white/65">
-                    Pilih cabang terlebih dahulu. 
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3 xl:items-end">
-                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                    {["available", "occupied", "cleaning", "maintenance", "inactive"].map(
-                      (status) => {
-                        const meta = getStatusMeta(status);
-
-                        return (
-                          <div
-                            key={status}
-                            className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-bold text-white/90 shadow-sm backdrop-blur"
-                          >
-                            <span
-                              className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`}
-                            />
-                            {meta.label}
-                          </div>
-                        );
-                      }
-                    )}
-                  </div>
-
-                 
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 p-6 xl:grid-cols-12">
-              <div className="xl:col-span-3">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Cabang / Hotel
-                </label>
-
-                <select
-                  value={selectedHotelId}
-                  onChange={(e) => handleHotelChange(e.target.value)}
-                  disabled={
-                    loadingRooms ||
-                    loadingUserAccessHotels ||
-                    (!canAccessAllHotels && assignedHotelIds.length === 0)
-                  }
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <option value="">
-                    {loadingRooms || loadingUserAccessHotels
-                      ? "Memuat cabang..."
-                      : "Pilih Cabang / Hotel"}
-                  </option>
-
-                  {hotelOptions.map((hotel) => (
-                    <option key={hotel.id} value={hotel.id}>
-                      {hotel.name}
+          <div className="mb-5 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(170px,240px)_minmax(170px,260px)_minmax(220px,1fr)_minmax(150px,220px)]">
+                <div>
+                  <select
+                    value={selectedHotelId}
+                    onChange={(e) => handleHotelChange(e.target.value)}
+                    disabled={
+                      loadingRooms ||
+                      loadingUserAccessHotels ||
+                      (!canAccessAllHotels && assignedHotelIds.length === 0)
+                    }
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="">
+                      {loadingRooms || loadingUserAccessHotels
+                        ? "Memuat cabang..."
+                        : "Pilih Cabang / Hotel"}
                     </option>
-                  ))}
-                </select>
 
-                {loadingUserAccessHotels && (
-                  <p className="mt-2 text-xs font-bold text-gray-500">
-                    Sedang memuat akses cabang user...
-                  </p>
-                )}
+                    {hotelOptions.map((hotel) => (
+                      <option key={hotel.id} value={hotel.id}>
+                        {hotel.name}
+                      </option>
+                    ))}
+                  </select>
 
-                {!loadingUserAccessHotels &&
-                  !canAccessAllHotels &&
-                  assignedHotelIds.length === 0 && (
-                    <p className="mt-2 text-xs font-bold text-red-600">
-                      Akun ini belum memiliki akses cabang. Atur dari Kelola Users.
+                  {loadingUserAccessHotels && (
+                    <p className="mt-2 text-xs font-bold text-gray-500">
+                      Sedang memuat akses cabang user...
                     </p>
                   )}
-              </div>
 
-              <div className="xl:col-span-3">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Tipe Kamar
-                </label>
+                  {!loadingUserAccessHotels &&
+                    !canAccessAllHotels &&
+                    assignedHotelIds.length === 0 && (
+                      <p className="mt-2 text-xs font-bold text-red-600">
+                        Akun ini belum memiliki akses cabang. Atur dari Kelola Users.
+                      </p>
+                    )}
+                </div>
 
-                <select
-                  value={selectedRoom}
-                  onMouseDown={handleRoomSelectMouseDown}
-                  onChange={(e) => handleRoomChange(e.target.value)}
-                  disabled={
-                    loadingRooms ||
-                    !selectedHotelId ||
-                    Boolean(selectedHotelId && roomsBySelectedHotel.length === 0)
-                  }
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {selectedHotelId && roomsBySelectedHotel.length > 0 && (
-                    <option value="all">Semua Tipe Kamar</option>
+                <div>
+                  <select
+                    value={selectedRoom}
+                    onMouseDown={handleRoomSelectMouseDown}
+                    onChange={(e) => handleRoomChange(e.target.value)}
+                    disabled={
+                      loadingRooms ||
+                      !selectedHotelId ||
+                      Boolean(selectedHotelId && roomsBySelectedHotel.length === 0)
+                    }
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {selectedHotelId && roomsBySelectedHotel.length > 0 && (
+                      <option value="all">Semua Tipe Kamar</option>
+                    )}
+
+                    {roomsBySelectedHotel.map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name} - {room.type || "Tipe"}
+                      </option>
+                    ))}
+                  </select>
+
+                  {roomSelectWarning && (
+                    <p className="mt-2 text-xs font-bold text-red-600">
+                      {roomSelectWarning}
+                    </p>
                   )}
+                </div>
 
-                  {roomsBySelectedHotel.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.name} - {room.type || "Tipe"}
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <input
+                    type="text"
+                    value={searchUnit}
+                    onChange={(e) => setSearchUnit(e.target.value)}
+                    placeholder="Cari 101, Rici, RR-..."
+                    disabled={!selectedHotelId}
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                </div>
 
-                {roomSelectWarning && (
-                  <p className="mt-2 text-xs font-bold text-red-600">
-                    {roomSelectWarning}
-                  </p>
+                <div>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    disabled={!selectedHotelId}
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {statusTabs.map((tab) => (
+                      <option key={tab.value} value={tab.value}>
+                        {tab.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
+                {["available", "occupied", "cleaning", "maintenance", "inactive"].map(
+                  (status) => {
+                    const meta = getStatusMeta(status);
+
+                    return (
+                      <div
+                        key={status}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-gray-700 shadow-sm"
+                      >
+                        <span
+                          className={`h-2 w-2 rounded-full ${meta.dotClass}`}
+                        />
+                        <span>{meta.label}</span>
+                      </div>
+                    );
+                  }
                 )}
-              </div>
-
-              <div className="xl:col-span-3">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Cari Nomor / Tamu / Kode Booking
-                </label>
-
-                <input
-                  type="text"
-                  value={searchUnit}
-                  onChange={(e) => setSearchUnit(e.target.value)}
-                  placeholder="Cari 101, Rici, RR-..."
-                  disabled={!selectedHotelId}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </div>
-
-              <div className="xl:col-span-3">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Filter Status
-                </label>
-
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  disabled={!selectedHotelId}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {statusTabs.map((tab) => (
-                    <option key={tab.value} value={tab.value}>
-                      {tab.label}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
           </div>
