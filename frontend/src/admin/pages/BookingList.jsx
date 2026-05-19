@@ -168,6 +168,64 @@ export default function BookingList() {
     }
   });
 
+  const getNativeFullscreenElement = () => {
+    return (
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement ||
+      null
+    );
+  };
+
+  const requestNativeBrowserFullscreen = async () => {
+    const target = document.documentElement;
+
+    if (target.requestFullscreen) {
+      await target.requestFullscreen();
+      return;
+    }
+
+    if (target.webkitRequestFullscreen) {
+      await target.webkitRequestFullscreen();
+      return;
+    }
+
+    if (target.mozRequestFullScreen) {
+      await target.mozRequestFullScreen();
+      return;
+    }
+
+    if (target.msRequestFullscreen) {
+      await target.msRequestFullscreen();
+      return;
+    }
+
+    throw new Error("Browser tidak mendukung fullscreen mode");
+  };
+
+  const exitNativeBrowserFullscreen = async () => {
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    if (document.webkitExitFullscreen) {
+      await document.webkitExitFullscreen();
+      return;
+    }
+
+    if (document.mozCancelFullScreen) {
+      await document.mozCancelFullScreen();
+      return;
+    }
+
+    if (document.msExitFullscreen) {
+      await document.msExitFullscreen();
+      return;
+    }
+  };
+
   const [selectedPenaltyBooking, setSelectedPenaltyBooking] = useState(null);
   const [savingPenalty, setSavingPenalty] = useState(false);
   const [penaltyForm, setPenaltyForm] = useState({
@@ -216,31 +274,50 @@ export default function BookingList() {
   }, []);
 
   useEffect(() => {
-    try {
-      sessionStorage.setItem(
-        bookingFullscreenStorageKey,
-        isBookingListFullscreen ? "1" : "0"
-      );
-    } catch (error) {
-      console.error("SAVE BOOKING FULLSCREEN STATE ERROR:", error);
-    }
-
-    if (!isBookingListFullscreen) return undefined;
-
-    const handleEscapeFullscreen = (event) => {
-      if (event.key === "Escape") {
-        setIsBookingListFullscreen(false);
-        try {
-          sessionStorage.setItem(bookingFullscreenStorageKey, "0");
-        } catch (error) {
-          console.error("CLEAR BOOKING FULLSCREEN STATE ERROR:", error);
-        }
+    const saveFullscreenState = (value) => {
+      try {
+        sessionStorage.setItem(bookingFullscreenStorageKey, value ? "1" : "0");
+      } catch (error) {
+        console.error("SAVE BOOKING FULLSCREEN STATE ERROR:", error);
       }
     };
 
+    const nativeFullscreenActive = Boolean(getNativeFullscreenElement());
+
+    if (nativeFullscreenActive !== isBookingListFullscreen) {
+      setIsBookingListFullscreen(nativeFullscreenActive);
+      saveFullscreenState(nativeFullscreenActive);
+    } else {
+      saveFullscreenState(isBookingListFullscreen);
+    }
+
+    const handleNativeFullscreenChange = () => {
+      const isNativeFullscreen = Boolean(getNativeFullscreenElement());
+
+      setIsBookingListFullscreen(isNativeFullscreen);
+      saveFullscreenState(isNativeFullscreen);
+    };
+
+    const handleEscapeFullscreen = (event) => {
+      if (event.key !== "Escape") return;
+
+      if (!getNativeFullscreenElement() && isBookingListFullscreen) {
+        setIsBookingListFullscreen(false);
+        saveFullscreenState(false);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleNativeFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleNativeFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleNativeFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleNativeFullscreenChange);
     document.addEventListener("keydown", handleEscapeFullscreen);
 
     return () => {
+      document.removeEventListener("fullscreenchange", handleNativeFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleNativeFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleNativeFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleNativeFullscreenChange);
       document.removeEventListener("keydown", handleEscapeFullscreen);
     };
   }, [isBookingListFullscreen]);
@@ -3331,19 +3408,45 @@ const manualCalendarMonthLabel = manualCalendarMonth.toLocaleDateString("id-ID",
 
 const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
 
+  const handleToggleBookingNativeFullscreen = async () => {
+    try {
+      if (getNativeFullscreenElement()) {
+        await exitNativeBrowserFullscreen();
+        setIsBookingListFullscreen(false);
+        sessionStorage.setItem(bookingFullscreenStorageKey, "0");
+        return;
+      }
+
+      await requestNativeBrowserFullscreen();
+      setIsBookingListFullscreen(true);
+      sessionStorage.setItem(bookingFullscreenStorageKey, "1");
+    } catch (error) {
+      console.error("BOOKING LIST NATIVE FULLSCREEN ERROR:", error);
+      toast.error("Browser gagal masuk fullscreen. Coba klik tombol fullscreen sekali lagi.");
+      setIsBookingListFullscreen(false);
+      try {
+        sessionStorage.setItem(bookingFullscreenStorageKey, "0");
+      } catch (storageError) {
+        console.error("CLEAR BOOKING FULLSCREEN STATE ERROR:", storageError);
+      }
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
-      <div className="h-screen shrink-0 overflow-y-auto overflow-x-hidden bg-slate-950">
-        <Sidebar />
-      </div>
+      {!isBookingListFullscreen && (
+        <div className="h-screen shrink-0 overflow-y-auto overflow-x-hidden bg-slate-950">
+          <Sidebar />
+        </div>
+      )}
 
       <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <Topbar />
+        {!isBookingListFullscreen && <Topbar />}
 
         <div
           className={`min-w-0 overflow-x-hidden transition-all ${
             isBookingListFullscreen
-              ? "fixed inset-0 z-[1300] overflow-y-auto bg-gray-100 p-4 pb-10 md:p-6 md:pb-12"
+              ? "min-h-screen bg-gray-100 p-3 pb-10 md:p-4 md:pb-12"
               : "p-4 md:p-6"
           }`}
         >
@@ -3520,7 +3623,7 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
 
               <button
                 type="button"
-                onClick={() => setIsBookingListFullscreen((prev) => !prev)}
+                onClick={handleToggleBookingNativeFullscreen}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 shadow-sm transition hover:border-red-200 hover:bg-red-100"
                 title={
                   isBookingListFullscreen

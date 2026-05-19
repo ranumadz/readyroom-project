@@ -44,6 +44,64 @@ export default function RoomUnits() {
   });
   const roomUnitsFullscreenRef = useRef(null);
 
+  const getNativeFullscreenElement = () => {
+    return (
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement ||
+      null
+    );
+  };
+
+  const requestNativeBrowserFullscreen = async () => {
+    const target = document.documentElement;
+
+    if (target.requestFullscreen) {
+      await target.requestFullscreen();
+      return;
+    }
+
+    if (target.webkitRequestFullscreen) {
+      await target.webkitRequestFullscreen();
+      return;
+    }
+
+    if (target.mozRequestFullScreen) {
+      await target.mozRequestFullScreen();
+      return;
+    }
+
+    if (target.msRequestFullscreen) {
+      await target.msRequestFullscreen();
+      return;
+    }
+
+    throw new Error("Browser tidak mendukung fullscreen mode");
+  };
+
+  const exitNativeBrowserFullscreen = async () => {
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    if (document.webkitExitFullscreen) {
+      await document.webkitExitFullscreen();
+      return;
+    }
+
+    if (document.mozCancelFullScreen) {
+      await document.mozCancelFullScreen();
+      return;
+    }
+
+    if (document.msExitFullscreen) {
+      await document.msExitFullscreen();
+      return;
+    }
+  };
+
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
   const adminRole = String(adminUser?.role || "").toLowerCase();
 
@@ -88,42 +146,38 @@ export default function RoomUnits() {
   }, []);
 
   useEffect(() => {
-    try {
-      sessionStorage.setItem(
-        roomUnitsFullscreenStorageKey,
-        isRoomUnitsFullscreen ? "1" : "0"
-      );
-    } catch (error) {
-      console.error("SAVE MONITORING FULLSCREEN STATE ERROR:", error);
-    }
+    const saveFullscreenState = (value) => {
+      try {
+        sessionStorage.setItem(roomUnitsFullscreenStorageKey, value ? "1" : "0");
+      } catch (error) {
+        console.error("SAVE MONITORING FULLSCREEN STATE ERROR:", error);
+      }
+    };
+
+    const syncFullscreenState = (value) => {
+      setIsRoomUnitsFullscreen(value);
+      saveFullscreenState(value);
+    };
 
     const handleFullscreenChange = () => {
-      const fullscreenElement =
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement;
-
-      if (!fullscreenElement && !isRoomUnitsFullscreen) {
-        try {
-          sessionStorage.setItem(roomUnitsFullscreenStorageKey, "0");
-        } catch (error) {
-          console.error("CLEAR MONITORING FULLSCREEN STATE ERROR:", error);
-        }
-      }
+      syncFullscreenState(Boolean(getNativeFullscreenElement()));
     };
 
     const handleEscapeKey = (event) => {
       if (event.key !== "Escape") return;
 
-      setIsRoomUnitsFullscreen(false);
-
-      try {
-        sessionStorage.setItem(roomUnitsFullscreenStorageKey, "0");
-      } catch (error) {
-        console.error("CLEAR MONITORING FULLSCREEN STATE ERROR:", error);
+      if (!getNativeFullscreenElement() && isRoomUnitsFullscreen) {
+        syncFullscreenState(false);
       }
     };
+
+    const nativeFullscreenActive = Boolean(getNativeFullscreenElement());
+
+    if (nativeFullscreenActive !== isRoomUnitsFullscreen) {
+      syncFullscreenState(nativeFullscreenActive);
+    } else {
+      saveFullscreenState(isRoomUnitsFullscreen);
+    }
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
@@ -1335,49 +1389,27 @@ export default function RoomUnits() {
   };
 
   const handleToggleRoomUnitsFullscreen = async () => {
-    const nativeFullscreenElement =
-      document.fullscreenElement ||
-      document.webkitFullscreenElement ||
-      document.mozFullScreenElement ||
-      document.msFullscreenElement;
-
     try {
-      if (isRoomUnitsFullscreen) {
-        if (nativeFullscreenElement) {
-          if (document.exitFullscreen) {
-            await document.exitFullscreen();
-          } else if (document.webkitExitFullscreen) {
-            await document.webkitExitFullscreen();
-          } else if (document.mozCancelFullScreen) {
-            await document.mozCancelFullScreen();
-          } else if (document.msExitFullscreen) {
-            await document.msExitFullscreen();
-          }
-        }
-
+      if (getNativeFullscreenElement()) {
+        await exitNativeBrowserFullscreen();
         setIsRoomUnitsFullscreen(false);
         sessionStorage.setItem(roomUnitsFullscreenStorageKey, "0");
         return;
       }
 
+      await requestNativeBrowserFullscreen();
       setIsRoomUnitsFullscreen(true);
       sessionStorage.setItem(roomUnitsFullscreenStorageKey, "1");
     } catch (error) {
-      console.error("GAGAL TOGGLE FULLSCREEN MONITORING KAMAR:", error);
-      setIsRoomUnitsFullscreen((prev) => {
-        const nextValue = !prev;
+      console.error("GAGAL TOGGLE NATIVE FULLSCREEN MONITORING KAMAR:", error);
+      toast.error("Browser gagal masuk fullscreen. Coba klik tombol fullscreen sekali lagi.");
+      setIsRoomUnitsFullscreen(false);
 
-        try {
-          sessionStorage.setItem(
-            roomUnitsFullscreenStorageKey,
-            nextValue ? "1" : "0"
-          );
-        } catch (storageError) {
-          console.error("SAVE MONITORING FULLSCREEN FALLBACK ERROR:", storageError);
-        }
-
-        return nextValue;
-      });
+      try {
+        sessionStorage.setItem(roomUnitsFullscreenStorageKey, "0");
+      } catch (storageError) {
+        console.error("CLEAR MONITORING FULLSCREEN STATE ERROR:", storageError);
+      }
     }
   };
 
@@ -1386,17 +1418,21 @@ export default function RoomUnits() {
     : [];
 
   return (
-    <div className="flex min-h-screen bg-[#f4f5f7]">
-      {!isRoomUnitsFullscreen && <Sidebar />}
+    <div className="flex h-screen overflow-hidden bg-[#f4f5f7]">
+      {!isRoomUnitsFullscreen && (
+        <div className="h-screen shrink-0 overflow-y-auto overflow-x-hidden bg-slate-950">
+          <Sidebar />
+        </div>
+      )}
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         {!isRoomUnitsFullscreen && <Topbar />}
 
         <div
           ref={roomUnitsFullscreenRef}
-          className={`transition-all ${
+          className={`min-w-0 overflow-x-hidden transition-all ${
             isRoomUnitsFullscreen
-              ? "fixed inset-0 z-[1300] overflow-auto bg-[#f4f5f7] p-2 pb-8 md:p-3 md:pb-10"
+              ? "min-h-screen bg-[#f4f5f7] p-2 pb-8 md:p-3 md:pb-10"
               : "p-4 md:p-6"
           }`}
         >
