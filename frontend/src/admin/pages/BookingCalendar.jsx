@@ -123,6 +123,8 @@ export default function BookingCalendar() {
     bookings: [],
   });
 
+  const [monitoringRoomUnits, setMonitoringRoomUnits] = useState([]);
+
   const [filters, setFilters] = useState({
     hotel_id: "",
     room_type: "all",
@@ -415,6 +417,104 @@ export default function BookingCalendar() {
     }
   };
 
+  const normalizeApiArrayResponse = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data?.data)) return payload.data.data;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.rooms)) return payload.rooms;
+    if (Array.isArray(payload?.units)) return payload.units;
+    return [];
+  };
+
+  const getRoomHotelIdForMonitoring = (room) => {
+    return room?.hotel_id || room?.hotel?.id || room?.hotelId || "";
+  };
+
+  const normalizeMonitoringRoomUnit = (unit, room) => {
+    return {
+      ...unit,
+      room: unit?.room || room || null,
+      hotel: unit?.hotel || room?.hotel || null,
+      hotel_id:
+        unit?.hotel_id ||
+        unit?.room?.hotel_id ||
+        room?.hotel_id ||
+        room?.hotel?.id ||
+        "",
+      room_type:
+        unit?.room_type ||
+        unit?.type ||
+        unit?.room?.type ||
+        room?.type ||
+        room?.name ||
+        unit?.room_type_name ||
+        unit?.room_name ||
+        "",
+      room_number:
+        unit?.room_number || unit?.unit_number || unit?.number || unit?.name || "-",
+      monitoring_status:
+        unit?.monitoring_status ||
+        unit?.status_label ||
+        unit?.availability_status ||
+        unit?.room_status ||
+        "",
+    };
+  };
+
+  const fetchMonitoringRoomUnitsForCalendar = async (
+    customFilters = filtersRef.current
+  ) => {
+    try {
+      const roomResponse = await api.get("/admin/rooms");
+      const roomList = normalizeApiArrayResponse(roomResponse.data);
+
+      let scopedRooms = Array.isArray(roomList) ? roomList : [];
+
+      if (customFilters.hotel_id) {
+        scopedRooms = scopedRooms.filter(
+          (room) =>
+            String(getRoomHotelIdForMonitoring(room)) ===
+            String(customFilters.hotel_id)
+        );
+      } else if (!canAccessAllHotels && assignedHotelIds.length > 0) {
+        scopedRooms = scopedRooms.filter((room) =>
+          assignedHotelIds.includes(String(getRoomHotelIdForMonitoring(room)))
+        );
+      } else if (!canAccessAllHotels) {
+        scopedRooms = [];
+      }
+
+      if (scopedRooms.length === 0) {
+        setMonitoringRoomUnits([]);
+        return;
+      }
+
+      const responses = await Promise.allSettled(
+        scopedRooms.map((room) => api.get(`/admin/room-units/${room.id}`))
+      );
+
+      const mergedUnits = [];
+
+      responses.forEach((result, index) => {
+        if (result.status !== "fulfilled") return;
+
+        const room = scopedRooms[index];
+        const units = normalizeApiArrayResponse(result.value.data);
+
+        units.forEach((unit) => {
+          mergedUnits.push(normalizeMonitoringRoomUnit(unit, room));
+        });
+      });
+
+      setMonitoringRoomUnits(mergedUnits);
+    } catch (error) {
+      console.error(
+        "GAGAL AMBIL STATUS MONITORING UNIT UNTUK CALENDAR:",
+        error.response?.data || error
+      );
+    }
+  };
+
   const fetchCalendar = async (
     customFilters = filtersRef.current,
     showLoading = true
@@ -448,12 +548,14 @@ export default function BookingCalendar() {
     fetchCalendar(filtersRef.current, true);
     fetchUserAccessHotels();
     fetchFolderBadgeData(filtersRef.current);
+    fetchMonitoringRoomUnitsForCalendar(filtersRef.current);
   }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
       fetchCalendar(filtersRef.current, false);
       fetchFolderBadgeData(filtersRef.current);
+      fetchMonitoringRoomUnitsForCalendar(filtersRef.current);
     }, AUTO_REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
@@ -467,6 +569,7 @@ export default function BookingCalendar() {
 
     fetchCalendar(filters, true);
     fetchFolderBadgeData(filters);
+    fetchMonitoringRoomUnitsForCalendar(filters);
   }, [filters.hotel_id, filters.month, filters.year]);
 
   useEffect(() => {
@@ -474,6 +577,10 @@ export default function BookingCalendar() {
       markHotelFolderAsSeen(filters.hotel_id, folderBadgeBookings);
     }
   }, [filters.hotel_id, folderBadgeBookings]);
+
+  useEffect(() => {
+    fetchMonitoringRoomUnitsForCalendar(filtersRef.current);
+  }, [canAccessAllHotels, assignedHotelIds.join("|")]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -1091,6 +1198,36 @@ export default function BookingCalendar() {
     return map[status] || map.available;
   };
 
+  const getCalendarUnitUnavailableMeta = (unit) => {
+    const status = getRoomUnitOperationalStatus(unit);
+
+    if (status === "maintenance") {
+      return {
+        status,
+        label: "Maintenance",
+        helper: "Kamar sedang maintenance",
+        badgeClass: "border-slate-300 bg-slate-100 text-slate-700",
+        overlayClass:
+          "border-slate-300 bg-slate-100/85 text-slate-600 shadow-inner",
+        dotClass: "bg-slate-500",
+      };
+    }
+
+    if (status === "inactive") {
+      return {
+        status,
+        label: "Nonaktif",
+        helper: "Kamar sedang dinonaktifkan",
+        badgeClass: "border-gray-300 bg-gray-100 text-gray-600",
+        overlayClass:
+          "border-gray-300 bg-gray-100/85 text-gray-500 shadow-inner",
+        dotClass: "bg-gray-400",
+      };
+    }
+
+    return null;
+  };
+
   const hasSelectedFolder = canAccessAllHotels ? true : !!filters.hotel_id;
 
   const accessibleHotels = useMemo(() => {
@@ -1142,9 +1279,13 @@ export default function BookingCalendar() {
   };
 
   const roomTypeOptions = useMemo(() => {
-    const units = Array.isArray(calendarData.room_units)
+    const calendarUnits = Array.isArray(calendarData.room_units)
       ? calendarData.room_units
       : [];
+    const monitoringUnits = Array.isArray(monitoringRoomUnits)
+      ? monitoringRoomUnits
+      : [];
+    const units = [...calendarUnits, ...monitoringUnits];
 
     let scopedUnits = [];
 
@@ -1173,12 +1314,177 @@ export default function BookingCalendar() {
         sensitivity: "base",
       })
     );
-  }, [calendarData.room_units, assignedHotelIds, canAccessAllHotels]);
+  }, [
+    calendarData.room_units,
+    monitoringRoomUnits,
+    assignedHotelIds,
+    canAccessAllHotels,
+  ]);
+
+  const getBookingRoomUnitCandidate = (booking) => {
+    return (
+      booking?.room_unit ||
+      booking?.roomUnit ||
+      booking?.room_unit_detail ||
+      booking?.unit ||
+      null
+    );
+  };
+
+  const buildCalendarUnitFromBooking = (booking) => {
+    const bookingUnit = getBookingRoomUnitCandidate(booking);
+    const unitId = bookingUnit?.id || booking?.room_unit_id;
+
+    if (!unitId) return null;
+
+    return {
+      ...(bookingUnit || {}),
+      id: unitId,
+      room_number:
+        bookingUnit?.room_number ||
+        bookingUnit?.unit_number ||
+        bookingUnit?.number ||
+        booking?.room_number ||
+        booking?.unit_number ||
+        "-",
+      room: bookingUnit?.room || booking?.room || null,
+      hotel: bookingUnit?.hotel || booking?.hotel || null,
+      hotel_id:
+        bookingUnit?.hotel_id ||
+        bookingUnit?.room?.hotel_id ||
+        booking?.hotel_id ||
+        booking?.hotel?.id ||
+        booking?.room?.hotel_id ||
+        "",
+      room_type:
+        bookingUnit?.room_type ||
+        bookingUnit?.type ||
+        booking?.room?.type ||
+        booking?.room?.name ||
+        booking?.room_name ||
+        "",
+      status:
+        bookingUnit?.status ??
+        bookingUnit?.is_active ??
+        bookingUnit?.available ??
+        true,
+      monitoring_status:
+        bookingUnit?.monitoring_status ||
+        bookingUnit?.status_label ||
+        bookingUnit?.availability_status ||
+        "",
+      is_active: bookingUnit?.is_active,
+      available: bookingUnit?.available,
+      is_maintenance: bookingUnit?.is_maintenance,
+      maintenance_status: bookingUnit?.maintenance_status,
+      is_cleaning: bookingUnit?.is_cleaning,
+      cleaning_status: bookingUnit?.cleaning_status,
+    };
+  };
+
+  const mergeCalendarUnitData = (existingUnit, incomingUnit) => {
+    if (!existingUnit) return incomingUnit;
+    if (!incomingUnit) return existingUnit;
+
+    const incomingOperationalStatus = getRoomUnitOperationalStatus(incomingUnit);
+    const preferIncomingStatus = [
+      "maintenance",
+      "inactive",
+      "cleaning",
+    ].includes(incomingOperationalStatus);
+
+    return {
+      ...incomingUnit,
+      ...existingUnit,
+      room_number:
+        existingUnit?.room_number ||
+        existingUnit?.unit_number ||
+        existingUnit?.number ||
+        incomingUnit?.room_number ||
+        incomingUnit?.unit_number ||
+        incomingUnit?.number ||
+        "-",
+      room: existingUnit?.room || incomingUnit?.room || null,
+      hotel: existingUnit?.hotel || incomingUnit?.hotel || null,
+      hotel_id:
+        existingUnit?.hotel_id ||
+        existingUnit?.room?.hotel_id ||
+        existingUnit?.hotel?.id ||
+        incomingUnit?.hotel_id ||
+        incomingUnit?.room?.hotel_id ||
+        incomingUnit?.hotel?.id ||
+        "",
+      room_type:
+        existingUnit?.room_type ||
+        existingUnit?.type ||
+        existingUnit?.room?.type ||
+        incomingUnit?.room_type ||
+        incomingUnit?.type ||
+        incomingUnit?.room?.type ||
+        "",
+      monitoring_status: preferIncomingStatus
+        ? incomingUnit?.monitoring_status || existingUnit?.monitoring_status || ""
+        : existingUnit?.monitoring_status || incomingUnit?.monitoring_status || "",
+      status: preferIncomingStatus
+        ? incomingUnit?.status ?? existingUnit?.status
+        : existingUnit?.status ?? incomingUnit?.status,
+      is_active: preferIncomingStatus
+        ? incomingUnit?.is_active ?? existingUnit?.is_active
+        : existingUnit?.is_active ?? incomingUnit?.is_active,
+      available: preferIncomingStatus
+        ? incomingUnit?.available ?? existingUnit?.available
+        : existingUnit?.available ?? incomingUnit?.available,
+      is_maintenance: preferIncomingStatus
+        ? incomingUnit?.is_maintenance ?? existingUnit?.is_maintenance
+        : existingUnit?.is_maintenance ?? incomingUnit?.is_maintenance,
+      maintenance_status: preferIncomingStatus
+        ? incomingUnit?.maintenance_status ?? existingUnit?.maintenance_status
+        : existingUnit?.maintenance_status ?? incomingUnit?.maintenance_status,
+      is_cleaning: preferIncomingStatus
+        ? incomingUnit?.is_cleaning ?? existingUnit?.is_cleaning
+        : existingUnit?.is_cleaning ?? incomingUnit?.is_cleaning,
+      cleaning_status: preferIncomingStatus
+        ? incomingUnit?.cleaning_status ?? existingUnit?.cleaning_status
+        : existingUnit?.cleaning_status ?? incomingUnit?.cleaning_status,
+    };
+  };
 
   const visibleRoomUnits = useMemo(() => {
-    const units = Array.isArray(calendarData.room_units)
+    const sourceUnits = Array.isArray(calendarData.room_units)
       ? calendarData.room_units
       : [];
+    const sourceBookings = Array.isArray(calendarData.bookings)
+      ? calendarData.bookings
+      : [];
+    const sourceMonitoringUnits = Array.isArray(monitoringRoomUnits)
+      ? monitoringRoomUnits
+      : [];
+    const unitMap = new Map();
+
+    sourceUnits.forEach((unit) => {
+      if (!unit?.id) return;
+      unitMap.set(String(unit.id), unit);
+    });
+
+    sourceBookings.forEach((booking) => {
+      const bookingUnit = buildCalendarUnitFromBooking(booking);
+      if (!bookingUnit?.id) return;
+
+      const key = String(bookingUnit.id);
+      unitMap.set(
+        key,
+        mergeCalendarUnitData(unitMap.get(key), bookingUnit)
+      );
+    });
+
+    sourceMonitoringUnits.forEach((unit) => {
+      if (!unit?.id) return;
+
+      const key = String(unit.id);
+      unitMap.set(key, mergeCalendarUnitData(unitMap.get(key), unit));
+    });
+
+    const units = Array.from(unitMap.values());
 
     let filteredUnits = [];
 
@@ -1201,6 +1507,8 @@ export default function BookingCalendar() {
     return sortRoomUnitsByNumber(filteredUnits);
   }, [
     calendarData.room_units,
+    calendarData.bookings,
+    monitoringRoomUnits,
     assignedHotelIds,
     canAccessAllHotels,
     filters.room_type,
@@ -1420,6 +1728,8 @@ export default function BookingCalendar() {
                 <Legend color="bg-orange-500" label="Pembersihan" />
                 <Legend color="bg-slate-500" label="Selesai" />
                 <Legend color="bg-red-700" label="Waktunya Check-out" />
+                <Legend color="bg-slate-500" label="Maintenance" />
+                <Legend color="bg-gray-400" label="Nonaktif" />
               </div>
             </div>
           </div>
@@ -1523,10 +1833,15 @@ export default function BookingCalendar() {
 
                     {calendarDisplayRows?.map((unit) => {
                       const unitBookings = getVisibleBookingsForUnit(unit.id);
+                      const unitUnavailableMeta = getCalendarUnitUnavailableMeta(unit);
 
                       return (
                         <div key={unit.id} className="contents">
-                          <div className="sticky left-0 z-[60] min-w-[170px] max-w-[170px] border-r border-b border-gray-200 bg-white/95 px-3 py-3 shadow-[10px_0_22px_rgba(15,23,42,0.10)] backdrop-blur-sm">
+                          <div
+                            className={`sticky left-0 z-[60] min-w-[170px] max-w-[170px] border-r border-b border-gray-200 px-3 py-3 shadow-[10px_0_22px_rgba(15,23,42,0.10)] backdrop-blur-sm ${
+                              unitUnavailableMeta ? "bg-slate-50/95" : "bg-white/95"
+                            }`}
+                          >
                             <div className="min-w-0">
                               <p className="truncate text-[13px] font-semibold text-gray-800">
                                 Kamar {unit.room_number}
@@ -1534,11 +1849,24 @@ export default function BookingCalendar() {
                               <p className="truncate text-[11px] font-medium text-gray-500">
                                 {getCalendarUnitTypeLabel(unit)}
                               </p>
+
+                              {unitUnavailableMeta && (
+                                <span
+                                  className={`mt-1 inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${unitUnavailableMeta.badgeClass}`}
+                                >
+                                  <span
+                                    className={`h-1.5 w-1.5 rounded-full ${unitUnavailableMeta.dotClass}`}
+                                  />
+                                  {unitUnavailableMeta.label}
+                                </span>
+                              )}
                             </div>
                           </div>
 
                           <div
-                            className="relative border-b border-gray-200 bg-white"
+                            className={`relative border-b border-gray-200 ${
+                              unitUnavailableMeta ? "bg-slate-50" : "bg-white"
+                            }`}
                             style={{
                               gridColumn: `span ${calendarDays.length}`,
                               minHeight: `${CALENDAR_ROW_HEIGHT}px`,
@@ -1559,12 +1887,32 @@ export default function BookingCalendar() {
                                     className={`border-l ${
                                       todayColumn
                                         ? "border-red-200 bg-red-50/70"
+                                        : unitUnavailableMeta
+                                        ? "border-gray-200 bg-slate-50/80"
                                         : "border-gray-200 bg-white"
                                     }`}
                                   />
                                 );
                               })}
                             </div>
+
+                            {unitUnavailableMeta && (
+                              <div
+                                className={`pointer-events-none absolute left-2 right-2 top-2.5 z-10 flex h-[52px] items-center justify-between overflow-hidden rounded-[13px] border border-dashed px-3 ${unitUnavailableMeta.overlayClass}`}
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-[11px] font-black uppercase tracking-[0.14em]">
+                                    {unitUnavailableMeta.label}
+                                  </p>
+                                  <p className="truncate text-[10px] font-semibold opacity-80">
+                                    {unitUnavailableMeta.helper}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 rounded-full bg-white/70 px-2 py-1 text-[9px] font-black uppercase tracking-wide shadow-sm">
+                                  Tidak tersedia
+                                </span>
+                              </div>
+                            )}
 
                             {unitBookings.map((booking) => {
                               const blockStyle = getBookingBlockStyle(booking);
@@ -1585,7 +1933,7 @@ export default function BookingCalendar() {
                                         relatedBookings,
                                     })
                                   }
-                                  className={`absolute top-2.5 h-[52px] overflow-hidden rounded-[13px] border px-2.5 py-1 text-left shadow-[0_10px_18px_rgba(15,23,42,0.15)] transition-all duration-200 hover:z-50 hover:scale-[1.03] hover:shadow-[0_14px_24px_rgba(15,23,42,0.20)] ${checkoutDanger ? "rr-calendar-danger-pulse" : ""} ${getBlockColor(
+                                  className={`absolute top-2.5 z-20 h-[52px] overflow-hidden rounded-[13px] border px-2.5 py-1 text-left shadow-[0_10px_18px_rgba(15,23,42,0.15)] transition-all duration-200 hover:z-50 hover:scale-[1.03] hover:shadow-[0_14px_24px_rgba(15,23,42,0.20)] ${checkoutDanger ? "rr-calendar-danger-pulse" : ""} ${getBlockColor(
                                     booking
                                   )}`}
                                   style={blockStyle}
