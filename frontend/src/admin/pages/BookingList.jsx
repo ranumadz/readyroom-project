@@ -150,6 +150,7 @@ export default function BookingList() {
   const receiptPrintRef = useRef(null);
   const reportPrintRef = useRef(null);
   const housekeepingPrintRef = useRef(null);
+  const manualCheckInPickerRef = useRef(null);
 
   const [selectedPaidBooking, setSelectedPaidBooking] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -345,6 +346,25 @@ export default function BookingList() {
       }));
     }
   }, [manualForm.room_id]);
+
+  useEffect(() => {
+    if (!manualDatePickerOpen) return undefined;
+
+    const handleManualPickerOutsideClick = (event) => {
+      if (!manualCheckInPickerRef.current) return;
+      if (manualCheckInPickerRef.current.contains(event.target)) return;
+
+      setManualDatePickerOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleManualPickerOutsideClick);
+    document.addEventListener("touchstart", handleManualPickerOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleManualPickerOutsideClick);
+      document.removeEventListener("touchstart", handleManualPickerOutsideClick);
+    };
+  }, [manualDatePickerOpen]);
 
   useEffect(() => {
     if (filters.hotelId) {
@@ -6183,7 +6203,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         </select>
                       </div>
 
-                      <div className="relative xl:col-span-2">
+                      <div ref={manualCheckInPickerRef} className="relative xl:col-span-2">
                         <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Check In
                         </label>
@@ -6204,7 +6224,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 </button>
 
                         {manualDatePickerOpen && (
-                          <div className="absolute left-0 top-[calc(100%+6px)] z-[90] w-[350px] max-w-[90vw] rounded-[14px] border border-red-100 bg-white p-1.5 shadow-[0_16px_45px_rgba(15,23,42,0.18)]">
+                          <div className="absolute left-0 top-[68px] z-[90] w-[520px] max-w-[calc(100vw-48px)] rounded-[16px] border border-red-100 bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.18)]">
                             <div className="flex items-center justify-between gap-1.5 rounded-[12px] bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-2 py-1.5 text-white">
                               <button
                                 type="button"
@@ -6230,7 +6250,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                               </button>
                             </div>
 
-                            <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_86px] gap-1.5">
+                            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_126px] gap-2">
                               <div>
                                 <div className="grid grid-cols-7 gap-[3px] text-center">
                                   {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => (
@@ -6267,7 +6287,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                 </div>
                               </div>
 
-                              <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-1.5">
+                              <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-2">
                                 <div className="mb-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-wide text-slate-500">
                                   <Clock3 size={10} className="text-red-500" />
                                   Pilih Jam
