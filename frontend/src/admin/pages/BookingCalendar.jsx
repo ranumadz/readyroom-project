@@ -22,6 +22,23 @@ export default function BookingCalendar() {
   const today = new Date();
   const FOLDER_SEEN_STORAGE_KEY = "readyroom_calendar_seen_hotels";
   const AUTO_REFRESH_INTERVAL = 15000;
+  const BOOKING_FULLSCREEN_STORAGE_KEY = "readyroom_admin_booking_fullscreen";
+
+  const readBookingFullscreenState = () => {
+    try {
+      return sessionStorage.getItem(BOOKING_FULLSCREEN_STORAGE_KEY) === "1";
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const saveBookingFullscreenState = (value) => {
+    try {
+      sessionStorage.setItem(BOOKING_FULLSCREEN_STORAGE_KEY, value ? "1" : "0");
+    } catch (error) {
+      console.error("SAVE BOOKING FULLSCREEN STATE ERROR:", error);
+    }
+  };
 
   const adminUser =
     JSON.parse(localStorage.getItem("adminUser") || "null") ||
@@ -69,7 +86,9 @@ export default function BookingCalendar() {
   });
 
   const [isCalendarDragging, setIsCalendarDragging] = useState(false);
-  const [isCalendarFullscreen, setIsCalendarFullscreen] = useState(false);
+  const [isCalendarFullscreen, setIsCalendarFullscreen] = useState(() =>
+    readBookingFullscreenState()
+  );
 
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
@@ -96,6 +115,11 @@ export default function BookingCalendar() {
   }, []);
 
   useEffect(() => {
+    const syncFullscreenState = (value) => {
+      setIsCalendarFullscreen(value);
+      saveBookingFullscreenState(value);
+    };
+
     const handleFullscreenChange = () => {
       const fullscreenElement =
         document.fullscreenElement ||
@@ -103,7 +127,7 @@ export default function BookingCalendar() {
         document.mozFullScreenElement ||
         document.msFullscreenElement;
 
-      setIsCalendarFullscreen(fullscreenElement === fullscreenAreaRef.current);
+      syncFullscreenState(fullscreenElement === fullscreenAreaRef.current);
     };
 
     const handleEscapeKey = (event) => {
@@ -116,7 +140,7 @@ export default function BookingCalendar() {
         document.msFullscreenElement;
 
       if (!hasNativeFullscreen && isCalendarFullscreen) {
-        setIsCalendarFullscreen(false);
+        syncFullscreenState(false);
       }
     };
 
@@ -430,10 +454,20 @@ export default function BookingCalendar() {
           await document.msExitFullscreen();
         } else {
           setIsCalendarFullscreen(false);
+          saveBookingFullscreenState(false);
         }
 
         return;
       }
+
+      if (isCalendarFullscreen) {
+        setIsCalendarFullscreen(false);
+        saveBookingFullscreenState(false);
+        return;
+      }
+
+      setIsCalendarFullscreen(true);
+      saveBookingFullscreenState(true);
 
       if (target.requestFullscreen) {
         await target.requestFullscreen();
@@ -443,12 +477,13 @@ export default function BookingCalendar() {
         await target.mozRequestFullScreen();
       } else if (target.msRequestFullscreen) {
         await target.msRequestFullscreen();
-      } else {
-        setIsCalendarFullscreen(true);
       }
     } catch (error) {
       console.error("GAGAL TOGGLE FULLSCREEN BOOKING CALENDAR:", error);
-      setIsCalendarFullscreen((prev) => !prev);
+
+      const nextFullscreenState = !isCalendarFullscreen;
+      setIsCalendarFullscreen(nextFullscreenState);
+      saveBookingFullscreenState(nextFullscreenState);
     }
   };
 

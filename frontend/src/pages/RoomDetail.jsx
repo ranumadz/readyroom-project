@@ -38,6 +38,7 @@ const BACKEND_BASE_URL =
 const FULL_DAY_MIN_HOUR = 14;
 const FULL_DAY_MIN_DAYS = 1;
 const FULL_DAY_MAX_DAYS = 30;
+const PACKAGE_UNAVAILABLE_MESSAGE = "Paket ini tidak tersedia untuk tipe kamar ini.";
 
 export default function RoomDetail() {
   const { id } = useParams();
@@ -552,6 +553,18 @@ export default function RoomDetail() {
   }, [galleryImages, activeImage]);
 
   const handleBookingModeChange = (mode) => {
+    if (mode === "transit" && !hasAvailableTransitPackage) {
+      setBookingError(PACKAGE_UNAVAILABLE_MESSAGE);
+      setGuestError(PACKAGE_UNAVAILABLE_MESSAGE);
+      return;
+    }
+
+    if (mode === "overnight" && !isFullDayPackageAvailable) {
+      setBookingError(PACKAGE_UNAVAILABLE_MESSAGE);
+      setGuestError(PACKAGE_UNAVAILABLE_MESSAGE);
+      return;
+    }
+
     setBookingMode(mode);
     setBookingError("");
     setGuestError("");
@@ -560,6 +573,16 @@ export default function RoomDetail() {
     setShowFullDayDurationPanel(false);
 
     if (mode === "transit") {
+      setTransitDuration((prev) => {
+        const currentOption = transitOptions.find(
+          (option) => String(option.value) === String(prev)
+        );
+
+        return currentOption?.available
+          ? prev
+          : availableTransitOptions[0]?.value || "";
+      });
+
       setBookingForm((prev) => ({
         ...prev,
         overnight_end_date: "",
@@ -753,26 +776,102 @@ export default function RoomDetail() {
     return `62${cleaned}`;
   };
 
-  const transitPrice =
-    transitDuration === "3"
-      ? room?.price_transit_3h || 0
-      : transitDuration === "6"
-      ? room?.price_transit_6h || 0
-      : room?.price_transit_12h || 0;
+  const getTransitPriceByDuration = (duration) => {
+    if (!room) return 0;
 
+    if (String(duration) === "3") return Number(room?.price_transit_3h || 0);
+    if (String(duration) === "6") return Number(room?.price_transit_6h || 0);
+    if (String(duration) === "12") return Number(room?.price_transit_12h || 0);
+
+    return 0;
+  };
+
+  const transitOptions = useMemo(
+    () =>
+      ["3", "6", "12"].map((hour) => {
+        const price = getTransitPriceByDuration(hour);
+
+        return {
+          value: hour,
+          label: `${hour} Jam`,
+          price,
+          available: Number(price || 0) > 0,
+        };
+      }),
+    [room]
+  );
+
+  const selectedTransitOption = useMemo(() => {
+    return transitOptions.find(
+      (option) => String(option.value) === String(transitDuration)
+    );
+  }, [transitOptions, transitDuration]);
+
+  const availableTransitOptions = useMemo(() => {
+    return transitOptions.filter((option) => option.available);
+  }, [transitOptions]);
+
+  const hasAvailableTransitPackage = availableTransitOptions.length > 0;
   const overnightUnitPrice = Number(room?.price_per_night || 0);
-
-  const mainPrice =
+  const isFullDayPackageAvailable = overnightUnitPrice > 0;
+  const isTransitPackageAvailable =
+    bookingMode !== "transit" || Boolean(selectedTransitOption?.available);
+  const isCurrentPackageAvailable =
     bookingMode === "transit"
+      ? Boolean(selectedTransitOption?.available)
+      : isFullDayPackageAvailable;
+
+  const transitPrice = selectedTransitOption?.available
+    ? Number(selectedTransitOption.price || 0)
+    : 0;
+
+  const mainPrice = isCurrentPackageAvailable
+    ? bookingMode === "transit"
       ? transitPrice
-      : overnightUnitPrice * Number(overnightDurationDays || 1);
+      : overnightUnitPrice * Number(overnightDurationDays || 1)
+    : 0;
 
   const bookingLabelText =
     bookingMode === "transit"
-      ? `Transit ${transitDuration} Jam`
+      ? transitDuration
+        ? `Transit ${transitDuration} Jam`
+        : "Transit"
       : `Full Day ${overnightDurationDays} Hari`;
 
+  useEffect(() => {
+    if (!room) return;
+
+    if (bookingMode === "transit") {
+      if (selectedTransitOption?.available) return;
+
+      const firstAvailableTransit = availableTransitOptions[0];
+
+      setTransitDuration(firstAvailableTransit?.value || "");
+      return;
+    }
+
+    if (bookingMode === "overnight" && !isFullDayPackageAvailable) {
+      if (hasAvailableTransitPackage) {
+        setBookingMode("transit");
+        setTransitDuration(availableTransitOptions[0]?.value || "");
+        setBookingForm((prev) => ({
+          ...prev,
+          overnight_end_date: "",
+        }));
+      }
+    }
+  }, [
+    room,
+    bookingMode,
+    selectedTransitOption,
+    availableTransitOptions,
+    isFullDayPackageAvailable,
+    hasAvailableTransitPackage,
+  ]);
+
   const waAdminLink = useMemo(() => {
+    if (!isCurrentPackageAvailable || Number(mainPrice || 0) <= 0) return null;
+
     const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
     if (!rawWa) return null;
 
@@ -823,9 +922,12 @@ export default function RoomDetail() {
     mainPrice,
     selectedCheckInDate,
     estimatedCheckOutText,
+    isCurrentPackageAvailable,
   ]);
 
   const guestWaLink = useMemo(() => {
+    if (!isCurrentPackageAvailable || Number(mainPrice || 0) <= 0) return null;
+
     const rawWa = String(room?.hotel?.wa_admin || "").replace(/\D/g, "");
     if (!rawWa) return null;
 
@@ -864,6 +966,7 @@ export default function RoomDetail() {
     guestForm.guest_phone,
     selectedCheckInDate,
     estimatedCheckOutText,
+    isCurrentPackageAvailable,
   ]);
 
   const getFacilityName = (facility) => {
@@ -1026,6 +1129,11 @@ export default function RoomDetail() {
       return false;
     }
 
+    if (!isCurrentPackageAvailable || Number(mainPrice || 0) <= 0) {
+      setGuestError(PACKAGE_UNAVAILABLE_MESSAGE);
+      return false;
+    }
+
     if (!bookingForm.check_in) {
       setGuestError("Silakan pilih tanggal / jam check-in terlebih dahulu.");
       return false;
@@ -1159,6 +1267,11 @@ export default function RoomDetail() {
 
     if (!userId) {
       setBookingError("User login tidak terdeteksi. Silakan login ulang dulu ya.");
+      return;
+    }
+
+    if (!isCurrentPackageAvailable || Number(mainPrice || 0) <= 0) {
+      setBookingError(PACKAGE_UNAVAILABLE_MESSAGE);
       return;
     }
 
@@ -1524,8 +1637,9 @@ export default function RoomDetail() {
 
                   <button
                     type="button"
+                    disabled={!hasAvailableTransitPackage}
                     onClick={() => handleBookingModeChange("transit")}
-                    className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition ${
+                    className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:text-gray-400 ${
                       bookingMode === "transit" ? "text-white" : "text-gray-600"
                     }`}
                   >
@@ -1534,8 +1648,9 @@ export default function RoomDetail() {
 
                   <button
                     type="button"
+                    disabled={!isFullDayPackageAvailable}
                     onClick={() => handleBookingModeChange("overnight")}
-                    className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition ${
+                    className={`relative z-10 w-1/2 rounded-2xl py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:text-gray-400 ${
                       bookingMode === "overnight"
                         ? "text-white"
                         : "text-gray-600"
@@ -1548,40 +1663,95 @@ export default function RoomDetail() {
                 {bookingMode === "transit" && (
                   <div className="mt-4">
                     <div className="flex flex-wrap gap-3">
-                      {["3", "6", "12"].map((hour) => (
-                        <button
-                          key={hour}
-                          type="button"
-                          onClick={() => setTransitDuration(hour)}
-                          className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
-                            transitDuration === hour
-                              ? "bg-red-600 text-white"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          }`}
-                        >
-                          {hour} Jam
-                        </button>
-                      ))}
+                      {transitOptions.map((option) => {
+                        const active =
+                          String(transitDuration) === String(option.value) &&
+                          option.available;
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            disabled={!option.available}
+                            onClick={() => {
+                              if (!option.available) {
+                                setBookingError(PACKAGE_UNAVAILABLE_MESSAGE);
+                                setGuestError(PACKAGE_UNAVAILABLE_MESSAGE);
+                                return;
+                              }
+
+                              setTransitDuration(option.value);
+                              setBookingError("");
+                              setGuestError("");
+                            }}
+                            className={`rounded-2xl px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed ${
+                              !option.available
+                                ? "border border-gray-200 bg-gray-100 text-gray-400"
+                                : active
+                                ? "bg-red-600 text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                            title={
+                              option.available
+                                ? `${option.label} - ${formatRupiah(option.price)}`
+                                : PACKAGE_UNAVAILABLE_MESSAGE
+                            }
+                          >
+                            <span>{option.label}</span>
+                            {!option.available && (
+                              <span className="ml-1 text-[10px] font-bold">
+                                Tidak tersedia
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
 
                     <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
                       <Clock3 size={16} className="text-red-500" />
-                      Pilih durasi transit yang kamu butuhkan
+                      {hasAvailableTransitPackage
+                        ? "Pilih durasi transit yang kamu butuhkan"
+                        : PACKAGE_UNAVAILABLE_MESSAGE}
                     </div>
                   </div>
                 )}
 
-                <div className="mt-5 rounded-2xl bg-red-50 border border-red-100 px-4 py-4">
-                  <p className="text-xs font-semibold text-red-600 mb-1">
+                <div
+                  className={`mt-5 rounded-2xl border px-4 py-4 ${
+                    isCurrentPackageAvailable
+                      ? "border-red-100 bg-red-50"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                >
+                  <p
+                    className={`mb-1 text-xs font-semibold ${
+                      isCurrentPackageAvailable ? "text-red-600" : "text-gray-500"
+                    }`}
+                  >
                     Harga{" "}
                     {bookingMode === "transit"
-                      ? `Transit ${transitDuration} Jam`
+                      ? transitDuration
+                        ? `Transit ${transitDuration} Jam`
+                        : "Transit"
                       : `Full Day ${overnightDurationDays} Hari`}
                   </p>
 
-                  <p className="text-2xl font-bold text-gray-800">
-                    {formatRupiah(mainPrice)}
+                  <p
+                    className={`text-2xl font-bold ${
+                      isCurrentPackageAvailable ? "text-gray-800" : "text-gray-500"
+                    }`}
+                  >
+                    {isCurrentPackageAvailable
+                      ? formatRupiah(mainPrice)
+                      : "Tidak tersedia"}
                   </p>
+
+                  {!isCurrentPackageAvailable && (
+                    <p className="mt-2 text-sm font-semibold text-gray-500">
+                      {PACKAGE_UNAVAILABLE_MESSAGE}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1909,6 +2079,20 @@ export default function RoomDetail() {
                   </div>
                 )}
 
+                {!isCurrentPackageAvailable && (
+                  <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle
+                        size={18}
+                        className="mt-0.5 shrink-0 text-gray-500"
+                      />
+                      <p className="text-sm font-semibold text-gray-600">
+                        {PACKAGE_UNAVAILABLE_MESSAGE}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {isCustomerLoggedIn ? (
                   <div className="mt-5 space-y-5">
                     <div className="rounded-2xl bg-red-50 border border-red-100 p-4">
@@ -2006,7 +2190,7 @@ export default function RoomDetail() {
                       <button
                         type="button"
                         onClick={handleSubmitBooking}
-                        disabled={submittingBooking}
+                        disabled={submittingBooking || !isCurrentPackageAvailable}
                         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-4 text-white font-semibold hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         {submittingBooking ? (
@@ -2110,7 +2294,7 @@ export default function RoomDetail() {
                         <button
                           type="button"
                           onClick={handleManualGuestBooking}
-                          disabled={submittingBooking}
+                          disabled={submittingBooking || !isCurrentPackageAvailable}
                           className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3.5 text-white font-semibold hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-70"
                         >
                           {submittingBooking ? (

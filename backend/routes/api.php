@@ -184,6 +184,11 @@ Route::prefix('admin')->group(function () {
     Route::post('/bookings/{id}/reject', [AdminBookingController::class, 'reject']);
     Route::post('/bookings/{id}/update', [AdminBookingController::class, 'updateBooking']);
 
+    // Hapus / arsip booking dari list operasional.
+    // Dipakai frontend BookingList.jsx:
+    // DELETE /api/admin/bookings/{id}
+    Route::delete('/bookings/{id}', [AdminBookingController::class, 'destroy']);
+
     // =========================
     // Booking Operational Flow
     // =========================

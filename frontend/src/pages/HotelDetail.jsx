@@ -164,6 +164,10 @@ export default function HotelDetail() {
     }).format(date);
   };
 
+  const isPositivePackagePrice = (value) => {
+    return Number(value || 0) > 0;
+  };
+
   const getRoomLowestPrice = (room) => {
     const prices = [
       room.price_transit_3h,
@@ -176,6 +180,13 @@ export default function HotelDetail() {
 
     return prices.length > 0 ? Math.min(...prices) : 0;
   };
+
+  const hasRoomActivePackage = (room) => {
+    return getRoomLowestPrice(room) > 0;
+  };
+
+  const packageUnavailableMessage =
+    "Paket ini tidak tersedia untuk tipe kamar ini.";
 
   const sortedRooms = useMemo(() => {
     return [...rooms].sort((a, b) => {
@@ -243,7 +254,9 @@ export default function HotelDetail() {
   };
 
   const availableSortedRooms = useMemo(() => {
-    return sortedRooms.filter((room) => !isRoomBookingClosed(room));
+    return sortedRooms.filter(
+      (room) => !isRoomBookingClosed(room) && hasRoomActivePackage(room)
+    );
   }, [sortedRooms, isBookingClosed]);
 
   const cheapestRoom = availableSortedRooms[0] || null;
@@ -311,7 +324,12 @@ export default function HotelDetail() {
     const roomId = typeof room === "object" ? room?.id : room;
 
     if (!roomId) return;
-    if (typeof room === "object" && isRoomBookingClosed(room)) return;
+    if (
+      typeof room === "object" &&
+      (isRoomBookingClosed(room) || !hasRoomActivePackage(room))
+    ) {
+      return;
+    }
     if (isBookingClosed) return;
 
     window.scrollTo({
@@ -459,6 +477,43 @@ export default function HotelDetail() {
 
     return `https://wa.me/${normalizedWa}?text=${encodeURIComponent(text)}`;
   }, [hotel]);
+
+  const renderPackagePriceCard = (label, price, variant = "default") => {
+    const available = isPositivePackagePrice(price);
+    const isFullDay = variant === "full";
+
+    return (
+      <div
+        className={`rounded-2xl border px-3 py-3 transition ${
+          available
+            ? isFullDay
+              ? "border-emerald-100 bg-emerald-50"
+              : "border-gray-100 bg-gray-50"
+            : "border-gray-200 bg-slate-50 opacity-75"
+        }`}
+        title={!available ? packageUnavailableMessage : undefined}
+      >
+        <p
+          className={`text-[10px] font-bold uppercase ${
+            available && isFullDay ? "text-emerald-600" : "text-gray-400"
+          }`}
+        >
+          {label}
+        </p>
+        <p
+          className={`mt-1 text-sm font-extrabold ${
+            available
+              ? isFullDay
+                ? "text-emerald-700"
+                : "text-gray-900"
+              : "text-slate-400"
+          }`}
+        >
+          {available ? formatRupiah(price) : "Tidak tersedia"}
+        </p>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -849,9 +904,16 @@ export default function HotelDetail() {
                 <div className="space-y-4 md:space-y-5">
                   {sortedRooms.map((room, index) => {
                     const lowestPrice = getRoomLowestPrice(room);
-                    const roomBookingClosed = isRoomBookingClosed(room);
-                    const roomClosedReason = getRoomBookingClosedReason(room);
-                    const roomReopenLabel = getRoomBookingReopenLabel(room);
+                    const roomClosedByStatus = isRoomBookingClosed(room);
+                    const roomPackageUnavailable = !hasRoomActivePackage(room);
+                    const roomBookingClosed =
+                      roomClosedByStatus || roomPackageUnavailable;
+                    const roomClosedReason = roomPackageUnavailable
+                      ? packageUnavailableMessage
+                      : getRoomBookingClosedReason(room);
+                    const roomReopenLabel = roomPackageUnavailable
+                      ? ""
+                      : getRoomBookingReopenLabel(room);
 
                     return (
                       <div
@@ -891,7 +953,7 @@ export default function HotelDetail() {
                               {room.capacity || 0} Orang
                             </div>
 
-                            {index === 0 && (
+                            {index === 0 && lowestPrice > 0 && !roomBookingClosed && (
                               <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
                                 <BadgeCheck size={13} />
                                 Termurah di hotel ini
@@ -918,7 +980,7 @@ export default function HotelDetail() {
                                 </p>
                               </div>
 
-                              {index === 0 && (
+                              {index === 0 && lowestPrice > 0 && !roomBookingClosed && (
                                 <span className="hidden shrink-0 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-600 sm:inline-flex">
                                   Hemat
                                 </span>
@@ -926,49 +988,23 @@ export default function HotelDetail() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
-                                <p className="text-[10px] font-bold uppercase text-gray-400">
-                                  Transit 3 Jam
-                                </p>
-                                <p className="mt-1 text-sm font-extrabold text-gray-900">
-                                  {Number(room.price_transit_3h || 0) > 0
-                                    ? formatRupiah(room.price_transit_3h)
-                                    : "-"}
-                                </p>
-                              </div>
-
-                              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
-                                <p className="text-[10px] font-bold uppercase text-gray-400">
-                                  Transit 6 Jam
-                                </p>
-                                <p className="mt-1 text-sm font-extrabold text-gray-900">
-                                  {Number(room.price_transit_6h || 0) > 0
-                                    ? formatRupiah(room.price_transit_6h)
-                                    : "-"}
-                                </p>
-                              </div>
-
-                              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
-                                <p className="text-[10px] font-bold uppercase text-gray-400">
-                                  Transit 12 Jam
-                                </p>
-                                <p className="mt-1 text-sm font-extrabold text-gray-900">
-                                  {Number(room.price_transit_12h || 0) > 0
-                                    ? formatRupiah(room.price_transit_12h)
-                                    : "-"}
-                                </p>
-                              </div>
-
-                              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3">
-                                <p className="text-[10px] font-bold uppercase text-emerald-600">
-                                  Full Day
-                                </p>
-                                <p className="mt-1 text-sm font-extrabold text-emerald-700">
-                                  {Number(room.price_per_night || 0) > 0
-                                    ? formatRupiah(room.price_per_night)
-                                    : "-"}
-                                </p>
-                              </div>
+                              {renderPackagePriceCard(
+                                "Transit 3 Jam",
+                                room.price_transit_3h
+                              )}
+                              {renderPackagePriceCard(
+                                "Transit 6 Jam",
+                                room.price_transit_6h
+                              )}
+                              {renderPackagePriceCard(
+                                "Transit 12 Jam",
+                                room.price_transit_12h
+                              )}
+                              {renderPackagePriceCard(
+                                "Full Day",
+                                room.price_per_night,
+                                "full"
+                              )}
                             </div>
 
                             <div
@@ -982,7 +1018,9 @@ export default function HotelDetail() {
                                 <div className="mb-3 text-sm font-semibold text-slate-600 md:mb-0">
                                   <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-extrabold text-slate-700 shadow-sm ring-1 ring-slate-200">
                                     <Lock size={14} />
-                                    Booking ditutup sementara
+                                    {roomPackageUnavailable
+                                      ? "Paket tidak tersedia"
+                                      : "Booking ditutup sementara"}
                                   </div>
                                   <p className="mt-2 leading-relaxed text-slate-500">
                                     {roomClosedReason}
@@ -1009,7 +1047,9 @@ export default function HotelDetail() {
                               >
                                 {roomBookingClosed ? (
                                   <>
-                                    Booking Ditutup
+                                    {roomPackageUnavailable
+                                      ? "Paket Tidak Tersedia"
+                                      : "Booking Ditutup"}
                                     <Lock size={18} />
                                   </>
                                 ) : (

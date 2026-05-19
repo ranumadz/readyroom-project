@@ -36,6 +36,7 @@ import {
   Maximize2,
   Minimize2,
   X,
+  Trash2,
 } from "lucide-react";
 
 export default function BookingList() {
@@ -78,6 +79,9 @@ export default function BookingList() {
     cancel_reason: "",
   });
 
+  const [selectedDeleteBooking, setSelectedDeleteBooking] = useState(null);
+  const [deletingBooking, setDeletingBooking] = useState(false);
+
   const [showManualModal, setShowManualModal] = useState(false);
   const [manualModalFullscreen, setManualModalFullscreen] = useState(false);
   const [hotels, setHotels] = useState([]);
@@ -96,7 +100,7 @@ export default function BookingList() {
     room_id: "",
     room_unit_id: "",
     booking_type: "transit",
-    duration_hours: "3",
+    duration_hours: "",
     duration_days: "1",
     check_in: "",
     manual_discount_percent: "",
@@ -155,7 +159,14 @@ export default function BookingList() {
   const [expectedCheckOutInput, setExpectedCheckOutInput] = useState("");
   const [paying, setPaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => new Date());
-  const [isBookingListFullscreen, setIsBookingListFullscreen] = useState(false);
+  const bookingFullscreenStorageKey = "readyroom_admin_booking_fullscreen";
+  const [isBookingListFullscreen, setIsBookingListFullscreen] = useState(() => {
+    try {
+      return sessionStorage.getItem(bookingFullscreenStorageKey) === "1";
+    } catch (error) {
+      return false;
+    }
+  });
 
   const [selectedPenaltyBooking, setSelectedPenaltyBooking] = useState(null);
   const [savingPenalty, setSavingPenalty] = useState(false);
@@ -169,6 +180,8 @@ export default function BookingList() {
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
   const canEditBooking =
     adminUser?.role === "boss" || adminUser?.role === "super_admin";
+  const canDeleteBooking =
+    adminUser?.role === "boss" || adminUser?.role === "super_admin";
   const canCancelBooking = ["boss", "super_admin", "pengawas", "admin"].includes(
     adminUser?.role
   );
@@ -176,6 +189,10 @@ export default function BookingList() {
     adminUser?.role === "boss" ||
     adminUser?.role === "super_admin" ||
     adminUser?.role === "pengawas";
+
+  const MANUAL_FULL_DAY_START_HOUR = 14;
+  const UNAVAILABLE_PACKAGE_MESSAGE =
+    "Paket ini tidak tersedia untuk tipe kamar ini.";
 
   useEffect(() => {
     fetchBookings();
@@ -199,11 +216,25 @@ export default function BookingList() {
   }, []);
 
   useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        bookingFullscreenStorageKey,
+        isBookingListFullscreen ? "1" : "0"
+      );
+    } catch (error) {
+      console.error("SAVE BOOKING FULLSCREEN STATE ERROR:", error);
+    }
+
     if (!isBookingListFullscreen) return undefined;
 
     const handleEscapeFullscreen = (event) => {
       if (event.key === "Escape") {
         setIsBookingListFullscreen(false);
+        try {
+          sessionStorage.setItem(bookingFullscreenStorageKey, "0");
+        } catch (error) {
+          console.error("CLEAR BOOKING FULLSCREEN STATE ERROR:", error);
+        }
       }
     };
 
@@ -940,6 +971,51 @@ export default function BookingList() {
     }
   };
 
+  const openDeleteModal = (booking) => {
+    if (!canDeleteBooking) {
+      toast.error("Hanya boss atau super admin yang bisa hapus booking");
+      return;
+    }
+
+    setSelectedDeleteBooking(booking);
+  };
+
+  const closeDeleteModal = () => {
+    setSelectedDeleteBooking(null);
+  };
+
+  const handleDeleteBooking = async () => {
+    if (!selectedDeleteBooking) return;
+
+    if (!canDeleteBooking) {
+      toast.error("Hanya boss atau super admin yang bisa hapus booking");
+      return;
+    }
+
+    try {
+      setDeletingBooking(true);
+
+      await api.delete(`/admin/bookings/${selectedDeleteBooking.id}`, {
+        data: {
+          deleted_by: adminUser?.id || null,
+          delete_mode: "force",
+        },
+      });
+
+      toast.success("Booking berhasil dihapus permanen");
+      closeDeleteModal();
+      fetchBookings();
+    } catch (error) {
+      console.error("DELETE BOOKING ERROR:", error.response?.data || error);
+      toast.error(
+        error.response?.data?.message ||
+          "Gagal hapus booking. Pastikan endpoint hapus permanen booking sudah ada di backend."
+      );
+    } finally {
+      setDeletingBooking(false);
+    }
+  };
+
   const openManualModal = () => {
     setShowManualModal(true);
   };
@@ -955,7 +1031,7 @@ export default function BookingList() {
       room_id: "",
       room_unit_id: "",
       booking_type: "transit",
-      duration_hours: "3",
+      duration_hours: "",
       duration_days: "1",
       check_in: "",
       manual_discount_percent: "",
@@ -995,7 +1071,7 @@ export default function BookingList() {
       }
 
       if (name === "booking_type" && value === "transit" && !prev.duration_hours) {
-        next.duration_hours = "3";
+        next.duration_hours = "";
       }
 
       if (name === "booking_type" && value === "transit") {
@@ -1013,16 +1089,32 @@ export default function BookingList() {
     return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(date.getDate())}`;
   };
 
+  const normalizeManualDraftForBookingType = (draft) => {
+    if (manualForm.booking_type !== "overnight") return draft;
+
+    const hourNumber = Number(draft.hour || 0);
+
+    if (hourNumber < MANUAL_FULL_DAY_START_HOUR) {
+      return {
+        ...draft,
+        hour: padTwo(MANUAL_FULL_DAY_START_HOUR),
+        minute: "00",
+      };
+    }
+
+    return draft;
+  };
+
   const getManualPickerDefaultDraft = () => {
     if (manualForm.check_in) {
       const [datePart, timePart = "14:00"] = String(manualForm.check_in).split("T");
       const [hour = "14", minute = "00"] = timePart.split(":");
 
-      return {
+      return normalizeManualDraftForBookingType({
         date: datePart || getLocalDateValue(new Date()),
         hour: padTwo(hour),
         minute: padTwo(minute),
-      };
+      });
     }
 
     const now = new Date();
@@ -1035,11 +1127,18 @@ export default function BookingList() {
       roundedDate.setMinutes(roundedMinute, 0, 0);
     }
 
-    return {
+    if (
+      manualForm.booking_type === "overnight" &&
+      roundedDate.getHours() < MANUAL_FULL_DAY_START_HOUR
+    ) {
+      roundedDate.setHours(MANUAL_FULL_DAY_START_HOUR, 0, 0, 0);
+    }
+
+    return normalizeManualDraftForBookingType({
       date: getLocalDateValue(roundedDate),
       hour: padTwo(roundedDate.getHours()),
       minute: padTwo(roundedDate.getMinutes()),
-    };
+    });
   };
 
   const openManualCheckInPicker = () => {
@@ -1074,6 +1173,19 @@ export default function BookingList() {
   const confirmManualCheckInPicker = () => {
     if (!manualCheckInDraft.date) {
       toast.error("Pilih tanggal check-in dulu");
+      return;
+    }
+
+    if (
+      manualForm.booking_type === "overnight" &&
+      Number(manualCheckInDraft.hour || 0) < MANUAL_FULL_DAY_START_HOUR
+    ) {
+      setManualCheckInDraft((prev) => ({
+        ...prev,
+        hour: padTwo(MANUAL_FULL_DAY_START_HOUR),
+        minute: "00",
+      }));
+      toast.error("Full Day hanya bisa check-in mulai jam 14.00");
       return;
     }
 
@@ -1123,22 +1235,184 @@ export default function BookingList() {
     return rooms.find((room) => String(room.id) === String(manualForm.room_id));
   }, [rooms, manualForm.room_id]);
 
+  const getManualTransitPriceByDuration = (room, duration) => {
+    if (!room) return 0;
+
+    if (String(duration) === "3") return Number(room.price_transit_3h || 0);
+    if (String(duration) === "6") return Number(room.price_transit_6h || 0);
+    if (String(duration) === "12") return Number(room.price_transit_12h || 0);
+
+    return 0;
+  };
+
+  const manualFullDayBasePrice = useMemo(() => {
+    return Number(selectedManualRoom?.price_per_night || 0);
+  }, [selectedManualRoom]);
+
+  const isManualFullDayAvailable = useMemo(() => {
+    return Boolean(selectedManualRoom) && Number(manualFullDayBasePrice || 0) > 0;
+  }, [selectedManualRoom, manualFullDayBasePrice]);
+
+  const manualFullDayUnavailableMessage = useMemo(() => {
+    if (manualForm.booking_type !== "overnight") return "";
+
+    if (!selectedManualRoom) {
+      return "Pilih tipe kamar dulu untuk melihat paket Full Day.";
+    }
+
+    if (!isManualFullDayAvailable) {
+      return UNAVAILABLE_PACKAGE_MESSAGE;
+    }
+
+    return "";
+  }, [
+    manualForm.booking_type,
+    selectedManualRoom,
+    isManualFullDayAvailable,
+  ]);
+
+  const manualTransitOptions = useMemo(() => {
+    return [
+      {
+        value: "3",
+        label: "3 Jam",
+        price: getManualTransitPriceByDuration(selectedManualRoom, "3"),
+      },
+      {
+        value: "6",
+        label: "6 Jam",
+        price: getManualTransitPriceByDuration(selectedManualRoom, "6"),
+      },
+      {
+        value: "12",
+        label: "12 Jam",
+        price: getManualTransitPriceByDuration(selectedManualRoom, "12"),
+      },
+    ].map((option) => ({
+      ...option,
+      available: Number(option.price || 0) > 0,
+    }));
+  }, [selectedManualRoom]);
+
+  const selectedManualTransitOption = useMemo(() => {
+    return manualTransitOptions.find(
+      (option) => String(option.value) === String(manualForm.duration_hours)
+    );
+  }, [manualTransitOptions, manualForm.duration_hours]);
+
+  const availableManualTransitOptions = useMemo(() => {
+    return manualTransitOptions.filter((option) => option.available);
+  }, [manualTransitOptions]);
+
+  const manualTransitUnavailableMessage = useMemo(() => {
+    if (manualForm.booking_type !== "transit") return "";
+
+    if (!selectedManualRoom) {
+      return "Pilih tipe kamar dulu untuk melihat durasi transit yang tersedia.";
+    }
+
+    if (availableManualTransitOptions.length === 0) {
+      return UNAVAILABLE_PACKAGE_MESSAGE;
+    }
+
+    if (!manualForm.duration_hours) {
+      return "Pilih salah satu durasi transit yang tersedia.";
+    }
+
+    if (!selectedManualTransitOption?.available) {
+      return UNAVAILABLE_PACKAGE_MESSAGE;
+    }
+
+    return "";
+  }, [
+    manualForm.booking_type,
+    manualForm.duration_hours,
+    selectedManualRoom,
+    selectedManualTransitOption,
+    availableManualTransitOptions,
+  ]);
+
+  useEffect(() => {
+    if (manualForm.booking_type !== "transit") return;
+    if (!manualForm.room_id) return;
+
+    if (!selectedManualRoom) {
+      if (manualForm.duration_hours) {
+        setManualForm((prev) => ({
+          ...prev,
+          duration_hours: "",
+        }));
+      }
+      return;
+    }
+
+    const currentOption = manualTransitOptions.find(
+      (option) => String(option.value) === String(manualForm.duration_hours)
+    );
+
+    if (currentOption?.available) return;
+
+    setManualForm((prev) => ({
+      ...prev,
+      duration_hours: "",
+    }));
+  }, [
+    manualForm.booking_type,
+    manualForm.room_id,
+    manualForm.duration_hours,
+    selectedManualRoom,
+    manualTransitOptions,
+  ]);
+
+  useEffect(() => {
+    if (manualForm.booking_type !== "overnight") return;
+    if (!manualForm.check_in) return;
+
+    const checkInDate = new Date(manualForm.check_in);
+
+    if (Number.isNaN(checkInDate.getTime())) return;
+    if (checkInDate.getHours() >= MANUAL_FULL_DAY_START_HOUR) return;
+
+    checkInDate.setHours(MANUAL_FULL_DAY_START_HOUR, 0, 0, 0);
+    const normalizedCheckIn = getDateTimeLocalInputValue(checkInDate);
+
+    setManualForm((prev) => {
+      if (prev.check_in === normalizedCheckIn) return prev;
+
+      return {
+        ...prev,
+        check_in: normalizedCheckIn,
+      };
+    });
+
+    setManualCheckInDraft((prev) => ({
+      ...prev,
+      hour: padTwo(MANUAL_FULL_DAY_START_HOUR),
+      minute: "00",
+    }));
+  }, [manualForm.booking_type, manualForm.check_in]);
+
   const estimatedManualPrice = useMemo(() => {
     if (!selectedManualRoom) return 0;
 
     if (manualForm.booking_type === "transit") {
-      if (String(manualForm.duration_hours) === "3")
-        return selectedManualRoom.price_transit_3h || 0;
-      if (String(manualForm.duration_hours) === "6")
-        return selectedManualRoom.price_transit_6h || 0;
-      if (String(manualForm.duration_hours) === "12")
-        return selectedManualRoom.price_transit_12h || 0;
-      return 0;
+      return getManualTransitPriceByDuration(
+        selectedManualRoom,
+        manualForm.duration_hours
+      );
     }
+
+    if (!isManualFullDayAvailable) return 0;
 
     const durationDays = Math.max(1, Number(manualForm.duration_days || 1));
     return Number(selectedManualRoom.price_per_night || 0) * durationDays;
-  }, [selectedManualRoom, manualForm.booking_type, manualForm.duration_hours, manualForm.duration_days]);
+  }, [
+    selectedManualRoom,
+    manualForm.booking_type,
+    manualForm.duration_hours,
+    manualForm.duration_days,
+    isManualFullDayAvailable,
+  ]);
 
   const manualDiscountPercent = useMemo(() => {
     const raw = Number(manualForm.manual_discount_percent || 0);
@@ -1168,10 +1442,37 @@ export default function BookingList() {
       return toast.error("Durasi transit wajib dipilih");
     }
     if (
+      manualForm.booking_type === "transit" &&
+      (!selectedManualTransitOption?.available || Number(estimatedManualPrice || 0) <= 0)
+    ) {
+      return toast.error(
+        manualTransitUnavailableMessage ||
+          UNAVAILABLE_PACKAGE_MESSAGE
+      );
+    }
+    if (
       manualForm.booking_type === "overnight" &&
       (!manualForm.duration_days || Number(manualForm.duration_days) < 1)
     ) {
       return toast.error("Durasi hari Full Day wajib diisi");
+    }
+    if (
+      manualForm.booking_type === "overnight" &&
+      (!isManualFullDayAvailable || Number(estimatedManualPrice || 0) <= 0)
+    ) {
+      return toast.error(
+        manualFullDayUnavailableMessage || UNAVAILABLE_PACKAGE_MESSAGE
+      );
+    }
+    if (manualForm.booking_type === "overnight") {
+      const fullDayCheckIn = new Date(manualForm.check_in);
+
+      if (
+        Number.isNaN(fullDayCheckIn.getTime()) ||
+        fullDayCheckIn.getHours() < MANUAL_FULL_DAY_START_HOUR
+      ) {
+        return toast.error("Full Day hanya bisa check-in mulai jam 14.00");
+      }
     }
 
     try {
@@ -1789,6 +2090,44 @@ const handlePrintReport = () => {
     return formatDateTime(raw);
   };
 
+  const getManualTransitCheckOut = () => {
+    if (!manualForm.check_in || !manualForm.duration_hours) return "";
+
+    const checkIn = new Date(manualForm.check_in);
+    if (Number.isNaN(checkIn.getTime())) return "";
+
+    const checkout = new Date(checkIn);
+    checkout.setHours(checkout.getHours() + Number(manualForm.duration_hours || 0));
+
+    return `${checkout.getFullYear()}-${String(checkout.getMonth() + 1).padStart(2, "0")}-${String(checkout.getDate()).padStart(2, "0")} ${String(checkout.getHours()).padStart(2, "0")}:${String(checkout.getMinutes()).padStart(2, "0")}:00`;
+  };
+
+  const getManualEstimatedCheckOut = () => {
+    if (manualForm.booking_type === "overnight") {
+      return getManualOvernightCheckOut();
+    }
+
+    return getManualTransitCheckOut();
+  };
+
+  const getManualEstimatedCheckOutText = () => {
+    const raw = getManualEstimatedCheckOut();
+    if (!raw) return "-";
+
+    const date = new Date(String(raw).replace(" ", "T"));
+    if (Number.isNaN(date.getTime())) return "-";
+
+    return date.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const manualEstimatedCheckOutText = getManualEstimatedCheckOutText();
+
   const getPenaltySummary = (booking) => {
     const penalties = Array.isArray(booking?.penalties) ? booking.penalties : [];
     const totalPenalty =
@@ -2317,6 +2656,17 @@ const buildWhatsAppMessage = (booking) => {
   return true;
 };
 
+  const isBookingReadyForCheckInPayment = (booking) => {
+    const status = String(booking?.status || "").toLowerCase();
+    const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+
+    return (
+      status === "confirmed" &&
+      paymentStatus !== "paid" &&
+      paymentStatus !== "refunded"
+    );
+  };
+
   const filteredBookings = useMemo(() => {
     const searchActive = filters.search.trim().length > 0;
 
@@ -2359,7 +2709,9 @@ const buildWhatsAppMessage = (booking) => {
       }
 
       const matchesViewMode =
-        searchActive || viewMode === "all"
+        viewMode === "ready_checkin_payment"
+          ? isBookingReadyForCheckInPayment(booking)
+          : searchActive || viewMode === "all"
           ? true
           : isBookingRelevantToday(booking);
 
@@ -3024,6 +3376,16 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                     key={tab.path}
                     to={tab.path}
                     end
+                    onClick={() => {
+                      try {
+                        sessionStorage.setItem(
+                          bookingFullscreenStorageKey,
+                          isBookingListFullscreen ? "1" : "0"
+                        );
+                      } catch (error) {
+                        console.error("SAVE BOOKING FULLSCREEN NAV ERROR:", error);
+                      }
+                    }}
                     className={({ isActive }) =>
                       `flex items-center justify-center gap-2 rounded-[15px] px-3 py-3 text-left transition md:justify-start md:px-4 ${
                         isActive
@@ -3127,6 +3489,7 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                 className="h-10 w-[155px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="today_active">Aktif Hari Ini</option>
+                <option value="ready_checkin_payment">Check-in & Bayar</option>
                 <option value="all">Riwayat Booking</option>
                 <option value="approval">Approval</option>
               </select>
@@ -3887,6 +4250,15 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                                 onClick={() => handleOpenPenaltyModal(booking)}
                               />
                             )}
+
+                            {canDeleteBooking && (
+                              <ActionButton
+                                icon={<Trash2 size={17} />}
+                                label="Hapus Booking"
+                                tone="red"
+                                onClick={() => openDeleteModal(booking)}
+                              />
+                            )}
                           </div>
                         </div>
                       </div>
@@ -4272,6 +4644,57 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                       {cancelling ? "Memproses..." : "Konfirmasi Batalkan"}
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedDeleteBooking && (
+            <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
+              <div className="w-full max-w-lg rounded-[28px] border border-red-100 bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.25)]">
+                <div className="mb-5 flex items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                    <Trash2 size={22} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-red-500">
+                      Hapus Booking
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-slate-900">
+                      Hapus booking ini permanen?
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                      Booking{" "}
+                      <span className="font-black text-slate-800">
+                        {selectedDeleteBooking.booking_code || `#${selectedDeleteBooking.id}`}
+                      </span>{" "}
+                      akan dihapus permanen dari database. Aksi ini hanya tersedia untuk boss dan super admin.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
+                  Mode testing: booking akan benar-benar hilang dari list, laporan, calendar, dan riwayat customer.
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    className="flex-1 rounded-2xl bg-slate-100 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-200"
+                    onClick={closeDeleteModal}
+                    disabled={deletingBooking}
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="button"
+                    className="flex-1 rounded-2xl bg-red-600 py-3 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+                    onClick={handleDeleteBooking}
+                    disabled={deletingBooking}
+                  >
+                    {deletingBooking ? "Menghapus..." : "Ya, Hapus"}
+                  </button>
                 </div>
               </div>
             </div>
@@ -5678,37 +6101,37 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 </button>
 
                         {manualDatePickerOpen && (
-                          <div className="absolute left-0 top-[calc(100%+10px)] z-[90] w-full min-w-[320px] rounded-[28px] border border-red-100 bg-white p-3 shadow-[0_24px_70px_rgba(15,23,42,0.22)] md:w-[680px]">
-                            <div className="flex items-center justify-between gap-3 rounded-3xl bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-4 py-3 text-white">
+                          <div className="absolute left-0 top-[calc(100%+6px)] z-[90] w-[350px] max-w-[90vw] rounded-[14px] border border-red-100 bg-white p-1.5 shadow-[0_16px_45px_rgba(15,23,42,0.18)]">
+                            <div className="flex items-center justify-between gap-1.5 rounded-[12px] bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-2 py-1.5 text-white">
                               <button
                                 type="button"
                                 onClick={() => handleManualCalendarMonthChange(-1)}
-                                className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/15 text-lg font-black transition hover:bg-white/25"
+                                className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/15 text-xs font-black transition hover:bg-white/25"
                               >
                                 ‹
                               </button>
                               <div className="text-center">
-                                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-red-100">
+                                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-red-100">
                                   Kalender Check-in
                                 </p>
-                                <p className="mt-0.5 text-sm font-black capitalize">
+                                <p className="text-[11px] font-black capitalize">
                                   {manualCalendarMonthLabel}
                                 </p>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => handleManualCalendarMonthChange(1)}
-                                className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/15 text-lg font-black transition hover:bg-white/25"
+                                className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/15 text-xs font-black transition hover:bg-white/25"
                               >
                                 ›
                               </button>
                             </div>
 
-                            <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_185px]">
+                            <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_86px] gap-1.5">
                               <div>
-                                <div className="grid grid-cols-7 gap-1 text-center">
+                                <div className="grid grid-cols-7 gap-[3px] text-center">
                                   {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => (
-                                    <div key={day} className="py-1 text-[10px] font-black uppercase text-slate-400">
+                                    <div key={day} className="py-0.5 text-[8px] font-black uppercase text-slate-400">
                                       {day}
                                     </div>
                                   ))}
@@ -5724,7 +6147,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                         type="button"
                                         disabled={!day}
                                         onClick={() => handleManualCalendarDayClick(day)}
-                                        className={`h-9 rounded-2xl text-xs font-black transition ${
+                                        className={`h-6 rounded-md text-[9px] font-black transition ${
                                           !day
                                             ? "cursor-default bg-transparent"
                                             : selected
@@ -5741,13 +6164,19 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                 </div>
                               </div>
 
-                              <div className="rounded-3xl border border-slate-100 bg-slate-50 p-3">
-                                <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
-                                  <Clock3 size={14} className="text-red-500" />
+                              <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-1.5">
+                                <div className="mb-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-wide text-slate-500">
+                                  <Clock3 size={10} className="text-red-500" />
                                   Pilih Jam
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
+                                {manualForm.booking_type === "overnight" && (
+                                  <p className="mb-1 rounded-lg bg-amber-50 px-1.5 py-1 text-[8px] font-bold leading-snug text-amber-700">
+                                    Full Day mulai 14.00
+                                  </p>
+                                )}
+
+                                <div className="grid grid-cols-1 gap-1">
                                   <select
                                     value={manualCheckInDraft.hour}
                                     onChange={(e) =>
@@ -5756,13 +6185,23 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                         hour: e.target.value,
                                       }))
                                     }
-                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-black text-slate-800 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
                                   >
-                                    {Array.from({ length: 24 }, (_, index) => padTwo(index)).map((hour) => (
-                                      <option key={hour} value={hour}>
-                                        {hour}
-                                      </option>
-                                    ))}
+                                    {Array.from({ length: 24 }, (_, index) => padTwo(index)).map((hour) => {
+                                      const fullDayHourDisabled =
+                                        manualForm.booking_type === "overnight" &&
+                                        Number(hour) < MANUAL_FULL_DAY_START_HOUR;
+
+                                      return (
+                                        <option
+                                          key={hour}
+                                          value={hour}
+                                          disabled={fullDayHourDisabled}
+                                        >
+                                          {fullDayHourDisabled ? `${hour} - Tidak tersedia` : hour}
+                                        </option>
+                                      );
+                                    })}
                                   </select>
 
                                   <select
@@ -5773,7 +6212,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                         minute: e.target.value,
                                       }))
                                     }
-                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-black text-slate-800 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
                                   >
                                     {Array.from({ length: 60 }, (_, index) => padTwo(index)).map((minute) => (
                                       <option key={minute} value={minute}>
@@ -5783,7 +6222,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                   </select>
                                 </div>
 
-                                <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-[11px] font-bold text-slate-500">
+                                <div className="mt-1 rounded-lg bg-white px-1.5 py-0.5 text-[8px] font-bold text-slate-500">
                                   {manualCheckInDraft.date
                                     ? `${manualCheckInDraft.date} • ${manualCheckInDraft.hour}:${manualCheckInDraft.minute}`
                                     : "Tanggal belum dipilih"}
@@ -5791,11 +6230,11 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                               </div>
                             </div>
 
-                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1">
                               <button
                                 type="button"
                                 onClick={clearManualCheckInPicker}
-                                className="rounded-2xl bg-slate-100 px-4 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200"
+                                className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600 transition hover:bg-slate-200"
                               >
                                 Hapus
                               </button>
@@ -5804,16 +6243,16 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                 <button
                                   type="button"
                                   onClick={() => setManualDatePickerOpen(false)}
-                                  className="rounded-2xl bg-slate-200 px-4 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-300"
+                                  className="rounded-lg bg-slate-200 px-2.5 py-1 text-[10px] font-black text-slate-700 transition hover:bg-slate-300"
                                 >
                                   Batal
                                 </button>
                                 <button
                                   type="button"
                                   onClick={confirmManualCheckInPicker}
-                                  className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-2 text-xs font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700"
+                                  className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1 text-[10px] font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700"
                                 >
-                                  <CheckCircle2 size={15} />
+                                  <CheckCircle2 size={11} />
                                   OK
                                 </button>
                               </div>
@@ -5832,17 +6271,49 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                               name="duration_hours"
                               value={manualForm.duration_hours}
                               onChange={handleManualChange}
-                              className={`${manualInputClass} pl-11`}
+                              className={`${manualInputClass} pl-11 ${
+                                manualTransitUnavailableMessage
+                                  ? "border-amber-200 bg-amber-50 text-slate-600"
+                                  : ""
+                              }`}
                             >
-                              <option value="3">3 Jam</option>
-                              <option value="6">6 Jam</option>
-                              <option value="12">12 Jam</option>
+                              <option value="">
+                                {selectedManualRoom
+                                  ? "Pilih durasi tersedia"
+                                  : "Pilih tipe kamar dulu"}
+                              </option>
+                              {manualTransitOptions.map((option) => (
+                                <option
+                                  key={option.value}
+                                  value={option.value}
+                                  disabled={!option.available}
+                                  className={
+                                    option.available
+                                      ? "text-slate-900"
+                                      : "bg-slate-100 text-slate-400"
+                                  }
+                                >
+                                  {option.available
+                                    ? `${option.label} - ${formatCurrency(option.price)}`
+                                    : `${option.label} - Tidak tersedia`}
+                                </option>
+                              ))}
                             </select>
                             <Clock3
                               size={17}
-                              className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
+                              className={`absolute left-4 top-1/2 -translate-y-1/2 ${
+                                manualTransitUnavailableMessage
+                                  ? "text-amber-500"
+                                  : "text-red-500"
+                              }`}
                             />
                           </div>
+
+                          {manualTransitUnavailableMessage && (
+                            <p className="mt-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-relaxed text-amber-700">
+                              {manualTransitUnavailableMessage}
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <div>
@@ -5856,13 +6327,28 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                               name="duration_days"
                               value={manualForm.duration_days}
                               onChange={handleManualChange}
-                              className={`${manualInputClass} pl-11`}
+                              disabled={Boolean(selectedManualRoom && !isManualFullDayAvailable)}
+                              className={`${manualInputClass} pl-11 ${
+                                manualFullDayUnavailableMessage
+                                  ? "border-amber-200 bg-amber-50 text-slate-600"
+                                  : ""
+                              }`}
                             />
                             <MoonStar
                               size={17}
-                              className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
+                              className={`absolute left-4 top-1/2 -translate-y-1/2 ${
+                                manualFullDayUnavailableMessage
+                                  ? "text-amber-500"
+                                  : "text-red-500"
+                              }`}
                             />
                           </div>
+
+                          {manualFullDayUnavailableMessage && (
+                            <p className="mt-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-relaxed text-amber-700">
+                              {manualFullDayUnavailableMessage}
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -5873,9 +6359,24 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         <div className="relative">
                           <input
                             type="text"
-                            value={formatCurrency(estimatedManualPrice)}
+                            value={
+                              manualForm.booking_type === "overnight" &&
+                              selectedManualRoom &&
+                              !isManualFullDayAvailable
+                                ? "Tidak tersedia"
+                                : formatCurrency(estimatedManualPrice)
+                            }
                             readOnly
-                            className={`${manualInputClass} pl-11 font-black text-emerald-700`}
+                            className={`${manualInputClass} pl-11 font-black ${
+                              (manualForm.booking_type === "overnight" &&
+                                selectedManualRoom &&
+                                !isManualFullDayAvailable) ||
+                              (manualForm.booking_type === "transit" &&
+                                manualForm.duration_hours &&
+                                !selectedManualTransitOption?.available)
+                                ? "text-amber-700"
+                                : "text-emerald-700"
+                            }`}
                           />
                           <Wallet
                             size={17}
@@ -5948,10 +6449,24 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 
                 <div className="shrink-0 border-t border-red-100 bg-white/95 px-4 py-3 backdrop-blur md:px-5">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
-                      {manualForm.check_in
-                        ? `Check-in: ${manualCheckInDisplay}`
-                        : "Check-in belum dipilih"}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
+                        {manualForm.check_in
+                          ? `Check-in: ${manualCheckInDisplay}`
+                          : "Check-in belum dipilih"}
+                      </div>
+
+                      {manualForm.check_in && manualEstimatedCheckOutText !== "-" && (
+                        <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800">
+                          Estimasi checkout: {manualEstimatedCheckOutText}
+                        </div>
+                      )}
+
+                      {manualForm.booking_type === "overnight" && manualForm.check_in && (
+                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700">
+                          Full Day mulai 14.00 • checkout 12.00
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex justify-end gap-2">

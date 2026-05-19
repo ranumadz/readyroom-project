@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Hotel;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 class BookingController extends Controller
 {
@@ -31,6 +32,8 @@ class BookingController extends Controller
             $request->input('edited_by'),
             $request->input('refunded_by'),
             $request->input('cancelled_by'),
+            $request->input('deleted_by'),
+            $request->query('deleted_by'),
             $request->input('changed_by'),
             $request->input('actor_id'),
             $request->query('actor_id'),
@@ -93,6 +96,16 @@ class BookingController extends Controller
         }
 
         return $columnCache[$column];
+    }
+
+    /**
+     * Cek apakah tabel bookings punya kolom soft delete / arsip.
+     * Kalau kolom deleted_at tersedia, booking bisa disembunyikan dari admin list
+     * tanpa hard delete data.
+     */
+    private function canSoftArchiveBooking(): bool
+    {
+        return $this->bookingHasColumn('deleted_at');
     }
 
     /**
@@ -187,6 +200,10 @@ class BookingController extends Controller
             'roomUnit',
             'penalties.creator',
         ])->latest();
+
+        if ($this->canSoftArchiveBooking()) {
+            $bookingsQuery->whereNull('deleted_at');
+        }
 
         if (!$this->canAccessAllHotels($actor) && !empty($accessibleHotelIds)) {
             $bookingsQuery->whereIn('hotel_id', $accessibleHotelIds);
@@ -296,6 +313,10 @@ class BookingController extends Controller
                 $query->where('check_in', '<=', $endDate)
                     ->where('check_out', '>=', $startDate);
             });
+
+        if ($this->canSoftArchiveBooking()) {
+            $bookingsQuery->whereNull('deleted_at');
+        }
 
         if ($hotelId) {
             $bookingsQuery->where('hotel_id', $hotelId);
@@ -747,6 +768,67 @@ class BookingController extends Controller
                 'room',
                 'roomUnit'
             ])
+        ]);
+    }
+
+    /**
+     * Hapus permanen booking dari database.
+     *
+     * Catatan penggunaan:
+     * - Hanya boss dan super_admin.
+     * - Dipakai untuk masa testing / sebelum launching.
+     * - Booking akan hilang dari Booking List, Calendar, laporan, dan riwayat customer.
+     * - Data denda/penalty terkait booking dihapus lebih dulu agar aman dari foreign key.
+     */
+    public function destroy(Request $request, $id)
+    {
+        $booking = Booking::with(['hotel', 'room', 'roomUnit'])->findOrFail($id);
+        $actor = $this->resolveActorFromRequest($request);
+
+        if (!$actor || !in_array($actor->role, ['boss', 'super_admin'])) {
+            return response()->json([
+                'message' => 'Hanya boss atau super admin yang bisa hapus booking'
+            ], 403);
+        }
+
+        if (!$this->userCanAccessHotel($actor, $booking->hotel_id)) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses ke cabang booking ini'
+            ], 403);
+        }
+
+        $deletedBookingCode = $booking->booking_code;
+
+        try {
+            DB::transaction(function () use ($booking) {
+                if (Schema::hasTable('booking_penalties')) {
+                    DB::table('booking_penalties')
+                        ->where('booking_id', $booking->id)
+                        ->delete();
+                }
+
+                if (method_exists($booking, 'forceDelete')) {
+                    $booking->forceDelete();
+                    return;
+                }
+
+                $booking->delete();
+            });
+        } catch (\Throwable $error) {
+            return response()->json([
+                'message' => 'Booking gagal dihapus permanen. Cek relasi data booking di backend.',
+                'error' => $error->getMessage(),
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'Booking berhasil dihapus permanen',
+            'data' => [
+                'id' => (int) $id,
+                'booking_code' => $deletedBookingCode,
+                'deleted_by' => $actor->id,
+                'delete_mode' => 'force',
+            ],
         ]);
     }
 

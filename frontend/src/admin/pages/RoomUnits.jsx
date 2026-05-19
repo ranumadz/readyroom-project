@@ -34,7 +34,14 @@ export default function RoomUnits() {
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
 
-  const [isRoomUnitsFullscreen, setIsRoomUnitsFullscreen] = useState(false);
+  const roomUnitsFullscreenStorageKey = "readyroom_admin_booking_fullscreen";
+  const [isRoomUnitsFullscreen, setIsRoomUnitsFullscreen] = useState(() => {
+    try {
+      return sessionStorage.getItem(roomUnitsFullscreenStorageKey) === "1";
+    } catch (error) {
+      return false;
+    }
+  });
   const roomUnitsFullscreenRef = useRef(null);
 
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
@@ -81,6 +88,15 @@ export default function RoomUnits() {
   }, []);
 
   useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        roomUnitsFullscreenStorageKey,
+        isRoomUnitsFullscreen ? "1" : "0"
+      );
+    } catch (error) {
+      console.error("SAVE MONITORING FULLSCREEN STATE ERROR:", error);
+    }
+
     const handleFullscreenChange = () => {
       const fullscreenElement =
         document.fullscreenElement ||
@@ -88,22 +104,24 @@ export default function RoomUnits() {
         document.mozFullScreenElement ||
         document.msFullscreenElement;
 
-      setIsRoomUnitsFullscreen(
-        fullscreenElement === roomUnitsFullscreenRef.current
-      );
+      if (!fullscreenElement && !isRoomUnitsFullscreen) {
+        try {
+          sessionStorage.setItem(roomUnitsFullscreenStorageKey, "0");
+        } catch (error) {
+          console.error("CLEAR MONITORING FULLSCREEN STATE ERROR:", error);
+        }
+      }
     };
 
     const handleEscapeKey = (event) => {
       if (event.key !== "Escape") return;
 
-      const hasNativeFullscreen =
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement;
+      setIsRoomUnitsFullscreen(false);
 
-      if (!hasNativeFullscreen && isRoomUnitsFullscreen) {
-        setIsRoomUnitsFullscreen(false);
+      try {
+        sessionStorage.setItem(roomUnitsFullscreenStorageKey, "0");
+      } catch (error) {
+        console.error("CLEAR MONITORING FULLSCREEN STATE ERROR:", error);
       }
     };
 
@@ -1317,10 +1335,6 @@ export default function RoomUnits() {
   };
 
   const handleToggleRoomUnitsFullscreen = async () => {
-    const target = roomUnitsFullscreenRef.current;
-
-    if (!target) return;
-
     const nativeFullscreenElement =
       document.fullscreenElement ||
       document.webkitFullscreenElement ||
@@ -1328,36 +1342,42 @@ export default function RoomUnits() {
       document.msFullscreenElement;
 
     try {
-      if (nativeFullscreenElement) {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          await document.webkitExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-          await document.mozCancelFullScreen();
-        } else if (document.msExitFullscreen) {
-          await document.msExitFullscreen();
-        } else {
-          setIsRoomUnitsFullscreen(false);
+      if (isRoomUnitsFullscreen) {
+        if (nativeFullscreenElement) {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            await document.webkitExitFullscreen();
+          } else if (document.mozCancelFullScreen) {
+            await document.mozCancelFullScreen();
+          } else if (document.msExitFullscreen) {
+            await document.msExitFullscreen();
+          }
         }
 
+        setIsRoomUnitsFullscreen(false);
+        sessionStorage.setItem(roomUnitsFullscreenStorageKey, "0");
         return;
       }
 
-      if (target.requestFullscreen) {
-        await target.requestFullscreen();
-      } else if (target.webkitRequestFullscreen) {
-        await target.webkitRequestFullscreen();
-      } else if (target.mozRequestFullScreen) {
-        await target.mozRequestFullScreen();
-      } else if (target.msRequestFullscreen) {
-        await target.msRequestFullscreen();
-      } else {
-        setIsRoomUnitsFullscreen((prev) => !prev);
-      }
+      setIsRoomUnitsFullscreen(true);
+      sessionStorage.setItem(roomUnitsFullscreenStorageKey, "1");
     } catch (error) {
       console.error("GAGAL TOGGLE FULLSCREEN MONITORING KAMAR:", error);
-      setIsRoomUnitsFullscreen((prev) => !prev);
+      setIsRoomUnitsFullscreen((prev) => {
+        const nextValue = !prev;
+
+        try {
+          sessionStorage.setItem(
+            roomUnitsFullscreenStorageKey,
+            nextValue ? "1" : "0"
+          );
+        } catch (storageError) {
+          console.error("SAVE MONITORING FULLSCREEN FALLBACK ERROR:", storageError);
+        }
+
+        return nextValue;
+      });
     }
   };
 
@@ -1367,16 +1387,16 @@ export default function RoomUnits() {
 
   return (
     <div className="flex min-h-screen bg-[#f4f5f7]">
-      <Sidebar />
+      {!isRoomUnitsFullscreen && <Sidebar />}
 
-      <div className="flex-1">
-        <Topbar />
+      <div className="min-w-0 flex-1">
+        {!isRoomUnitsFullscreen && <Topbar />}
 
         <div
           ref={roomUnitsFullscreenRef}
           className={`transition-all ${
             isRoomUnitsFullscreen
-              ? "fixed inset-0 z-[1300] overflow-auto bg-[#f4f5f7] p-4 pb-10 md:p-5 md:pb-12"
+              ? "fixed inset-0 z-[1300] overflow-auto bg-[#f4f5f7] p-2 pb-8 md:p-3 md:pb-10"
               : "p-4 md:p-6"
           }`}
         >
