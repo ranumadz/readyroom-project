@@ -110,8 +110,8 @@ export default function BookingList() {
   const [manualDatePickerOpen, setManualDatePickerOpen] = useState(false);
   const [manualCheckInDraft, setManualCheckInDraft] = useState({
     date: "",
-    hour: "",
-    minute: "",
+    hour: "14",
+    minute: "00",
   });
   const [manualCalendarMonth, setManualCalendarMonth] = useState(() => new Date());
 
@@ -152,7 +152,8 @@ export default function BookingList() {
   const housekeepingPrintRef = useRef(null);
   const manualCheckInPickerRef = useRef(null);
   const checkoutAlertAudioContextRef = useRef(null);
-  const checkoutAlertLastPlayedRef = useRef({});
+  const checkoutAlertIntervalRef = useRef(null);
+  const [checkoutAlertAudioUnlocked, setCheckoutAlertAudioUnlocked] = useState(false);
 
   const [selectedPaidBooking, setSelectedPaidBooking] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -774,27 +775,49 @@ export default function BookingList() {
         audioContext.resume().catch(() => {});
       }
 
-      const baseTime = audioContext.currentTime + 0.02;
-      const pattern = [0, 0.18, 0.36];
+      const baseTime = audioContext.currentTime + 0.03;
+      const pattern = [
+        { offset: 0, frequency: 520, duration: 0.16 },
+        { offset: 0.18, frequency: 980, duration: 0.16 },
+        { offset: 0.36, frequency: 420, duration: 0.18 },
+        { offset: 0.68, frequency: 1040, duration: 0.16 },
+        { offset: 0.86, frequency: 760, duration: 0.2 },
+      ];
 
-      pattern.forEach((offset, index) => {
+      pattern.forEach(({ offset, frequency, duration }, index) => {
         const oscillator = audioContext.createOscillator();
+        const secondOscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
         const startTime = baseTime + offset;
-        const stopTime = startTime + 0.12;
+        const stopTime = startTime + duration;
 
-        oscillator.type = "square";
-        oscillator.frequency.setValueAtTime(index === 1 ? 980 : 860, startTime);
+        oscillator.type = index % 2 === 0 ? "square" : "sawtooth";
+        secondOscillator.type = "triangle";
+
+        oscillator.frequency.setValueAtTime(frequency, startTime);
+        oscillator.frequency.exponentialRampToValueAtTime(
+          Math.max(90, frequency * 0.62),
+          stopTime
+        );
+
+        secondOscillator.frequency.setValueAtTime(frequency * 0.52, startTime);
+        secondOscillator.frequency.exponentialRampToValueAtTime(
+          Math.max(80, frequency * 0.35),
+          stopTime
+        );
 
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.14, startTime + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.22, startTime + 0.018);
         gain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
 
         oscillator.connect(gain);
+        secondOscillator.connect(gain);
         gain.connect(audioContext.destination);
 
         oscillator.start(startTime);
-        oscillator.stop(stopTime + 0.02);
+        secondOscillator.start(startTime);
+        oscillator.stop(stopTime + 0.03);
+        secondOscillator.stop(stopTime + 0.03);
       });
     } catch (error) {
       console.error("CHECKOUT ALERT BEEP ERROR:", error);
@@ -805,9 +828,12 @@ export default function BookingList() {
     const unlockCheckoutAlertAudio = () => {
       try {
         const audioContext = getCheckoutAlertAudioContext();
+
         if (audioContext?.state === "suspended") {
           audioContext.resume().catch(() => {});
         }
+
+        setCheckoutAlertAudioUnlocked(true);
       } catch (error) {
         console.error("UNLOCK CHECKOUT ALERT AUDIO ERROR:", error);
       }
@@ -829,25 +855,28 @@ export default function BookingList() {
       isBookingCheckoutOverdue(booking)
     );
 
-    if (overdueBookings.length === 0) return;
+    if (checkoutAlertIntervalRef.current) {
+      window.clearInterval(checkoutAlertIntervalRef.current);
+      checkoutAlertIntervalRef.current = null;
+    }
 
-    const now = Date.now();
-    const alertableBookings = overdueBookings.filter((booking) => {
-      const alertKey = String(booking?.booking_code || booking?.id || "unknown");
-      const lastPlayedAt = checkoutAlertLastPlayedRef.current[alertKey] || 0;
-
-      return now - lastPlayedAt > 120000;
-    });
-
-    if (alertableBookings.length === 0) return;
-
-    alertableBookings.forEach((booking) => {
-      const alertKey = String(booking?.booking_code || booking?.id || "unknown");
-      checkoutAlertLastPlayedRef.current[alertKey] = now;
-    });
+    if (overdueBookings.length === 0 || !checkoutAlertAudioUnlocked) {
+      return undefined;
+    }
 
     playCheckoutOverdueBeep();
-  }, [bookings, currentTime]);
+
+    checkoutAlertIntervalRef.current = window.setInterval(() => {
+      playCheckoutOverdueBeep();
+    }, 6500);
+
+    return () => {
+      if (checkoutAlertIntervalRef.current) {
+        window.clearInterval(checkoutAlertIntervalRef.current);
+        checkoutAlertIntervalRef.current = null;
+      }
+    };
+  }, [bookings, currentTime, checkoutAlertAudioUnlocked]);
 
   const handleMarkPaid = (booking) => {
     const nowInput = getDateTimeLocalInputValue(new Date());
@@ -1254,8 +1283,8 @@ export default function BookingList() {
     setManualDatePickerOpen(false);
     setManualCheckInDraft({
       date: "",
-      hour: "",
-      minute: "",
+      hour: "14",
+      minute: "00",
     });
     setManualCalendarMonth(new Date());
   };
@@ -1304,9 +1333,6 @@ export default function BookingList() {
 
   const normalizeManualDraftForBookingType = (draft) => {
     if (manualForm.booking_type !== "overnight") return draft;
-    if (draft.hour === "" || draft.hour === null || draft.hour === undefined) {
-      return draft;
-    }
 
     const hourNumber = Number(draft.hour || 0);
 
@@ -1323,24 +1349,33 @@ export default function BookingList() {
 
   const getManualPickerDefaultDraft = () => {
     if (manualForm.check_in) {
-      const [datePart, timePart = ""] = String(manualForm.check_in).split("T");
-      const [hour = "", minute = ""] = timePart.split(":");
+      const [datePart, timePart = "14:00"] = String(manualForm.check_in).split("T");
+      const [hour = "14", minute = "00"] = timePart.split(":");
 
       return normalizeManualDraftForBookingType({
         date: datePart || getLocalDateValue(new Date()),
-        hour: hour === "" ? "" : padTwo(hour),
-        minute: minute === "" ? "" : padTwo(minute),
+        hour: padTwo(hour),
+        minute: padTwo(minute),
       });
     }
 
-    const now = new Date();
+    const deviceDate = new Date();
+    deviceDate.setSeconds(0, 0);
 
-    return {
-      date: getLocalDateValue(now),
-      hour: "",
-      minute: "",
-    };
+    if (
+      manualForm.booking_type === "overnight" &&
+      deviceDate.getHours() < MANUAL_FULL_DAY_START_HOUR
+    ) {
+      deviceDate.setHours(MANUAL_FULL_DAY_START_HOUR, 0, 0, 0);
+    }
+
+    return normalizeManualDraftForBookingType({
+      date: getLocalDateValue(deviceDate),
+      hour: padTwo(deviceDate.getHours()),
+      minute: padTwo(deviceDate.getMinutes()),
+    });
   };
+
 
   const openManualCheckInPicker = () => {
     const draft = getManualPickerDefaultDraft();
@@ -1377,16 +1412,6 @@ export default function BookingList() {
       return;
     }
 
-    if (!manualCheckInDraft.hour) {
-      toast.error("Pilih jam check-in dulu");
-      return;
-    }
-
-    if (!manualCheckInDraft.minute) {
-      toast.error("Pilih menit check-in dulu");
-      return;
-    }
-
     if (
       manualForm.booking_type === "overnight" &&
       Number(manualCheckInDraft.hour || 0) < MANUAL_FULL_DAY_START_HOUR
@@ -1414,8 +1439,8 @@ export default function BookingList() {
     }));
     setManualCheckInDraft({
       date: "",
-      hour: "",
-      minute: "",
+      hour: "14",
+      minute: "00",
     });
     setManualDatePickerOpen(false);
   };
@@ -1649,11 +1674,6 @@ export default function BookingList() {
     if (!manualForm.room_id) return toast.error("Pilih tipe kamar");
     if (!manualForm.room_unit_id) return toast.error("Pilih kamar fisik");
     if (!manualForm.check_in) return toast.error("Check-in wajib diisi");
-    if (selectedManualUnitConflict) {
-      return toast.error(
-        "Kamar ini sudah dibooking di jam tersebut. Silakan pilih kamar lain atau jam lain."
-      );
-    }
     if (manualForm.booking_type === "transit" && !manualForm.duration_hours) {
       return toast.error("Durasi transit wajib dipilih");
     }
@@ -1689,6 +1709,10 @@ export default function BookingList() {
       ) {
         return toast.error("Full Day hanya bisa check-in mulai jam 14.00");
       }
+    }
+
+    if (manualRoomUnitConflictMessage) {
+      return toast.error(manualRoomUnitConflictMessage);
     }
 
     try {
@@ -2344,262 +2368,139 @@ const handlePrintReport = () => {
 
   const manualEstimatedCheckOutText = getManualEstimatedCheckOutText();
 
-  const getManualRoomLabel = (room) => {
-    const name = String(room?.type || room?.name || "Tipe ini").trim();
-    return name || "Tipe ini";
+  const selectedManualRoomUnit = useMemo(() => {
+    return manualRoomUnits.find(
+      (unit) => String(unit.id) === String(manualForm.room_unit_id)
+    );
+  }, [manualRoomUnits, manualForm.room_unit_id]);
+
+  const getBookingRoomUnitId = (booking) => {
+    return (
+      booking?.room_unit_id ||
+      booking?.roomUnit?.id ||
+      booking?.room_unit?.id ||
+      booking?.room_unit?.room_unit_id ||
+      null
+    );
   };
 
-  const getManualRoomTotalUnitCount = (room) => {
-    if (!room) return 0;
+  const getManualBookingRange = () => {
+    if (!manualForm.check_in) return null;
 
-    if (String(room.id) === String(selectedManualRoom?.id) && manualRoomUnits.length > 0) {
-      return manualRoomUnits.length;
-    }
+    const manualStart = toSafeDate(manualForm.check_in);
+    const manualEnd = toSafeDate(getManualEstimatedCheckOut());
 
-    const candidate =
-      room?.available_units_count ??
-      room?.active_units_count ??
-      room?.room_units_count ??
-      room?.units_count ??
-      room?.total_units ??
-      room?.total_unit ??
-      room?.unit_count ??
-      room?.stock ??
-      0;
-
-    const parsed = Number(candidate || 0);
-    return Number.isNaN(parsed) ? 0 : parsed;
-  };
-
-  const getManualRoomBlockedUnitCount = (room, bookingWindow) => {
-    if (!room || !bookingWindow) return 0;
-
-    const blockedUnitIds = new Set();
-
-    (bookings || []).forEach((booking) => {
-      if (!isManualBlockingBooking(booking)) return;
-
-      const bookingRoomId =
-        booking?.room_id ||
-        booking?.room?.id ||
-        booking?.roomId ||
-        "";
-
-      if (String(bookingRoomId) !== String(room.id)) return;
-
-      const bookingUnitId =
-        booking?.room_unit_id ||
-        booking?.roomUnit?.id ||
-        booking?.room_unit?.id ||
-        booking?.unit?.id ||
-        "";
-
-      if (!bookingUnitId) return;
-
-      const bookingCheckIn = toSafeDate(getOperationalCheckInTime(booking) || booking?.check_in);
-      const bookingCheckOut = toSafeDate(getOperationalCheckoutTime(booking) || booking?.check_out);
-
-      if (
-        isManualTimeOverlap(
-          bookingWindow.checkIn,
-          bookingWindow.checkOut,
-          bookingCheckIn,
-          bookingCheckOut
-        )
-      ) {
-        blockedUnitIds.add(String(bookingUnitId));
-      }
-    });
-
-    return blockedUnitIds.size;
-  };
-
-  const getManualRoomAvailableCount = (room, bookingWindow) => {
-    const totalUnits = getManualRoomTotalUnitCount(room);
-
-    if (!bookingWindow) return totalUnits;
-
-    if (String(room?.id) === String(selectedManualRoom?.id) && manualRoomUnits.length > 0) {
-      return getManualAvailableUnitsForWindow(bookingWindow).length;
-    }
-
-    return Math.max(0, totalUnits - getManualRoomBlockedUnitCount(room, bookingWindow));
-  };
-
-  const getManualBookingWindowFromStart = (startValue) => {
-    if (!startValue) return null;
-
-    const checkIn = toSafeDate(startValue);
-    if (!checkIn) return null;
-
-    const checkOut = new Date(checkIn);
-
-    if (manualForm.booking_type === "overnight") {
-      const durationDays = Math.max(1, Number(manualForm.duration_days || 1));
-      const noonBoundary = new Date(checkIn);
-      noonBoundary.setHours(12, 0, 0, 0);
-
-      if (checkIn < noonBoundary) {
-        checkOut.setHours(12, 0, 0, 0);
-        checkOut.setDate(checkOut.getDate() + (durationDays - 1));
-      } else {
-        checkOut.setDate(checkOut.getDate() + durationDays);
-        checkOut.setHours(12, 0, 0, 0);
-      }
-    } else {
-      const durationHours = Number(manualForm.duration_hours || 0);
-      if (!durationHours) return null;
-
-      checkOut.setHours(checkOut.getHours() + durationHours);
-    }
-
-    if (checkOut.getTime() <= checkIn.getTime()) return null;
+    if (!manualStart || !manualEnd) return null;
+    if (manualEnd.getTime() <= manualStart.getTime()) return null;
 
     return {
-      checkIn,
-      checkOut,
+      start: manualStart,
+      end: manualEnd,
     };
   };
 
-  const getManualDraftDateTimeValue = (day = null) => {
-    const dateValue = day ? getLocalDateValue(day) : manualCheckInDraft.date;
+  const isManualBookingRangeOverlap = (booking, manualRange) => {
+    if (!manualRange) return false;
 
-    if (!dateValue || !manualCheckInDraft.hour || !manualCheckInDraft.minute) {
-      return "";
-    }
+    const bookingStart = toSafeDate(booking?.check_in);
+    const bookingEnd = toSafeDate(booking?.check_out);
 
-    return `${dateValue}T${manualCheckInDraft.hour}:${manualCheckInDraft.minute}`;
+    if (!bookingStart || !bookingEnd) return false;
+
+    return (
+      manualRange.start.getTime() < bookingEnd.getTime() &&
+      manualRange.end.getTime() > bookingStart.getTime()
+    );
   };
 
-  const manualActiveCheckInValue = manualForm.check_in || getManualDraftDateTimeValue();
+  const getManualRoomUnitConflictBookingByUnitId = (unitId) => {
+    if (!unitId) return null;
 
-  const manualActiveBookingWindow = useMemo(() => {
-    return getManualBookingWindowFromStart(manualActiveCheckInValue);
+    const manualRange = getManualBookingRange();
+    if (!manualRange) return null;
+
+    const ignoredStatuses = [
+      "cancelled",
+      "canceled",
+      "cancel",
+      "rejected",
+      "reject",
+      "refunded",
+      "refund",
+      "completed",
+      "complete",
+      "deleted",
+      "void",
+      "expired",
+    ];
+
+    return (
+      (bookings || []).find((booking) => {
+        const bookingStatus = String(booking?.status || "").toLowerCase();
+        const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+
+        if (ignoredStatuses.includes(bookingStatus)) return false;
+        if (paymentStatus === "refunded") return false;
+
+        if (String(getBookingRoomUnitId(booking)) !== String(unitId)) {
+          return false;
+        }
+
+        return isManualBookingRangeOverlap(booking, manualRange);
+      }) || null
+    );
+  };
+
+  const getManualRoomUnitConflictMessage = (unit, conflictBooking = null) => {
+    const roomNumber =
+      unit?.room_number ||
+      conflictBooking?.roomUnit?.room_number ||
+      conflictBooking?.room_unit?.room_number ||
+      "";
+
+    return `Kamar ${roomNumber || "ini"} sudah ada bookingan di jam ini. Silakan pilih kamar lain atau jam lain.`;
+  };
+
+  const getManualRoomUnitOptionLabel = (unit) => {
+    const conflictBooking = getManualRoomUnitConflictBookingByUnitId(unit?.id);
+    const roomLabel = `Kamar ${unit?.room_number || "-"}`;
+
+    if (!conflictBooking) return roomLabel;
+
+    return `${roomLabel} - sudah ada bookingan`;
+  };
+
+  const isManualRoomUnitConflicted = (unitId) => {
+    return Boolean(getManualRoomUnitConflictBookingByUnitId(unitId));
+  };
+
+  const manualRoomUnitConflictBooking = useMemo(() => {
+    if (!manualForm.room_unit_id) return null;
+
+    return getManualRoomUnitConflictBookingByUnitId(manualForm.room_unit_id);
   }, [
-    manualActiveCheckInValue,
+    bookings,
+    manualForm.room_unit_id,
+    manualForm.check_in,
     manualForm.booking_type,
     manualForm.duration_hours,
     manualForm.duration_days,
   ]);
 
-  const isManualBlockingBooking = (booking) => {
-    const status = String(booking?.status || "").toLowerCase();
-    const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+  const manualRoomUnitConflictMessage = useMemo(() => {
+    if (!manualForm.room_unit_id || !manualForm.check_in) return "";
+    if (!manualRoomUnitConflictBooking) return "";
 
-    if (["cancelled", "rejected", "completed"].includes(status)) return false;
-    if (paymentStatus === "refunded") return false;
-
-    return true;
-  };
-
-  const isManualTimeOverlap = (firstStart, firstEnd, secondStart, secondEnd) => {
-    if (!firstStart || !firstEnd || !secondStart || !secondEnd) return false;
-
-    return firstStart.getTime() < secondEnd.getTime() && firstEnd.getTime() > secondStart.getTime();
-  };
-
-  const getManualBlockingBookingForUnit = (unitId, bookingWindow = manualActiveBookingWindow) => {
-    if (!unitId || !bookingWindow) return null;
-
-    return (bookings || []).find((booking) => {
-      const bookingUnitId =
-        booking?.room_unit_id ||
-        booking?.roomUnit?.id ||
-        booking?.room_unit?.id ||
-        booking?.unit?.id ||
-        "";
-
-      if (String(bookingUnitId) !== String(unitId)) return false;
-      if (!isManualBlockingBooking(booking)) return false;
-
-      const bookingCheckIn = toSafeDate(getOperationalCheckInTime(booking) || booking?.check_in);
-      const bookingCheckOut = toSafeDate(getOperationalCheckoutTime(booking) || booking?.check_out);
-
-      return isManualTimeOverlap(
-        bookingWindow.checkIn,
-        bookingWindow.checkOut,
-        bookingCheckIn,
-        bookingCheckOut
-      );
-    }) || null;
-  };
-
-  const getManualAvailableUnitsForWindow = (bookingWindow = manualActiveBookingWindow) => {
-    if (!Array.isArray(manualRoomUnits) || manualRoomUnits.length === 0) return [];
-
-    if (!bookingWindow) {
-      return manualRoomUnits;
-    }
-
-    return manualRoomUnits.filter(
-      (unit) => !getManualBlockingBookingForUnit(unit.id, bookingWindow)
+    return getManualRoomUnitConflictMessage(
+      selectedManualRoomUnit,
+      manualRoomUnitConflictBooking
     );
-  };
-
-  const manualAvailableUnitsAtTime = useMemo(() => {
-    return getManualAvailableUnitsForWindow(manualActiveBookingWindow);
-  }, [manualRoomUnits, bookings, manualActiveBookingWindow]);
-
-  const selectedManualUnitConflict = useMemo(() => {
-    if (!manualForm.room_unit_id || !manualActiveBookingWindow) return null;
-
-    return getManualBlockingBookingForUnit(
-      manualForm.room_unit_id,
-      manualActiveBookingWindow
-    );
-  }, [manualForm.room_unit_id, bookings, manualActiveBookingWindow]);
-
-  const manualAvailabilityMessage = useMemo(() => {
-    if (!selectedManualRoom) {
-      return "Pilih tipe kamar dulu untuk melihat kamar tersedia.";
-    }
-
-    if (!manualActiveBookingWindow) {
-      return "Pilih tanggal, jam, dan menit untuk melihat kamar tersedia.";
-    }
-
-    const availabilityGroups = (filteredRoomsForManual || [])
-      .map((room) => ({
-        label: getManualRoomLabel(room),
-        count: getManualRoomAvailableCount(room, manualActiveBookingWindow),
-      }))
-      .filter((item) => item.count > 0)
-      .slice(0, 5);
-
-    if (availabilityGroups.length === 0) {
-      return "Tidak ada kamar tersedia di jam ini. Silakan pilih jam lain.";
-    }
-
-    return `Kamar tersedia di jam ini: ${availabilityGroups
-      .map((item) => `${item.label} ${item.count}`)
-      .join(", ")}.`;
   }, [
-    selectedManualRoom,
-    manualActiveBookingWindow,
-    manualAvailableUnitsAtTime.length,
-    filteredRoomsForManual,
-    bookings,
-    manualRoomUnits.length,
+    manualForm.room_unit_id,
+    manualForm.check_in,
+    selectedManualRoomUnit,
+    manualRoomUnitConflictBooking,
   ]);
-
-  const getManualCalendarDayAvailableCount = (day) => {
-    if (!day || !selectedManualRoom) return null;
-
-    const draftDateTime = getManualDraftDateTimeValue(day);
-
-    if (!draftDateTime) {
-      return manualRoomUnits.length;
-    }
-
-    const bookingWindow = getManualBookingWindowFromStart(draftDateTime);
-
-    if (!bookingWindow) {
-      return manualRoomUnits.length;
-    }
-
-    return getManualAvailableUnitsForWindow(bookingWindow).length;
-  };
-
 
   const getPenaltySummary = (booking) => {
     const penalties = Array.isArray(booking?.penalties) ? booking.penalties : [];
@@ -6505,6 +6406,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                           />
                         </div>
                       </div>
+
                       {manualForm.booking_type === "transit" ? (
                         <div>
                           <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
@@ -6632,7 +6534,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 </button>
 
                         {manualDatePickerOpen && (
-                          <div className="absolute left-0 top-[62px] z-[90] w-[490px] max-w-[calc(100vw-48px)] rounded-[14px] border border-red-100 bg-white p-1.5 shadow-[0_18px_48px_rgba(15,23,42,0.18)]">
+                          <div className="absolute left-0 top-[68px] z-[90] w-[520px] max-w-[calc(100vw-48px)] rounded-[16px] border border-red-100 bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.18)]">
                             <div className="flex items-center justify-between gap-1.5 rounded-[12px] bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-2 py-1.5 text-white">
                               <button
                                 type="button"
@@ -6658,7 +6560,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                               </button>
                             </div>
 
-                            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_116px] gap-1.5">
+                            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_126px] gap-2">
                               <div>
                                 <div className="grid grid-cols-7 gap-[3px] text-center">
                                   {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => (
@@ -6671,9 +6573,6 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                     const dateValue = day ? getLocalDateValue(day) : "";
                                     const selected = dateValue && dateValue === manualCheckInDraft.date;
                                     const today = day && isSameDay(day, new Date());
-                                    const availableCount = day
-                                      ? getManualCalendarDayAvailableCount(day)
-                                      : null;
 
                                     return (
                                       <button
@@ -6681,7 +6580,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                         type="button"
                                         disabled={!day}
                                         onClick={() => handleManualCalendarDayClick(day)}
-                                        className={`flex h-8 flex-col items-center justify-center rounded-md text-[9px] font-black transition ${
+                                        className={`h-6 rounded-md text-[9px] font-black transition ${
                                           !day
                                             ? "cursor-default bg-transparent"
                                             : selected
@@ -6691,20 +6590,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                             : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                                         }`}
                                       >
-                                        <span>{day ? day.getDate() : ""}</span>
-                                        {day && selectedManualRoom && availableCount !== null && (
-                                          <span
-                                            className={`mt-0.5 rounded-full px-1.5 py-[1px] text-[7px] font-black ${
-                                              selected
-                                                ? "bg-white/20 text-white"
-                                                : availableCount > 0
-                                                ? "bg-emerald-100 text-emerald-700"
-                                                : "bg-red-100 text-red-600"
-                                            }`}
-                                          >
-                                            {availableCount}
-                                          </span>
-                                        )}
+                                        {day ? day.getDate() : ""}
                                       </button>
                                     );
                                   })}
@@ -6734,7 +6620,6 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                     }
                                     className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-black text-slate-800 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
                                   >
-                                    <option value="">Pilih Jam</option>
                                     {Array.from({ length: 24 }, (_, index) => padTwo(index)).map((hour) => {
                                       const fullDayHourDisabled =
                                         manualForm.booking_type === "overnight" &&
@@ -6762,7 +6647,6 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                     }
                                     className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-black text-slate-800 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
                                   >
-                                    <option value="">Pilih Menit</option>
                                     {Array.from({ length: 60 }, (_, index) => padTwo(index)).map((minute) => (
                                       <option key={minute} value={minute}>
                                         {minute}
@@ -6773,17 +6657,9 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 
                                 <div className="mt-1 rounded-lg bg-white px-1.5 py-0.5 text-[8px] font-bold text-slate-500">
                                   {manualCheckInDraft.date
-                                    ? manualCheckInDraft.hour && manualCheckInDraft.minute
-                                      ? `${manualCheckInDraft.date} • ${manualCheckInDraft.hour}:${manualCheckInDraft.minute}`
-                                      : `${manualCheckInDraft.date} • pilih jam & menit`
+                                    ? `${manualCheckInDraft.date} • ${manualCheckInDraft.hour}:${manualCheckInDraft.minute}`
                                     : "Tanggal belum dipilih"}
                                 </div>
-
-                                {selectedManualRoom && (
-                                  <div className="mt-1 rounded-lg border border-emerald-100 bg-emerald-50 px-1.5 py-1 text-[8px] font-bold leading-snug text-emerald-700">
-                                    {manualAvailabilityMessage}
-                                  </div>
-                                )}
                               </div>
                             </div>
 
@@ -6818,7 +6694,6 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         )}
                       </div>
 
-
                       <div>
                         <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
                           Kamar Fisik
@@ -6828,11 +6703,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                             name="room_unit_id"
                             value={manualForm.room_unit_id}
                             onChange={handleManualChange}
-                            className={`${manualInputClass} pl-11 ${
-                              selectedManualUnitConflict
-                                ? "border-red-300 bg-red-50 text-red-700"
-                                : ""
-                            }`}
+                            className={`${manualInputClass} pl-11`}
                             disabled={!manualForm.room_id}
                           >
                             <option value="">
@@ -6843,43 +6714,28 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                 : "Pilih kamar fisik"}
                             </option>
                             {manualRoomUnits.map((unit) => {
-                              const unitConflict = getManualBlockingBookingForUnit(unit.id);
-                              const unitAvailable = !unitConflict;
+                              const unitConflict = isManualRoomUnitConflicted(unit.id);
 
                               return (
                                 <option
                                   key={unit.id}
                                   value={unit.id}
-                                  disabled={!unitAvailable}
-                                  className={
-                                    unitAvailable
-                                      ? "text-slate-900"
-                                      : "bg-red-50 text-red-500"
-                                  }
+                                  disabled={unitConflict}
                                 >
-                                  Kamar {unit.room_number}
-                                  {unitConflict ? " - Sudah dibooking di jam ini" : ""}
+                                  {getManualRoomUnitOptionLabel(unit)}
                                 </option>
                               );
                             })}
                           </select>
                           <DoorOpen
                             size={17}
-                            className={`absolute left-4 top-1/2 -translate-y-1/2 ${
-                              selectedManualUnitConflict ? "text-red-600" : "text-red-500"
-                            }`}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
                           />
                         </div>
 
-                        {selectedManualUnitConflict && (
-                          <p className="mt-1.5 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-bold leading-relaxed text-red-700">
-                            Kamar ini sudah dibooking di jam tersebut. Silakan pilih kamar lain atau jam lain.
-                          </p>
-                        )}
-
-                        {manualForm.room_id && !selectedManualUnitConflict && (
-                          <p className="mt-1.5 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[11px] font-bold leading-relaxed text-emerald-700">
-                            {manualAvailabilityMessage}
+                        {manualRoomUnitConflictMessage && (
+                          <p className="mt-1.5 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-bold leading-relaxed text-red-600">
+                            {manualRoomUnitConflictMessage}
                           </p>
                         )}
                       </div>
