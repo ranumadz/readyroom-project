@@ -151,6 +151,9 @@ export default function BookingList() {
   const reportPrintRef = useRef(null);
   const housekeepingPrintRef = useRef(null);
   const manualCheckInPickerRef = useRef(null);
+  const checkoutAlertAudioContextRef = useRef(null);
+  const checkoutAlertIntervalRef = useRef(null);
+  const [checkoutAlertAudioUnlocked, setCheckoutAlertAudioUnlocked] = useState(false);
 
   const [selectedPaidBooking, setSelectedPaidBooking] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -252,6 +255,23 @@ export default function BookingList() {
   const MANUAL_FULL_DAY_START_HOUR = 14;
   const UNAVAILABLE_PACKAGE_MESSAGE =
     "Paket ini tidak tersedia untuk tipe kamar ini.";
+
+  const bookingDangerStyle = `
+    @keyframes rr-booking-danger-card {
+      0%, 100% {
+        background: rgba(254, 242, 242, 0.96);
+        box-shadow: 0 18px 45px rgba(220, 38, 38, 0.12), 0 0 0 1px rgba(248, 113, 113, 0.55);
+      }
+      50% {
+        background: rgba(254, 226, 226, 0.98);
+        box-shadow: 0 24px 64px rgba(220, 38, 38, 0.20), 0 0 0 4px rgba(248, 113, 113, 0.22);
+      }
+    }
+
+    .rr-booking-danger-card {
+      animation: rr-booking-danger-card 1.15s ease-in-out infinite;
+    }
+  `;
 
   useEffect(() => {
     fetchBookings();
@@ -732,6 +752,131 @@ export default function BookingList() {
 
     return currentTime.getTime() > checkoutDate.getTime();
   };
+
+  const getCheckoutAlertAudioContext = () => {
+    if (typeof window === "undefined") return null;
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+
+    if (!checkoutAlertAudioContextRef.current) {
+      checkoutAlertAudioContextRef.current = new AudioContextClass();
+    }
+
+    return checkoutAlertAudioContextRef.current;
+  };
+
+  const playCheckoutOverdueBeep = () => {
+    try {
+      const audioContext = getCheckoutAlertAudioContext();
+      if (!audioContext) return;
+
+      if (audioContext.state === "suspended") {
+        audioContext.resume().catch(() => {});
+      }
+
+      const baseTime = audioContext.currentTime + 0.03;
+      const pattern = [
+        { offset: 0, frequency: 520, duration: 0.16 },
+        { offset: 0.18, frequency: 980, duration: 0.16 },
+        { offset: 0.36, frequency: 420, duration: 0.18 },
+        { offset: 0.68, frequency: 1040, duration: 0.16 },
+        { offset: 0.86, frequency: 760, duration: 0.2 },
+      ];
+
+      pattern.forEach(({ offset, frequency, duration }, index) => {
+        const oscillator = audioContext.createOscillator();
+        const secondOscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        const startTime = baseTime + offset;
+        const stopTime = startTime + duration;
+
+        oscillator.type = index % 2 === 0 ? "square" : "sawtooth";
+        secondOscillator.type = "triangle";
+
+        oscillator.frequency.setValueAtTime(frequency, startTime);
+        oscillator.frequency.exponentialRampToValueAtTime(
+          Math.max(90, frequency * 0.62),
+          stopTime
+        );
+
+        secondOscillator.frequency.setValueAtTime(frequency * 0.52, startTime);
+        secondOscillator.frequency.exponentialRampToValueAtTime(
+          Math.max(80, frequency * 0.35),
+          stopTime
+        );
+
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.22, startTime + 0.018);
+        gain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+
+        oscillator.connect(gain);
+        secondOscillator.connect(gain);
+        gain.connect(audioContext.destination);
+
+        oscillator.start(startTime);
+        secondOscillator.start(startTime);
+        oscillator.stop(stopTime + 0.03);
+        secondOscillator.stop(stopTime + 0.03);
+      });
+    } catch (error) {
+      console.error("CHECKOUT ALERT BEEP ERROR:", error);
+    }
+  };
+
+  useEffect(() => {
+    const unlockCheckoutAlertAudio = () => {
+      try {
+        const audioContext = getCheckoutAlertAudioContext();
+
+        if (audioContext?.state === "suspended") {
+          audioContext.resume().catch(() => {});
+        }
+
+        setCheckoutAlertAudioUnlocked(true);
+      } catch (error) {
+        console.error("UNLOCK CHECKOUT ALERT AUDIO ERROR:", error);
+      }
+    };
+
+    window.addEventListener("click", unlockCheckoutAlertAudio, { once: true });
+    window.addEventListener("keydown", unlockCheckoutAlertAudio, { once: true });
+    window.addEventListener("touchstart", unlockCheckoutAlertAudio, { once: true });
+
+    return () => {
+      window.removeEventListener("click", unlockCheckoutAlertAudio);
+      window.removeEventListener("keydown", unlockCheckoutAlertAudio);
+      window.removeEventListener("touchstart", unlockCheckoutAlertAudio);
+    };
+  }, []);
+
+  useEffect(() => {
+    const overdueBookings = (bookings || []).filter((booking) =>
+      isBookingCheckoutOverdue(booking)
+    );
+
+    if (checkoutAlertIntervalRef.current) {
+      window.clearInterval(checkoutAlertIntervalRef.current);
+      checkoutAlertIntervalRef.current = null;
+    }
+
+    if (overdueBookings.length === 0 || !checkoutAlertAudioUnlocked) {
+      return undefined;
+    }
+
+    playCheckoutOverdueBeep();
+
+    checkoutAlertIntervalRef.current = window.setInterval(() => {
+      playCheckoutOverdueBeep();
+    }, 6500);
+
+    return () => {
+      if (checkoutAlertIntervalRef.current) {
+        window.clearInterval(checkoutAlertIntervalRef.current);
+        checkoutAlertIntervalRef.current = null;
+      }
+    };
+  }, [bookings, currentTime, checkoutAlertAudioUnlocked]);
 
   const handleMarkPaid = (booking) => {
     const nowInput = getDateTimeLocalInputValue(new Date());
@@ -1214,29 +1359,23 @@ export default function BookingList() {
       });
     }
 
-    const now = new Date();
-    const roundedDate = new Date(now);
-    const roundedMinute = Math.ceil(now.getMinutes() / 15) * 15;
-
-    if (roundedMinute >= 60) {
-      roundedDate.setHours(roundedDate.getHours() + 1, 0, 0, 0);
-    } else {
-      roundedDate.setMinutes(roundedMinute, 0, 0);
-    }
+    const deviceDate = new Date();
+    deviceDate.setSeconds(0, 0);
 
     if (
       manualForm.booking_type === "overnight" &&
-      roundedDate.getHours() < MANUAL_FULL_DAY_START_HOUR
+      deviceDate.getHours() < MANUAL_FULL_DAY_START_HOUR
     ) {
-      roundedDate.setHours(MANUAL_FULL_DAY_START_HOUR, 0, 0, 0);
+      deviceDate.setHours(MANUAL_FULL_DAY_START_HOUR, 0, 0, 0);
     }
 
     return normalizeManualDraftForBookingType({
-      date: getLocalDateValue(roundedDate),
-      hour: padTwo(roundedDate.getHours()),
-      minute: padTwo(roundedDate.getMinutes()),
+      date: getLocalDateValue(deviceDate),
+      hour: padTwo(deviceDate.getHours()),
+      minute: padTwo(deviceDate.getMinutes()),
     });
   };
+
 
   const openManualCheckInPicker = () => {
     const draft = getManualPickerDefaultDraft();
@@ -3470,6 +3609,8 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
               : "p-4 md:p-6"
           }`}
         >
+          <style>{bookingDangerStyle}</style>
+
           <div className="mb-3 overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 p-2 shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
             <div className="grid grid-cols-1 gap-2 rounded-[18px] bg-white/5 p-1 sm:grid-cols-3">
               {[
@@ -3811,10 +3952,10 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                   return (
                     <div
                       key={booking.id}
-                      className={`group relative overflow-hidden rounded-[30px] border bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)] ${
+                      className={`group relative overflow-hidden rounded-[30px] border shadow-[0_18px_45px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)] ${
                         isOverdueCheckout
-                          ? "border-red-400 ring-2 ring-red-200 shadow-red-100"
-                          : "border-slate-200 hover:border-red-100"
+                          ? "rr-booking-danger-card border-red-500 bg-red-50/95 ring-2 ring-red-300 shadow-red-200"
+                          : "border-slate-200 bg-white hover:border-red-100"
                       }`}
                     >
                       <div
@@ -3885,32 +4026,8 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                                   </span>
                                 )}
 
-                                {booking.paid_amount ? (
-                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-[11px] font-black text-sky-700 shadow-sm">
-                                    <Wallet size={12} />
-                                    Dibayar: {formatCurrency(booking.paid_amount)}
-                                  </span>
-                                ) : null}
 
-                                {operationalMeta.actualCheckIn && (
-                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700 shadow-sm">
-                                    <Clock3 size={12} />
-                                    Aktual: {formatDateTime(operationalCheckIn)}
-                                  </span>
-                                )}
 
-                                {operationalMeta.expectedCheckOut && (
-                                  <span
-                                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-black shadow-sm ${
-                                      isOverdueCheckout
-                                        ? "border-red-200 bg-red-50 text-red-700"
-                                        : "border-sky-100 bg-sky-50 text-sky-700"
-                                    }`}
-                                  >
-                                    <Clock3 size={12} />
-                                    Target: {formatDateTime(operationalCheckOut)}
-                                  </span>
-                                )}
 
                                 {isOverdueCheckout && (
                                   <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full border border-red-200 bg-red-600 px-3 py-1 text-[11px] font-black text-white shadow-sm shadow-red-100">
@@ -6049,11 +6166,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         Walk-in / OTS
                       </div>
 
-                      <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
-                        {manualForm.check_in
-                          ? `Check-in: ${manualCheckInDisplay}`
-                          : "Check-in belum dipilih"}
-                      </div>
+                     
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -6573,11 +6686,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                 <div className="shrink-0 border-t border-red-100 bg-white/95 px-4 py-3 backdrop-blur md:px-5">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
-                        {manualForm.check_in
-                          ? `Check-in: ${manualCheckInDisplay}`
-                          : "Check-in belum dipilih"}
-                      </div>
+                      
 
                       {manualForm.check_in && manualEstimatedCheckOutText !== "-" && (
                         <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800">

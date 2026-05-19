@@ -27,6 +27,7 @@ export default function RoomUnits() {
 
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingModalUnit, setBookingModalUnit] = useState(null);
+  const [checkingOutBookingId, setCheckingOutBookingId] = useState(null);
 
   const [bulkAction, setBulkAction] = useState("");
   const [selectedBulkUnitIds, setSelectedBulkUnitIds] = useState([]);
@@ -1222,6 +1223,30 @@ export default function RoomUnits() {
     setShowBookingModal(false);
   };
 
+  const handleBookingModalCheckOut = async (booking) => {
+    const bookingId = booking?.id;
+
+    if (!bookingId) {
+      toast.error("Data booking tidak valid untuk check-out");
+      return;
+    }
+
+    try {
+      setCheckingOutBookingId(bookingId);
+
+      await api.post(`/admin/bookings/${bookingId}/check-out`);
+
+      toast.success("Tamu berhasil check-out");
+      closeBookingModal();
+      reloadCurrentUnits();
+    } catch (error) {
+      console.error("CHECK OUT FROM MONITORING MODAL ERROR:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal check-out dari Monitoring Kamar");
+    } finally {
+      setCheckingOutBookingId(null);
+    }
+  };
+
   const bulkActionOptions = [
     {
       value: "maintenance",
@@ -2049,6 +2074,19 @@ export default function RoomUnits() {
                           >
                             {getBookingTypeText(booking)}
                           </span>
+
+                          {isBookingInUseStatus(booking) && (
+                            <button
+                              type="button"
+                              onClick={() => handleBookingModalCheckOut(booking)}
+                              disabled={checkingOutBookingId === booking?.id}
+                              className="rounded-full bg-gray-950 px-3 py-1 text-xs font-black text-white shadow-sm transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {checkingOutBookingId === booking?.id
+                                ? "Proses..."
+                                : "Check Out di sini"}
+                            </button>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
