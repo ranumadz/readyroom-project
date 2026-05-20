@@ -114,6 +114,16 @@ export default function BookingList() {
     minute: "00",
   });
   const [manualCalendarMonth, setManualCalendarMonth] = useState(() => new Date());
+  const [readyRoomDatePickerOpen, setReadyRoomDatePickerOpen] = useState(null);
+  const [readyRoomDateDraft, setReadyRoomDateDraft] = useState({
+    date: "",
+    hour: "00",
+    minute: "00",
+    mode: "date",
+  });
+  const [readyRoomDateCalendarMonth, setReadyRoomDateCalendarMonth] = useState(
+    () => new Date()
+  );
 
   const [filters, setFilters] = useState({
     search: "",
@@ -176,6 +186,7 @@ export default function BookingList() {
   const reportPrintRef = useRef(null);
   const housekeepingPrintRef = useRef(null);
   const manualCheckInPickerRef = useRef(null);
+  const readyRoomDatePickerRef = useRef(null);
   const checkoutAlertAudioContextRef = useRef(null);
   const checkoutAlertIntervalRef = useRef(null);
   const [checkoutAlertAudioUnlocked, setCheckoutAlertAudioUnlocked] = useState(false);
@@ -418,6 +429,25 @@ export default function BookingList() {
       document.removeEventListener("touchstart", handleManualPickerOutsideClick);
     };
   }, [manualDatePickerOpen]);
+
+  useEffect(() => {
+    if (!readyRoomDatePickerOpen) return undefined;
+
+    const handleReadyRoomPickerOutsideClick = (event) => {
+      if (!readyRoomDatePickerRef.current) return;
+      if (readyRoomDatePickerRef.current.contains(event.target)) return;
+
+      setReadyRoomDatePickerOpen(null);
+    };
+
+    document.addEventListener("mousedown", handleReadyRoomPickerOutsideClick);
+    document.addEventListener("touchstart", handleReadyRoomPickerOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleReadyRoomPickerOutsideClick);
+      document.removeEventListener("touchstart", handleReadyRoomPickerOutsideClick);
+    };
+  }, [readyRoomDatePickerOpen]);
 
   useEffect(() => {
     if (filters.hotelId) {
@@ -4043,6 +4073,405 @@ const manualCalendarMonthLabel = manualCalendarMonth.toLocaleDateString("id-ID",
 
 const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
 
+
+const parseReadyRoomDateValue = (value, mode = "date") => {
+  const fallbackDate = new Date();
+  let parsedDate = null;
+
+  if (value) {
+    parsedDate = new Date(String(value).replace(" ", "T"));
+  }
+
+  if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
+    parsedDate = fallbackDate;
+  }
+
+  return {
+    date: getLocalDateValue(parsedDate),
+    hour: padTwo(mode === "datetime" ? parsedDate.getHours() : 0),
+    minute: padTwo(mode === "datetime" ? parsedDate.getMinutes() : 0),
+    mode,
+  };
+};
+
+const openReadyRoomDatePicker = (pickerKey, value, mode = "date") => {
+  const draft = parseReadyRoomDateValue(value, mode);
+  const draftMonth = new Date(`${draft.date}T00:00:00`);
+
+  setReadyRoomDateDraft(draft);
+  setReadyRoomDateCalendarMonth(
+    Number.isNaN(draftMonth.getTime()) ? new Date() : draftMonth
+  );
+  setReadyRoomDatePickerOpen(pickerKey);
+};
+
+const closeReadyRoomDatePicker = () => {
+  setReadyRoomDatePickerOpen(null);
+};
+
+const handleReadyRoomDateMonthChange = (direction) => {
+  setReadyRoomDateCalendarMonth((prev) => {
+    const next = new Date(prev);
+    next.setDate(1);
+    next.setMonth(next.getMonth() + direction);
+    return next;
+  });
+};
+
+const handleReadyRoomDateDayClick = (day) => {
+  if (!day) return;
+
+  setReadyRoomDateDraft((prev) => ({
+    ...prev,
+    date: getLocalDateValue(day),
+  }));
+};
+
+const readyRoomDateCalendarDays = useMemo(() => {
+  const year = readyRoomDateCalendarMonth.getFullYear();
+  const month = readyRoomDateCalendarMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const totalSlots = Math.ceil((startOffset + totalDays) / 7) * 7;
+
+  return Array.from({ length: totalSlots }, (_, index) => {
+    const dayNumber = index - startOffset + 1;
+
+    if (dayNumber < 1 || dayNumber > totalDays) {
+      return null;
+    }
+
+    return new Date(year, month, dayNumber);
+  });
+}, [readyRoomDateCalendarMonth]);
+
+const readyRoomDateMonthLabel = readyRoomDateCalendarMonth.toLocaleDateString("id-ID", {
+  month: "long",
+  year: "numeric",
+});
+
+const getReadyRoomDateTimeValue = () => {
+  if (!readyRoomDateDraft.date) return "";
+
+  return `${readyRoomDateDraft.date}T${readyRoomDateDraft.hour}:${readyRoomDateDraft.minute}`;
+};
+
+const confirmReadyRoomDatePicker = () => {
+  if (!readyRoomDateDraft.date) {
+    toast.error("Pilih tanggal dulu");
+    return;
+  }
+
+  const pickerKey = readyRoomDatePickerOpen;
+  const isDateTime = readyRoomDateDraft.mode === "datetime";
+  const dateOnlyValue = readyRoomDateDraft.date;
+  const dateTimeValue = getReadyRoomDateTimeValue();
+
+  if (pickerKey === "report-date") {
+    setReportDate(dateOnlyValue || getTodayDateValue());
+  }
+
+  if (pickerKey === "housekeeping-report-date") {
+    setHousekeepingReportDate(dateOnlyValue);
+  }
+
+  if (pickerKey === "report-expense-date") {
+    setReportExpenseForm((prev) => ({
+      ...prev,
+      date: dateOnlyValue,
+    }));
+  }
+
+  if (pickerKey === "edit-check-in") {
+    setEditForm((prev) => ({
+      ...prev,
+      check_in: dateTimeValue,
+    }));
+  }
+
+  if (pickerKey === "paid-actual-check-in") {
+    setActualCheckInInput(dateTimeValue);
+    setExpectedCheckOutInput(
+      calculateExpectedCheckoutInput(selectedPaidBooking, dateTimeValue)
+    );
+  }
+
+  if (pickerKey === "paid-expected-check-out") {
+    setExpectedCheckOutInput(dateTimeValue);
+  }
+
+  setReadyRoomDatePickerOpen(null);
+};
+
+const clearReadyRoomDatePicker = () => {
+  const pickerKey = readyRoomDatePickerOpen;
+
+  if (pickerKey === "report-date") {
+    setReportDate(getTodayDateValue());
+  }
+
+  if (pickerKey === "housekeeping-report-date") {
+    setHousekeepingReportDate("");
+  }
+
+  if (pickerKey === "report-expense-date") {
+    setReportExpenseForm((prev) => ({
+      ...prev,
+      date: getTodayDateValue(),
+    }));
+  }
+
+  if (pickerKey === "edit-check-in") {
+    setEditForm((prev) => ({
+      ...prev,
+      check_in: "",
+    }));
+  }
+
+  if (pickerKey === "paid-actual-check-in") {
+    setActualCheckInInput("");
+  }
+
+  if (pickerKey === "paid-expected-check-out") {
+    setExpectedCheckOutInput("");
+  }
+
+  setReadyRoomDatePickerOpen(null);
+};
+
+const getReadyRoomDateDisplay = (value, mode = "date", placeholder = "Pilih tanggal") => {
+  if (!value) return placeholder;
+
+  const date = new Date(String(value).replace(" ", "T"));
+  if (Number.isNaN(date.getTime())) return placeholder;
+
+  if (mode === "datetime") {
+    return date.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getReadyRoomDatePickerSizeClass = (size = "md") => {
+  if (size === "sm") {
+    return "h-10 rounded-2xl px-3 text-xs";
+  }
+
+  return "min-h-[44px] rounded-2xl px-4 text-sm";
+};
+
+const renderReadyRoomDatePickerPopup = (pickerKey) => {
+  if (readyRoomDatePickerOpen !== pickerKey) return null;
+
+  const isDateTime = readyRoomDateDraft.mode === "datetime";
+
+  return (
+    <div className="absolute left-0 top-[calc(100%+8px)] z-[120] w-[360px] max-w-[calc(100vw-48px)] rounded-[18px] border border-red-100 bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.20)]">
+      <div className={`grid gap-2 rounded-[14px] bg-gradient-to-br from-red-950 via-red-700 to-rose-500 p-2 text-white ${isDateTime ? "grid-cols-[minmax(0,1fr)_110px]" : "grid-cols-1"}`}>
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleReadyRoomDateMonthChange(-1)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/15 text-xs font-black transition hover:bg-white/25"
+          >
+            ‹
+          </button>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="text-[8px] font-black uppercase tracking-[0.16em] text-red-100">
+              Kalender ReadyRoom
+            </p>
+            <p className="truncate text-[12px] font-black capitalize leading-tight">
+              {readyRoomDateMonthLabel}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleReadyRoomDateMonthChange(1)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/15 text-xs font-black transition hover:bg-white/25"
+          >
+            ›
+          </button>
+        </div>
+
+        {isDateTime && (
+          <div className="flex items-center justify-center rounded-xl bg-white/10 px-2 py-1 ring-1 ring-white/15">
+            <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.12em] text-red-50">
+              <Clock3 size={10} />
+              Pilih Jam
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className={`mt-2 grid gap-2 ${isDateTime ? "grid-cols-[minmax(0,1fr)_110px]" : "grid-cols-1"}`}>
+        <div className="rounded-[14px] bg-slate-50 p-1.5">
+          <div className="grid grid-cols-7 gap-[3px] text-center">
+            {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => (
+              <div key={day} className="py-0.5 text-[8px] font-black uppercase text-slate-400">
+                {day}
+              </div>
+            ))}
+
+            {readyRoomDateCalendarDays.map((day, index) => {
+              const dateValue = day ? getLocalDateValue(day) : "";
+              const selected = dateValue && dateValue === readyRoomDateDraft.date;
+              const today = day && isSameDay(day, new Date());
+
+              return (
+                <button
+                  key={dateValue || `ready-empty-${index}`}
+                  type="button"
+                  disabled={!day}
+                  onClick={() => handleReadyRoomDateDayClick(day)}
+                  className={`h-7 rounded-md text-[10px] font-black transition ${
+                    !day
+                      ? "cursor-default bg-transparent"
+                      : selected
+                      ? "bg-red-600 text-white shadow-lg shadow-red-100"
+                      : today
+                      ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                      : "bg-white text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  {day ? day.getDate() : ""}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex h-full flex-col justify-between gap-1.5 rounded-[14px] border border-slate-100 bg-slate-50 p-1.5">
+          <div>
+            <p className="text-[8px] font-black uppercase tracking-wide text-slate-400">
+              Terpilih
+            </p>
+
+            {isDateTime && (
+              <div className="mt-1 grid grid-cols-2 gap-1">
+                <select
+                  value={readyRoomDateDraft.hour}
+                  onChange={(e) =>
+                    setReadyRoomDateDraft((prev) => ({
+                      ...prev,
+                      hour: e.target.value,
+                    }))
+                  }
+                  className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-black text-slate-800 outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100"
+                >
+                  {Array.from({ length: 24 }, (_, index) => padTwo(index)).map((hour) => (
+                    <option key={hour} value={hour}>
+                      {hour}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={readyRoomDateDraft.minute}
+                  onChange={(e) =>
+                    setReadyRoomDateDraft((prev) => ({
+                      ...prev,
+                      minute: e.target.value,
+                    }))
+                  }
+                  className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-black text-slate-800 outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100"
+                >
+                  {Array.from({ length: 60 }, (_, index) => padTwo(index)).map((minute) => (
+                    <option key={minute} value={minute}>
+                      {minute}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <p className="mt-1 rounded-lg bg-white px-2 py-1 text-center text-[8px] font-bold leading-snug text-slate-600">
+              {readyRoomDateDraft.date
+                ? isDateTime
+                  ? `${readyRoomDateDraft.date} • ${readyRoomDateDraft.hour}:${readyRoomDateDraft.minute}`
+                  : readyRoomDateDraft.date
+                : "Tanggal belum dipilih"}
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={confirmReadyRoomDatePicker}
+              className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-red-600 px-2 py-1.5 text-[10px] font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700"
+            >
+              <CheckCircle2 size={11} />
+              OK
+            </button>
+
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                onClick={closeReadyRoomDatePicker}
+                className="rounded-lg bg-slate-200 px-2 py-1.5 text-[9px] font-black text-slate-700 transition hover:bg-slate-300"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={clearReadyRoomDatePicker}
+                className="rounded-lg bg-white px-2 py-1.5 text-[9px] font-black text-slate-500 transition hover:bg-slate-100"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ReadyRoomDateField = ({
+  pickerKey,
+  value,
+  mode = "date",
+  placeholder = "Pilih tanggal",
+  size = "md",
+  className = "",
+  iconClassName = "text-red-500",
+  disabled = false,
+}) => {
+  return (
+    <div ref={readyRoomDatePickerOpen === pickerKey ? readyRoomDatePickerRef : null} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          openReadyRoomDatePicker(pickerKey, value, mode);
+        }}
+        className={`relative flex w-full items-center border bg-white pl-10 pr-3 text-left font-black outline-none shadow-sm transition hover:border-red-300 hover:bg-red-50/40 focus:border-red-500 focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${getReadyRoomDatePickerSizeClass(size)} ${className}`}
+      >
+        <CalendarDays
+          size={16}
+          className={`absolute left-3 top-1/2 -translate-y-1/2 ${iconClassName}`}
+        />
+        <span className="block min-w-0 flex-1 truncate">
+          {getReadyRoomDateDisplay(value, mode, placeholder)}
+        </span>
+      </button>
+
+      {renderReadyRoomDatePickerPopup(pickerKey)}
+    </div>
+  );
+};
+
   const handleToggleBookingNativeFullscreen = async () => {
     try {
       if (getNativeFullscreenElement()) {
@@ -5197,12 +5626,12 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Check In
                     </label>
-                    <input
-                      type="datetime-local"
-                      name="check_in"
+                    <ReadyRoomDateField
+                      pickerKey="edit-check-in"
+                      mode="datetime"
                       value={editForm.check_in}
-                      onChange={handleEditChange}
-                      className={inputClass}
+                      placeholder="Pilih tanggal & jam"
+                      className="border-gray-200 bg-gray-50"
                     />
                   </div>
 
@@ -5968,17 +6397,13 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
                           Jam Check-in Aktual
                         </label>
-                        <input
-                          type="datetime-local"
+                        <ReadyRoomDateField
+                          pickerKey="paid-actual-check-in"
+                          mode="datetime"
                           value={actualCheckInInput}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setActualCheckInInput(value);
-                            setExpectedCheckOutInput(
-                              calculateExpectedCheckoutInput(selectedPaidBooking, value)
-                            );
-                          }}
-                          className="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-3.5 outline-none shadow-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                          placeholder="Pilih jam check-in aktual"
+                          className="border-emerald-200"
+                          iconClassName="text-emerald-600"
                         />
                       </div>
 
@@ -5986,11 +6411,13 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
                           Target Check-out
                         </label>
-                        <input
-                          type="datetime-local"
+                        <ReadyRoomDateField
+                          pickerKey="paid-expected-check-out"
+                          mode="datetime"
                           value={expectedCheckOutInput}
-                          onChange={(e) => setExpectedCheckOutInput(e.target.value)}
-                          className="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-3.5 outline-none shadow-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                          placeholder="Pilih target check-out"
+                          className="border-emerald-200"
+                          iconClassName="text-emerald-600"
                         />
                       </div>
                     </div>
@@ -6113,12 +6540,15 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
               Filter Tanggal
             </label>
-            <input
-              type="date"
-              value={housekeepingReportDate}
-              onChange={(e) => setHousekeepingReportDate(e.target.value)}
-              className="h-10 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
-            />
+            <div className="min-w-[180px]">
+              <ReadyRoomDateField
+                pickerKey="housekeeping-report-date"
+                value={housekeepingReportDate}
+                placeholder="Pilih tanggal"
+                size="sm"
+                className="border-slate-200 text-slate-800"
+              />
+            </div>
             <span className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-500 shadow-sm">
               {housekeepingReportDate ? formatDate(housekeepingReportDate) : "Semua tanggal"}
             </span>
@@ -6312,11 +6742,11 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
               Tanggal
             </label>
-            <input
-              type="date"
+            <ReadyRoomDateField
+              pickerKey="report-date"
               value={reportDate}
-              onChange={(e) => setReportDate(e.target.value || getTodayDateValue())}
-              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+              placeholder="Pilih tanggal"
+              className="border-gray-200 text-gray-800"
             />
           </div>
 
@@ -6610,12 +7040,12 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           <label className="mb-2 block text-sm font-bold text-gray-700">
             Tanggal Pengeluaran
           </label>
-          <input
-            type="date"
-            name="date"
+          <ReadyRoomDateField
+            pickerKey="report-expense-date"
             value={reportExpenseForm.date}
-            onChange={handleReportExpenseChange}
-            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+            placeholder="Pilih tanggal pengeluaran"
+            className="border-gray-200 text-gray-800 focus:border-sky-500 focus:ring-sky-100"
+            iconClassName="text-sky-600"
           />
         </div>
 
