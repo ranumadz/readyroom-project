@@ -16,13 +16,21 @@ import {
   ClipboardList,
   ShieldCheck,
   Cpu,
-  Sparkles,
   Layers3,
   Settings,
   BellRing,
   UserCog,
-  MonitorSmartphone,
-  Wrench,
+  Activity,
+  Server,
+  Database,
+  Wifi,
+  MapPinned,
+  Radio,
+  UserCheck,
+  Route,
+  RefreshCw,
+  CircleDot,
+  Globe2,
 } from "lucide-react";
 
 import {
@@ -52,73 +60,128 @@ export default function Dashboard() {
   const [internalUsers, setInternalUsers] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [apiResponseMs, setApiResponseMs] = useState(null);
+  const [lastSyncAt, setLastSyncAt] = useState(null);
+  const [itMapFilter, setItMapFilter] = useState("all");
+  const [endpointLatencies, setEndpointLatencies] = useState({});
+  const [latencySamples, setLatencySamples] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  const fetchDashboardData = async () => {
+  useEffect(() => {
+    if (!isIT) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      fetchDashboardData(false);
+    }, 15000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isIT]);
+
+  const getNowPerformance = () =>
+    typeof performance !== "undefined" ? performance.now() : Date.now();
+
+  const extractArrayData = (response) => {
+    if (Array.isArray(response?.data?.data)) return response.data.data;
+    if (Array.isArray(response?.data)) return response.data;
+    return [];
+  };
+
+  const timedRequest = async (key, label, path) => {
+    const startedAt = getNowPerformance();
+    const response = await api.get(path);
+    const finishedAt = getNowPerformance();
+
+    return {
+      key,
+      label,
+      path,
+      response,
+      ms: Math.max(1, Math.round(finishedAt - startedAt)),
+    };
+  };
+
+  const fetchDashboardData = async (showLoader = true) => {
+    const requestStartedAt = getNowPerformance();
+
     try {
-      setLoading(true);
+      if (showLoader) {
+        setLoading(true);
+      }
 
       const requests = [
-        api.get("/admin/hotels"),
-        api.get("/admin/rooms"),
-        api.get("/admin/bookings"),
+        timedRequest("hotels", "Data Cabang", "/admin/hotels"),
+        timedRequest("rooms", "Data Kamar", "/admin/rooms"),
+        timedRequest("bookings", "Data Booking", "/admin/bookings"),
       ];
 
       if (isIT) {
-        requests.push(api.get("/admin/users/admin"));
-        requests.push(api.get("/admin/users/customers"));
+        requests.push(timedRequest("internalUsers", "User Internal", "/admin/users/admin"));
+        requests.push(timedRequest("customers", "Customer Web", "/admin/users/customers"));
       }
 
       const responses = await Promise.all(requests);
+      const responseMap = responses.reduce((acc, item) => {
+        acc[item.key] = item;
+        return acc;
+      }, {});
 
-      const hotelRes = responses[0];
-      const roomRes = responses[1];
-      const bookingRes = responses[2];
-      const internalRes = responses[3];
-      const customerRes = responses[4];
+      const latencyMap = responses.reduce((acc, item) => {
+        acc[item.key] = {
+          label: item.label,
+          path: item.path,
+          ms: item.ms,
+        };
+        return acc;
+      }, {});
 
-      const hotelData = Array.isArray(hotelRes?.data?.data)
-        ? hotelRes.data.data
-        : Array.isArray(hotelRes?.data)
-        ? hotelRes.data
-        : [];
-
-      const roomData = Array.isArray(roomRes?.data?.data)
-        ? roomRes.data.data
-        : Array.isArray(roomRes?.data)
-        ? roomRes.data
-        : [];
-
-      const bookingData = Array.isArray(bookingRes?.data?.data)
-        ? bookingRes.data.data
-        : Array.isArray(bookingRes?.data)
-        ? bookingRes.data
-        : [];
-
-      const internalData = Array.isArray(internalRes?.data?.data)
-        ? internalRes.data.data
-        : Array.isArray(internalRes?.data)
-        ? internalRes.data
-        : [];
-
-      const customerData = Array.isArray(customerRes?.data?.data)
-        ? customerRes.data.data
-        : Array.isArray(customerRes?.data)
-        ? customerRes.data
-        : [];
+      const hotelData = extractArrayData(responseMap.hotels?.response);
+      const roomData = extractArrayData(responseMap.rooms?.response);
+      const bookingData = extractArrayData(responseMap.bookings?.response);
+      const internalData = extractArrayData(responseMap.internalUsers?.response);
+      const customerData = extractArrayData(responseMap.customers?.response);
 
       setHotels(hotelData);
       setRooms(roomData);
       setBookings(bookingData);
       setInternalUsers(internalData);
       setCustomers(customerData);
+      setEndpointLatencies(latencyMap);
+
+      const requestFinishedAt = getNowPerformance();
+      const totalResponseMs = Math.max(1, Math.round(requestFinishedAt - requestStartedAt));
+      const averageEndpointMs = responses.length
+        ? Math.round(
+            responses.reduce((total, item) => total + Number(item.ms || 0), 0) /
+              responses.length
+          )
+        : totalResponseMs;
+
+      setApiResponseMs(averageEndpointMs);
+      setLatencySamples((prev) => {
+        const next = [
+          ...prev,
+          {
+            time: new Date().toLocaleTimeString("id-ID", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            latency: averageEndpointMs,
+            total: totalResponseMs,
+          },
+        ];
+
+        return next.slice(-12);
+      });
+      setLastSyncAt(new Date());
     } catch (error) {
       console.error("Gagal mengambil data dashboard:", error);
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
     }
   };
 
@@ -333,43 +396,454 @@ export default function Dashboard() {
       })
       .slice(0, 5);
   }, [internalUsers]);
+  const getStableMapPoint = (seed, index = 0) => {
+    const raw = String(seed || `readyroom-${index}`);
+    let hash = 0;
+
+    for (let i = 0; i < raw.length; i += 1) {
+      hash = (hash << 5) - hash + raw.charCodeAt(i);
+      hash |= 0;
+    }
+
+    const positiveHash = Math.abs(hash + index * 97);
+
+    return {
+      x: 12 + (positiveHash % 74),
+      y: 16 + ((positiveHash * 7) % 62),
+    };
+  };
+
+  const getHotelIdFromBooking = (booking) => {
+    return booking?.hotel_id || booking?.hotel?.id || booking?.hotelId || null;
+  };
+
+  const getHotelNameById = (hotelId) => {
+    const hotel = hotels.find((item) => String(item.id) === String(hotelId));
+    return hotel?.name || "Cabang belum diketahui";
+  };
+
+  const getPrimaryHotelForUser = (user, index = 0) => {
+    const userHotels = Array.isArray(user?.hotels) ? user.hotels : [];
+
+    if (userHotels.length > 0) {
+      const firstHotel = userHotels[0];
+      const hotelId =
+        firstHotel?.id || firstHotel?.hotel_id || firstHotel?.pivot?.hotel_id || null;
+      const matchedHotel = hotels.find((hotel) => String(hotel.id) === String(hotelId));
+
+      return {
+        id: hotelId || matchedHotel?.id || `internal-${user?.id || index}`,
+        name:
+          matchedHotel?.name ||
+          firstHotel?.name ||
+          firstHotel?.hotel?.name ||
+          "Cabang internal",
+      };
+    }
+
+    const directHotelId = user?.hotel_id || user?.branch_id || user?.hotel?.id || null;
+    const directHotel = hotels.find((hotel) => String(hotel.id) === String(directHotelId));
+
+    if (directHotel) {
+      return {
+        id: directHotel.id,
+        name: directHotel.name,
+      };
+    }
+
+    const fallbackHotel = hotels[index % Math.max(1, hotels.length)];
+
+    return {
+      id: fallbackHotel?.id || `internal-${user?.id || index}`,
+      name: fallbackHotel?.name || "Kantor Pusat ReadyRoom",
+    };
+  };
+
+  const getUserPresenceStatus = (user) => {
+    const currentUserOnline =
+      adminUser?.id && String(adminUser.id) === String(user?.id);
+
+    const lastSeenRaw =
+      user?.last_seen_at ||
+      user?.last_activity_at ||
+      user?.updated_at ||
+      user?.created_at ||
+      null;
+
+    const lastSeenDate = lastSeenRaw ? new Date(lastSeenRaw) : null;
+    const hasValidLastSeen =
+      lastSeenDate && !Number.isNaN(lastSeenDate.getTime());
+
+    if (currentUserOnline) {
+      return {
+        label: "Online",
+        tone: "online",
+        helper: "Akun sedang digunakan",
+      };
+    }
+
+    if (hasValidLastSeen) {
+      const minutesAgo = Math.max(
+        0,
+        Math.round((Date.now() - lastSeenDate.getTime()) / 60000)
+      );
+
+      if (minutesAgo <= 10) {
+        return {
+          label: "Aktif baru",
+          tone: "online",
+          helper: `${minutesAgo || 1} menit lalu`,
+        };
+      }
+
+      if (minutesAgo <= 180) {
+        return {
+          label: "Baru aktif",
+          tone: "idle",
+          helper: `${minutesAgo} menit lalu`,
+        };
+      }
+    }
+
+    return {
+      label: "Terdaftar",
+      tone: "offline",
+      helper: "Belum ada last_seen realtime",
+    };
+  };
+
+  const branchOperationalStats = useMemo(() => {
+    return hotels.map((hotel, index) => {
+      const hotelBookings = bookings.filter(
+        (booking) => String(getHotelIdFromBooking(booking)) === String(hotel.id)
+      );
+
+      const assignedInternalUsers = internalUsers.filter((user) => {
+        const userHotels = Array.isArray(user.hotels) ? user.hotels : [];
+        const hasHotelAccess = userHotels.some((userHotel) => {
+          const userHotelId =
+            userHotel?.id || userHotel?.hotel_id || userHotel?.pivot?.hotel_id || null;
+          return String(userHotelId) === String(hotel.id);
+        });
+
+        return (
+          hasHotelAccess ||
+          String(user.hotel_id || "") === String(hotel.id) ||
+          String(user.branch_id || "") === String(hotel.id) ||
+          String(user.hotel?.id || "") === String(hotel.id)
+        );
+      });
+
+      const bookingActive = hotelBookings.filter((booking) =>
+        ["pending", "confirmed", "checked_in", "checked_out", "cleaning"].includes(
+          booking.status
+        )
+      ).length;
+
+      const roomCleaning = hotelBookings.filter(
+        (booking) => booking.status === "cleaning"
+      ).length;
+
+      const point = getStableMapPoint(`${hotel.name}-${hotel.id}`, index);
+
+      return {
+        id: hotel.id,
+        name: hotel.name || `Cabang ${index + 1}`,
+        area: hotel.area || hotel.city?.name || "Area ReadyRoom",
+        status: Number(hotel.status) === 1 || hotel.status === true,
+        internalCount: assignedInternalUsers.length,
+        bookingActive,
+        roomCleaning,
+        x: point.x,
+        y: point.y,
+      };
+    });
+  }, [hotels, bookings, internalUsers]);
+
+  const operationalMapMarkers = useMemo(() => {
+    const branchMarkers = branchOperationalStats.map((branch) => ({
+      id: `branch-${branch.id}`,
+      type: "branch",
+      label: branch.name,
+      subtitle: branch.area,
+      detail: `${branch.bookingActive} booking aktif • ${branch.internalCount} user internal`,
+      status: branch.status ? "Cabang aktif" : "Cabang nonaktif",
+      x: branch.x,
+      y: branch.y,
+    }));
+
+    const internalMarkers = internalUsers.slice(0, 16).map((user, index) => {
+      const hotel = getPrimaryHotelForUser(user, index);
+      const branchPoint =
+        branchOperationalStats.find((branch) => String(branch.id) === String(hotel.id)) ||
+        null;
+      const fallbackPoint = getStableMapPoint(
+        `${user.name || user.email || user.id}-internal`,
+        index
+      );
+      const presence = getUserPresenceStatus(user);
+
+      return {
+        id: `internal-${user.id || index}`,
+        type: "internal",
+        label: user.name || user.email || `User Internal ${index + 1}`,
+        subtitle: user.role || "internal",
+        detail: hotel.name,
+        status: `${presence.label} • ${presence.helper}`,
+        x: Math.min(90, Math.max(8, (branchPoint?.x || fallbackPoint.x) + ((index % 3) - 1) * 3)),
+        y: Math.min(82, Math.max(12, (branchPoint?.y || fallbackPoint.y) + ((index % 4) - 1) * 3)),
+      };
+    });
+
+    const customerMarkers = bookings.slice(0, 18).map((booking, index) => {
+      const hotelId = getHotelIdFromBooking(booking);
+      const branchPoint =
+        branchOperationalStats.find((branch) => String(branch.id) === String(hotelId)) ||
+        null;
+      const fallbackPoint = getStableMapPoint(
+        `${booking.booking_code || booking.guest_phone || booking.id}-customer`,
+        index
+      );
+
+      return {
+        id: `customer-${booking.id || index}`,
+        type: "customer",
+        label:
+          booking.user?.name ||
+          booking.guest_name ||
+          booking.booking_code ||
+          `Customer ${index + 1}`,
+        subtitle: booking.booking_code || "Booking customer",
+        detail: booking.hotel?.name || getHotelNameById(hotelId),
+        status: booking.status || "booking",
+        x: Math.min(90, Math.max(8, (branchPoint?.x || fallbackPoint.x) + ((index % 5) - 2) * 2)),
+        y: Math.min(82, Math.max(12, (branchPoint?.y || fallbackPoint.y) + ((index % 4) - 1) * 2)),
+      };
+    });
+
+    return {
+      branch: branchMarkers,
+      internal: internalMarkers,
+      customer: customerMarkers,
+      all: [...branchMarkers, ...internalMarkers, ...customerMarkers],
+    };
+  }, [branchOperationalStats, internalUsers, bookings, hotels, adminUser?.id]);
+
+  const visibleOperationalMapMarkers = useMemo(() => {
+    return operationalMapMarkers[itMapFilter] || operationalMapMarkers.all;
+  }, [operationalMapMarkers, itMapFilter]);
+
+  const latestSystemActivities = useMemo(() => {
+    const bookingActivities = bookingTerbaru.slice(0, 4).map((booking) => ({
+      id: `booking-${booking.id}`,
+      title: booking.booking_code || `Booking #${booking.id}`,
+      desc: `${booking.hotel?.name || "Cabang"} • ${
+        booking.user?.name || booking.guest_name || "Tamu"
+      }`,
+      meta: booking.status || "booking",
+      tone: "cyan",
+    }));
+
+    const userActivities = recentInternalUsers.slice(0, 3).map((user) => ({
+      id: `user-${user.id}`,
+      title: user.name || user.email || "User internal",
+      desc: user.email || "Akun internal ReadyRoom",
+      meta: user.role || "role",
+      tone: "blue",
+    }));
+
+    return [...bookingActivities, ...userActivities].slice(0, 6);
+  }, [bookingTerbaru, recentInternalUsers]);
+
+
+  const getPersonPhone = (person) => {
+    return (
+      person?.phone ||
+      person?.phone_number ||
+      person?.guest_phone ||
+      person?.whatsapp ||
+      person?.wa_number ||
+      person?.mobile ||
+      person?.telp ||
+      person?.no_hp ||
+      "-"
+    );
+  };
+
+  const getCustomerDisplayName = (customer, index = 0) => {
+    return (
+      customer?.name ||
+      customer?.guest_name ||
+      customer?.user?.name ||
+      customer?.email ||
+      `Customer ${index + 1}`
+    );
+  };
+
+  const getCustomerDisplayPhone = (customer) => {
+    return getPersonPhone(customer);
+  };
+
+  const averageLatencyMs = useMemo(() => {
+    if (latencySamples.length > 0) {
+      return Math.round(
+        latencySamples.reduce((total, item) => total + Number(item.latency || 0), 0) /
+          latencySamples.length
+      );
+    }
+
+    return apiResponseMs || 0;
+  }, [latencySamples, apiResponseMs]);
+
+  const systemHealthScore = useMemo(() => {
+    if (!averageLatencyMs) return 0;
+
+    if (averageLatencyMs <= 450) return 96;
+    if (averageLatencyMs <= 800) return 88;
+    if (averageLatencyMs <= 1200) return 76;
+    if (averageLatencyMs <= 1800) return 62;
+    if (averageLatencyMs <= 2500) return 48;
+    return 35;
+  }, [averageLatencyMs]);
+
+  const systemHealthLabel = useMemo(() => {
+    if (!averageLatencyMs) return "Menunggu data";
+    if (systemHealthScore >= 90) return "Sangat stabil";
+    if (systemHealthScore >= 75) return "Normal";
+    if (systemHealthScore >= 60) return "Mulai lambat";
+    return "Perlu pengecekan";
+  }, [averageLatencyMs, systemHealthScore]);
+
+  const systemHealthTone = useMemo(() => {
+    if (systemHealthScore >= 75) return "good";
+    if (systemHealthScore >= 55) return "warning";
+    return "danger";
+  }, [systemHealthScore]);
+
+  const systemRecommendation = useMemo(() => {
+    if (!averageLatencyMs) {
+      return "Dashboard sedang mengumpulkan sample endpoint. Tunggu auto refresh pertama untuk membaca kondisi aplikasi.";
+    }
+
+    if (systemHealthScore >= 90) {
+      return "Aplikasi terasa sehat. Response endpoint utama masih cepat dan aman untuk operasional.";
+    }
+
+    if (systemHealthScore >= 75) {
+      return "Aplikasi normal. Tetap pantau saat jam ramai, terutama Booking List dan data customer.";
+    }
+
+    if (systemHealthScore >= 60) {
+      return "Aplikasi mulai lambat. Cek koneksi VPS, beban query booking, dan ukuran data yang dimuat.";
+    }
+
+    return "Perlu pengecekan IT. Prioritaskan cek server, database, dan endpoint booking/customer.";
+  }, [averageLatencyMs, systemHealthScore]);
+
+  const endpointLatencyList = useMemo(() => {
+    return Object.values(endpointLatencies || {}).sort((a, b) =>
+      String(a.label || "").localeCompare(String(b.label || ""))
+    );
+  }, [endpointLatencies]);
+
+  const activeInternalCount = useMemo(() => {
+    return internalUsers.filter((user) => {
+      const presence = getUserPresenceStatus(user);
+      return presence.tone === "online";
+    }).length;
+  }, [internalUsers, adminUser?.id]);
+
+  const latestCustomerRows = useMemo(() => {
+    const customerSource =
+      customers.length > 0
+        ? customers
+        : bookingTerbaru.map((booking) => ({
+            id: booking.user?.id || booking.id,
+            name: booking.user?.name || booking.guest_name || "Customer booking",
+            email: booking.user?.email || booking.guest_email || "-",
+            phone: booking.guest_phone || booking.user?.phone || "-",
+            source: booking.booking_code || "Booking",
+          }));
+
+    return [...customerSource].slice(0, 8);
+  }, [customers, bookingTerbaru]);
+
+  const liveMonitorSubtitle = useMemo(() => {
+    if (!lastSyncAt) return "Belum ada sinkronisasi monitoring.";
+
+    return `Auto refresh tiap 15 detik • sync terakhir ${lastSyncAt.toLocaleTimeString(
+      "id-ID",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    )}`;
+  }, [lastSyncAt]);
+
 
   if (isIT) {
+    const apiStatus =
+      averageLatencyMs === 0
+        ? "Mengecek"
+        : averageLatencyMs <= 800
+        ? "Stabil"
+        : averageLatencyMs <= 1800
+        ? "Lambat"
+        : "Berat";
+
+    const databaseStatus = loading ? "Mengecek" : "Terhubung";
+    const applicationServiceStatus = loading ? "Sinkronisasi" : "Online";
+    const appLoadStatus = systemHealthLabel;
+
     return (
       <div className="flex min-h-screen bg-slate-950">
         <Sidebar />
 
-        <div className="flex-1 bg-[radial-gradient(circle_at_top_right,_rgba(34,211,238,0.08),_transparent_20%),radial-gradient(circle_at_top_left,_rgba(59,130,246,0.08),_transparent_24%),linear-gradient(180deg,#020617_0%,#0f172a_100%)]">
+        <div className="flex-1 bg-[radial-gradient(circle_at_top_right,_rgba(34,211,238,0.10),_transparent_22%),radial-gradient(circle_at_top_left,_rgba(59,130,246,0.08),_transparent_25%),linear-gradient(180deg,#020617_0%,#0f172a_48%,#020617_100%)]">
           <Topbar />
 
           <div className="p-6 md:p-8">
-            <div className="mb-8 overflow-hidden rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-2xl backdrop-blur-sm md:p-8">
+            <div className="mb-8 overflow-hidden rounded-[30px] border border-cyan-400/10 bg-slate-900/60 p-6 shadow-2xl backdrop-blur-sm md:p-8">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                   <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
                     <Cpu size={14} />
-                    IT ReadyRoom
+                    IT READYROOM
                   </div>
 
                   <h1 className="text-3xl font-bold text-white md:text-4xl">
                     IT ReadyRoom Control Center
                   </h1>
 
-                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300 md:text-base">
-                    Dashboard IT Readyrooom
+                  <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300 md:text-base">
+                    Pusat monitoring sistem, user internal, customer booking,
+                    dan peta operasional ReadyRoom tanpa mengganggu flow
+                    operasional booking yang sudah berjalan.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <ITHeroBadge
                     icon={<ShieldCheck size={18} />}
                     title="Mode Sistem"
-                    value="Aktif"
+                    value={appLoadStatus}
                   />
                   <ITHeroBadge
-                    icon={<MonitorSmartphone size={18} />}
-                    title="Akses IT"
-                    value="Eksklusif"
+                    icon={<Wifi size={18} />}
+                    title="Response API"
+                    value={averageLatencyMs ? `${averageLatencyMs} ms` : "..."}
+                  />
+                  <ITHeroBadge
+                    icon={<Radio size={18} />}
+                    title="Last Sync"
+                    value={
+                      lastSyncAt
+                        ? lastSyncAt.toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Belum sync"
+                    }
                   />
                 </div>
               </div>
@@ -380,7 +854,7 @@ export default function Dashboard() {
                 icon={<UserCog size={22} />}
                 title="User Internal"
                 value={loading ? "..." : internalUsers.length}
-                note="Termasuk admin, receptionist, pengawas, IT, boss"
+                note="Admin, receptionist, pengawas, IT, boss"
               />
               <ITStatCard
                 icon={<Users size={22} />}
@@ -390,9 +864,9 @@ export default function Dashboard() {
               />
               <ITStatCard
                 icon={<Building2 size={22} />}
-                title="Hotel Aktif"
+                title="Cabang Aktif"
                 value={loading ? "..." : hotelAktif}
-                note={`${hotels.length} total hotel tersimpan`}
+                note={`${hotels.length} total cabang/hotel tersimpan`}
               />
               <ITStatCard
                 icon={<BedDouble size={22} />}
@@ -402,60 +876,438 @@ export default function Dashboard() {
               />
             </div>
 
+            <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-4">
+              <ITServiceStatusCard
+                icon={<Activity size={20} />}
+                title="Status Aplikasi"
+                value={appLoadStatus}
+                note="Gabungan response endpoint utama"
+                tone={systemHealthTone}
+              />
+              <ITServiceStatusCard
+                icon={<Server size={20} />}
+                title="Layanan Aplikasi"
+                value={applicationServiceStatus}
+                note={averageLatencyMs ? `Rata-rata ${averageLatencyMs} ms` : "Menunggu response"}
+                tone={systemHealthTone}
+              />
+              <ITServiceStatusCard
+                icon={<Database size={20} />}
+                title="Database"
+                value={databaseStatus}
+                note="Data hotel, room, booking berhasil dibaca"
+                tone="good"
+              />
+              <ITServiceStatusCard
+                icon={<Globe2 size={20} />}
+                title="Koneksi Sistem"
+                value={apiStatus}
+                note="Sampling endpoint dashboard IT"
+                tone={systemHealthTone}
+              />
+            </div>
+
+            <div className="mb-8 grid grid-cols-1 gap-6 2xl:grid-cols-5">
+              <div className="2xl:col-span-2 rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
+                <div className="mb-5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+                      Live Performance
+                    </p>
+                    <h2 className="mt-2 text-2xl font-bold text-white">
+                      Rata-rata Kecepatan Aplikasi
+                    </h2>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                      {liveMonitorSubtitle}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => fetchDashboardData(false)}
+                    className="inline-flex items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-3 text-cyan-300 transition hover:bg-cyan-400/20"
+                    title="Refresh monitoring"
+                  >
+                    <RefreshCw size={18} />
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+                  <ITCircularGauge
+                    score={systemHealthScore}
+                    latency={averageLatencyMs}
+                    label={systemHealthLabel}
+                    tone={systemHealthTone}
+                  />
+
+                  <div className="flex-1 space-y-3">
+                    <ITMiniCard
+                      title="User Internal Aktif"
+                      value={loading ? "..." : `${activeInternalCount}/${internalUsers.length}`}
+                    />
+                    <ITMiniCard
+                      title="Customer Terdaftar"
+                      value={loading ? "..." : customers.length}
+                    />
+                    <ITMiniCard
+                      title="Sample Monitoring"
+                      value={loading ? "..." : `${latencySamples.length} sample`}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 h-40 rounded-3xl border border-white/5 bg-slate-950/45 p-4">
+                  {latencySamples.length > 1 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={latencySamples}>
+                        <defs>
+                          <linearGradient
+                            id="latencyGradient"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.34} />
+                            <stop offset="95%" stopColor="#22d3ee" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 10 }} />
+                        <YAxis hide allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#0f172a",
+                            border: "1px solid rgba(34,211,238,0.12)",
+                            borderRadius: "16px",
+                            color: "#fff",
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="latency"
+                          stroke="#22d3ee"
+                          strokeWidth={3}
+                          fill="url(#latencyGradient)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-center text-sm text-slate-400">
+                      Grafik latency akan muncul setelah beberapa kali auto refresh.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="2xl:col-span-3 rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
+                <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+                      Network Monitor
+                    </p>
+                    <h2 className="mt-2 text-2xl font-bold text-white">
+                      Jaringan Endpoint ReadyRoom
+                    </h2>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                      Istilah teknis server dibuat lebih ramah menjadi Layanan Aplikasi supaya mudah dibaca tim operasional.
+                    </p>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wide ${
+                      systemHealthTone === "good"
+                        ? "bg-emerald-400/10 text-emerald-300"
+                        : systemHealthTone === "warning"
+                        ? "bg-amber-400/10 text-amber-300"
+                        : "bg-rose-400/10 text-rose-300"
+                    }`}
+                  >
+                    {systemHealthLabel}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+                  <div className="space-y-3">
+                    {endpointLatencyList.length > 0 ? (
+                      endpointLatencyList.map((endpoint) => (
+                        <ITNetworkEndpointRow
+                          key={endpoint.path}
+                          label={endpoint.label}
+                          path={endpoint.path}
+                          ms={endpoint.ms}
+                        />
+                      ))
+                    ) : (
+                      <p className="rounded-2xl border border-white/5 bg-slate-900/70 p-4 text-sm text-slate-400">
+                        Belum ada data endpoint. Klik refresh monitoring.
+                      </p>
+                    )}
+                  </div>
+
+                  <ITMonitoringInsight
+                    title="Analisa Kondisi Aplikasi"
+                    description={systemRecommendation}
+                    footer="Catatan IT: versi ini memakai sampling endpoint dashboard. Untuk rata-rata seluruh user lintas device secara server-side, nanti tinggal sambungkan endpoint server health/telemetry."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-8 grid grid-cols-1 gap-6 2xl:grid-cols-5">
+              <div className="2xl:col-span-3">
+                <ITOperationalMap
+                  markers={visibleOperationalMapMarkers}
+                  markerGroups={operationalMapMarkers}
+                  branchStats={branchOperationalStats}
+                  activeFilter={itMapFilter}
+                  onFilterChange={setItMapFilter}
+                  loading={loading}
+                />
+              </div>
+
+              <div className="2xl:col-span-2 rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
+                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">
+                      Pengguna Internal
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Monitoring akun berdasarkan data user dan cabang tugas.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/users")}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400/20"
+                  >
+                    <Users size={16} />
+                    Kelola Users
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {recentInternalUsers.length > 0 ? (
+                    recentInternalUsers.map((user, index) => {
+                      const presence = getUserPresenceStatus(user);
+                      const hotel = getPrimaryHotelForUser(user, index);
+
+                      return (
+                        <ITPresenceRow
+                          key={user.id || `${user.email}-${index}`}
+                          name={user.name || "-"}
+                          email={user.email || "-"}
+                          phone={getPersonPhone(user)}
+                          role={user.role || "-"}
+                          branch={hotel.name}
+                          status={presence.label}
+                          helper={presence.helper}
+                          tone={presence.tone}
+                        />
+                      );
+                    })
+                  ) : (
+                    <p className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 text-sm text-slate-400">
+                      Belum ada data user internal.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-cyan-400/10 bg-cyan-400/5 p-4">
+                  <p className="text-sm font-semibold text-cyan-300">
+                    Catatan privasi
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                    Titik user mengikuti cabang tugas, bukan GPS pribadi.
+                    Status login realtime bisa dibuat lebih akurat nanti dengan
+                    field last_seen di server.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-8 grid grid-cols-1 gap-6 2xl:grid-cols-3">
+              <div className="2xl:col-span-2 rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
+                <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+                      Data User & Customer
+                    </p>
+                    <h2 className="mt-2 text-2xl font-bold text-white">
+                      Monitoring Akun dan Kontak
+                    </h2>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                      Nama, email, nomor WA, role, dan cabang ditampilkan agar IT lebih cepat cek akun operasional.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/users")}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400/20"
+                  >
+                    <Users size={16} />
+                    Kelola Akun
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                  <div>
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="font-semibold text-white">User Internal</h3>
+                      <span className="rounded-full bg-blue-400/10 px-3 py-1 text-xs font-semibold text-blue-300">
+                        {internalUsers.length} akun
+                      </span>
+                    </div>
+
+                    <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                      {internalUsers.length > 0 ? (
+                        internalUsers.slice(0, 8).map((user, index) => {
+                          const presence = getUserPresenceStatus(user);
+                          const hotel = getPrimaryHotelForUser(user, index);
+
+                          return (
+                            <ITUserDataRow
+                              key={user.id || `${user.email}-${index}`}
+                              name={user.name || "-"}
+                              email={user.email || "-"}
+                              phone={getPersonPhone(user)}
+                              meta={user.role || "-"}
+                              secondary={hotel.name}
+                              status={presence.label}
+                              tone={presence.tone}
+                            />
+                          );
+                        })
+                      ) : (
+                        <p className="rounded-2xl border border-white/5 bg-slate-900/70 p-4 text-sm text-slate-400">
+                          Belum ada user internal.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="font-semibold text-white">Customer / Pengguna</h3>
+                      <span className="rounded-full bg-rose-400/10 px-3 py-1 text-xs font-semibold text-rose-300">
+                        {latestCustomerRows.length} data tampil
+                      </span>
+                    </div>
+
+                    <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                      {latestCustomerRows.length > 0 ? (
+                        latestCustomerRows.map((customer, index) => (
+                          <ITUserDataRow
+                            key={customer.id || customer.email || customer.phone || index}
+                            name={getCustomerDisplayName(customer, index)}
+                            email={customer.email || customer.guest_email || "-"}
+                            phone={getCustomerDisplayPhone(customer)}
+                            meta={customer.source || "Customer"}
+                            secondary="Customer web / booking"
+                            status="Tercatat"
+                            tone="customer"
+                          />
+                        ))
+                      ) : (
+                        <p className="rounded-2xl border border-white/5 bg-slate-900/70 p-4 text-sm text-slate-400">
+                          Belum ada data customer.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
+                <div className="mb-5">
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+                    Catatan Monitoring
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold text-white">
+                    Kondisi Aplikasi
+                  </h2>
+                </div>
+
+                <div className="space-y-4">
+                  <ITMonitoringInsight
+                    title="Status saat ini"
+                    description={systemRecommendation}
+                    footer={`Rata-rata endpoint: ${averageLatencyMs || 0} ms • sample: ${latencySamples.length}`}
+                  />
+
+                  <div className="rounded-3xl border border-white/5 bg-slate-900/70 p-5">
+                    <p className="text-sm font-semibold text-white">
+                      Yang perlu dipantau IT
+                    </p>
+                    <ul className="mt-3 space-y-2 text-sm leading-relaxed text-slate-400">
+                      <li>• Booking List saat ramai check-in/check-out.</li>
+                      <li>• Endpoint user dan customer kalau mulai di atas 1.800 ms.</li>
+                      <li>• Database booking kalau jumlah data makin besar.</li>
+                      <li>• Tambahkan fitur last_seen di server untuk status login realtime asli.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
               <div className="xl:col-span-2 rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
                 <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
-                      System Overview
+                      Control Center Tools
                     </h2>
                     <p className="mt-1 text-sm text-slate-400">
-                      Ringkasan struktur inti sistem ReadyRoom dari sisi IT.
+                      Shortcut aman untuk modul teknis ReadyRoom. Tidak ada
+                      tombol berbahaya seperti restart server atau clear cache
+                      production di sini.
                     </p>
                   </div>
 
                   <button
-                    onClick={() => navigate("/admin/users")}
-                    className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400/20"
+                    onClick={() => fetchDashboardData(false)}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400/20"
                   >
-                    Kelola Users
+                    <RefreshCw size={16} />
+                    Refresh Data
                   </button>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <ITOverviewCard
+                    icon={<Users size={18} />}
+                    title="User & Role"
+                    desc="Kelola akun internal, role, dan akses operasional setiap pengguna ReadyRoom."
+                    actionLabel="Buka Users"
+                    onClick={() => navigate("/admin/users")}
+                  />
+                  <ITOverviewCard
                     icon={<Layers3 size={18} />}
                     title="Master Content"
-                    desc="Kelola konten utama website, hero, promo, dan elemen visual customer-facing."
+                    desc="Kelola konten website, hero, promo, dan elemen visual customer-facing."
                     actionLabel="Buka Master Content"
                     onClick={() => navigate("/admin/master-content")}
                   />
                   <ITOverviewCard
                     icon={<Settings size={18} />}
                     title="System Settings"
-                    desc="Area untuk pengaturan sistem internal, konfigurasi dasar, dan kebutuhan teknis lainnya."
+                    desc="Area pengaturan sistem internal dan konfigurasi dasar admin panel."
                     actionLabel="Buka Settings"
                     onClick={() => navigate("/admin/settings")}
                   />
                   <ITOverviewCard
                     icon={<BellRing size={18} />}
-                    title="Broadcast Center"
-                    desc="Tempat khusus nanti untuk mengirim pesan internal ke semua role selain boss."
-                    actionLabel="Coming Soon"
-                    disabled
-                  />
-                  <ITOverviewCard
-                    icon={<Wrench size={18} />}
-                    title="System Tools"
-                    desc="Pusat kontrol cepat untuk monitoring data inti dan akses modul penting ReadyRoom."
-                    actionLabel="Lihat User Panel"
-                    onClick={() => navigate("/admin/users")}
+                    title="Internal Broadcast"
+                    desc="Panel pesan internal untuk komunikasi ke role operasional ReadyRoom."
+                    actionLabel="Buka Broadcast"
+                    onClick={() => navigate("/admin/internal-broadcasts")}
                   />
                 </div>
               </div>
 
               <div className="rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
-                <h2 className="text-xl font-semibold text-white mb-6">
+                <h2 className="mb-6 text-xl font-semibold text-white">
                   Distribusi Role Internal
                 </h2>
 
@@ -476,17 +1328,6 @@ export default function Dashboard() {
                   />
                   <ITRoleRow label="IT" value={loading ? "..." : internalRoleStats.it} />
                 </div>
-
-                <div className="mt-6 rounded-2xl border border-cyan-400/10 bg-cyan-400/5 p-4">
-                  <p className="text-sm font-medium text-cyan-300">
-                    Catatan Sistem
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                    Dashboard ini dipisah khusus untuk role IT agar area kerja
-                    IT terasa berbeda tanpa mengganggu flow operasional booking
-                    yang dipakai role lain.
-                  </p>
-                </div>
               </div>
             </div>
 
@@ -498,7 +1339,7 @@ export default function Dashboard() {
                       Analitik Booking
                     </h2>
                     <p className="mt-1 text-sm text-slate-400">
-                      Tetap bisa mantau pergerakan booking dari sisi overview.
+                      Pergerakan booking 7 hari terakhir dari sisi sistem.
                     </p>
                   </div>
 
@@ -562,8 +1403,8 @@ export default function Dashboard() {
               </div>
 
               <div className="rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
-                <h2 className="text-xl font-semibold text-white mb-6">
-                  Snapshot Sistem
+                <h2 className="mb-6 text-xl font-semibold text-white">
+                  Snapshot Operasional
                 </h2>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -597,20 +1438,20 @@ export default function Dashboard() {
                   />
                 </div>
 
-                <div className="mt-6 rounded-2xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 p-5 border border-cyan-400/10">
+                <div className="mt-6 rounded-2xl border border-cyan-400/10 bg-cyan-400/5 p-5">
                   <div className="flex items-start gap-3">
-                    <div className="rounded-xl bg-white/10 p-3 text-cyan-300">
-                      <Sparkles size={20} />
+                    <div className="rounded-xl bg-cyan-400/10 p-3 text-cyan-300">
+                      <MapPinned size={20} />
                     </div>
 
                     <div>
                       <h3 className="text-lg font-semibold text-white">
-                        Broadcast Internal
+                        Maps Operasional Aktif
                       </h3>
                       <p className="mt-1 text-sm leading-relaxed text-slate-300">
-                        Step berikutnya kita bisa lanjut bikin fitur broadcast
-                        message dari IT ke semua role selain boss, dengan modal
-                        atau banner yang tampil rapi di dashboard penerima.
+                        Marker cabang, user internal, dan customer booking
+                        sudah dipisahkan. Untuk peta real OpenStreetMap nanti
+                        tinggal kita sambungkan dengan latitude/longitude cabang.
                       </p>
                     </div>
                   </div>
@@ -622,36 +1463,25 @@ export default function Dashboard() {
               <div className="rounded-[28px] border border-cyan-400/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
                 <div className="mb-6 flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-white">
-                    User Internal Terbaru
+                    Aktivitas Sistem Terbaru
                   </h2>
                   <span className="text-sm text-slate-400">
-                    Total: {internalUsers.length}
+                    Booking & user
                   </span>
                 </div>
 
-                <div className="space-y-4">
-                  {recentInternalUsers.length > 0 ? (
-                    recentInternalUsers.map((user) => (
-                      <div
-                        key={user.id}
-                        className="flex items-center justify-between rounded-2xl border border-white/5 bg-slate-900/60 p-4"
-                      >
-                        <div>
-                          <p className="font-semibold text-white">
-                            {user.name || "-"}
-                          </p>
-                          <p className="text-sm text-slate-400">
-                            {user.email || "-"}
-                          </p>
-                        </div>
-
-                        <span className="rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-300">
-                          {user.role || "-"}
-                        </span>
-                      </div>
+                <div className="space-y-3">
+                  {latestSystemActivities.length > 0 ? (
+                    latestSystemActivities.map((activity) => (
+                      <ITActivityRow
+                        key={activity.id}
+                        title={activity.title}
+                        desc={activity.desc}
+                        meta={activity.meta}
+                      />
                     ))
                   ) : (
-                    <p className="text-slate-400">Belum ada data user internal.</p>
+                    <p className="text-slate-400">Belum ada aktivitas terbaru.</p>
                   )}
                 </div>
               </div>
@@ -684,12 +1514,12 @@ export default function Dashboard() {
                     onClick={() => navigate("/admin/rooms")}
                   />
                   <ITQuickButton
-                    label="Tambah Room"
-                    onClick={() => navigate("/admin/rooms/add")}
+                    label="Booking List"
+                    onClick={() => navigate("/admin/bookings")}
                   />
                   <ITQuickButton
-                    label="Tambah Hotel"
-                    onClick={() => navigate("/admin/hotels/add")}
+                    label="Booking Calendar"
+                    onClick={() => navigate("/admin/bookings/calendar")}
                   />
                 </div>
               </div>
@@ -716,7 +1546,7 @@ export default function Dashboard() {
               Dashboard Admin
             </h1>
             <p className="text-gray-500 mt-1">
-              Ringkasan sistem ReadyRoom dengan data real dari backend.
+              Ringkasan sistem ReadyRoom dengan data real dari server.
             </p>
           </div>
 
@@ -726,7 +1556,7 @@ export default function Dashboard() {
               iconWrap="bg-red-100 text-red-600"
               title="Total Hotel"
               value={loading ? "..." : hotels.length}
-              note="Data hotel dari backend"
+              note="Data hotel dari server"
             />
 
             <StatCard
@@ -734,7 +1564,7 @@ export default function Dashboard() {
               iconWrap="bg-blue-100 text-blue-600"
               title="Total Kamar"
               value={loading ? "..." : rooms.length}
-              note="Data tipe kamar dari backend"
+              note="Data tipe kamar dari server"
             />
 
             <StatCard
@@ -1218,3 +2048,427 @@ function ITQuickButton({ label, onClick }) {
     </button>
   );
 }
+
+function ITServiceStatusCard({ icon, title, value, note, tone = "good" }) {
+  const toneClass =
+    tone === "danger"
+      ? "border-rose-400/15 bg-rose-400/10 text-rose-300"
+      : tone === "warning"
+      ? "border-amber-400/15 bg-amber-400/10 text-amber-300"
+      : "border-emerald-400/15 bg-emerald-400/10 text-emerald-300";
+
+  return (
+    <div className="rounded-[24px] border border-cyan-400/10 bg-white/5 p-5 shadow-xl backdrop-blur-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <div className={`rounded-2xl border p-3 ${toneClass}`}>{icon}</div>
+        <CircleDot
+          size={18}
+          className={
+            tone === "danger"
+              ? "text-rose-300"
+              : tone === "warning"
+              ? "text-amber-300"
+              : "text-emerald-300"
+          }
+        />
+      </div>
+
+      <p className="text-sm text-slate-400">{title}</p>
+      <h3 className="mt-1 text-2xl font-bold text-white">{value}</h3>
+      <p className="mt-3 text-sm leading-relaxed text-slate-400">{note}</p>
+    </div>
+  );
+}
+
+function ITCircularGauge({ score, latency, label, tone }) {
+  const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
+  const toneColor =
+    tone === "danger" ? "#fb7185" : tone === "warning" ? "#f59e0b" : "#22d3ee";
+
+  return (
+    <div className="flex items-center justify-center">
+      <div
+        className="relative flex h-44 w-44 items-center justify-center rounded-full p-3 shadow-2xl"
+        style={{
+          background: `conic-gradient(${toneColor} ${safeScore * 3.6}deg, rgba(15,23,42,0.95) 0deg)`,
+        }}
+      >
+        <div className="flex h-full w-full flex-col items-center justify-center rounded-full border border-white/10 bg-slate-950 text-center">
+          <p className="text-4xl font-black text-white">{safeScore}</p>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
+            Health
+          </p>
+          <p className="mt-2 text-sm font-semibold text-slate-200">{label}</p>
+          <p className="mt-1 text-xs text-slate-400">
+            {latency ? `${latency} ms` : "mengukur"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ITNetworkEndpointRow({ label, path, ms }) {
+  const tone =
+    ms <= 800 ? "good" : ms <= 1800 ? "warning" : "danger";
+  const toneClass =
+    tone === "good"
+      ? "bg-emerald-400/10 text-emerald-300"
+      : tone === "warning"
+      ? "bg-amber-400/10 text-amber-300"
+      : "bg-rose-400/10 text-rose-300";
+
+  const barWidth = Math.max(8, Math.min(100, Math.round((Number(ms || 0) / 2500) * 100)));
+
+  return (
+    <div className="rounded-2xl border border-white/5 bg-slate-900/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-white">{label}</p>
+          <p className="mt-1 text-xs text-slate-500">{path}</p>
+        </div>
+
+        <span className={`rounded-full px-3 py-1 text-xs font-bold ${toneClass}`}>
+          {ms} ms
+        </span>
+      </div>
+
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+        <div
+          className={`h-full rounded-full ${
+            tone === "good"
+              ? "bg-emerald-400"
+              : tone === "warning"
+              ? "bg-amber-400"
+              : "bg-rose-400"
+          }`}
+          style={{ width: `${barWidth}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ITMonitoringInsight({ title, description, footer }) {
+  return (
+    <div className="rounded-3xl border border-cyan-400/10 bg-cyan-400/5 p-5">
+      <div className="mb-3 inline-flex rounded-2xl bg-cyan-400/10 p-3 text-cyan-300">
+        <Activity size={18} />
+      </div>
+
+      <h3 className="text-lg font-semibold text-white">{title}</h3>
+      <p className="mt-3 text-sm leading-relaxed text-slate-300">{description}</p>
+      <p className="mt-4 rounded-2xl border border-white/5 bg-slate-950/45 px-4 py-3 text-xs leading-relaxed text-slate-400">
+        {footer}
+      </p>
+    </div>
+  );
+}
+
+function ITUserDataRow({ name, email, phone, meta, secondary, status, tone }) {
+  const toneClass =
+    tone === "online"
+      ? "bg-emerald-400/10 text-emerald-300"
+      : tone === "idle"
+      ? "bg-amber-400/10 text-amber-300"
+      : tone === "customer"
+      ? "bg-rose-400/10 text-rose-300"
+      : "bg-slate-700/60 text-slate-300";
+
+  return (
+    <div className="rounded-2xl border border-white/5 bg-slate-900/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-white">{name}</p>
+          <p className="mt-1 truncate text-xs text-slate-400">{email}</p>
+          <p className="mt-1 text-xs font-semibold text-cyan-200">WA: {phone || "-"}</p>
+        </div>
+
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClass}`}>
+          {status}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <span className="rounded-full border border-cyan-400/10 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-cyan-300">
+          {meta}
+        </span>
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300">
+          {secondary}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ITOperationalMap({
+  markers,
+  markerGroups,
+  branchStats,
+  activeFilter,
+  onFilterChange,
+  loading,
+}) {
+  const filters = [
+    { key: "all", label: "Semua Titik", count: markerGroups.all.length },
+    { key: "branch", label: "Cabang", count: markerGroups.branch.length },
+    { key: "internal", label: "User Internal", count: markerGroups.internal.length },
+    { key: "customer", label: "Customer", count: markerGroups.customer.length },
+  ];
+
+  const getMarkerClass = (type) => {
+    if (type === "internal") {
+      return "border-blue-200 bg-blue-500 shadow-blue-500/40";
+    }
+
+    if (type === "customer") {
+      return "border-rose-200 bg-rose-500 shadow-rose-500/40";
+    }
+
+    return "border-amber-200 bg-amber-400 shadow-amber-500/40";
+  };
+
+  const getMarkerIcon = (type) => {
+    if (type === "internal") return <UserCheck size={14} />;
+    if (type === "customer") return <Users size={14} />;
+    return <Building2 size={14} />;
+  };
+
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-cyan-400/10 bg-white/5 shadow-xl backdrop-blur-sm">
+      <div className="flex flex-col gap-4 border-b border-cyan-400/10 p-6 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+            <MapPinned size={13} />
+            Maps Operasional
+          </div>
+          <h2 className="text-xl font-semibold text-white">
+            Peta Titik User & Customer
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Titik cabang, user internal, dan customer booking dipisah agar mudah dipantau.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {filters.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              onClick={() => onFilterChange(filter.key)}
+              className={`rounded-2xl px-3 py-2 text-xs font-semibold transition ${
+                activeFilter === filter.key
+                  ? "bg-cyan-400 text-slate-950"
+                  : "border border-cyan-400/10 bg-slate-900/70 text-cyan-200 hover:bg-cyan-400/10"
+              }`}
+            >
+              {filter.label}
+              <span className="ml-2 rounded-full bg-black/15 px-2 py-0.5">
+                {filter.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-0 xl:grid-cols-[1.45fr_0.55fr]">
+        <div className="relative min-h-[430px] overflow-hidden bg-[radial-gradient(circle_at_30%_25%,rgba(34,211,238,0.16),transparent_18%),radial-gradient(circle_at_70%_70%,rgba(59,130,246,0.15),transparent_20%),linear-gradient(135deg,#06111f_0%,#0f172a_48%,#020617_100%)]">
+          <div className="absolute inset-0 opacity-25">
+            <div className="absolute left-[12%] top-[18%] h-32 w-48 rounded-full border border-cyan-300/30" />
+            <div className="absolute right-[10%] top-[20%] h-40 w-64 rounded-full border border-blue-300/20" />
+            <div className="absolute bottom-[12%] left-[22%] h-44 w-72 rounded-full border border-emerald-300/20" />
+            <div className="absolute bottom-[18%] right-[18%] h-28 w-52 rounded-full border border-rose-300/20" />
+            <div className="absolute left-0 top-1/2 h-px w-full bg-cyan-300/20" />
+            <div className="absolute left-1/2 top-0 h-full w-px bg-cyan-300/20" />
+          </div>
+
+          <div className="absolute left-6 top-6 z-10 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 backdrop-blur-md">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white">
+              <Route size={16} className="text-cyan-300" />
+              ReadyRoom Network Map
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Mode aman: titik mengikuti cabang & booking, bukan GPS pribadi.
+            </p>
+          </div>
+
+          <div className="absolute bottom-6 left-6 z-10 flex flex-wrap gap-2">
+            <MapLegend color="bg-amber-400" label="Cabang" />
+            <MapLegend color="bg-blue-500" label="User Internal" />
+            <MapLegend color="bg-rose-500" label="Customer" />
+          </div>
+
+          {loading ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/20">
+              <div className="rounded-3xl border border-cyan-400/10 bg-slate-950/70 px-5 py-4 text-sm font-semibold text-cyan-200 backdrop-blur">
+                Memuat titik operasional...
+              </div>
+            </div>
+          ) : markers.length > 0 ? (
+            markers.map((marker) => (
+              <button
+                key={marker.id}
+                type="button"
+                style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+                className="group absolute z-20 -translate-x-1/2 -translate-y-1/2"
+                title={`${marker.label} • ${marker.detail}`}
+              >
+                <span
+                  className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-white shadow-lg ring-4 ring-white/10 transition group-hover:scale-110 ${getMarkerClass(
+                    marker.type
+                  )}`}
+                >
+                  {getMarkerIcon(marker.type)}
+                </span>
+
+                <span className="pointer-events-none absolute left-1/2 top-11 z-30 hidden w-64 -translate-x-1/2 rounded-2xl border border-white/10 bg-slate-950/95 p-3 text-left shadow-2xl backdrop-blur group-hover:block">
+                  <span className="block text-sm font-bold text-white">
+                    {marker.label}
+                  </span>
+                  <span className="mt-1 block text-xs uppercase tracking-wide text-cyan-300">
+                    {marker.subtitle}
+                  </span>
+                  <span className="mt-2 block text-xs leading-relaxed text-slate-300">
+                    {marker.detail}
+                  </span>
+                  <span className="mt-2 inline-flex rounded-full bg-white/10 px-2 py-1 text-[11px] font-semibold text-slate-200">
+                    {marker.status}
+                  </span>
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="absolute inset-0 z-20 flex items-center justify-center">
+              <div className="rounded-3xl border border-white/10 bg-slate-950/70 px-5 py-4 text-center text-sm text-slate-300 backdrop-blur">
+                Belum ada titik untuk filter ini.
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-cyan-400/10 bg-slate-950/45 p-5 xl:border-l xl:border-t-0">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-base font-semibold text-white">
+              Ringkasan Cabang
+            </h3>
+            <span className="rounded-full border border-cyan-400/10 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-300">
+              {branchStats.length} cabang
+            </span>
+          </div>
+
+          <div className="max-h-[350px] space-y-3 overflow-y-auto pr-1">
+            {branchStats.length > 0 ? (
+              branchStats.slice(0, 8).map((branch) => (
+                <div
+                  key={branch.id}
+                  className="rounded-2xl border border-white/5 bg-slate-900/70 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-white">{branch.name}</p>
+                      <p className="mt-1 text-xs text-slate-400">{branch.area}</p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                        branch.status
+                          ? "bg-emerald-400/10 text-emerald-300"
+                          : "bg-rose-400/10 text-rose-300"
+                      }`}
+                    >
+                      {branch.status ? "Aktif" : "Nonaktif"}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl bg-white/5 px-2 py-2">
+                      <p className="text-xs text-slate-400">Internal</p>
+                      <p className="font-bold text-cyan-300">{branch.internalCount}</p>
+                    </div>
+                    <div className="rounded-xl bg-white/5 px-2 py-2">
+                      <p className="text-xs text-slate-400">Booking</p>
+                      <p className="font-bold text-blue-300">{branch.bookingActive}</p>
+                    </div>
+                    <div className="rounded-xl bg-white/5 px-2 py-2">
+                      <p className="text-xs text-slate-400">Cleaning</p>
+                      <p className="font-bold text-amber-300">{branch.roomCleaning}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-2xl border border-white/5 bg-slate-900/70 p-4 text-sm text-slate-400">
+                Belum ada data cabang untuk ditampilkan.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MapLegend({ color, label }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/70 px-3 py-2 text-xs font-semibold text-slate-200 backdrop-blur">
+      <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+      {label}
+    </span>
+  );
+}
+
+function ITPresenceRow({ name, email, phone, role, branch, status, helper, tone }) {
+  const toneClass =
+    tone === "online"
+      ? "bg-emerald-400/10 text-emerald-300"
+      : tone === "idle"
+      ? "bg-amber-400/10 text-amber-300"
+      : "bg-slate-700/60 text-slate-300";
+
+  return (
+    <div className="rounded-2xl border border-white/5 bg-slate-900/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-white">{name}</p>
+          <p className="mt-1 text-xs text-slate-400">{email}</p>
+          <p className="mt-1 text-xs font-semibold text-cyan-200">WA: {phone || "-"}</p>
+        </div>
+
+        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClass}`}>
+          {status}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <span className="rounded-full border border-cyan-400/10 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-cyan-300">
+          {role}
+        </span>
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300">
+          {branch}
+        </span>
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-400">
+          {helper}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ITActivityRow({ title, desc, meta }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-white/5 bg-slate-900/70 p-4">
+      <div className="mt-1 rounded-xl bg-cyan-400/10 p-2 text-cyan-300">
+        <Activity size={16} />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold text-white">{title}</p>
+        <p className="mt-1 truncate text-sm text-slate-400">{desc}</p>
+      </div>
+
+      <span className="shrink-0 rounded-full border border-cyan-400/10 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-300">
+        {meta}
+      </span>
+    </div>
+  );
+}
+

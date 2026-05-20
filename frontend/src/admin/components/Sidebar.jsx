@@ -364,6 +364,14 @@ const roleThemes = {
 export default function Sidebar() {
   const location = useLocation();
   const [adminUser, setAdminUser] = useState(null);
+  const sidebarCollapseStorageKey = "readyroom_admin_sidebar_collapsed";
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(sidebarCollapseStorageKey) === "1";
+    } catch (error) {
+      return false;
+    }
+  });
 
   useEffect(() => {
     const readAdminUser = () => {
@@ -393,6 +401,14 @@ export default function Sidebar() {
       window.removeEventListener("storage", readAdminUser);
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(sidebarCollapseStorageKey, isCollapsed ? "1" : "0");
+    } catch (error) {
+      console.error("SAVE SIDEBAR COLLAPSE ERROR:", error);
+    }
+  }, [isCollapsed]);
 
   const currentRole = (adminUser?.role || "").toLowerCase();
 
@@ -435,6 +451,8 @@ export default function Sidebar() {
 
   const theme = roleThemes[currentRole] || roleThemes.default;
   const BottomIcon = theme.icon;
+  const sidebarWidthClass = isCollapsed ? "w-20" : "w-72";
+  const sidebarBaseClass = theme.aside.replace("w-72", sidebarWidthClass);
 
   const isItemActive = (item) => {
     const currentPath = location.pathname;
@@ -453,7 +471,9 @@ export default function Sidebar() {
   };
 
   const getNavClassName = (isActive) => {
-    return `group relative flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 ${
+    return `group relative flex items-center rounded-2xl transition-all duration-200 ${
+      isCollapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-3"
+    } ${
       isActive
         ? `${theme.activeNav} z-10 translate-x-0`
         : `${theme.inactiveNav} z-0 hover:translate-x-0.5`
@@ -468,11 +488,15 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`${theme.aside} sticky top-0 h-screen max-h-screen overflow-y-auto overflow-x-hidden overscroll-contain`}
+      className={`${sidebarBaseClass} relative sticky top-0 h-screen max-h-screen overflow-y-auto overflow-x-hidden overscroll-contain transition-[width] duration-300 ease-in-out`}
     >
-      <div className="p-6">
-        <div className="mb-8">
-          <div className="flex items-center gap-3">
+      <div className={isCollapsed ? "p-4" : "p-6"}>
+        <div className={isCollapsed ? "mb-8 pt-1" : "mb-8 pr-10"}>
+          <div
+            className={`flex items-center ${
+              isCollapsed ? "justify-center" : "gap-3"
+            }`}
+          >
             <div className={theme.logoWrap}>
               <img
                 src="/readyroom.png"
@@ -481,17 +505,35 @@ export default function Sidebar() {
               />
             </div>
 
-            <div>
-              <h2 className="text-xl font-bold tracking-wide">ReadyRoom</h2>
-              <p className="text-xs text-white/55">{theme.panelSubtitle}</p>
-            </div>
+            {!isCollapsed && (
+              <div className="min-w-0">
+                <h2 className="truncate text-xl font-bold tracking-wide">
+                  ReadyRoom
+                </h2>
+                <p className="truncate text-xs text-white/55">
+                  {theme.panelSubtitle}
+                </p>
+              </div>
+            )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCollapsed((prev) => !prev)}
+            className={`absolute top-5 z-20 flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-lg font-black leading-none text-white shadow-lg backdrop-blur transition hover:bg-white/15 ${
+              isCollapsed ? "right-3" : "right-4"
+            }`}
+            title={isCollapsed ? "Perbesar sidebar" : "Kecilkan sidebar"}
+            aria-label={isCollapsed ? "Perbesar sidebar" : "Kecilkan sidebar"}
+          >
+            {isCollapsed ? "›" : "‹"}
+          </button>
         </div>
 
-        <div className="space-y-8">
+        <div className={isCollapsed ? "space-y-5" : "space-y-8"}>
           {filteredMenuSections.map((section) => (
             <div key={section.title}>
-              <p className={theme.sectionTitle}>{section.title}</p>
+              {!isCollapsed && <p className={theme.sectionTitle}>{section.title}</p>}
 
               <nav className="space-y-2">
                 {section.items.map((item) => {
@@ -504,12 +546,18 @@ export default function Sidebar() {
                       to={item.path}
                       end={Boolean(item.end)}
                       className={getNavClassName(active)}
+                      title={isCollapsed ? item.name : undefined}
+                      aria-label={item.name}
                     >
                       <div className={getIconWrapClassName(active)}>
                         <Icon size={20} />
                       </div>
 
-                      <span className="font-medium">{item.name}</span>
+                      {!isCollapsed && (
+                        <span className="min-w-0 truncate font-medium">
+                          {item.name}
+                        </span>
+                      )}
                     </NavLink>
                   );
                 })}
@@ -518,23 +566,32 @@ export default function Sidebar() {
           ))}
         </div>
 
-        <div className={theme.bottomCard}>
-          <div className="mb-2 flex items-center gap-2">
-            <BottomIcon size={16} />
-            <p className="text-sm font-semibold">{theme.label}</p>
+        {isCollapsed ? (
+          <div
+            className={`${theme.bottomCard} !mt-6 flex items-center justify-center !rounded-2xl !p-3`}
+            title={`${theme.label} - ${theme.description}`}
+          >
+            <BottomIcon size={18} />
           </div>
-
-          <p className={`text-xs leading-relaxed ${theme.bottomText}`}>
-            {theme.description}
-          </p>
-
-          {currentRole === "it" && (
-            <div className="mt-3 flex items-center gap-2 rounded-2xl border border-cyan-300/10 bg-white/10 px-3 py-2 text-xs text-cyan-50/90">
-              <Cpu size={14} />
-              <span>Mode khusus sistem aktif</span>
+        ) : (
+          <div className={theme.bottomCard}>
+            <div className="mb-2 flex items-center gap-2">
+              <BottomIcon size={16} />
+              <p className="text-sm font-semibold">{theme.label}</p>
             </div>
-          )}
-        </div>
+
+            <p className={`text-xs leading-relaxed ${theme.bottomText}`}>
+              {theme.description}
+            </p>
+
+            {currentRole === "it" && (
+              <div className="mt-3 flex items-center gap-2 rounded-2xl border border-cyan-300/10 bg-white/10 px-3 py-2 text-xs text-cyan-50/90">
+                <Cpu size={14} />
+                <span>Mode khusus sistem aktif</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   );
