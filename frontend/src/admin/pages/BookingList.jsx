@@ -2780,6 +2780,22 @@ const handlePrintReport = () => {
     return bookingType || "-";
   };
 
+  const getReportBookingDurationLabel = (booking) => {
+    const bookingType = String(booking?.booking_type || "").toLowerCase();
+    const durationHours = Number(booking?.duration_hours || 0);
+    const durationDays = Number(booking?.duration_days || 0);
+
+    if (bookingType === "transit") {
+      return durationHours > 0 ? `Transit • ${durationHours} jam` : "Transit";
+    }
+
+    if (bookingType === "overnight") {
+      return durationDays > 1 ? `Full Day • ${durationDays} hari` : "Full Day";
+    }
+
+    return getBookingTypeLabel(booking?.booking_type);
+  };
+
   const getReportTransactionDate = (booking) => {
     return getOperationalCheckInTime(booking) || booking?.check_in || null;
   };
@@ -3171,6 +3187,17 @@ const buildWhatsAppMessage = (booking) => {
 
     return [];
   }, [hotels, uniqueHotels, assignedHotelIds, canAccessAllHotels]);
+
+  useEffect(() => {
+    if (canAccessAllHotels) return;
+    if (filters.hotelId) return;
+    if (folderHotels.length !== 1) return;
+
+    setFilters((prev) => ({
+      ...prev,
+      hotelId: String(folderHotels[0].id),
+    }));
+  }, [canAccessAllHotels, folderHotels, filters.hotelId]);
 
   const isSameDay = (dateA, dateB) => {
     return (
@@ -6253,135 +6280,80 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </button>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-7 gap-4">
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 xl:col-span-2">
-          <label className="mb-2 block text-sm font-semibold text-gray-700">
-            Filter Tanggal
-          </label>
-
-          <input
-            type="date"
-            value={reportDate}
-            onChange={(e) => setReportDate(e.target.value || getTodayDateValue())}
-            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-          />
-          <p className="mt-2 text-xs font-medium text-gray-500">
-            Patokan: Jam Masuk Tamu / aktual check-in
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <label className="mb-2 block text-sm font-semibold text-gray-700">
-            Filter Shift
-          </label>
-
-          <select
-            value={reportShift}
-            onChange={(e) => setReportShift(e.target.value)}
-            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-          >
-            <option value="all">Semua Shift</option>
-            <option value="pagi">Shift Pagi (00:00 - 11:59)</option>
-            <option value="malam">Shift Malam (12:00 - 23:59)</option>
-          </select>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <label className="mb-2 block text-sm font-semibold text-gray-700">
-            Filter Metode Pembayaran
-          </label>
-
-          <select
-            value={reportPaymentMethod}
-            onChange={(e) => setReportPaymentMethod(e.target.value)}
-            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
-          >
-            <option value="all">Semua Metode</option>
-            <option value="cash">Tunai</option>
-            <option value="digital">Transfer / QRIS</option>
-          </select>
-        </div>
-
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
-          <p className="text-sm font-semibold text-red-600">Total Booking</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">{reportBookings.length}</p>
-          <p className="mt-1 text-xs text-gray-500">Sudah check-in & lunas</p>
-        </div>
-
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-          <p className="text-sm font-semibold text-emerald-700">Pendapatan Booking</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {formatCurrency(reportTotalValue)}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">Dari transaksi lunas</p>
-        </div>
-
-        <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4">
-          <p className="text-sm font-semibold text-orange-700">Total Tunai</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {formatCurrency(reportTotalCashValue)}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            {reportTotalCashCount} transaksi tunai
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-          <p className="text-sm font-semibold text-indigo-700">Total TF / QRIS</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {formatCurrency(reportTotalDigitalValue)}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            {reportTotalDigitalCount} transaksi TF / QRIS
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
-          <p className="text-sm font-semibold text-amber-700">Total Diskon</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {formatCurrency(reportTotalDiscount)}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">Potongan dari booking</p>
-        </div>
-
-        <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
-          <p className="text-sm font-semibold text-rose-700">Total Denda</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {formatCurrency(reportTotalPenalty)}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">Denda pada filter ini</p>
-        </div>
-
-        <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4 xl:col-span-2">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-sky-700">Total Pengeluaran</p>
-              <p className="mt-2 text-3xl font-bold text-gray-900">
-                {formatCurrency(reportTotalExpense)}
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                {reportExpenseRows.length} item pada filter ini
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={openReportExpenseModal}
-              className="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-3 text-xs font-black text-white shadow-sm transition hover:bg-sky-700"
+      <div className="mb-5 rounded-3xl border border-gray-200 bg-gray-50/80 p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
+              Cabang
+            </label>
+            <select
+              value={filters.hotelId}
+              onChange={(e) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  hotelId: e.target.value,
+                }))
+              }
+              disabled={!canAccessAllHotels && folderHotels.length === 1}
+              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
             >
-              <Plus size={16} />
-              Tambah
-            </button>
+              {(canAccessAllHotels || folderHotels.length !== 1) && (
+                <option value="">Semua Cabang</option>
+              )}
+              {folderHotels.map((hotel) => (
+                <option key={hotel.id} value={hotel.id}>
+                  {hotel.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
+              Tanggal
+            </label>
+            <input
+              type="date"
+              value={reportDate}
+              onChange={(e) => setReportDate(e.target.value || getTodayDateValue())}
+              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
+              Shift
+            </label>
+            <select
+              value={reportShift}
+              onChange={(e) => setReportShift(e.target.value)}
+              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+            >
+              <option value="all">Semua Shift</option>
+              <option value="pagi">Shift Pagi</option>
+              <option value="malam">Shift Malam</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
+              Metode Pembayaran
+            </label>
+            <select
+              value={reportPaymentMethod}
+              onChange={(e) => setReportPaymentMethod(e.target.value)}
+              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+            >
+              <option value="all">Semua Metode</option>
+              <option value="cash">Tunai</option>
+              <option value="digital">Transfer / QRIS</option>
+            </select>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 xl:col-span-2">
-          <p className="text-sm font-semibold text-slate-700">Hasil Akhir / Bersih</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {formatCurrency(reportGrandTotalValue)}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">Pemasukan + denda - diskon - pengeluaran</p>
-        </div>
+        <p className="mt-2 text-xs font-semibold text-gray-500">
+          Patokan tanggal dan shift menggunakan Jam Masuk Tamu / check-in aktual.
+        </p>
       </div>
 
       <div
@@ -6415,14 +6387,13 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                 <thead className="bg-gray-50">
                   <tr className="text-left text-gray-600">
                     <th className="px-4 py-3 font-semibold">No</th>
-                    <th className="px-4 py-3 font-semibold">Jam Masuk Tamu</th>
-                    <th className="px-4 py-3 font-semibold">Target Check-out</th>
-                    <th className="px-4 py-3 font-semibold">Kode Booking</th>
+                    <th className="px-4 py-3 font-semibold">Tgl dan Jam Check-in</th>
                     <th className="px-4 py-3 font-semibold">Nama Tamu</th>
-                    <th className="px-4 py-3 font-semibold">No Telp</th>
+                    <th className="px-4 py-3 font-semibold">No Telpon</th>
+                    <th className="px-4 py-3 font-semibold">No Kamar</th>
+                    <th className="px-4 py-3 font-semibold">Durasi</th>
+                    <th className="px-4 py-3 font-semibold text-right">Harga</th>
                     <th className="px-4 py-3 font-semibold">Metode Pembayaran</th>
-                    <th className="px-4 py-3 font-semibold text-right">Total Harga</th>
-                    <th className="px-4 py-3 font-semibold text-right">Diskon</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -6433,32 +6404,29 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         <td className="px-4 py-3">
                           {formatDateTime(getReportTransactionDate(booking))}
                         </td>
-                        <td className="px-4 py-3">
-                          {formatDateTime(getOperationalCheckoutTime(booking))}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-gray-700">
-                          {booking.booking_code || "-"}
-                        </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 font-semibold text-gray-800">
                           {booking.user?.name || booking.guest_name || "Tamu"}
                         </td>
                         <td className="px-4 py-3">{booking.guest_phone || "-"}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-800">
+                          {getBookingRoomUnit(booking)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {getReportBookingDurationLabel(booking)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                          {formatCurrency(getReportBookingAmount(booking))}
+                        </td>
                         <td className="px-4 py-3">
                           {booking.payment_method
                             ? getPaymentMethodLabel(booking.payment_method)
                             : "-"}
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                          {formatCurrency(getReportBookingAmount(booking))}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-amber-700">
-                          {formatCurrency(getBookingDiscountAmount(booking))}
-                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
                         Belum ada data booking yang sudah check-in dan lunas untuk report ini.
                       </td>
                     </tr>
@@ -6538,143 +6506,65 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             </div>
           </div>
 
-          <div className="mt-6">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h5 className="text-lg font-black text-gray-900">Tabel Pengeluaran</h5>
-                <p className="text-xs font-medium text-gray-500">Pengeluaran operasional yang diinput dari laporan ini.</p>
+          <div className="mt-6 flex justify-end">
+            <div className="rr-report-summary-card w-full max-w-md rounded-3xl border border-emerald-200 bg-emerald-50/80 p-5 shadow-sm">
+              <div className="rr-report-summary-row flex items-start justify-between gap-4 text-sm">
+                <div>
+                  <p className="font-extrabold text-emerald-800">Pendapatan Booking</p>
+                </div>
+                <span className="font-black text-gray-900">{formatCurrency(reportTotalValue)}</span>
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-700">
-                  {reportExpenseRows.length} item pengeluaran
-                </span>
-                <button
-                  type="button"
-                  onClick={openReportExpenseModal}
-                  data-print-hide="true"
-                  className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-3 py-1.5 text-xs font-black text-white transition hover:bg-sky-700"
-                >
-                  <Plus size={14} />
-                  Tambah Pengeluaran
-                </button>
-              </div>
-            </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-sky-100">
-              <table className="min-w-full text-sm">
-                <thead className="bg-sky-50">
-                  <tr className="text-left text-sky-700">
-                    <th className="px-4 py-3 font-semibold">No</th>
-                    <th className="px-4 py-3 font-semibold">Tanggal</th>
-                    <th className="px-4 py-3 font-semibold">Cabang</th>
-                    <th className="px-4 py-3 font-semibold">Keperluan</th>
-                    <th className="px-4 py-3 font-semibold">Catatan</th>
-                    <th className="px-4 py-3 font-semibold">Input Oleh</th>
-                    <th className="px-4 py-3 font-semibold text-right">Nominal</th>
-                    <th data-print-hide="true" className="px-4 py-3 text-right font-semibold">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportExpenseRows.length > 0 ? (
-                    reportExpenseRows.map((expense, index) => (
-                      <tr key={expense.id} className="border-t border-sky-100 bg-sky-50/25">
-                        <td className="px-4 py-3">{index + 1}</td>
-                        <td className="px-4 py-3 font-semibold text-gray-800">
-                          {formatDate(expense.date)}
-                        </td>
-                        <td className="px-4 py-3 text-gray-700">
-                          {expense.hotel_name || "Semua Cabang"}
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-gray-800">
-                          {expense.title || "Pengeluaran Operasional"}
-                        </td>
-                        <td className="px-4 py-3 text-gray-700">
-                          {expense.note || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-gray-700">
-                          {expense.input_by || "Admin"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-sky-700">
-                          {formatCurrency(expense.amount || 0)}
-                        </td>
-                        <td data-print-hide="true" className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReportExpense(expense.id)}
-                            className="inline-flex items-center justify-center rounded-xl bg-red-50 px-3 py-2 text-xs font-black text-red-600 transition hover:bg-red-100"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
-                        Belum ada pengeluaran pada filter report ini.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <div className="rr-report-summary-row mt-3 flex items-start justify-between gap-4 text-sm">
+                <div>
+                  <p className="font-bold text-orange-700">Total Tunai</p>
+                  <p className="text-xs font-semibold text-gray-500">{reportTotalCashCount} transaksi</p>
+                </div>
+                <span className="font-black text-gray-900">{formatCurrency(reportTotalCashValue)}</span>
+              </div>
+
+              <div className="rr-report-summary-row mt-3 flex items-start justify-between gap-4 text-sm">
+                <div>
+                  <p className="font-bold text-blue-700">Total Transfer / QRIS</p>
+                  <p className="text-xs font-semibold text-gray-500">{reportTotalDigitalCount} transaksi</p>
+                </div>
+                <span className="font-black text-gray-900">{formatCurrency(reportTotalDigitalValue)}</span>
+              </div>
+
+              <div className="rr-report-summary-row mt-3 flex items-start justify-between gap-4 text-sm">
+                <div>
+                  <p className="font-bold text-amber-700">Total Diskon</p>
+                </div>
+                <span className="font-black text-gray-900">{formatCurrency(reportTotalDiscount)}</span>
+              </div>
+
+              <div className="rr-report-summary-row mt-3 flex items-start justify-between gap-4 text-sm">
+                <div>
+                  <p className="font-bold text-rose-700">Total Denda</p>
+                </div>
+                <span className="font-black text-gray-900">{formatCurrency(reportTotalPenalty)}</span>
+              </div>
+
+              <div className="rr-report-summary-row mt-3 flex items-start justify-between gap-4 text-sm">
+                <div>
+                  <p className="font-bold text-sky-700">Total Pengeluaran</p>
+                </div>
+                <span className="font-black text-gray-900">{formatCurrency(reportTotalExpense)}</span>
+              </div>
+
+              <div className="rr-report-summary-total mt-4 border-t border-emerald-300 pt-4">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="font-black text-emerald-900">Hasil Akhir / Bersih</p>
+                  <span className="text-xl font-black text-gray-900">{formatCurrency(reportGrandTotalValue)}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="mt-5 flex justify-end">
-            <div className="rr-report-summary-card w-full max-w-md rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4">
-              <div className="rr-report-summary-row flex items-center justify-between gap-4">
-                <span className="text-sm font-semibold text-emerald-700">Pendapatan Booking</span>
-                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalValue)}</span>
-              </div>
-              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
-                <span className="text-sm font-semibold text-orange-700">
-                  Total Tunai
-                  <span className="block text-[11px] font-medium text-gray-500">
-                    {reportTotalCashCount} transaksi
-                  </span>
-                </span>
-                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalCashValue)}</span>
-              </div>
-              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
-                <span className="text-sm font-semibold text-indigo-700">
-                  Total Transfer / QRIS
-                  <span className="block text-[11px] font-medium text-gray-500">
-                    {reportTotalDigitalCount} transaksi
-                  </span>
-                </span>
-                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalDigitalValue)}</span>
-              </div>
-              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
-                <span className="text-sm font-semibold text-amber-700">Total Diskon</span>
-                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalDiscount)}</span>
-              </div>
-              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
-                <span className="text-sm font-semibold text-rose-700">Total Denda</span>
-                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalPenalty)}</span>
-              </div>
-              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
-                <span className="text-sm font-semibold text-sky-700">Total Pengeluaran</span>
-                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalExpense)}</span>
-              </div>
-              <div className="rr-report-summary-row rr-report-summary-total mt-2 border-t border-emerald-200 pt-2 flex items-center justify-between gap-4">
-                <span className="text-sm font-bold text-emerald-800">Hasil Akhir / Bersih</span>
-                <span className="text-xl font-extrabold text-gray-900">{formatCurrency(reportGrandTotalValue)}</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
       <div className="mt-5 flex flex-wrap justify-end gap-3">
-        <button
-          type="button"
-          onClick={openReportExpenseModal}
-          className="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-white font-semibold transition hover:bg-sky-700"
-        >
-          <Plus size={16} />
-          Tambah Pengeluaran
-        </button>
-
         <button
           type="button"
           onClick={() => setShowReportModal(false)}
