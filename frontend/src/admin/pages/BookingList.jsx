@@ -142,6 +142,31 @@ export default function BookingList() {
     const day = String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   });
+  const reportExpenseStorageKey = "readyroom_booking_report_expenses_v1";
+  const [reportExpenses, setReportExpenses] = useState(() => {
+    try {
+      const saved = localStorage.getItem(reportExpenseStorageKey);
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error("READ REPORT EXPENSES ERROR:", error);
+      return [];
+    }
+  });
+  const [showReportExpenseModal, setShowReportExpenseModal] = useState(false);
+  const [reportExpenseForm, setReportExpenseForm] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+
+    return {
+      date: `${year}-${month}-${day}`,
+      title: "",
+      amount: "",
+      note: "",
+    };
+  });
   const [userAccessHotels, setUserAccessHotels] = useState([]);
   const [loadingUserAccessHotels, setLoadingUserAccessHotels] = useState(false);
   const [branchSeenMap, setBranchSeenMap] = useState({});
@@ -356,6 +381,14 @@ export default function BookingList() {
   }, [adminUser?.id]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(reportExpenseStorageKey, JSON.stringify(reportExpenses));
+    } catch (error) {
+      console.error("SAVE REPORT EXPENSES ERROR:", error);
+    }
+  }, [reportExpenses, reportExpenseStorageKey]);
+
+  useEffect(() => {
     if (manualForm.room_id) {
       fetchManualRoomUnits(manualForm.room_id);
     } else {
@@ -540,6 +573,11 @@ export default function BookingList() {
     if (!selectedBooking) return;
     if (!selectedUnit) {
       toast.error("Pilih kamar fisik dulu");
+      return;
+    }
+
+    if (approveRoomUnitConflictMessage) {
+      toast.error(approveRoomUnitConflictMessage);
       return;
     }
 
@@ -1767,19 +1805,15 @@ const handlePrintReport = () => {
     return;
   }
 
-  const selectedHotel =
-    folderHotels.find((hotel) => String(hotel.id) === String(filters.hotelId)) || null;
+  const printContentClone = printEl.cloneNode(true);
 
-  const branchName = selectedHotel?.name || "Semua Cabang";
-  const printedAt = new Date().toLocaleString("id-ID");
-  const shiftLabel =
-    reportShift === "all"
-      ? "Semua Shift"
-      : reportShift === "pagi"
-      ? "Shift Pagi"
-      : "Shift Malam";
-  const paymentMethodLabel = getReportPaymentMethodLabel(reportPaymentMethod);
-  const reportDateLabel = reportDate ? formatDate(reportDate) : "Semua Tanggal";
+  printContentClone.querySelectorAll('[data-print-hide="true"]').forEach((element) => {
+    element.remove();
+  });
+
+  printContentClone.querySelectorAll('[data-report-print-header="true"]').forEach((element) => {
+    element.remove();
+  });
 
   const printWindow = window.open("", "_blank", "width=1280,height=900");
 
@@ -1841,49 +1875,23 @@ const handlePrintReport = () => {
             font-size: 14px;
             color: rgba(255,255,255,0.92);
           }
-          .meta-grid {
-            display: grid;
-            grid-template-columns: repeat(6, minmax(0, 1fr));
-            gap: 12px;
-            padding: 20px 24px 0;
+          .content {
+            padding: 22px 24px 28px;
           }
-          .meta-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 18px;
-            padding: 12px 14px;
-            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-          }
-          .meta-label {
-            margin: 0 0 6px 0;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #6b7280;
-          }
-          .meta-value {
-            margin: 0;
-            font-size: 16px;
+          .content h5 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
             font-weight: 800;
             color: #111827;
           }
-          .content {
-            padding: 20px 24px 26px;
-          }
-          .note {
-            margin-bottom: 16px;
-            padding: 14px 16px;
-            border-radius: 16px;
-            border: 1px solid #fee2e2;
-            background: linear-gradient(180deg, #fff5f5 0%, #fff1f2 100%);
-            color: #b91c1c;
-            font-size: 13px;
-            font-weight: 700;
+          .content p {
+            margin: 0;
           }
           table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
+            margin-bottom: 18px;
           }
           thead th {
             background: #f8fafc;
@@ -1903,13 +1911,38 @@ const handlePrintReport = () => {
             background: #fcfcfd;
           }
           .text-right { text-align: right; }
-          .footer {
+          .rr-report-summary-card {
+            margin-left: auto;
+            width: 360px;
+            max-width: 100%;
+            border: 1px solid #bbf7d0;
+            border-radius: 16px;
+            background: #ecfdf5;
+            padding: 14px 16px;
+          }
+          .rr-report-summary-row {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            gap: 12px;
-            padding: 0 24px 24px;
-            color: #6b7280;
-            font-size: 12px;
+            gap: 16px;
+            margin-top: 8px;
+            font-size: 13px;
+          }
+          .rr-report-summary-row:first-child {
+            margin-top: 0;
+          }
+          .rr-report-summary-row span:first-child {
+            font-weight: 700;
+            color: #374151;
+          }
+          .rr-report-summary-row span:last-child {
+            font-weight: 800;
+            color: #111827;
+          }
+          .rr-report-summary-total {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #86efac;
           }
           @media print {
             body {
@@ -1921,6 +1954,10 @@ const handlePrintReport = () => {
               border-radius: 0;
               box-shadow: none;
             }
+            .sheet-top {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
           }
         </style>
       </head>
@@ -1928,46 +1965,11 @@ const handlePrintReport = () => {
         <div class="sheet">
           <div class="sheet-top">
             <h1>Laporan Booking ReadyRoom</h1>
-            <p>Laporan operasional resepsionis per cabang yang siap dicetak</p>
-          </div>
-
-          <div class="meta-grid">
-            <div class="meta-card">
-              <p class="meta-label">Cabang</p>
-              <p class="meta-value">${branchName}</p>
-            </div>
-            <div class="meta-card">
-              <p class="meta-label">Tanggal Check In</p>
-              <p class="meta-value">${reportDateLabel}</p>
-            </div>
-            <div class="meta-card">
-              <p class="meta-label">Shift</p>
-              <p class="meta-value">${shiftLabel}</p>
-            </div>
-            <div class="meta-card">
-              <p class="meta-label">Metode Bayar</p>
-              <p class="meta-value">${paymentMethodLabel}</p>
-            </div>
-            <div class="meta-card">
-              <p class="meta-label">Total Data</p>
-              <p class="meta-value">${reportBookings.length}</p>
-            </div>
-            <div class="meta-card">
-              <p class="meta-label">Dicetak</p>
-              <p class="meta-value">${printedAt}</p>
-            </div>
+            <p>Dicetak dari Apps Powered by ReadyRoom Technology</p>
           </div>
 
           <div class="content">
-            <div class="note">
-              Filter aktif: ${branchName} • ${reportDateLabel} • ${shiftLabel} • ${paymentMethodLabel}
-            </div>
-            ${printEl.innerHTML}
-          </div>
-
-          <div class="footer">
-            <div>Laporan Admin ReadyRoom</div>
-            <div>Dokumen internal cabang</div>
+            ${printContentClone.innerHTML}
           </div>
         </div>
 
@@ -2502,6 +2504,115 @@ const handlePrintReport = () => {
     manualRoomUnitConflictBooking,
   ]);
 
+
+  const getApproveBookingRange = (booking) => {
+    if (!booking) return null;
+
+    const approveStart = toSafeDate(booking?.check_in);
+    let approveEnd = toSafeDate(booking?.check_out);
+
+    if (!approveStart) return null;
+
+    if (!approveEnd) {
+      const durationMs = getBookingDurationMs(booking);
+      approveEnd = new Date(approveStart.getTime() + durationMs);
+    }
+
+    if (!approveEnd || approveEnd.getTime() <= approveStart.getTime()) {
+      return null;
+    }
+
+    return {
+      start: approveStart,
+      end: approveEnd,
+    };
+  };
+
+  const getApproveRoomUnitConflictBookingByUnitId = (unitId) => {
+    if (!selectedBooking || !unitId) return null;
+
+    const approveRange = getApproveBookingRange(selectedBooking);
+    if (!approveRange) return null;
+
+    const ignoredStatuses = [
+      "cancelled",
+      "canceled",
+      "cancel",
+      "rejected",
+      "reject",
+      "refunded",
+      "refund",
+      "completed",
+      "complete",
+      "deleted",
+      "void",
+      "expired",
+    ];
+
+    return (
+      (bookings || []).find((booking) => {
+        if (String(booking?.id) === String(selectedBooking?.id)) return false;
+
+        const bookingStatus = String(booking?.status || "").toLowerCase();
+        const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+
+        if (ignoredStatuses.includes(bookingStatus)) return false;
+        if (paymentStatus === "refunded") return false;
+
+        if (String(getBookingRoomUnitId(booking)) !== String(unitId)) {
+          return false;
+        }
+
+        return isManualBookingRangeOverlap(booking, approveRange);
+      }) || null
+    );
+  };
+
+  const selectedApproveRoomUnit = useMemo(() => {
+    return roomUnits.find((unit) => String(unit.id) === String(selectedUnit));
+  }, [roomUnits, selectedUnit]);
+
+  const approveRoomUnitConflictBooking = useMemo(() => {
+    if (!selectedBooking || !selectedUnit) return null;
+
+    return getApproveRoomUnitConflictBookingByUnitId(selectedUnit);
+  }, [
+    bookings,
+    selectedBooking,
+    selectedUnit,
+  ]);
+
+  const approveRoomUnitConflictMessage = useMemo(() => {
+    if (!selectedBooking || !selectedUnit) return "";
+    if (!approveRoomUnitConflictBooking) return "";
+
+    const roomNumber =
+      selectedApproveRoomUnit?.room_number ||
+      approveRoomUnitConflictBooking?.roomUnit?.room_number ||
+      approveRoomUnitConflictBooking?.room_unit?.room_number ||
+      "";
+
+    return `Kamar ${roomNumber || "ini"} sudah ada bookingan di jam tersebut. Pilih kamar lain.`;
+  }, [
+    selectedBooking,
+    selectedUnit,
+    selectedApproveRoomUnit,
+    approveRoomUnitConflictBooking,
+  ]);
+
+  const getApproveRoomUnitOptionLabel = (unit) => {
+    const conflictBooking = getApproveRoomUnitConflictBookingByUnitId(unit?.id);
+    const roomLabel = `Kamar ${unit?.room_number || "-"}`;
+
+    if (!conflictBooking) return roomLabel;
+
+    return `${roomLabel} - sudah ada bookingan`;
+  };
+
+  const isApproveRoomUnitConflicted = (unitId) => {
+    return Boolean(getApproveRoomUnitConflictBookingByUnitId(unitId));
+  };
+
   const getPenaltySummary = (booking) => {
     const penalties = Array.isArray(booking?.penalties) ? booking.penalties : [];
     const totalPenalty =
@@ -2760,17 +2871,33 @@ const buildWhatsAppMessage = (booking) => {
     }
   };
 
+  const getPaymentMethodGroup = (paymentMethod) => {
+    const method = String(paymentMethod || "").toLowerCase();
+
+    if (["cash", "tunai"].includes(method)) return "cash";
+
+    if (
+      ["transfer", "bank_transfer", "transfer_bank", "qris", "qris_manual"].includes(method) ||
+      method.includes("transfer") ||
+      method.includes("qris")
+    ) {
+      return "digital";
+    }
+
+    return "other";
+  };
+
   const matchesReportPaymentMethod = (booking) => {
     if (reportPaymentMethod === "all") return true;
 
-    const method = String(booking?.payment_method || "").toLowerCase();
+    const paymentGroup = getPaymentMethodGroup(booking?.payment_method);
 
     if (reportPaymentMethod === "cash") {
-      return method === "cash";
+      return paymentGroup === "cash";
     }
 
     if (reportPaymentMethod === "digital") {
-      return ["transfer", "qris"].includes(method);
+      return paymentGroup === "digital";
     }
 
     return true;
@@ -3214,6 +3341,32 @@ const reportBookings = useMemo(() => {
     );
   }, [reportBookings]);
 
+  const reportTotalCashValue = useMemo(() => {
+    return reportBookings.reduce((sum, booking) => {
+      if (getPaymentMethodGroup(booking?.payment_method) !== "cash") return sum;
+      return sum + getReportBookingAmount(booking);
+    }, 0);
+  }, [reportBookings]);
+
+  const reportTotalDigitalValue = useMemo(() => {
+    return reportBookings.reduce((sum, booking) => {
+      if (getPaymentMethodGroup(booking?.payment_method) !== "digital") return sum;
+      return sum + getReportBookingAmount(booking);
+    }, 0);
+  }, [reportBookings]);
+
+  const reportTotalCashCount = useMemo(() => {
+    return reportBookings.filter(
+      (booking) => getPaymentMethodGroup(booking?.payment_method) === "cash"
+    ).length;
+  }, [reportBookings]);
+
+  const reportTotalDigitalCount = useMemo(() => {
+    return reportBookings.filter(
+      (booking) => getPaymentMethodGroup(booking?.payment_method) === "digital"
+    ).length;
+  }, [reportBookings]);
+
   const reportTotalPenalty = useMemo(() => {
     return reportPenaltyRows.reduce(
       (sum, item) => sum + Number(item?.amount || 0),
@@ -3228,9 +3381,109 @@ const reportBookings = useMemo(() => {
     );
   }, [reportBookings]);
 
+  const selectedReportHotelForExpense = useMemo(() => {
+    return (
+      folderHotels.find((hotel) => String(hotel.id) === String(filters.hotelId)) ||
+      null
+    );
+  }, [folderHotels, filters.hotelId]);
+
+  const reportExpenseRows = useMemo(() => {
+    return reportExpenses.filter((expense) => {
+      const matchesDate = reportDate
+        ? normalizeDateOnlyValue(expense?.date) === reportDate
+        : true;
+      const matchesHotel = filters.hotelId
+        ? String(expense?.hotel_id || "") === String(filters.hotelId)
+        : true;
+
+      return matchesDate && matchesHotel;
+    });
+  }, [reportExpenses, reportDate, filters.hotelId]);
+
+  const reportTotalExpense = useMemo(() => {
+    return reportExpenseRows.reduce(
+      (sum, expense) => sum + Number(expense?.amount || 0),
+      0
+    );
+  }, [reportExpenseRows]);
+
   const reportGrandTotalValue = useMemo(() => {
-    return reportTotalValue + reportTotalPenalty;
-  }, [reportTotalValue, reportTotalPenalty]);
+    return reportTotalValue + reportTotalPenalty - reportTotalDiscount - reportTotalExpense;
+  }, [
+    reportTotalValue,
+    reportTotalPenalty,
+    reportTotalDiscount,
+    reportTotalExpense,
+  ]);
+
+  const openReportExpenseModal = () => {
+    setReportExpenseForm({
+      date: reportDate || getTodayDateValue(),
+      title: "",
+      amount: "",
+      note: "",
+    });
+    setShowReportExpenseModal(true);
+  };
+
+  const closeReportExpenseModal = () => {
+    setShowReportExpenseModal(false);
+    setReportExpenseForm({
+      date: reportDate || getTodayDateValue(),
+      title: "",
+      amount: "",
+      note: "",
+    });
+  };
+
+  const handleReportExpenseChange = (e) => {
+    const { name, value } = e.target;
+    setReportExpenseForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSaveReportExpense = () => {
+    const amount = Number(reportExpenseForm.amount || 0);
+
+    if (!reportExpenseForm.date) {
+      toast.error("Tanggal pengeluaran wajib diisi");
+      return;
+    }
+
+    if (!reportExpenseForm.title.trim()) {
+      toast.error("Keperluan pengeluaran wajib diisi");
+      return;
+    }
+
+    if (Number.isNaN(amount) || amount <= 0) {
+      toast.error("Nominal pengeluaran harus lebih dari 0");
+      return;
+    }
+
+    const newExpense = {
+      id: `expense-${Date.now()}`,
+      date: reportExpenseForm.date,
+      title: reportExpenseForm.title.trim(),
+      amount: Math.round(amount),
+      note: reportExpenseForm.note.trim(),
+      hotel_id: filters.hotelId || "",
+      hotel_name: selectedReportHotelForExpense?.name || "Semua Cabang",
+      input_by: adminUser?.name || adminUser?.email || "Admin",
+      created_at: new Date().toISOString(),
+    };
+
+    setReportExpenses((prev) => [newExpense, ...prev]);
+    toast.success("Pengeluaran berhasil ditambahkan ke laporan");
+    closeReportExpenseModal();
+  };
+
+  const handleDeleteReportExpense = (expenseId) => {
+    setReportExpenses((prev) => prev.filter((expense) => expense.id !== expenseId));
+    toast.success("Pengeluaran dihapus dari laporan");
+  };
 
   const getHousekeepingStartTime = (booking) => {
     return (
@@ -3893,7 +4146,7 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                 <option value="today_active">Aktif Hari Ini</option>
                 <option value="ready_checkin_payment">Check-in & Bayar</option>
                 <option value="all">Riwayat Booking</option>
-                <option value="approval">Approval</option>
+                <option value="approval">Perlu Disetujui</option>
               </select>
 
               <select
@@ -4531,7 +4784,7 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                                 <ActionButton
                                   icon={<DoorOpen size={17} />}
                                   label="Check-in & Bayar"
-                                  tone="emerald"
+                                  tone="blue"
                                   onClick={() => handleMarkPaid(booking)}
                                 />
 
@@ -4669,17 +4922,35 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
                       Pilih Kamar Fisik
                     </label>
                     <select
-                      className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                      className={`w-full rounded-2xl border bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:ring-4 ${
+                        approveRoomUnitConflictMessage
+                          ? "border-red-300 text-red-700 focus:border-red-500 focus:ring-red-100"
+                          : "border-gray-200 focus:border-green-500 focus:ring-green-100"
+                      }`}
                       value={selectedUnit}
                       onChange={(e) => setSelectedUnit(e.target.value)}
                     >
                       <option value="">Pilih kamar fisik</option>
-                      {roomUnits.map((unit) => (
-                        <option key={unit.id} value={unit.id}>
-                          Kamar {unit.room_number}
-                        </option>
-                      ))}
+                      {roomUnits.map((unit) => {
+                        const unitConflict = isApproveRoomUnitConflicted(unit.id);
+
+                        return (
+                          <option
+                            key={unit.id}
+                            value={unit.id}
+                            disabled={unitConflict}
+                          >
+                            {getApproveRoomUnitOptionLabel(unit)}
+                          </option>
+                        );
+                      })}
                     </select>
+
+                    {approveRoomUnitConflictMessage && (
+                      <p className="mt-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold leading-relaxed text-red-600">
+                        {approveRoomUnitConflictMessage}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -4706,9 +4977,9 @@ const manualCheckInDisplay = getManualCheckInDisplay(manualForm.check_in);
 
                     <button
                       type="button"
-                      className="flex-1 bg-green-600 text-white rounded-2xl py-3 font-semibold hover:bg-green-700 transition disabled:opacity-70"
+                      className="flex-1 bg-green-600 text-white rounded-2xl py-3 font-semibold hover:bg-green-700 transition disabled:cursor-not-allowed disabled:opacity-70"
                       onClick={handleApprove}
-                      disabled={approving}
+                      disabled={approving || Boolean(approveRoomUnitConflictMessage)}
                     >
                       {approving ? "Menyimpan..." : "Konfirmasi Setujui"}
                     </button>
@@ -5987,6 +6258,26 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           <p className="mt-1 text-xs text-gray-500">Dari transaksi lunas</p>
         </div>
 
+        <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4">
+          <p className="text-sm font-semibold text-orange-700">Total Tunai</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">
+            {formatCurrency(reportTotalCashValue)}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            {reportTotalCashCount} transaksi tunai
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+          <p className="text-sm font-semibold text-indigo-700">Total TF / QRIS</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">
+            {formatCurrency(reportTotalDigitalValue)}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            {reportTotalDigitalCount} transaksi TF / QRIS
+          </p>
+        </div>
+
         <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
           <p className="text-sm font-semibold text-amber-700">Total Diskon</p>
           <p className="mt-2 text-3xl font-bold text-gray-900">
@@ -6002,73 +6293,54 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           </p>
           <p className="mt-1 text-xs text-gray-500">Denda pada filter ini</p>
         </div>
+
+        <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4 xl:col-span-2">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-sky-700">Total Pengeluaran</p>
+              <p className="mt-2 text-3xl font-bold text-gray-900">
+                {formatCurrency(reportTotalExpense)}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                {reportExpenseRows.length} item pada filter ini
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openReportExpenseModal}
+              className="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-3 text-xs font-black text-white shadow-sm transition hover:bg-sky-700"
+            >
+              <Plus size={16} />
+              Tambah
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 xl:col-span-2">
+          <p className="text-sm font-semibold text-slate-700">Hasil Akhir / Bersih</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">
+            {formatCurrency(reportGrandTotalValue)}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">Pemasukan + denda - diskon - pengeluaran</p>
+        </div>
       </div>
 
       <div
         ref={reportPrintRef}
         className="rounded-[28px] border border-gray-200 overflow-hidden bg-white"
       >
-        <div className="bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-6 py-5 text-white">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h4 className="text-3xl font-extrabold tracking-tight">Laporan Booking ReadyRoom</h4>
-              <p className="mt-1 text-sm text-white/90">Dicetak dari Apps Powered by ReadyRoom Technology</p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
-                Shift: {reportShift === "all" ? "Semua Shift" : reportShift === "pagi" ? "Pagi" : "Malam"}
-              </span>
-
-              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
-                Pembayaran: {getReportPaymentMethodLabel(reportPaymentMethod)}
-              </span>
-
-              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
-                Dicetak: {new Date().toLocaleString("id-ID")}
-              </span>
-            </div>
+        <div
+          data-report-print-header="true"
+          className="bg-gradient-to-r from-red-700 via-red-600 to-rose-500 px-6 py-5 text-white"
+        >
+          <div>
+            <h4 className="text-3xl font-extrabold tracking-tight">Laporan Booking ReadyRoom</h4>
+            <p className="mt-1 text-sm text-white/90">Dicetak dari Apps Powered by ReadyRoom Technology</p>
           </div>
         </div>
 
         <div className="px-6 py-5">
-          <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Cabang Report</p>
-              <p className="mt-1 text-lg font-bold text-gray-800">
-                {folderHotels.find((hotel) => String(hotel.id) === String(filters.hotelId))?.name || "Semua Cabang"}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Keterangan</p>
-              <p className="mt-1 text-sm font-semibold text-gray-700">Filter aktif: {reportDate ? formatDate(reportDate) : "Semua Tanggal"} • {reportShift === "all" ? "Semua Shift" : reportShift === "pagi" ? "Shift Pagi" : "Shift Malam"} • {getReportPaymentMethodLabel(reportPaymentMethod)}</p>
-              <p className="mt-1 text-xs font-medium text-gray-500">Patokan tanggal dan shift menggunakan Jam Masuk Tamu / check-in aktual.</p>
-            </div>
-          </div>
-
-          <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-5">
-            <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-              <p className="text-xs font-bold text-red-600">Total Booking</p>
-              <p className="mt-1 text-xl font-black text-gray-900">{reportBookings.length}</p>
-            </div>
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-              <p className="text-xs font-bold text-emerald-700">Pendapatan Booking</p>
-              <p className="mt-1 text-xl font-black text-gray-900">{formatCurrency(reportTotalValue)}</p>
-            </div>
-            <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-              <p className="text-xs font-bold text-amber-700">Total Diskon</p>
-              <p className="mt-1 text-xl font-black text-gray-900">{formatCurrency(reportTotalDiscount)}</p>
-            </div>
-            <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
-              <p className="text-xs font-bold text-rose-700">Total Denda</p>
-              <p className="mt-1 text-xl font-black text-gray-900">{formatCurrency(reportTotalPenalty)}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-xs font-bold text-slate-600">Total Nilai</p>
-              <p className="mt-1 text-xl font-black text-gray-900">{formatCurrency(reportGrandTotalValue)}</p>
-            </div>
-          </div>
-
           <div className="mb-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
@@ -6208,22 +6480,126 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
             </div>
           </div>
 
+          <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h5 className="text-lg font-black text-gray-900">Tabel Pengeluaran</h5>
+                <p className="text-xs font-medium text-gray-500">Pengeluaran operasional yang diinput dari laporan ini.</p>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-700">
+                  {reportExpenseRows.length} item pengeluaran
+                </span>
+                <button
+                  type="button"
+                  onClick={openReportExpenseModal}
+                  data-print-hide="true"
+                  className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-3 py-1.5 text-xs font-black text-white transition hover:bg-sky-700"
+                >
+                  <Plus size={14} />
+                  Tambah Pengeluaran
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-sky-100">
+              <table className="min-w-full text-sm">
+                <thead className="bg-sky-50">
+                  <tr className="text-left text-sky-700">
+                    <th className="px-4 py-3 font-semibold">No</th>
+                    <th className="px-4 py-3 font-semibold">Tanggal</th>
+                    <th className="px-4 py-3 font-semibold">Cabang</th>
+                    <th className="px-4 py-3 font-semibold">Keperluan</th>
+                    <th className="px-4 py-3 font-semibold">Catatan</th>
+                    <th className="px-4 py-3 font-semibold">Input Oleh</th>
+                    <th className="px-4 py-3 font-semibold text-right">Nominal</th>
+                    <th data-print-hide="true" className="px-4 py-3 text-right font-semibold">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportExpenseRows.length > 0 ? (
+                    reportExpenseRows.map((expense, index) => (
+                      <tr key={expense.id} className="border-t border-sky-100 bg-sky-50/25">
+                        <td className="px-4 py-3">{index + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-800">
+                          {formatDate(expense.date)}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {expense.hotel_name || "Semua Cabang"}
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-gray-800">
+                          {expense.title || "Pengeluaran Operasional"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {expense.note || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {expense.input_by || "Admin"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-sky-700">
+                          {formatCurrency(expense.amount || 0)}
+                        </td>
+                        <td data-print-hide="true" className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReportExpense(expense.id)}
+                            className="inline-flex items-center justify-center rounded-xl bg-red-50 px-3 py-2 text-xs font-black text-red-600 transition hover:bg-red-100"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                        Belum ada pengeluaran pada filter report ini.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div className="mt-5 flex justify-end">
-            <div className="w-full max-w-md rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4">
-              <div className="flex items-center justify-between gap-4">
+            <div className="rr-report-summary-card w-full max-w-md rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4">
+              <div className="rr-report-summary-row flex items-center justify-between gap-4">
                 <span className="text-sm font-semibold text-emerald-700">Pendapatan Booking</span>
                 <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalValue)}</span>
               </div>
-              <div className="mt-2 flex items-center justify-between gap-4">
+              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
+                <span className="text-sm font-semibold text-orange-700">
+                  Total Tunai
+                  <span className="block text-[11px] font-medium text-gray-500">
+                    {reportTotalCashCount} transaksi
+                  </span>
+                </span>
+                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalCashValue)}</span>
+              </div>
+              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
+                <span className="text-sm font-semibold text-indigo-700">
+                  Total Transfer / QRIS
+                  <span className="block text-[11px] font-medium text-gray-500">
+                    {reportTotalDigitalCount} transaksi
+                  </span>
+                </span>
+                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalDigitalValue)}</span>
+              </div>
+              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
                 <span className="text-sm font-semibold text-amber-700">Total Diskon</span>
                 <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalDiscount)}</span>
               </div>
-              <div className="mt-2 flex items-center justify-between gap-4">
+              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
                 <span className="text-sm font-semibold text-rose-700">Total Denda</span>
                 <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalPenalty)}</span>
               </div>
-              <div className="mt-2 border-t border-emerald-200 pt-2 flex items-center justify-between gap-4">
-                <span className="text-sm font-bold text-emerald-800">Total Nilai</span>
+              <div className="rr-report-summary-row mt-2 flex items-center justify-between gap-4">
+                <span className="text-sm font-semibold text-sky-700">Total Pengeluaran</span>
+                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(reportTotalExpense)}</span>
+              </div>
+              <div className="rr-report-summary-row rr-report-summary-total mt-2 border-t border-emerald-200 pt-2 flex items-center justify-between gap-4">
+                <span className="text-sm font-bold text-emerald-800">Hasil Akhir / Bersih</span>
                 <span className="text-xl font-extrabold text-gray-900">{formatCurrency(reportGrandTotalValue)}</span>
               </div>
             </div>
@@ -6231,7 +6607,16 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </div>
       </div>
 
-      <div className="mt-5 flex justify-end gap-3">
+      <div className="mt-5 flex flex-wrap justify-end gap-3">
+        <button
+          type="button"
+          onClick={openReportExpenseModal}
+          className="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-white font-semibold transition hover:bg-sky-700"
+        >
+          <Plus size={16} />
+          Tambah Pengeluaran
+        </button>
+
         <button
           type="button"
           onClick={() => setShowReportModal(false)}
@@ -6246,6 +6631,105 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           className="rounded-2xl bg-gray-900 px-5 py-3 text-white font-semibold hover:bg-black transition"
         >
           Print PDF
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{showReportExpenseModal && (
+  <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4">
+    <div className="w-full max-w-lg rounded-3xl border border-sky-100 bg-white p-6 shadow-2xl">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-xl font-black text-gray-900">Tambah Pengeluaran</h3>
+          <p className="mt-1 text-sm font-medium text-gray-500">
+            Pengeluaran akan masuk ke laporan tanggal {formatDate(reportExpenseForm.date)} untuk {selectedReportHotelForExpense?.name || "Semua Cabang"}.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={closeReportExpenseModal}
+          className="rounded-full bg-gray-100 p-2 text-gray-500 transition hover:bg-gray-200"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        <div>
+          <label className="mb-2 block text-sm font-bold text-gray-700">
+            Tanggal Pengeluaran
+          </label>
+          <input
+            type="date"
+            name="date"
+            value={reportExpenseForm.date}
+            onChange={handleReportExpenseChange}
+            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-bold text-gray-700">
+            Keperluan / Keterangan
+          </label>
+          <input
+            type="text"
+            name="title"
+            value={reportExpenseForm.title}
+            onChange={handleReportExpenseChange}
+            placeholder="Contoh: Beli sabun, laundry, token listrik, parkir"
+            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-bold text-gray-700">
+            Nominal Pengeluaran
+          </label>
+          <input
+            type="number"
+            min="0"
+            name="amount"
+            value={reportExpenseForm.amount}
+            onChange={handleReportExpenseChange}
+            placeholder="Contoh: 50000"
+            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-bold text-gray-700">
+            Catatan Opsional
+          </label>
+          <textarea
+            name="note"
+            value={reportExpenseForm.note}
+            onChange={handleReportExpenseChange}
+            rows={3}
+            placeholder="Catatan tambahan jika perlu"
+            className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+          />
+        </div>
+      </div>
+
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={closeReportExpenseModal}
+          className="rounded-2xl bg-gray-100 px-5 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-200"
+        >
+          Batal
+        </button>
+        <button
+          type="button"
+          onClick={handleSaveReportExpense}
+          className="inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-sm font-black text-white transition hover:bg-sky-700"
+        >
+          <Save size={16} />
+          Simpan Pengeluaran
         </button>
       </div>
     </div>
