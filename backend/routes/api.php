@@ -79,6 +79,13 @@ Route::prefix('admin')->group(function () {
     Route::post('/logout', [AdminAuthController::class, 'logout']);
 
     // =========================
+    // Last Seen Middleware
+    // =========================
+    // Middleware ini hanya mencatat aktivitas akun internal saat route admin dipakai.
+    // Route login/logout tetap dibiarkan di luar agar alur auth lama tidak berubah.
+    Route::middleware('admin.last_seen')->group(function () {
+
+    // =========================
     // Hotels
     // =========================
     Route::get('/hotels', [HotelController::class, 'index']);
@@ -212,4 +219,5 @@ Route::prefix('admin')->group(function () {
     // =========================
     Route::get('/website-content', [WebsiteContentController::class, 'index']);
     Route::post('/website-content', [WebsiteContentController::class, 'update']);
+    });
 });

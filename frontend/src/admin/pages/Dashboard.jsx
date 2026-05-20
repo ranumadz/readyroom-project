@@ -65,6 +65,8 @@ export default function Dashboard() {
   const [itMapFilter, setItMapFilter] = useState("all");
   const [endpointLatencies, setEndpointLatencies] = useState({});
   const [latencySamples, setLatencySamples] = useState([]);
+  const [serverHealth, setServerHealth] = useState(null);
+  const [serverHealthError, setServerHealthError] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -87,6 +89,18 @@ export default function Dashboard() {
     if (Array.isArray(response?.data?.data)) return response.data.data;
     if (Array.isArray(response?.data)) return response.data;
     return [];
+  };
+
+  const extractPayloadData = (response) => {
+    if (response?.data?.data && typeof response.data.data === "object") {
+      return response.data.data;
+    }
+
+    if (response?.data && typeof response.data === "object") {
+      return response.data;
+    }
+
+    return null;
   };
 
   const timedRequest = async (key, label, path) => {
@@ -149,6 +163,33 @@ export default function Dashboard() {
       setInternalUsers(internalData);
       setCustomers(customerData);
       setEndpointLatencies(latencyMap);
+
+      if (isIT) {
+        try {
+          const healthStartedAt = getNowPerformance();
+          const healthResponse = await api.get("/admin/system-health", {
+            headers: {
+              "X-Admin-User-Id": adminUser?.id || "",
+              "X-Admin-Role": adminUser?.role || "",
+            },
+          });
+          const healthFinishedAt = getNowPerformance();
+          const healthPayload = extractPayloadData(healthResponse);
+
+          setServerHealth({
+            ...(healthPayload || {}),
+            dashboard_health_ms: Math.max(
+              1,
+              Math.round(healthFinishedAt - healthStartedAt)
+            ),
+          });
+          setServerHealthError(null);
+        } catch (healthError) {
+          console.error("SYSTEM HEALTH ERROR:", healthError.response?.data || healthError);
+          setServerHealth(null);
+          setServerHealthError("Server Health belum tersambung");
+        }
+      }
 
       const requestFinishedAt = getNowPerformance();
       const totalResponseMs = Math.max(1, Math.round(requestFinishedAt - requestStartedAt));
@@ -387,15 +428,65 @@ export default function Dashboard() {
       .length;
   }, [rooms]);
 
+  const getPersonLastSeenRaw = (person) => {
+    return (
+      person?.last_seen_at ||
+      person?.last_activity_at ||
+      person?.last_login_at ||
+      person?.online_at ||
+      null
+    );
+  };
+
+  const getPersonLastSeenTime = (person) => {
+    const raw = getPersonLastSeenRaw(person);
+    if (!raw) return 0;
+
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return 0;
+
+    return date.getTime();
+  };
+
+  const getOnlineSortRank = (person) => {
+    const isCurrentAdmin =
+      adminUser?.id && String(adminUser.id) === String(person?.id);
+
+    if (isCurrentAdmin) return 0;
+
+    const lastSeenTime = getPersonLastSeenTime(person);
+    if (!lastSeenTime) return 3;
+
+    const minutesAgo = Math.max(0, Math.round((Date.now() - lastSeenTime) / 60000));
+
+    if (minutesAgo <= 10) return 0;
+    if (minutesAgo <= 60) return 1;
+    if (minutesAgo <= 180) return 2;
+    return 3;
+  };
+
+  const sortByOnlineThenRecent = (items = []) => {
+    return [...items].sort((a, b) => {
+      const rankA = getOnlineSortRank(a);
+      const rankB = getOnlineSortRank(b);
+
+      if (rankA !== rankB) return rankA - rankB;
+
+      const lastSeenA = getPersonLastSeenTime(a);
+      const lastSeenB = getPersonLastSeenTime(b);
+
+      if (lastSeenA !== lastSeenB) return lastSeenB - lastSeenA;
+
+      const createdA = new Date(a?.created_at || 0).getTime();
+      const createdB = new Date(b?.created_at || 0).getTime();
+
+      return createdB - createdA;
+    });
+  };
+
   const recentInternalUsers = useMemo(() => {
-    return [...internalUsers]
-      .sort((a, b) => {
-        const aDate = new Date(a.created_at || 0).getTime();
-        const bDate = new Date(b.created_at || 0).getTime();
-        return bDate - aDate;
-      })
-      .slice(0, 5);
-  }, [internalUsers]);
+    return sortByOnlineThenRecent(internalUsers).slice(0, 9);
+  }, [internalUsers, adminUser?.id]);
   const getStableMapPoint = (seed, index = 0) => {
     const raw = String(seed || `readyroom-${index}`);
     let hash = 0;
@@ -684,7 +775,107 @@ export default function Dashboard() {
     return getPersonPhone(customer);
   };
 
+  const getUserAgentValue = (person) => {
+    const savedAgent =
+      person?.last_user_agent ||
+      person?.user_agent ||
+      person?.device_user_agent ||
+      person?.agent ||
+      "";
+
+    if (savedAgent) return savedAgent;
+
+    const isCurrentAdmin =
+      adminUser?.id && String(adminUser.id) === String(person?.id);
+
+    if (isCurrentAdmin && typeof navigator !== "undefined") {
+      return navigator.userAgent || "";
+    }
+
+    return "";
+  };
+
+  const getDeviceLabel = (person) => {
+    const userAgent = getUserAgentValue(person).toLowerCase();
+
+    if (!userAgent) return "Perangkat belum terekam";
+    if (userAgent.includes("android")) return "Android";
+    if (userAgent.includes("iphone") || userAgent.includes("ipad")) return "iOS";
+    if (userAgent.includes("windows")) return "Windows";
+    if (userAgent.includes("mac")) return "Mac";
+
+    return "Device terdeteksi";
+  };
+
+  const getBrowserLabel = (person) => {
+    const userAgent = getUserAgentValue(person).toLowerCase();
+
+    if (!userAgent) return "Browser belum terekam";
+    if (userAgent.includes("edg/")) return "Microsoft Edge";
+    if (userAgent.includes("chrome")) return "Google Chrome";
+    if (userAgent.includes("firefox")) return "Mozilla Firefox";
+    if (userAgent.includes("safari")) return "Safari";
+
+    return "Browser terdeteksi";
+  };
+
+  const getNetworkInfoFromPresence = (presence) => {
+    if (presence?.tone === "online") {
+      return { label: "Sinyal aktif", percent: 88 };
+    }
+
+    if (presence?.tone === "idle") {
+      return { label: "Sinyal siaga", percent: 54 };
+    }
+
+    if (presence?.tone === "customer") {
+      return { label: "Data customer", percent: 42 };
+    }
+
+    return { label: "Belum aktif", percent: 18 };
+  };
+
+  const getCustomerPresenceStatus = (customer) => {
+    const lastSeenTime = getPersonLastSeenTime(customer);
+
+    if (lastSeenTime) {
+      const minutesAgo = Math.max(0, Math.round((Date.now() - lastSeenTime) / 60000));
+
+      if (minutesAgo <= 10) {
+        return {
+          label: "Online",
+          tone: "online",
+          helper: `${minutesAgo || 1} menit lalu`,
+        };
+      }
+
+      if (minutesAgo <= 180) {
+        return {
+          label: "Baru aktif",
+          tone: "idle",
+          helper: `${minutesAgo} menit lalu`,
+        };
+      }
+    }
+
+    return {
+      label: "Tercatat",
+      tone: "customer",
+      helper: "Belum ada last_seen customer",
+    };
+  };
+
   const averageLatencyMs = useMemo(() => {
+    const serverAverage =
+      serverHealth?.telemetry?.average_ms ||
+      serverHealth?.telemetry?.avg_duration_ms ||
+      serverHealth?.performance?.average_ms ||
+      serverHealth?.performance?.avg_duration_ms ||
+      serverHealth?.average_latency_ms ||
+      null;
+
+    if (serverAverage) return Math.round(Number(serverAverage));
+
     if (latencySamples.length > 0) {
       return Math.round(
         latencySamples.reduce((total, item) => total + Number(item.latency || 0), 0) /
@@ -693,9 +884,16 @@ export default function Dashboard() {
     }
 
     return apiResponseMs || 0;
-  }, [latencySamples, apiResponseMs]);
+  }, [serverHealth, latencySamples, apiResponseMs]);
 
   const systemHealthScore = useMemo(() => {
+    const serverScore =
+      serverHealth?.health_score ||
+      serverHealth?.score ||
+      serverHealth?.performance?.health_score ||
+      null;
+
+    if (serverScore) return Math.max(0, Math.min(100, Math.round(Number(serverScore))));
     if (!averageLatencyMs) return 0;
 
     if (averageLatencyMs <= 450) return 96;
@@ -704,25 +902,30 @@ export default function Dashboard() {
     if (averageLatencyMs <= 1800) return 62;
     if (averageLatencyMs <= 2500) return 48;
     return 35;
-  }, [averageLatencyMs]);
+  }, [serverHealth, averageLatencyMs]);
 
   const systemHealthLabel = useMemo(() => {
+    if (serverHealth?.status_label) return serverHealth.status_label;
+    if (serverHealth?.status) return serverHealth.status;
     if (!averageLatencyMs) return "Menunggu data";
     if (systemHealthScore >= 90) return "Sangat stabil";
     if (systemHealthScore >= 75) return "Normal";
     if (systemHealthScore >= 60) return "Mulai lambat";
     return "Perlu pengecekan";
-  }, [averageLatencyMs, systemHealthScore]);
+  }, [serverHealth, averageLatencyMs, systemHealthScore]);
 
   const systemHealthTone = useMemo(() => {
+    if (serverHealth?.tone) return serverHealth.tone;
     if (systemHealthScore >= 75) return "good";
     if (systemHealthScore >= 55) return "warning";
     return "danger";
-  }, [systemHealthScore]);
+  }, [serverHealth, systemHealthScore]);
 
   const systemRecommendation = useMemo(() => {
+    if (serverHealth?.recommendation) return serverHealth.recommendation;
+
     if (!averageLatencyMs) {
-      return "Dashboard sedang mengumpulkan sample endpoint. Tunggu auto refresh pertama untuk membaca kondisi aplikasi.";
+      return "Dashboard sedang mengumpulkan data monitoring. Tunggu auto refresh pertama untuk membaca kondisi aplikasi.";
     }
 
     if (systemHealthScore >= 90) {
@@ -738,20 +941,41 @@ export default function Dashboard() {
     }
 
     return "Perlu pengecekan IT. Prioritaskan cek server, database, dan endpoint booking/customer.";
-  }, [averageLatencyMs, systemHealthScore]);
+  }, [serverHealth, averageLatencyMs, systemHealthScore]);
 
   const endpointLatencyList = useMemo(() => {
+    const serverEndpoints = Array.isArray(serverHealth?.endpoints)
+      ? serverHealth.endpoints.map((endpoint) => ({
+          label: endpoint.label || endpoint.name || endpoint.endpoint || "Endpoint",
+          path: endpoint.path || endpoint.endpoint || "-",
+          ms: Math.round(Number(endpoint.average_ms || endpoint.avg_ms || endpoint.ms || 0)),
+          requests: endpoint.requests || endpoint.request_count || 0,
+          source: "server",
+        }))
+      : [];
+
+    if (serverEndpoints.length > 0) return serverEndpoints;
+
     return Object.values(endpointLatencies || {}).sort((a, b) =>
       String(a.label || "").localeCompare(String(b.label || ""))
     );
-  }, [endpointLatencies]);
+  }, [serverHealth, endpointLatencies]);
 
   const activeInternalCount = useMemo(() => {
+    const serverOnline =
+      serverHealth?.users?.online_internal ||
+      serverHealth?.active_internal_users ||
+      null;
+
+    if (serverOnline !== null && serverOnline !== undefined) {
+      return Number(serverOnline || 0);
+    }
+
     return internalUsers.filter((user) => {
       const presence = getUserPresenceStatus(user);
       return presence.tone === "online";
     }).length;
-  }, [internalUsers, adminUser?.id]);
+  }, [serverHealth, internalUsers, adminUser?.id]);
 
   const latestCustomerRows = useMemo(() => {
     const customerSource =
@@ -765,20 +989,26 @@ export default function Dashboard() {
             source: booking.booking_code || "Booking",
           }));
 
-    return [...customerSource].slice(0, 8);
+    return sortByOnlineThenRecent(customerSource).slice(0, 12);
   }, [customers, bookingTerbaru]);
 
   const liveMonitorSubtitle = useMemo(() => {
-    if (!lastSyncAt) return "Belum ada sinkronisasi monitoring.";
+    const modeLabel = serverHealth
+      ? "Server Health aktif"
+      : serverHealthError
+      ? "Fallback endpoint dashboard"
+      : "Menunggu Server Health";
 
-    return `Auto refresh tiap 15 detik • sync terakhir ${lastSyncAt.toLocaleTimeString(
+    if (!lastSyncAt) return `Belum ada sinkronisasi monitoring • ${modeLabel}`;
+
+    return `Auto refresh tiap 15 detik • ${modeLabel} • sync terakhir ${lastSyncAt.toLocaleTimeString(
       "id-ID",
       {
         hour: "2-digit",
         minute: "2-digit",
       }
     )}`;
-  }, [lastSyncAt]);
+  }, [lastSyncAt, serverHealth, serverHealthError]);
 
 
   if (isIT) {
@@ -791,8 +1021,8 @@ export default function Dashboard() {
         ? "Lambat"
         : "Berat";
 
-    const databaseStatus = loading ? "Mengecek" : "Terhubung";
-    const applicationServiceStatus = loading ? "Sinkronisasi" : "Online";
+    const databaseStatus = serverHealth?.database?.status || (loading ? "Mengecek" : "Terhubung");
+    const applicationServiceStatus = serverHealth ? "Server Health Aktif" : loading ? "Sinkronisasi" : "Online";
     const appLoadStatus = systemHealthLabel;
 
     return (
@@ -881,7 +1111,7 @@ export default function Dashboard() {
                 icon={<Activity size={20} />}
                 title="Status Aplikasi"
                 value={appLoadStatus}
-                note="Gabungan response endpoint utama"
+                note={serverHealth ? "Dari Server Health + telemetry" : "Gabungan response endpoint utama"}
                 tone={systemHealthTone}
               />
               <ITServiceStatusCard
@@ -895,14 +1125,14 @@ export default function Dashboard() {
                 icon={<Database size={20} />}
                 title="Database"
                 value={databaseStatus}
-                note="Data hotel, room, booking berhasil dibaca"
+                note={serverHealth?.database?.latency_ms ? `DB ${serverHealth.database.latency_ms} ms` : "Data hotel, room, booking berhasil dibaca"}
                 tone="good"
               />
               <ITServiceStatusCard
                 icon={<Globe2 size={20} />}
                 title="Koneksi Sistem"
                 value={apiStatus}
-                note="Sampling endpoint dashboard IT"
+                note={serverHealth ? "Dari telemetry semua request admin" : "Sampling endpoint dashboard IT"}
                 tone={systemHealthTone}
               />
             </div>
@@ -1047,14 +1277,14 @@ export default function Dashboard() {
                   <ITMonitoringInsight
                     title="Analisa Kondisi Aplikasi"
                     description={systemRecommendation}
-                    footer="Catatan IT: versi ini memakai sampling endpoint dashboard. Untuk rata-rata seluruh user lintas device secara server-side, nanti tinggal sambungkan endpoint server health/telemetry."
+                    footer={serverHealth ? "Server Health aktif: rata-rata dibaca dari telemetry request admin lintas device." : "Fallback: endpoint /admin/system-health belum aktif, dashboard memakai sampling endpoint lokal."}
                   />
                 </div>
               </div>
             </div>
 
             <div className="mb-8 grid grid-cols-1 gap-6 2xl:grid-cols-5">
-              <div className="2xl:col-span-3">
+              <div className="2xl:col-span-3 h-full">
                 <ITOperationalMap
                   markers={visibleOperationalMapMarkers}
                   markerGroups={operationalMapMarkers}
@@ -1086,7 +1316,7 @@ export default function Dashboard() {
                   </button>
                 </div>
 
-                <div className="space-y-3">
+                <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
                   {recentInternalUsers.length > 0 ? (
                     recentInternalUsers.map((user, index) => {
                       const presence = getUserPresenceStatus(user);
@@ -1103,6 +1333,10 @@ export default function Dashboard() {
                           status={presence.label}
                           helper={presence.helper}
                           tone={presence.tone}
+                          device={getDeviceLabel(user)}
+                          browser={getBrowserLabel(user)}
+                          networkLabel={getNetworkInfoFromPresence(presence).label}
+                          networkPercent={getNetworkInfoFromPresence(presence).percent}
                         />
                       );
                     })
@@ -1119,8 +1353,7 @@ export default function Dashboard() {
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-slate-400">
                     Titik user mengikuti cabang tugas, bukan GPS pribadi.
-                    Status login realtime bisa dibuat lebih akurat nanti dengan
-                    field last_seen di server.
+                    Status login membaca last_seen_at server jika endpoint Server Health dan middleware sudah aktif.
                   </p>
                 </div>
               </div>
@@ -1162,7 +1395,7 @@ export default function Dashboard() {
 
                     <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
                       {internalUsers.length > 0 ? (
-                        internalUsers.slice(0, 8).map((user, index) => {
+                        sortByOnlineThenRecent(internalUsers).slice(0, 12).map((user, index) => {
                           const presence = getUserPresenceStatus(user);
                           const hotel = getPrimaryHotelForUser(user, index);
 
@@ -1176,6 +1409,10 @@ export default function Dashboard() {
                               secondary={hotel.name}
                               status={presence.label}
                               tone={presence.tone}
+                              device={getDeviceLabel(user)}
+                              browser={getBrowserLabel(user)}
+                              networkLabel={getNetworkInfoFromPresence(presence).label}
+                              networkPercent={getNetworkInfoFromPresence(presence).percent}
                             />
                           );
                         })
@@ -1197,18 +1434,27 @@ export default function Dashboard() {
 
                     <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
                       {latestCustomerRows.length > 0 ? (
-                        latestCustomerRows.map((customer, index) => (
-                          <ITUserDataRow
-                            key={customer.id || customer.email || customer.phone || index}
-                            name={getCustomerDisplayName(customer, index)}
-                            email={customer.email || customer.guest_email || "-"}
-                            phone={getCustomerDisplayPhone(customer)}
-                            meta={customer.source || "Customer"}
-                            secondary="Customer web / booking"
-                            status="Tercatat"
-                            tone="customer"
-                          />
-                        ))
+                        latestCustomerRows.map((customer, index) => {
+                          const presence = getCustomerPresenceStatus(customer);
+                          const networkInfo = getNetworkInfoFromPresence(presence);
+
+                          return (
+                            <ITUserDataRow
+                              key={customer.id || customer.email || customer.phone || index}
+                              name={getCustomerDisplayName(customer, index)}
+                              email={customer.email || customer.guest_email || "-"}
+                              phone={getCustomerDisplayPhone(customer)}
+                              meta={customer.source || "Customer"}
+                              secondary={presence.helper || "Customer web / booking"}
+                              status={presence.label}
+                              tone={presence.tone}
+                              device={getDeviceLabel(customer)}
+                              browser={getBrowserLabel(customer)}
+                              networkLabel={networkInfo.label}
+                              networkPercent={networkInfo.percent}
+                            />
+                          );
+                        })
                       ) : (
                         <p className="rounded-2xl border border-white/5 bg-slate-900/70 p-4 text-sm text-slate-400">
                           Belum ada data customer.
@@ -1244,7 +1490,7 @@ export default function Dashboard() {
                       <li>• Booking List saat ramai check-in/check-out.</li>
                       <li>• Endpoint user dan customer kalau mulai di atas 1.800 ms.</li>
                       <li>• Database booking kalau jumlah data makin besar.</li>
-                      <li>• Tambahkan fitur last_seen di server untuk status login realtime asli.</li>
+                      <li>• Last seen server aktif jika middleware admin telemetry sudah dipasang.</li>
                     </ul>
                   </div>
                 </div>
@@ -2150,33 +2396,106 @@ function ITNetworkEndpointRow({ label, path, ms }) {
 }
 
 function ITMonitoringInsight({ title, description, footer }) {
+  const scanRows = [72, 94, 58, 86, 67, 90];
+
   return (
-    <div className="rounded-3xl border border-cyan-400/10 bg-cyan-400/5 p-5">
-      <div className="mb-3 inline-flex rounded-2xl bg-cyan-400/10 p-3 text-cyan-300">
-        <Activity size={18} />
+    <div className="relative overflow-hidden rounded-3xl border border-cyan-400/10 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(34,211,238,0.16),transparent_30%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(8,47,73,0.72))] p-5 shadow-2xl">
+      <div className="pointer-events-none absolute inset-0 opacity-30">
+        <div className="absolute left-0 top-8 h-px w-full bg-cyan-300/30" />
+        <div className="absolute left-0 top-24 h-px w-full bg-fuchsia-300/20" />
+        <div className="absolute bottom-10 left-0 h-px w-full bg-cyan-300/20" />
+        <div className="absolute right-12 top-0 h-full w-px bg-cyan-300/15" />
+        <div className="absolute left-1/3 top-0 h-full w-px bg-fuchsia-300/10" />
       </div>
 
-      <h3 className="text-lg font-semibold text-white">{title}</h3>
-      <p className="mt-3 text-sm leading-relaxed text-slate-300">{description}</p>
-      <p className="mt-4 rounded-2xl border border-white/5 bg-slate-950/45 px-4 py-3 text-xs leading-relaxed text-slate-400">
+      <div className="relative z-10 flex items-start justify-between gap-4">
+        <div className="inline-flex rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3 text-cyan-300 shadow-lg shadow-cyan-500/10">
+          <Activity size={18} />
+        </div>
+
+        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
+          Live Scan
+        </span>
+      </div>
+
+      <div className="relative z-10 mt-5">
+        <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <p className="mt-3 text-sm leading-relaxed text-slate-300">{description}</p>
+      </div>
+
+      <div className="relative z-10 mt-5 rounded-3xl border border-white/5 bg-slate-950/45 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">
+            Digital Health Pattern
+          </p>
+          <p className="text-xs text-slate-500">auto-read</p>
+        </div>
+
+        <div className="space-y-2">
+          {scanRows.map((width, index) => (
+            <div key={index} className="h-2 overflow-hidden rounded-full bg-slate-800/90">
+              <div
+                className={`h-full rounded-full ${
+                  index % 3 === 0
+                    ? "bg-cyan-400"
+                    : index % 3 === 1
+                    ? "bg-fuchsia-400"
+                    : "bg-emerald-400"
+                }`}
+                style={{ width: `${width}%` }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <p className="relative z-10 mt-4 rounded-2xl border border-white/5 bg-slate-950/55 px-4 py-3 text-xs leading-relaxed text-slate-400">
         {footer}
       </p>
     </div>
   );
 }
 
-function ITUserDataRow({ name, email, phone, meta, secondary, status, tone }) {
+function ITUserDataRow({
+  name,
+  email,
+  phone,
+  meta,
+  secondary,
+  status,
+  tone,
+  device = "Perangkat belum terekam",
+  browser = "Browser belum terekam",
+  networkLabel = "Belum aktif",
+  networkPercent = 18,
+}) {
   const toneClass =
     tone === "online"
-      ? "bg-emerald-400/10 text-emerald-300"
+      ? "bg-fuchsia-400/15 text-fuchsia-200 ring-1 ring-fuchsia-300/20"
       : tone === "idle"
       ? "bg-amber-400/10 text-amber-300"
       : tone === "customer"
       ? "bg-rose-400/10 text-rose-300"
       : "bg-slate-700/60 text-slate-300";
 
+  const barClass =
+    tone === "online"
+      ? "bg-gradient-to-r from-fuchsia-400 via-pink-400 to-cyan-300"
+      : tone === "idle"
+      ? "bg-gradient-to-r from-amber-400 to-orange-300"
+      : tone === "customer"
+      ? "bg-gradient-to-r from-rose-400 to-pink-300"
+      : "bg-slate-600";
+
   return (
-    <div className="rounded-2xl border border-white/5 bg-slate-900/70 p-4">
+    <div
+      className={`rounded-2xl border p-4 transition ${
+        tone === "online"
+          ? "border-fuchsia-300/20 bg-fuchsia-400/[0.07] shadow-lg shadow-fuchsia-500/10"
+          : "border-white/5 bg-slate-900/70"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-semibold text-white">{name}</p>
@@ -2196,6 +2515,27 @@ function ITUserDataRow({ name, email, phone, meta, secondary, status, tone }) {
         <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300">
           {secondary}
         </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="rounded-xl border border-white/5 bg-slate-950/35 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">Device</p>
+          <p className="mt-1 truncate text-xs font-semibold text-slate-200">{device}</p>
+        </div>
+        <div className="rounded-xl border border-white/5 bg-slate-950/35 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">Browser</p>
+          <p className="mt-1 truncate text-xs font-semibold text-slate-200">{browser}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-xl border border-white/5 bg-slate-950/35 px-3 py-2">
+        <div className="mb-1 flex items-center justify-between">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">Network Signal</p>
+          <p className="text-[11px] font-semibold text-slate-300">{networkLabel}</p>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+          <div className={`h-full rounded-full ${barClass}`} style={{ width: `${networkPercent}%` }} />
+        </div>
       </div>
     </div>
   );
@@ -2235,7 +2575,7 @@ function ITOperationalMap({
   };
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-cyan-400/10 bg-white/5 shadow-xl backdrop-blur-sm">
+    <div className="h-full overflow-hidden rounded-[28px] border border-cyan-400/10 bg-white/5 shadow-xl backdrop-blur-sm">
       <div className="flex flex-col gap-4 border-b border-cyan-400/10 p-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
@@ -2271,7 +2611,7 @@ function ITOperationalMap({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-0 xl:grid-cols-[1.45fr_0.55fr]">
+      <div className="grid h-full grid-cols-1 gap-0 xl:grid-cols-[1.45fr_0.55fr]">
         <div className="relative min-h-[430px] overflow-hidden bg-[radial-gradient(circle_at_30%_25%,rgba(34,211,238,0.16),transparent_18%),radial-gradient(circle_at_70%_70%,rgba(59,130,246,0.15),transparent_20%),linear-gradient(135deg,#06111f_0%,#0f172a_48%,#020617_100%)]">
           <div className="absolute inset-0 opacity-25">
             <div className="absolute left-[12%] top-[18%] h-32 w-48 rounded-full border border-cyan-300/30" />
@@ -2416,20 +2756,46 @@ function MapLegend({ color, label }) {
   );
 }
 
-function ITPresenceRow({ name, email, phone, role, branch, status, helper, tone }) {
+function ITPresenceRow({
+  name,
+  email,
+  phone,
+  role,
+  branch,
+  status,
+  helper,
+  tone,
+  device = "Perangkat belum terekam",
+  browser = "Browser belum terekam",
+  networkLabel = "Belum aktif",
+  networkPercent = 18,
+}) {
   const toneClass =
     tone === "online"
-      ? "bg-emerald-400/10 text-emerald-300"
+      ? "bg-fuchsia-400/15 text-fuchsia-200 ring-1 ring-fuchsia-300/20"
       : tone === "idle"
       ? "bg-amber-400/10 text-amber-300"
       : "bg-slate-700/60 text-slate-300";
 
+  const barClass =
+    tone === "online"
+      ? "bg-gradient-to-r from-fuchsia-400 via-pink-400 to-cyan-300"
+      : tone === "idle"
+      ? "bg-gradient-to-r from-amber-400 to-orange-300"
+      : "bg-slate-600";
+
   return (
-    <div className="rounded-2xl border border-white/5 bg-slate-900/70 p-4">
+    <div
+      className={`rounded-2xl border p-4 transition ${
+        tone === "online"
+          ? "border-fuchsia-300/20 bg-fuchsia-400/[0.07] shadow-lg shadow-fuchsia-500/10"
+          : "border-white/5 bg-slate-900/70"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-white">{name}</p>
-          <p className="mt-1 text-xs text-slate-400">{email}</p>
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-white">{name}</p>
+          <p className="mt-1 truncate text-xs text-slate-400">{email}</p>
           <p className="mt-1 text-xs font-semibold text-cyan-200">WA: {phone || "-"}</p>
         </div>
 
@@ -2448,6 +2814,27 @@ function ITPresenceRow({ name, email, phone, role, branch, status, helper, tone 
         <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-400">
           {helper}
         </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="rounded-xl border border-white/5 bg-slate-950/35 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">Device</p>
+          <p className="mt-1 truncate text-xs font-semibold text-slate-200">{device}</p>
+        </div>
+        <div className="rounded-xl border border-white/5 bg-slate-950/35 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">Browser</p>
+          <p className="mt-1 truncate text-xs font-semibold text-slate-200">{browser}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-xl border border-white/5 bg-slate-950/35 px-3 py-2">
+        <div className="mb-1 flex items-center justify-between">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">Network Signal</p>
+          <p className="text-[11px] font-semibold text-slate-300">{networkLabel}</p>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+          <div className={`h-full rounded-full ${barClass}`} style={{ width: `${networkPercent}%` }} />
+        </div>
       </div>
     </div>
   );

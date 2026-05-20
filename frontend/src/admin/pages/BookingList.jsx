@@ -1296,7 +1296,55 @@ export default function BookingList() {
     }
   };
 
+  function getManualBookingLockedHotel() {
+    const selectedFilterHotel = filters.hotelId
+      ? folderHotels.find((hotel) => String(hotel.id) === String(filters.hotelId)) ||
+        hotels.find((hotel) => String(hotel.id) === String(filters.hotelId)) ||
+        null
+      : null;
+
+    if (selectedFilterHotel) {
+      return selectedFilterHotel;
+    }
+
+    if (folderHotels.length === 1) {
+      return folderHotels[0];
+    }
+
+    return null;
+  }
+
   const openManualModal = () => {
+    const lockedHotel = getManualBookingLockedHotel();
+
+    if (!lockedHotel?.id) {
+      toast.error("Pilih cabang terlebih dahulu sebelum membuat booking manual");
+      return;
+    }
+
+    setManualForm({
+      guest_name: "",
+      guest_phone: "",
+      guest_email: "",
+      hotel_id: String(lockedHotel.id),
+      room_id: "",
+      room_unit_id: "",
+      booking_type: "transit",
+      duration_hours: "",
+      duration_days: "1",
+      check_in: "",
+      manual_discount_percent: "",
+      admin_note: "",
+    });
+    setManualRoomUnits([]);
+    setManualDatePickerOpen(false);
+    setManualCheckInDraft({
+      date: "",
+      hour: "14",
+      minute: "00",
+    });
+    setManualCalendarMonth(new Date());
+    setManualModalFullscreen(false);
     setShowManualModal(true);
   };
 
@@ -1708,7 +1756,7 @@ export default function BookingList() {
   const handleSaveManualBooking = async () => {
     if (!manualForm.guest_name.trim()) return toast.error("Nama tamu wajib diisi");
     if (!manualForm.guest_phone.trim()) return toast.error("Nomor HP wajib diisi");
-    if (!manualForm.hotel_id) return toast.error("Pilih hotel");
+    if (!manualForm.hotel_id) return toast.error("Pilih cabang terlebih dahulu sebelum membuat booking manual");
     if (!manualForm.room_id) return toast.error("Pilih tipe kamar");
     if (!manualForm.room_unit_id) return toast.error("Pilih kamar fisik");
     if (!manualForm.check_in) return toast.error("Check-in wajib diisi");
@@ -3930,6 +3978,21 @@ const selectedFolderLabel = filters.hotelId
   : canAccessAllHotels
   ? "Semua Cabang"
   : "Belum pilih cabang";
+
+
+const selectedManualHotel = useMemo(() => {
+  if (!manualForm.hotel_id) return null;
+
+  return (
+    folderHotels.find((hotel) => String(hotel.id) === String(manualForm.hotel_id)) ||
+    hotels.find((hotel) => String(hotel.id) === String(manualForm.hotel_id)) ||
+    uniqueHotels.find((hotel) => String(hotel.id) === String(manualForm.hotel_id)) ||
+    null
+  );
+}, [manualForm.hotel_id, folderHotels, hotels, uniqueHotels]);
+
+const selectedManualHotelLabel =
+  selectedManualHotel?.name || selectedFolderLabel || "Cabang terkunci";
 
 
 const manualCalendarDays = useMemo(() => {
@@ -6784,238 +6847,37 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                 <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top_right,_rgba(254,202,202,0.42),_transparent_24%),linear-gradient(180deg,_#fff_0%,_#fff7f7_100%)] p-4 md:p-5">
                   <div className="rounded-[30px] border border-slate-100 bg-white/95 p-4 shadow-sm md:p-5">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div className="rounded-2xl bg-red-50 px-3 py-1.5 text-xs font-black text-red-600">
-                        Walk-in / OTS
+                      <div className="inline-flex min-w-0 items-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-black text-red-700">
+                        <Building2 size={14} className="shrink-0" />
+                        <span className="shrink-0 uppercase tracking-wide">Hotel</span>
+                        <span className="max-w-[220px] truncate text-slate-900">
+                          {selectedManualHotelLabel}
+                        </span>
                       </div>
 
-                     
+                      <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-500">
+                        Cabang dikunci dari filter Booking List
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      <div>
+                      <div ref={manualCheckInPickerRef} className="relative">
                         <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                          Nama Tamu
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            name="guest_name"
-                            value={manualForm.guest_name}
-                            onChange={handleManualChange}
-                            placeholder="Contoh: Budi Santoso"
-                            className={`${manualInputClass} pl-11`}
-                          />
-                          <User
-                            size={17}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                          Nomor HP
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            name="guest_phone"
-                            value={manualForm.guest_phone}
-                            onChange={handleManualChange}
-                            placeholder="Contoh: 08123456789"
-                            className={`${manualInputClass} pl-11`}
-                          />
-                          <Phone
-                            size={17}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                          Hotel
-                        </label>
-                        <div className="relative">
-                          <select
-                            name="hotel_id"
-                            value={manualForm.hotel_id}
-                            onChange={handleManualChange}
-                            className={`${manualInputClass} pl-11`}
-                          >
-                            <option value="">
-                              {loadingHotels ? "Memuat hotel..." : "Pilih hotel"}
-                            </option>
-                            {folderHotels.map((hotel) => (
-                              <option key={hotel.id} value={hotel.id}>
-                                {hotel.name}
-                              </option>
-                            ))}
-                          </select>
-                          <Building2
-                            size={17}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                          Tipe Kamar
-                        </label>
-                        <div className="relative">
-                          <select
-                            name="room_id"
-                            value={manualForm.room_id}
-                            onChange={handleManualChange}
-                            className={`${manualInputClass} pl-11`}
-                            disabled={!manualForm.hotel_id}
-                          >
-                            <option value="">
-                              {loadingRooms
-                                ? "Memuat tipe kamar..."
-                                : !manualForm.hotel_id
-                                ? "Pilih hotel dulu"
-                                : "Pilih tipe kamar"}
-                            </option>
-                            {filteredRoomsForManual.map((room) => (
-                              <option key={room.id} value={room.id}>
-                                {room.name} {room.type ? `- ${room.type}` : ""}
-                              </option>
-                            ))}
-                          </select>
-                          <BedDouble
-                            size={17}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
-                          />
-                        </div>
-                      </div>
-
-                      {manualForm.booking_type === "transit" ? (
-                        <div>
-                          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                            Durasi Transit
-                          </label>
-                          <div className="relative">
-                            <select
-                              name="duration_hours"
-                              value={manualForm.duration_hours}
-                              onChange={handleManualChange}
-                              className={`${manualInputClass} pl-11 ${
-                                manualTransitUnavailableMessage
-                                  ? "border-amber-200 bg-amber-50 text-slate-600"
-                                  : ""
-                              }`}
-                            >
-                              <option value="">
-                                {selectedManualRoom
-                                  ? "Pilih durasi tersedia"
-                                  : "Pilih tipe kamar dulu"}
-                              </option>
-                              {manualTransitOptions.map((option) => (
-                                <option
-                                  key={option.value}
-                                  value={option.value}
-                                  disabled={!option.available}
-                                  className={
-                                    option.available
-                                      ? "text-slate-900"
-                                      : "bg-slate-100 text-slate-400"
-                                  }
-                                >
-                                  {option.available
-                                    ? `${option.label} - ${formatCurrency(option.price)}`
-                                    : `${option.label} - Tidak tersedia`}
-                                </option>
-                              ))}
-                            </select>
-                            <Clock3
-                              size={17}
-                              className={`absolute left-4 top-1/2 -translate-y-1/2 ${
-                                manualTransitUnavailableMessage
-                                  ? "text-amber-500"
-                                  : "text-red-500"
-                              }`}
-                            />
-                          </div>
-
-                          {manualTransitUnavailableMessage && (
-                            <p className="mt-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-relaxed text-amber-700">
-                              {manualTransitUnavailableMessage}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <div>
-                          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                            Durasi Hari
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              min="1"
-                              name="duration_days"
-                              value={manualForm.duration_days}
-                              onChange={handleManualChange}
-                              disabled={Boolean(selectedManualRoom && !isManualFullDayAvailable)}
-                              className={`${manualInputClass} pl-11 ${
-                                manualFullDayUnavailableMessage
-                                  ? "border-amber-200 bg-amber-50 text-slate-600"
-                                  : ""
-                              }`}
-                            />
-                            <MoonStar
-                              size={17}
-                              className={`absolute left-4 top-1/2 -translate-y-1/2 ${
-                                manualFullDayUnavailableMessage
-                                  ? "text-amber-500"
-                                  : "text-red-500"
-                              }`}
-                            />
-                          </div>
-
-                          {manualFullDayUnavailableMessage && (
-                            <p className="mt-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-relaxed text-amber-700">
-                              {manualFullDayUnavailableMessage}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                          Jenis Booking
-                        </label>
-                        <select
-                          name="booking_type"
-                          value={manualForm.booking_type}
-                          onChange={handleManualChange}
-                          className={manualInputClass}
-                        >
-                          <option value="transit">Transit</option>
-                          <option value="overnight">Full Day</option>
-                        </select>
-                      </div>
-
-                      <div ref={manualCheckInPickerRef} className="relative xl:col-span-2">
-                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                          Check In
+                          Tgl Check-in
                         </label>
                         <button
-  type="button"
-  onClick={openManualCheckInPicker}
-  className="flex h-[46px] w-full items-center gap-3 rounded-2xl border border-red-100 bg-gradient-to-br from-white to-red-50/80 px-4 text-left shadow-sm outline-none transition hover:border-red-300 hover:shadow-md focus:border-red-400 focus:ring-4 focus:ring-red-100"
->
-  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-100">
-    <CalendarDays size={17} />
-  </span>
-
-  <span className="min-w-0 flex-1">
-    <span className="block truncate text-sm font-black text-slate-900">
-      {manualCheckInDisplay}
-    </span>
-  </span>
-</button>
+                          type="button"
+                          onClick={openManualCheckInPicker}
+                          className={`${manualInputClass} relative flex min-h-[46px] items-center pl-11 text-left font-black text-slate-900 hover:border-red-300 hover:bg-red-50/40`}
+                        >
+                          <CalendarDays
+                            size={17}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
+                          />
+                          <span className="block min-w-0 flex-1 truncate">
+                            {manualCheckInDisplay}
+                          </span>
+                        </button>
 
                         {manualDatePickerOpen && (
                           <div className="absolute left-0 top-[68px] z-[90] w-[520px] max-w-[calc(100vw-48px)] rounded-[16px] border border-red-100 bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.18)]">
@@ -7180,7 +7042,173 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 
                       <div>
                         <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                          Kamar Fisik
+                          Nama Tamu
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            name="guest_name"
+                            value={manualForm.guest_name}
+                            onChange={handleManualChange}
+                            placeholder="Contoh: Budi Santoso"
+                            className={`${manualInputClass} pl-11`}
+                          />
+                          <User
+                            size={17}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                          Nomor HP
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            name="guest_phone"
+                            value={manualForm.guest_phone}
+                            onChange={handleManualChange}
+                            placeholder="Contoh: 08123456789"
+                            className={`${manualInputClass} pl-11`}
+                          />
+                          <Phone
+                            size={17}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                          Tipe Kamar
+                        </label>
+                        <div className="relative">
+                          <select
+                            name="room_id"
+                            value={manualForm.room_id}
+                            onChange={handleManualChange}
+                            className={`${manualInputClass} pl-11`}
+                            disabled={!manualForm.hotel_id}
+                          >
+                            <option value="">
+                              {loadingRooms
+                                ? "Memuat tipe kamar..."
+                                : !manualForm.hotel_id
+                                ? "Cabang belum dipilih"
+                                : "Pilih tipe kamar"}
+                            </option>
+                            {filteredRoomsForManual.map((room) => (
+                              <option key={room.id} value={room.id}>
+                                {room.name} {room.type ? `- ${room.type}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                          <BedDouble
+                            size={17}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                          Jenis Booking
+                        </label>
+                        <select
+                          name="booking_type"
+                          value={manualForm.booking_type}
+                          onChange={handleManualChange}
+                          className={manualInputClass}
+                        >
+                          <option value="transit">Transit</option>
+                          <option value="overnight">Full Day</option>
+                        </select>
+                      </div>
+
+                      {manualForm.booking_type === "transit" ? (
+                        <div>
+                          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                            Durasi
+                          </label>
+                          <div className="relative">
+                            <select
+                              name="duration_hours"
+                              value={manualForm.duration_hours}
+                              onChange={handleManualChange}
+                              className={`${manualInputClass} pl-11 ${
+                                selectedManualRoom && manualTransitUnavailableMessage
+                                  ? "border-amber-200 bg-amber-50 text-slate-600"
+                                  : ""
+                              }`}
+                            >
+                              <option value="">
+                                {selectedManualRoom
+                                  ? "Pilih durasi tersedia"
+                                  : "Pilih tipe kamar dulu"}
+                              </option>
+                              {manualTransitOptions.map((option) => (
+                                <option
+                                  key={option.value}
+                                  value={option.value}
+                                  disabled={!option.available}
+                                  className={
+                                    option.available
+                                      ? "text-slate-900"
+                                      : "bg-slate-100 text-slate-400"
+                                  }
+                                >
+                                  {option.available
+                                    ? `${option.label} - ${formatCurrency(option.price)}`
+                                    : `${option.label} - Tidak tersedia`}
+                                </option>
+                              ))}
+                            </select>
+                            <Clock3
+                              size={17}
+                              className={`absolute left-4 top-1/2 -translate-y-1/2 ${
+                                selectedManualRoom && manualTransitUnavailableMessage
+                                  ? "text-amber-500"
+                                  : "text-red-500"
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                            Durasi
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="1"
+                              name="duration_days"
+                              value={manualForm.duration_days}
+                              onChange={handleManualChange}
+                              disabled={Boolean(selectedManualRoom && !isManualFullDayAvailable)}
+                              className={`${manualInputClass} pl-11 ${
+                                selectedManualRoom && manualFullDayUnavailableMessage
+                                  ? "border-amber-200 bg-amber-50 text-slate-600"
+                                  : ""
+                              }`}
+                            />
+                            <MoonStar
+                              size={17}
+                              className={`absolute left-4 top-1/2 -translate-y-1/2 ${
+                                selectedManualRoom && manualFullDayUnavailableMessage
+                                  ? "text-amber-500"
+                                  : "text-red-500"
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                          Nomor Kamar
                         </label>
                         <div className="relative">
                           <select
@@ -7226,7 +7254,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 
                       <div>
                         <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
-                          Estimasi Harga
+                          Harga Kamar
                         </label>
                         <div className="relative">
                           <input
