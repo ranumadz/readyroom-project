@@ -152,6 +152,13 @@ export default function BookingList() {
     const day = String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   });
+  const [reportDateEnd, setReportDateEnd] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
   const reportExpenseStorageKey = "readyroom_booking_report_expenses_v1";
   const [reportExpenses, setReportExpenses] = useState(() => {
     try {
@@ -190,6 +197,18 @@ export default function BookingList() {
   const checkoutAlertAudioContextRef = useRef(null);
   const checkoutAlertIntervalRef = useRef(null);
   const [checkoutAlertAudioUnlocked, setCheckoutAlertAudioUnlocked] = useState(false);
+
+  const checkoutActualStorageKey = "readyroom_booking_checkout_actual_map_v1";
+  const [localCheckoutActualMap, setLocalCheckoutActualMap] = useState(() => {
+    try {
+      const saved = localStorage.getItem(checkoutActualStorageKey);
+      const parsed = saved ? JSON.parse(saved) : {};
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch (error) {
+      console.error("READ CHECKOUT ACTUAL MAP ERROR:", error);
+      return {};
+    }
+  });
 
   const [selectedPaidBooking, setSelectedPaidBooking] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -287,6 +306,8 @@ export default function BookingList() {
     adminUser?.role === "boss" ||
     adminUser?.role === "super_admin" ||
     adminUser?.role === "pengawas";
+  const currentAdminRole = String(adminUser?.role || "").toLowerCase();
+  const isReceptionistUser = currentAdminRole === "receptionist";
 
   const MANUAL_FULL_DAY_START_HOUR = 14;
   const UNAVAILABLE_PACKAGE_MESSAGE =
@@ -802,13 +823,59 @@ export default function BookingList() {
 
   const getOperationalCheckoutTime = (booking) => {
     const meta = getOperationalTimeMeta(booking);
-    return (
+
+    if (meta.actualCheckIn) {
+      return (
+        calculateExpectedCheckoutInput(booking, meta.actualCheckIn) ||
+        meta.expectedCheckOut ||
+        booking?.check_out ||
+        null
+      );
+    }
+
+    return booking?.check_out || null;
+  };
+
+  const persistLocalCheckoutActual = (bookingId, value) => {
+    if (!bookingId || !value) return;
+
+    setLocalCheckoutActualMap((prev) => {
+      const next = {
+        ...prev,
+        [String(bookingId)]: value,
+      };
+
+      try {
+        localStorage.setItem(checkoutActualStorageKey, JSON.stringify(next));
+      } catch (error) {
+        console.error("SAVE CHECKOUT ACTUAL MAP ERROR:", error);
+      }
+
+      return next;
+    });
+  };
+
+  const getActualCheckoutTime = (booking) => {
+    if (!booking) return null;
+
+    const status = String(booking?.status || "").toLowerCase();
+    const actualCheckout =
       booking?.actual_check_out ||
       booking?.checked_out_at ||
-      meta.expectedCheckOut ||
-      booking?.check_out ||
-      null
-    );
+      booking?.check_out_actual ||
+      booking?.checkout_actual ||
+      booking?.checkout_at ||
+      booking?.actual_checkout_at ||
+      localCheckoutActualMap[String(booking?.id)] ||
+      null;
+
+    if (actualCheckout) return actualCheckout;
+
+    if (["checked_out", "cleaning", "completed"].includes(status)) {
+      return booking?.check_out_actual || booking?.checked_out_at || null;
+    }
+
+    return null;
   };
 
   const isBookingCheckoutOverdue = (booking) => {
@@ -1063,7 +1130,18 @@ export default function BookingList() {
 
   const handleCheckOut = async (booking) => {
     try {
-      await api.post(`/admin/bookings/${booking.id}/check-out`);
+      const actualCheckOutValue = normalizeBackendDateTime(
+        getDateTimeLocalInputValue(new Date())
+      );
+
+      await api.post(`/admin/bookings/${booking.id}/check-out`, {
+        actual_check_out: actualCheckOutValue,
+        checked_out_at: actualCheckOutValue,
+        check_out_actual: actualCheckOutValue,
+        checkout_at: actualCheckOutValue,
+      });
+
+      persistLocalCheckoutActual(booking.id, actualCheckOutValue);
       toast.success("Tamu berhasil check-out");
       fetchBookings();
     } catch (error) {
@@ -2377,6 +2455,49 @@ const handlePrintReport = () => {
     return String(value).slice(0, 10);
   };
 
+  const getReportDateRange = () => {
+    const start = reportDate || reportDateEnd || "";
+    const end = reportDateEnd || reportDate || "";
+
+    if (!start && !end) {
+      return {
+        start: "",
+        end: "",
+      };
+    }
+
+    if (start && end && start > end) {
+      return {
+        start: end,
+        end: start,
+      };
+    }
+
+    return {
+      start,
+      end: end || start,
+    };
+  };
+
+  const isDateInsideReportRange = (value) => {
+    const normalizedDate = normalizeDateOnlyValue(value);
+    if (!normalizedDate) return false;
+
+    const { start, end } = getReportDateRange();
+    if (!start && !end) return true;
+
+    return normalizedDate >= start && normalizedDate <= end;
+  };
+
+  const getReportDateRangeLabel = () => {
+    const { start, end } = getReportDateRange();
+
+    if (!start && !end) return "Semua tanggal";
+    if (!end || start === end) return formatDate(start);
+
+    return `${formatDate(start)} - ${formatDate(end)}`;
+  };
+
   const getManualOvernightCheckOut = () => {
     if (!manualForm.check_in) return "";
 
@@ -3127,11 +3248,16 @@ const buildWhatsAppMessage = (booking) => {
   };
 
   const resetFilters = () => {
+    const lockedReceptionistHotelId =
+      isReceptionistUser && !canAccessAllHotels && folderHotels.length === 1
+        ? String(folderHotels[0].id)
+        : "";
+
     setFilters({
       search: "",
       status: "",
       bookingType: "",
-      hotelId: "",
+      hotelId: lockedReceptionistHotelId,
       month: "",
     });
     setViewMode("today_active");
@@ -3217,6 +3343,9 @@ const buildWhatsAppMessage = (booking) => {
 
     return [];
   }, [hotels, uniqueHotels, assignedHotelIds, canAccessAllHotels]);
+
+  const shouldHideBranchFilterForReceptionist =
+    isReceptionistUser && !canAccessAllHotels && folderHotels.length === 1;
 
   useEffect(() => {
     if (canAccessAllHotels) return;
@@ -3382,50 +3511,56 @@ const getBookingDiscountAmount = (booking) => {
 };
 
 const reportBookings = useMemo(() => {
-  return bookings.filter((booking) => {
-    const status = String(booking?.status || "").toLowerCase();
-    const paymentStatus = String(booking?.payment_status || "").toLowerCase();
-    const validOperationalStatuses = [
-      "checked_in",
-      "checked_out",
-      "cleaning",
-      "completed",
-    ];
+  return bookings
+    .filter((booking) => {
+      const status = String(booking?.status || "").toLowerCase();
+      const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+      const validOperationalStatuses = [
+        "checked_in",
+        "checked_out",
+        "cleaning",
+        "completed",
+      ];
 
-    if (!validOperationalStatuses.includes(status)) {
-      return false;
-    }
+      if (!validOperationalStatuses.includes(status)) {
+        return false;
+      }
 
-    if (paymentStatus !== "paid") {
-      return false;
-    }
+      if (paymentStatus !== "paid") {
+        return false;
+      }
 
-    const matchesAccessHotel = canAccessAllHotels
-      ? true
-      : assignedHotelIds.includes(String(booking?.hotel?.id));
+      const matchesAccessHotel = canAccessAllHotels
+        ? true
+        : assignedHotelIds.includes(String(booking?.hotel?.id));
 
-    const matchesHotel =
-      !filters.hotelId || String(booking?.hotel?.id) === String(filters.hotelId);
+      const matchesHotel =
+        !filters.hotelId || String(booking?.hotel?.id) === String(filters.hotelId);
 
-    const reportCheckInDate = getReportTransactionDate(booking);
-    const matchesReportDate = reportDate
-      ? normalizeDateOnlyValue(reportCheckInDate) === reportDate
-      : true;
+      const reportCheckInDate = getReportTransactionDate(booking);
+      const matchesReportDate = isDateInsideReportRange(reportCheckInDate);
 
-    return (
-      matchesAccessHotel &&
-      matchesHotel &&
-      matchesReportDate &&
-      matchesReportShift(booking) &&
-      matchesReportPaymentMethod(booking)
-    );
-  });
+      return (
+        matchesAccessHotel &&
+        matchesHotel &&
+        matchesReportDate &&
+        matchesReportShift(booking) &&
+        matchesReportPaymentMethod(booking)
+      );
+    })
+    .sort((a, b) => {
+      const dateA = toSafeDate(getReportTransactionDate(a) || a?.check_in);
+      const dateB = toSafeDate(getReportTransactionDate(b) || b?.check_in);
+
+      return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+    });
 }, [
   bookings,
   filters.hotelId,
   assignedHotelIds,
   canAccessAllHotels,
   reportDate,
+  reportDateEnd,
   reportShift,
   reportPaymentMethod,
 ]);
@@ -3490,16 +3625,14 @@ const reportBookings = useMemo(() => {
 
   const reportExpenseRows = useMemo(() => {
     return reportExpenses.filter((expense) => {
-      const matchesDate = reportDate
-        ? normalizeDateOnlyValue(expense?.date) === reportDate
-        : true;
+      const matchesDate = isDateInsideReportRange(expense?.date);
       const matchesHotel = filters.hotelId
         ? String(expense?.hotel_id || "") === String(filters.hotelId)
         : true;
 
       return matchesDate && matchesHotel;
     });
-  }, [reportExpenses, reportDate, filters.hotelId]);
+  }, [reportExpenses, reportDate, reportDateEnd, filters.hotelId]);
 
   const reportTotalExpense = useMemo(() => {
     return reportExpenseRows.reduce(
@@ -4018,15 +4151,21 @@ const reportBookings = useMemo(() => {
   const manualInputClass =
     "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none shadow-sm transition placeholder:text-slate-400 focus:border-red-400 focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400";
 
-  const needsFolderSelection = !canAccessAllHotels;
-const hasSelectedFolder = canAccessAllHotels ? true : !!filters.hotelId;
+  const needsFolderSelection = !canAccessAllHotels && !shouldHideBranchFilterForReceptionist;
+const hasSelectedFolder = canAccessAllHotels
+  ? true
+  : shouldHideBranchFilterForReceptionist
+  ? true
+  : !!filters.hotelId;
 
-const selectedFolderHotel = folderHotels.find(
-  (hotel) => String(hotel.id) === String(filters.hotelId)
-);
+const selectedFolderHotel =
+  folderHotels.find((hotel) => String(hotel.id) === String(filters.hotelId)) ||
+  (shouldHideBranchFilterForReceptionist ? folderHotels[0] : null);
 
 const selectedFolderLabel = filters.hotelId
   ? selectedFolderHotel?.name || "Cabang dipilih"
+  : shouldHideBranchFilterForReceptionist
+  ? folderHotels[0]?.name || "Cabang otomatis"
   : canAccessAllHotels
   ? "Semua Cabang"
   : "Belum pilih cabang";
@@ -4172,6 +4311,10 @@ const confirmReadyRoomDatePicker = () => {
     setReportDate(dateOnlyValue || getTodayDateValue());
   }
 
+  if (pickerKey === "report-date-end") {
+    setReportDateEnd(dateOnlyValue || reportDate || getTodayDateValue());
+  }
+
   if (pickerKey === "housekeeping-report-date") {
     setHousekeepingReportDate(dateOnlyValue);
   }
@@ -4209,6 +4352,10 @@ const clearReadyRoomDatePicker = () => {
 
   if (pickerKey === "report-date") {
     setReportDate(getTodayDateValue());
+  }
+
+  if (pickerKey === "report-date-end") {
+    setReportDateEnd(reportDate || getTodayDateValue());
   }
 
   if (pickerKey === "housekeeping-report-date") {
@@ -4597,34 +4744,43 @@ const ReadyRoomDateField = ({
 
           <div className="relative mb-4 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={filters.hotelId}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleFilterChange("hotelId", value);
+              {shouldHideBranchFilterForReceptionist ? (
+                <div className="inline-flex h-10 w-full items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 text-xs font-black text-emerald-800 shadow-sm sm:w-[220px] lg:w-[230px]">
+                  <Building2 size={15} className="text-emerald-600" />
+                  <span className="min-w-0 flex-1 truncate">
+                    {folderHotels[0]?.name || selectedFolderLabel}
+                  </span>
+                </div>
+              ) : (
+                <select
+                  value={filters.hotelId}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    handleFilterChange("hotelId", value);
 
-                  if (value) {
-                    markHotelAsSeen(value);
-                  }
-                }}
-                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 sm:w-[220px] lg:w-[230px]"
-              >
-                {canAccessAllHotels && <option value="">Semua Cabang</option>}
-                {!canAccessAllHotels && (
-                  <option value="">Pilih Cabang / Hotel</option>
-                )}
+                    if (value) {
+                      markHotelAsSeen(value);
+                    }
+                  }}
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 sm:w-[220px] lg:w-[230px]"
+                >
+                  {canAccessAllHotels && <option value="">Semua Cabang</option>}
+                  {!canAccessAllHotels && (
+                    <option value="">Pilih Cabang / Hotel</option>
+                  )}
 
-                {folderHotels.map((hotel) => {
-                  const unreadCount = branchUnreadCounts[String(hotel.id)] || 0;
+                  {folderHotels.map((hotel) => {
+                    const unreadCount = branchUnreadCounts[String(hotel.id)] || 0;
 
-                  return (
-                    <option key={hotel.id} value={hotel.id}>
-                      {hotel.name}
-                      {unreadCount > 0 ? ` (${unreadCount} baru)` : ""}
-                    </option>
-                  );
-                })}
-              </select>
+                    return (
+                      <option key={hotel.id} value={hotel.id}>
+                        {hotel.name}
+                        {unreadCount > 0 ? ` (${unreadCount} baru)` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
 
               <div className="relative min-w-0 sm:w-[255px] lg:w-[285px]">
                 <Search
@@ -4851,6 +5007,7 @@ const ReadyRoomDateField = ({
                   const operationalMeta = getOperationalTimeMeta(booking);
                   const operationalCheckIn = getOperationalCheckInTime(booking);
                   const operationalCheckOut = getOperationalCheckoutTime(booking);
+                  const actualCheckOut = getActualCheckoutTime(booking);
                   const isOverdueCheckout = isBookingCheckoutOverdue(booking);
                   const visiblePaymentNote = cleanPaymentNote(booking.payment_note);
 
@@ -4954,7 +5111,7 @@ const ReadyRoomDateField = ({
                                       </p>
                                     </div>
                                     <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-red-700 shadow-sm ring-1 ring-red-100">
-                                      Target: {formatDateTime(operationalCheckOut)}
+                                      Jadwal Check-out: {formatDateTime(operationalCheckOut)}
                                     </span>
                                   </div>
                                 </div>
@@ -4982,9 +5139,9 @@ const ReadyRoomDateField = ({
                                 <StayScheduleMiniCard
                                   icon={<CalendarDays size={16} className="text-red-500" />}
                                   checkIn={formatDateTime(booking.check_in)}
-                                  checkOut={formatDateTime(booking.check_out)}
+                                  checkOut={formatDateTime(operationalCheckOut || booking.check_out)}
                                   actualCheckIn={operationalMeta.actualCheckIn ? formatDateTime(operationalCheckIn) : ""}
-                                  targetCheckOut={operationalMeta.expectedCheckOut ? formatDateTime(operationalCheckOut) : ""}
+                                  actualCheckOut={actualCheckOut ? formatDateTime(actualCheckOut) : ""}
                                   overdue={isOverdueCheckout}
                                 />
 
@@ -6710,54 +6867,77 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </button>
       </div>
 
-      <div className="mb-5 rounded-3xl border border-gray-200 bg-gray-50/80 p-3 shadow-sm">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="mb-5 rounded-[24px] border border-gray-200 bg-gray-50/80 p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(155px,1.15fr)_minmax(130px,0.9fr)_minmax(130px,0.9fr)_minmax(120px,0.78fr)_minmax(145px,0.92fr)]">
           <div>
-            <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">
               Cabang
             </label>
-            <select
-              value={filters.hotelId}
-              onChange={(e) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  hotelId: e.target.value,
-                }))
-              }
-              disabled={!canAccessAllHotels && folderHotels.length === 1}
-              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-            >
-              {(canAccessAllHotels || folderHotels.length !== 1) && (
-                <option value="">Semua Cabang</option>
-              )}
-              {folderHotels.map((hotel) => (
-                <option key={hotel.id} value={hotel.id}>
-                  {hotel.name}
-                </option>
-              ))}
-            </select>
+            {shouldHideBranchFilterForReceptionist ? (
+              <div className="inline-flex h-10 w-full items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 text-xs font-black text-emerald-800 shadow-sm">
+                <Building2 size={14} className="text-emerald-600" />
+                <span className="min-w-0 flex-1 truncate">
+                  {folderHotels[0]?.name || selectedFolderLabel}
+                </span>
+              </div>
+            ) : (
+              <select
+                value={filters.hotelId}
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    hotelId: e.target.value,
+                  }))
+                }
+                disabled={!canAccessAllHotels && folderHotels.length === 1}
+                className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                {(canAccessAllHotels || folderHotels.length !== 1) && (
+                  <option value="">Semua Cabang</option>
+                )}
+                {folderHotels.map((hotel) => (
+                  <option key={hotel.id} value={hotel.id}>
+                    {hotel.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
-              Tanggal
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">
+              Dari Tanggal
             </label>
             <ReadyRoomDateField
               pickerKey="report-date"
               value={reportDate}
-              placeholder="Pilih tanggal"
+              placeholder="Dari tanggal"
+              size="sm"
               className="border-gray-200 text-gray-800"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">
+              Sampai Tanggal
+            </label>
+            <ReadyRoomDateField
+              pickerKey="report-date-end"
+              value={reportDateEnd}
+              placeholder="Sampai tanggal"
+              size="sm"
+              className="border-gray-200 text-gray-800"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">
               Shift
             </label>
             <select
               value={reportShift}
               onChange={(e) => setReportShift(e.target.value)}
-              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+              className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
             >
               <option value="all">Semua Shift</option>
               <option value="pagi">Shift Pagi</option>
@@ -6766,13 +6946,13 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
-              Metode Pembayaran
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">
+              Pembayaran
             </label>
             <select
               value={reportPaymentMethod}
               onChange={(e) => setReportPaymentMethod(e.target.value)}
-              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+              className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-800 outline-none shadow-sm transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
             >
               <option value="all">Semua Metode</option>
               <option value="cash">Tunai</option>
@@ -6782,7 +6962,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
         </div>
 
         <p className="mt-2 text-xs font-semibold text-gray-500">
-          Patokan tanggal dan shift menggunakan Jam Masuk Tamu / check-in aktual.
+          Patokan tanggal dan shift menggunakan Jam Masuk Tamu / check-in aktual. Periode aktif: {getReportDateRangeLabel()}.
         </p>
       </div>
 
@@ -6818,12 +6998,12 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                   <tr className="text-left text-gray-600">
                     <th className="px-4 py-3 font-semibold">No</th>
                     <th className="px-4 py-3 font-semibold">Tgl dan Jam Check-in</th>
-                    <th className="px-4 py-3 font-semibold">Nama Tamu</th>
+                    <th className="px-4 py-3 font-semibold" style={{ width: "24%" }}>Nama Tamu</th>
                     <th className="px-4 py-3 font-semibold">No Telpon</th>
                     <th className="px-4 py-3 font-semibold">No Kamar</th>
                     <th className="px-4 py-3 font-semibold">Durasi</th>
                     <th className="px-4 py-3 font-semibold text-right">Harga</th>
-                    <th className="px-4 py-3 font-semibold">Metode Pembayaran</th>
+                    <th className="px-4 py-3 font-semibold">Pembayaran</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -7745,7 +7925,7 @@ function StayScheduleMiniCard({
   checkIn,
   checkOut,
   actualCheckIn = "",
-  targetCheckOut = "",
+  actualCheckOut = "",
   overdue = false,
 }) {
   return (
@@ -7798,13 +7978,9 @@ function StayScheduleMiniCard({
           >
             {checkOut || "-"}
           </p>
-          {targetCheckOut && (
-            <p
-              className={`mt-1 rounded-lg px-2 py-1 text-[9px] font-black leading-snug ${
-                overdue ? "bg-white text-red-700" : "bg-sky-50 text-sky-700"
-              }`}
-            >
-              Target: {targetCheckOut}
+          {actualCheckOut && (
+            <p className="mt-1 rounded-lg bg-emerald-50 px-2 py-1 text-[9px] font-black leading-snug text-emerald-700">
+              Aktual: {actualCheckOut}
             </p>
           )}
         </div>

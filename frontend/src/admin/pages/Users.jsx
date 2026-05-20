@@ -642,6 +642,10 @@ export default function UsersPage() {
     "inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 hover:border-gray-300";
   const calmDangerClass =
     "inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 hover:border-rose-300";
+  const compactActionClass =
+    "inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50";
+  const compactDangerClass =
+    "inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-100";
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -962,72 +966,84 @@ export default function UsersPage() {
                     {filteredCustomers.map((customer) => (
                       <div
                         key={customer.id}
-                        className="rounded-3xl border border-gray-200 bg-gray-50 p-5"
+                        className="rounded-3xl border border-gray-200 bg-gray-50/80 px-4 py-3 shadow-sm transition hover:border-red-100 hover:bg-white"
                       >
-                        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="flex-1">
-                            <div className="mb-4 flex flex-wrap items-center gap-3">
-                              <h3 className="text-lg font-bold text-gray-800">
+                        <div className="grid gap-3 text-sm xl:grid-cols-[1.1fr_0.65fr_1.2fr_1.1fr_0.75fr_1.55fr] xl:items-center">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 xl:hidden">
+                              Nama
+                            </p>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <h3 className="truncate text-base font-bold text-gray-900">
                                 {customer.name}
                               </h3>
-
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(
-                                  customer.status
-                                )}`}
-                              >
-                                {customer.status ? "Aktif" : "Nonaktif"}
-                              </span>
-                            </div>
-
-                            <div className="grid gap-4 text-sm md:grid-cols-3">
-                              <div className="flex items-start gap-3">
-                                <Phone size={16} className="mt-0.5 text-red-500" />
-                                <div>
-                                  <p className="text-gray-400">Nomor HP</p>
-                                  <p className="font-semibold text-gray-800">
-                                    {customer.phone || "-"}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-start gap-3">
-                                <ShieldCheck
-                                  size={16}
-                                  className="mt-0.5 text-red-500"
-                                />
-                                <div>
-                                  <p className="text-gray-400">Verifikasi</p>
-                                  <p className="font-semibold text-gray-800">
-                                    {customer.is_verified
-                                      ? "Terverifikasi"
-                                      : "Belum Verifikasi"}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-start gap-3">
-                                <UserCog size={16} className="mt-0.5 text-red-500" />
-                                <div>
-                                  <p className="text-gray-400">ID Customer</p>
-                                  <p className="font-semibold text-gray-800">
-                                    #{customer.id}
-                                  </p>
-                                </div>
-                              </div>
                             </div>
                           </div>
 
-                          <div className="flex w-full flex-wrap gap-2 lg:w-auto lg:flex-col">
+                          <div>
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 xl:hidden">
+                              Status
+                            </p>
+                            <span
+                              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${getStatusBadgeClass(
+                                customer.status
+                              )}`}
+                            >
+                              {customer.status ? "Aktif" : "Nonaktif"}
+                            </span>
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 xl:hidden">
+                              Nomor HP
+                            </p>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <Phone size={15} className="shrink-0 text-red-500" />
+                              <span className="truncate font-semibold text-gray-800">
+                                {customer.phone || "-"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 xl:hidden">
+                              Verifikasi
+                            </p>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <ShieldCheck
+                                size={15}
+                                className="shrink-0 text-red-500"
+                              />
+                              <span className="truncate font-semibold text-gray-800">
+                                {customer.is_verified
+                                  ? "Terverifikasi"
+                                  : "Belum Verifikasi"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 xl:hidden">
+                              ID Customer
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <UserCog size={15} className="shrink-0 text-red-500" />
+                              <span className="font-bold text-gray-800">
+                                #{customer.id}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 xl:justify-end">
                             {canResetPassword(customer, "customer") && (
                               <button
                                 type="button"
                                 onClick={() =>
                                   openResetPasswordModal(customer, "customer")
                                 }
-                                className={calmActionClass}
+                                className={compactActionClass}
                               >
-                                <KeyRound size={16} />
+                                <KeyRound size={14} />
                                 Password
                               </button>
                             )}
@@ -1038,9 +1054,9 @@ export default function UsersPage() {
                                 onClick={() =>
                                   handleToggleStatus(customer.id, "customer")
                                 }
-                                className={calmActionClass}
+                                className={compactActionClass}
                               >
-                                <Power size={16} />
+                                <Power size={14} />
                                 {customer.status ? "Nonaktifkan" : "Aktifkan"}
                               </button>
                             )}
@@ -1049,9 +1065,9 @@ export default function UsersPage() {
                               <button
                                 type="button"
                                 onClick={() => openDeleteModal(customer, "customer")}
-                                className={calmDangerClass}
+                                className={compactDangerClass}
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={14} />
                                 Hapus
                               </button>
                             )}

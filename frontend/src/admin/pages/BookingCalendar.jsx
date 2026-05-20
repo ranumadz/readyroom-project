@@ -106,6 +106,8 @@ export default function BookingCalendar() {
     adminUser?.role === "boss" ||
     adminUser?.role === "super_admin" ||
     adminUser?.role === "pengawas";
+  const currentAdminRole = String(adminUser?.role || "").toLowerCase();
+  const isReceptionistUser = currentAdminRole === "receptionist";
 
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
@@ -1228,8 +1230,6 @@ export default function BookingCalendar() {
     return null;
   };
 
-  const hasSelectedFolder = canAccessAllHotels ? true : !!filters.hotel_id;
-
   const accessibleHotels = useMemo(() => {
     const sourceHotels = Array.isArray(calendarData.hotels)
       ? calendarData.hotels
@@ -1247,6 +1247,58 @@ export default function BookingCalendar() {
 
     return [];
   }, [calendarData.hotels, assignedHotelIds, canAccessAllHotels]);
+
+  const receptionistAssignedHotels = useMemo(() => {
+    if (!isReceptionistUser) return [];
+
+    const sourceHotels =
+      Array.isArray(userAccessHotels) && userAccessHotels.length > 0
+        ? userAccessHotels
+        : Array.isArray(adminUser?.hotels)
+        ? adminUser.hotels
+        : [];
+
+    return sourceHotels.filter((hotel) => hotel?.id);
+  }, [adminUser, isReceptionistUser, userAccessHotels]);
+
+  const receptionistLockedHotel = useMemo(() => {
+    if (!isReceptionistUser) return null;
+    if (receptionistAssignedHotels.length !== 1) return null;
+
+    const assignedHotel = receptionistAssignedHotels[0];
+
+    return (
+      accessibleHotels.find(
+        (hotel) => String(hotel.id) === String(assignedHotel.id)
+      ) ||
+      assignedHotel ||
+      null
+    );
+  }, [accessibleHotels, isReceptionistUser, receptionistAssignedHotels]);
+
+  const receptionistLockedHotelId = receptionistLockedHotel?.id
+    ? String(receptionistLockedHotel.id)
+    : "";
+  const shouldLockReceptionistHotel = Boolean(receptionistLockedHotelId);
+  const hasSelectedFolder = canAccessAllHotels
+    ? true
+    : Boolean(filters.hotel_id || receptionistLockedHotelId);
+
+  useEffect(() => {
+    if (!shouldLockReceptionistHotel || !receptionistLockedHotelId) return;
+
+    setFilters((prev) => {
+      if (String(prev.hotel_id || "") === receptionistLockedHotelId) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        hotel_id: receptionistLockedHotelId,
+        room_type: "all",
+      };
+    });
+  }, [receptionistLockedHotelId, shouldLockReceptionistHotel]);
 
   const getRoomUnitSortText = (unit) => {
     return String(
@@ -1639,22 +1691,34 @@ export default function BookingCalendar() {
 
           <div className="mb-3 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                name="hotel_id"
-                value={filters.hotel_id}
-                onChange={handleFilterChange}
-                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 sm:w-[190px] lg:w-[205px]"
-                aria-label="Pilih cabang"
-              >
-                {canAccessAllHotels && <option value="">Semua Cabang</option>}
-                {!canAccessAllHotels && <option value="">Pilih Cabang</option>}
+              {shouldLockReceptionistHotel ? (
+                <div
+                  className="inline-flex h-10 w-full items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-800 shadow-sm sm:w-[190px] lg:w-[205px]"
+                  title="Cabang otomatis dikunci untuk receptionist"
+                >
+                  <Hotel size={15} className="shrink-0 text-emerald-600" />
+                  <span className="min-w-0 truncate">
+                    {receptionistLockedHotel?.name || "Cabang Receptionist"}
+                  </span>
+                </div>
+              ) : (
+                <select
+                  name="hotel_id"
+                  value={filters.hotel_id}
+                  onChange={handleFilterChange}
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-50 sm:w-[190px] lg:w-[205px]"
+                  aria-label="Pilih cabang"
+                >
+                  {canAccessAllHotels && <option value="">Semua Cabang</option>}
+                  {!canAccessAllHotels && <option value="">Pilih Cabang</option>}
 
-                {accessibleHotels.map((hotel) => (
-                  <option key={hotel.id} value={hotel.id}>
-                    {hotel.name}
-                  </option>
-                ))}
-              </select>
+                  {accessibleHotels.map((hotel) => (
+                    <option key={hotel.id} value={hotel.id}>
+                      {hotel.name}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               <select
                 name="room_type"

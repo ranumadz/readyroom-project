@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { BedDouble, CalendarDays, ClipboardList, Maximize2, Minimize2 } from "lucide-react";
+import { BedDouble, CalendarDays, ClipboardList, Hotel, Maximize2, Minimize2 } from "lucide-react";
 import api from "../../services/api";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -393,6 +393,15 @@ export default function RoomUnits() {
     );
   }, [hotelOptions, selectedHotelId]);
 
+  const isReceptionistSingleHotel =
+    adminRole === "receptionist" &&
+    !canAccessAllHotels &&
+    hotelOptions.length === 1;
+
+  const receptionistLockedHotel = isReceptionistSingleHotel
+    ? hotelOptions[0]
+    : null;
+
   const roomsBySelectedHotel = useMemo(() => {
     if (!selectedHotelId) return [];
 
@@ -450,6 +459,27 @@ export default function RoomUnits() {
       setLoadingUnits(false);
     }
   };
+
+  useEffect(() => {
+    if (!isReceptionistSingleHotel || !receptionistLockedHotel?.id) return;
+
+    const lockedHotelId = String(receptionistLockedHotel.id);
+
+    if (String(selectedHotelId) === lockedHotelId) return;
+
+    setSelectedHotelId(lockedHotelId);
+    setSelectedRoom("all");
+    setUnits([]);
+    setSearchUnit("");
+    setSelectedStatus("all");
+    setRoomSelectWarning("");
+    fetchAllUnitsByHotel(lockedHotelId);
+  }, [
+    isReceptionistSingleHotel,
+    receptionistLockedHotel?.id,
+    selectedHotelId,
+    accessScopedRooms,
+  ]);
 
   const statusTabs = [
     { value: "all", label: "Semua" },
@@ -1515,29 +1545,38 @@ export default function RoomUnits() {
 
           <div className="mb-5 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={selectedHotelId}
-                onChange={(e) => handleHotelChange(e.target.value)}
-                disabled={
-                  loadingRooms ||
-                  loadingUserAccessHotels ||
-                  (!canAccessAllHotels && assignedHotelIds.length === 0)
-                }
-                className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-[220px] lg:w-[230px]"
-                aria-label="Pilih cabang atau hotel"
-              >
-                <option value="">
-                  {loadingRooms || loadingUserAccessHotels
-                    ? "Memuat cabang..."
-                    : "Pilih Cabang / Hotel"}
-                </option>
-
-                {hotelOptions.map((hotel) => (
-                  <option key={hotel.id} value={hotel.id}>
-                    {hotel.name}
+              {isReceptionistSingleHotel && receptionistLockedHotel ? (
+                <div className="flex h-10 w-full items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-800 shadow-sm sm:w-[220px] lg:w-[230px]">
+                  <Hotel size={15} className="shrink-0 text-emerald-600" />
+                  <span className="min-w-0 truncate">
+                    {receptionistLockedHotel.name || "Cabang Receptionist"}
+                  </span>
+                </div>
+              ) : (
+                <select
+                  value={selectedHotelId}
+                  onChange={(e) => handleHotelChange(e.target.value)}
+                  disabled={
+                    loadingRooms ||
+                    loadingUserAccessHotels ||
+                    (!canAccessAllHotels && assignedHotelIds.length === 0)
+                  }
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-800 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-[220px] lg:w-[230px]"
+                  aria-label="Pilih cabang atau hotel"
+                >
+                  <option value="">
+                    {loadingRooms || loadingUserAccessHotels
+                      ? "Memuat cabang..."
+                      : "Pilih Cabang / Hotel"}
                   </option>
-                ))}
-              </select>
+
+                  {hotelOptions.map((hotel) => (
+                    <option key={hotel.id} value={hotel.id}>
+                      {hotel.name}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               <select
                 value={selectedRoom}
