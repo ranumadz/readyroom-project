@@ -1296,7 +1296,7 @@ export default function BookingList() {
     }
   };
 
-  function getManualBookingLockedHotel() {
+  function getManualBookingDefaultHotel() {
     const selectedFilterHotel = filters.hotelId
       ? folderHotels.find((hotel) => String(hotel.id) === String(filters.hotelId)) ||
         hotels.find((hotel) => String(hotel.id) === String(filters.hotelId)) ||
@@ -1307,7 +1307,7 @@ export default function BookingList() {
       return selectedFilterHotel;
     }
 
-    if (folderHotels.length === 1) {
+    if (!canAccessAllHotels && folderHotels.length === 1) {
       return folderHotels[0];
     }
 
@@ -1315,18 +1315,13 @@ export default function BookingList() {
   }
 
   const openManualModal = () => {
-    const lockedHotel = getManualBookingLockedHotel();
-
-    if (!lockedHotel?.id) {
-      toast.error("Pilih cabang terlebih dahulu sebelum membuat booking manual");
-      return;
-    }
+    const defaultHotel = getManualBookingDefaultHotel();
 
     setManualForm({
       guest_name: "",
       guest_phone: "",
       guest_email: "",
-      hotel_id: String(lockedHotel.id),
+      hotel_id: defaultHotel?.id ? String(defaultHotel.id) : "",
       room_id: "",
       room_unit_id: "",
       booking_type: "transit",
@@ -6846,17 +6841,37 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
 
                 <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top_right,_rgba(254,202,202,0.42),_transparent_24%),linear-gradient(180deg,_#fff_0%,_#fff7f7_100%)] p-4 md:p-5">
                   <div className="rounded-[30px] border border-slate-100 bg-white/95 p-4 shadow-sm md:p-5">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div className="inline-flex min-w-0 items-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-black text-red-700">
-                        <Building2 size={14} className="shrink-0" />
-                        <span className="shrink-0 uppercase tracking-wide">Hotel</span>
-                        <span className="max-w-[220px] truncate text-slate-900">
-                          {selectedManualHotelLabel}
-                        </span>
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-500">
-                        Cabang dikunci dari filter Booking List
+                    <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">
+                          Hotel
+                        </label>
+                        <div className="relative">
+                          <select
+                            name="hotel_id"
+                            value={manualForm.hotel_id}
+                            onChange={handleManualChange}
+                            disabled={loadingHotels || (!canAccessAllHotels && folderHotels.length === 1)}
+                            className={`${manualInputClass} pl-11`}
+                          >
+                            <option value="">
+                              {loadingHotels
+                                ? "Memuat hotel..."
+                                : folderHotels.length === 0
+                                ? "Tidak ada cabang tersedia"
+                                : "Pilih hotel / cabang"}
+                            </option>
+                            {folderHotels.map((hotel) => (
+                              <option key={hotel.id} value={hotel.id}>
+                                {hotel.name}
+                              </option>
+                            ))}
+                          </select>
+                          <Building2
+                            size={17}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -6880,34 +6895,88 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         </button>
 
                         {manualDatePickerOpen && (
-                          <div className="absolute left-0 top-[68px] z-[90] w-[520px] max-w-[calc(100vw-48px)] rounded-[16px] border border-red-100 bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.18)]">
-                            <div className="flex items-center justify-between gap-1.5 rounded-[12px] bg-gradient-to-br from-red-950 via-red-700 to-rose-500 px-2 py-1.5 text-white">
-                              <button
-                                type="button"
-                                onClick={() => handleManualCalendarMonthChange(-1)}
-                                className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/15 text-xs font-black transition hover:bg-white/25"
-                              >
-                                ‹
-                              </button>
-                              <div className="text-center">
-                                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-red-100">
-                                  Kalender Check-in
-                                </p>
-                                <p className="text-[11px] font-black capitalize">
-                                  {manualCalendarMonthLabel}
-                                </p>
+                          <div className="absolute left-0 top-[66px] z-[90] w-[456px] max-w-[calc(100vw-48px)] rounded-[18px] border border-red-100 bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.18)]">
+                            <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-2 rounded-[14px] bg-gradient-to-br from-red-950 via-red-700 to-rose-500 p-2 text-white">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleManualCalendarMonthChange(-1)}
+                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/15 text-xs font-black transition hover:bg-white/25"
+                                >
+                                  ‹
+                                </button>
+                                <div className="min-w-0 flex-1 text-center">
+                                  <p className="text-[8px] font-black uppercase tracking-[0.16em] text-red-100">
+                                    Kalender Check-in
+                                  </p>
+                                  <p className="truncate text-[12px] font-black capitalize leading-tight">
+                                    {manualCalendarMonthLabel}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleManualCalendarMonthChange(1)}
+                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/15 text-xs font-black transition hover:bg-white/25"
+                                >
+                                  ›
+                                </button>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => handleManualCalendarMonthChange(1)}
-                                className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/15 text-xs font-black transition hover:bg-white/25"
-                              >
-                                ›
-                              </button>
+
+                              <div className="rounded-xl bg-white/10 px-2 py-1 ring-1 ring-white/15">
+                                <p className="mb-1 flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.12em] text-red-50">
+                                  <Clock3 size={10} />
+                                  Pilih Jam Check-in
+                                </p>
+                                <div className="grid grid-cols-2 gap-1">
+                                  <select
+                                    value={manualCheckInDraft.hour}
+                                    onChange={(e) =>
+                                      setManualCheckInDraft((prev) => ({
+                                        ...prev,
+                                        hour: e.target.value,
+                                      }))
+                                    }
+                                    className="h-7 rounded-lg border border-white/20 bg-white px-2 text-[11px] font-black text-slate-800 outline-none focus:border-red-300 focus:ring-2 focus:ring-white/30"
+                                  >
+                                    {Array.from({ length: 24 }, (_, index) => padTwo(index)).map((hour) => {
+                                      const fullDayHourDisabled =
+                                        manualForm.booking_type === "overnight" &&
+                                        Number(hour) < MANUAL_FULL_DAY_START_HOUR;
+
+                                      return (
+                                        <option
+                                          key={hour}
+                                          value={hour}
+                                          disabled={fullDayHourDisabled}
+                                        >
+                                          {fullDayHourDisabled ? `${hour} - Off` : hour}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+
+                                  <select
+                                    value={manualCheckInDraft.minute}
+                                    onChange={(e) =>
+                                      setManualCheckInDraft((prev) => ({
+                                        ...prev,
+                                        minute: e.target.value,
+                                      }))
+                                    }
+                                    className="h-7 rounded-lg border border-white/20 bg-white px-2 text-[11px] font-black text-slate-800 outline-none focus:border-red-300 focus:ring-2 focus:ring-white/30"
+                                  >
+                                    {Array.from({ length: 60 }, (_, index) => padTwo(index)).map((minute) => (
+                                      <option key={minute} value={minute}>
+                                        {minute}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
                             </div>
 
-                            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_126px] gap-2">
-                              <div>
+                            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_132px] gap-2">
+                              <div className="rounded-[14px] bg-slate-50 p-1.5">
                                 <div className="grid grid-cols-7 gap-[3px] text-center">
                                   {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => (
                                     <div key={day} className="py-0.5 text-[8px] font-black uppercase text-slate-400">
@@ -6933,7 +7002,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                             ? "bg-red-600 text-white shadow-lg shadow-red-100"
                                             : today
                                             ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                                            : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                            : "bg-white text-slate-700 hover:bg-slate-100"
                                         }`}
                                       >
                                         {day ? day.getDate() : ""}
@@ -6943,96 +7012,47 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                                 </div>
                               </div>
 
-                              <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-2">
-                                <div className="mb-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-wide text-slate-500">
-                                  <Clock3 size={10} className="text-red-500" />
-                                  Pilih Jam
-                                </div>
-
-                                {manualForm.booking_type === "overnight" && (
-                                  <p className="mb-1 rounded-lg bg-amber-50 px-1.5 py-1 text-[8px] font-bold leading-snug text-amber-700">
-                                    Full Day mulai 14.00
+                              <div className="flex flex-col gap-1.5 rounded-[14px] border border-slate-100 bg-slate-50 p-1.5">
+                                <div>
+                                  <p className="text-[8px] font-black uppercase tracking-wide text-slate-400">
+                                    Terpilih
                                   </p>
-                                )}
+                                  <p className="mt-1 rounded-lg bg-white px-2 py-1 text-[9px] font-bold leading-snug text-slate-600">
+                                    {manualCheckInDraft.date
+                                      ? `${manualCheckInDraft.date} • ${manualCheckInDraft.hour}:${manualCheckInDraft.minute}`
+                                      : "Tanggal belum dipilih"}
+                                  </p>
 
-                                <div className="grid grid-cols-1 gap-1">
-                                  <select
-                                    value={manualCheckInDraft.hour}
-                                    onChange={(e) =>
-                                      setManualCheckInDraft((prev) => ({
-                                        ...prev,
-                                        hour: e.target.value,
-                                      }))
-                                    }
-                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-black text-slate-800 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
-                                  >
-                                    {Array.from({ length: 24 }, (_, index) => padTwo(index)).map((hour) => {
-                                      const fullDayHourDisabled =
-                                        manualForm.booking_type === "overnight" &&
-                                        Number(hour) < MANUAL_FULL_DAY_START_HOUR;
-
-                                      return (
-                                        <option
-                                          key={hour}
-                                          value={hour}
-                                          disabled={fullDayHourDisabled}
-                                        >
-                                          {fullDayHourDisabled ? `${hour} - Tidak tersedia` : hour}
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
-
-                                  <select
-                                    value={manualCheckInDraft.minute}
-                                    onChange={(e) =>
-                                      setManualCheckInDraft((prev) => ({
-                                        ...prev,
-                                        minute: e.target.value,
-                                      }))
-                                    }
-                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-black text-slate-800 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
-                                  >
-                                    {Array.from({ length: 60 }, (_, index) => padTwo(index)).map((minute) => (
-                                      <option key={minute} value={minute}>
-                                        {minute}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  {manualForm.booking_type === "overnight" && (
+                                    <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-[8px] font-bold leading-snug text-amber-700">
+                                      Full Day mulai 14.00
+                                    </p>
+                                  )}
                                 </div>
 
-                                <div className="mt-1 rounded-lg bg-white px-1.5 py-0.5 text-[8px] font-bold text-slate-500">
-                                  {manualCheckInDraft.date
-                                    ? `${manualCheckInDraft.date} • ${manualCheckInDraft.hour}:${manualCheckInDraft.minute}`
-                                    : "Tanggal belum dipilih"}
+                                <div className="grid grid-cols-2 gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setManualDatePickerOpen(false)}
+                                    className="rounded-lg bg-slate-200 px-2 py-1.5 text-[10px] font-black text-slate-700 transition hover:bg-slate-300"
+                                  >
+                                    Batal
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={confirmManualCheckInPicker}
+                                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-red-600 px-2 py-1.5 text-[10px] font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700"
+                                  >
+                                    <CheckCircle2 size={11} />
+                                    OK
+                                  </button>
                                 </div>
-                              </div>
-                            </div>
-
-                            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1">
-                              <button
-                                type="button"
-                                onClick={clearManualCheckInPicker}
-                                className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600 transition hover:bg-slate-200"
-                              >
-                                Hapus
-                              </button>
-
-                              <div className="flex items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => setManualDatePickerOpen(false)}
-                                  className="rounded-lg bg-slate-200 px-2.5 py-1 text-[10px] font-black text-slate-700 transition hover:bg-slate-300"
+                                  onClick={clearManualCheckInPicker}
+                                  className="rounded-lg bg-white px-2 py-1 text-[9px] font-black text-slate-500 transition hover:bg-slate-100"
                                 >
-                                  Batal
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={confirmManualCheckInPicker}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1 text-[10px] font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-700"
-                                >
-                                  <CheckCircle2 size={11} />
-                                  OK
+                                  Hapus
                                 </button>
                               </div>
                             </div>
