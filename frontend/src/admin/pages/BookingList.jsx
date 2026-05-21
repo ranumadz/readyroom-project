@@ -3218,6 +3218,7 @@ const buildWhatsAppMessage = (booking) => {
 
   const canAddPenaltyToBooking = (booking) => {
     const status = String(booking?.status || "").toLowerCase();
+    const paymentStatus = String(booking?.payment_status || "").toLowerCase();
     const allowedPenaltyRoles = [
       "boss",
       "super_admin",
@@ -3226,8 +3227,10 @@ const buildWhatsAppMessage = (booking) => {
       "receptionist",
       "resepsionis",
     ];
-    const allowedPenaltyStatuses = [
-      "confirmed",
+
+    // Denda baru boleh muncul setelah flow Check-in & Bayar berjalan.
+    // Jadi booking yang masih pending / confirmed / belum lunas tidak menampilkan tombol denda.
+    const allowedPenaltyStatusesAfterCheckIn = [
       "checked_in",
       "checked_out",
       "cleaning",
@@ -3236,7 +3239,8 @@ const buildWhatsAppMessage = (booking) => {
 
     return (
       allowedPenaltyRoles.includes(currentAdminRole) &&
-      allowedPenaltyStatuses.includes(status)
+      allowedPenaltyStatusesAfterCheckIn.includes(status) &&
+      paymentStatus === "paid"
     );
   };
 
@@ -3258,6 +3262,11 @@ const buildWhatsAppMessage = (booking) => {
   };
 
   const handleOpenPenaltyModal = (booking) => {
+    if (!canAddPenaltyToBooking(booking)) {
+      toast.error("Denda baru bisa ditambahkan setelah Check-in & Bayar.");
+      return;
+    }
+
     setSelectedPenaltyBooking(booking);
     setPenaltyForm({
       penalty_type: "smoking",
@@ -5633,12 +5642,7 @@ const ReadyRoomDateField = ({
                                 tone="teal"
                                 onClick={() => handleFinishCleaning(booking)}
                               />
-                            ) : (
-                              <div className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-600 shadow-sm ring-1 ring-slate-200">
-                                <CheckCircle2 size={17} />
-                                Sudah Diproses
-                              </div>
-                            )}
+                            ) : null}
 
                             {showAddPenaltyButton && (
                               <ActionButton
@@ -6454,7 +6458,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                   <div>
                     <h3 className="text-xl font-bold text-gray-800">Tambah Denda Booking</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      Input denda operasional setelah tamu check-out atau saat proses cleaning.
+                      Input denda operasional setelah tamu check-in dan pembayaran tercatat.
                     </p>
                   </div>
                   <button
