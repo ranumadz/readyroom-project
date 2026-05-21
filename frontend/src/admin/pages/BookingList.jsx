@@ -750,10 +750,44 @@ export default function BookingList() {
     return 3 * 60 * 60 * 1000;
   };
 
+  const isFullDayBooking = (booking) => {
+    const bookingType = String(booking?.booking_type || "").toLowerCase();
+    return ["overnight", "full_day", "fullday", "full-day"].includes(bookingType);
+  };
+
+  const calculateFullDayCheckoutDate = (actualCheckInValue, durationDaysValue = 1) => {
+    const actualCheckIn = toSafeDate(actualCheckInValue);
+    if (!actualCheckIn) return null;
+
+    const durationDays = Math.max(1, Number(durationDaysValue || 1));
+    const checkout = new Date(actualCheckIn);
+    const noonBoundary = new Date(actualCheckIn);
+    noonBoundary.setHours(12, 0, 0, 0);
+
+    if (actualCheckIn < noonBoundary) {
+      checkout.setHours(12, 0, 0, 0);
+      checkout.setDate(checkout.getDate() + (durationDays - 1));
+    } else {
+      checkout.setDate(checkout.getDate() + durationDays);
+      checkout.setHours(12, 0, 0, 0);
+    }
+
+    return checkout;
+  };
+
   const calculateExpectedCheckoutInput = (booking, actualCheckInValue) => {
     const actualCheckIn = toSafeDate(actualCheckInValue);
     if (!actualCheckIn) {
       return getDateTimeLocalInputValue(booking?.check_out);
+    }
+
+    if (isFullDayBooking(booking)) {
+      const fullDayCheckout = calculateFullDayCheckoutDate(
+        actualCheckIn,
+        booking?.duration_days || 1
+      );
+
+      return getDateTimeLocalInputValue(fullDayCheckout || booking?.check_out);
     }
 
     const expectedCheckout = new Date(
@@ -1042,10 +1076,10 @@ export default function BookingList() {
   const confirmPayment = async () => {
     if (!selectedPaidBooking) return;
 
-    const parsedPaidAmount = paidAmountInput === "" ? null : Number(paidAmountInput);
+    const parsedPaidAmount = Math.round(Number(selectedPaidBooking?.total_price || 0));
 
-    if (paidAmountInput !== "" && (Number.isNaN(parsedPaidAmount) || parsedPaidAmount < 0)) {
-      toast.error("Nominal pembayaran tidak valid");
+    if (Number.isNaN(parsedPaidAmount) || parsedPaidAmount < 0) {
+      toast.error("Total tagihan booking tidak valid");
       return;
     }
 
@@ -2830,6 +2864,7 @@ const handlePrintReport = () => {
     if (type === "lost_item") return "Barang hotel hilang";
     if (type === "extra_cleaning") return "Extra cleaning";
     if (type === "late_checkout") return "Telat check-out";
+    if (type === "other" || type === "lainnya") return "Lainnya";
 
     return String(value)
       .replace(/_/g, " ")
@@ -3150,7 +3185,27 @@ const buildWhatsAppMessage = (booking) => {
   };
 
   const canAddPenaltyToBooking = (booking) => {
-    return ["checked_out", "cleaning", "completed"].includes(booking?.status);
+    const status = String(booking?.status || "").toLowerCase();
+    const allowedPenaltyRoles = [
+      "boss",
+      "super_admin",
+      "pengawas",
+      "admin",
+      "receptionist",
+      "resepsionis",
+    ];
+    const allowedPenaltyStatuses = [
+      "confirmed",
+      "checked_in",
+      "checked_out",
+      "cleaning",
+      "completed",
+    ];
+
+    return (
+      allowedPenaltyRoles.includes(currentAdminRole) &&
+      allowedPenaltyStatuses.includes(status)
+    );
   };
 
   const getPenaltyDefaultTitle = (penaltyType) => {
@@ -3163,6 +3218,8 @@ const buildWhatsAppMessage = (booking) => {
         return "Barang hotel hilang";
       case "extra_cleaning":
         return "Extra cleaning";
+      case "other":
+        return "Lainnya";
       default:
         return "";
     }
@@ -3405,6 +3462,7 @@ const buildWhatsAppMessage = (booking) => {
 
       const customerName = booking.user?.name || booking.guest_name || "";
       const customerPhone = booking.guest_phone || "";
+      const roomUnitNumber = String(getBookingRoomUnit(booking) || "");
 
       const matchesSearch =
         !filters.search ||
@@ -3413,7 +3471,9 @@ const buildWhatsAppMessage = (booking) => {
         customerPhone.toLowerCase().includes(searchText) ||
         booking.hotel?.name?.toLowerCase().includes(searchText) ||
         booking.room?.type?.toLowerCase().includes(searchText) ||
-        booking.room?.name?.toLowerCase().includes(searchText);
+        booking.room?.name?.toLowerCase().includes(searchText) ||
+        roomUnitNumber.toLowerCase().includes(searchText) ||
+        `kamar ${roomUnitNumber}`.toLowerCase().includes(searchText);
 
       const matchesStatus =
         !filters.status || booking.status === filters.status;
@@ -3566,8 +3626,35 @@ const reportBookings = useMemo(() => {
 ]);
 
   const reportPenaltyRows = useMemo(() => {
-    return reportBookings.flatMap((booking) => getPenaltyRowsForReport(booking));
-  }, [reportBookings]);
+    return bookings
+      .flatMap((booking) => getPenaltyRowsForReport(booking))
+      .filter((item) => {
+        const booking = item?.booking || {};
+        const bookingHotelId = String(booking?.hotel_id || booking?.hotel?.id || "");
+
+        const matchesAccessHotel = canAccessAllHotels
+          ? true
+          : assignedHotelIds.includes(bookingHotelId);
+
+        const matchesHotel = !filters.hotelId || bookingHotelId === String(filters.hotelId);
+        const matchesPenaltyInputDate = isDateInsideReportRange(item?.createdAt);
+
+        return matchesAccessHotel && matchesHotel && matchesPenaltyInputDate;
+      })
+      .sort((a, b) => {
+        const dateA = toSafeDate(a?.createdAt);
+        const dateB = toSafeDate(b?.createdAt);
+
+        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+      });
+  }, [
+    bookings,
+    filters.hotelId,
+    assignedHotelIds,
+    canAccessAllHotels,
+    reportDate,
+    reportDateEnd,
+  ]);
 
   const reportTotalValue = useMemo(() => {
     return reportBookings.reduce(
@@ -3743,36 +3830,14 @@ const reportBookings = useMemo(() => {
   };
 
   const getHousekeepingEventTime = (booking) => {
-    const status = String(booking?.status || "").toLowerCase();
-
-    if (status === "cleaning") {
-      return (
-        getHousekeepingStartTime(booking) ||
-        booking?.updated_at ||
-        getOperationalCheckoutTime(booking) ||
-        booking?.check_out ||
-        booking?.created_at ||
-        null
-      );
-    }
-
-    if (status === "completed") {
-      return (
-        getHousekeepingFinishTime(booking) ||
-        booking?.updated_at ||
-        getHousekeepingStartTime(booking) ||
-        getOperationalCheckoutTime(booking) ||
-        booking?.check_out ||
-        booking?.created_at ||
-        null
-      );
-    }
-
     return (
+      getActualCheckoutTime(booking) ||
       booking?.actual_check_out ||
       booking?.checked_out_at ||
       booking?.check_out_actual ||
+      booking?.checkout_actual ||
       booking?.checkout_at ||
+      booking?.actual_checkout_at ||
       getOperationalCheckoutTime(booking) ||
       booking?.check_out ||
       booking?.updated_at ||
@@ -3873,7 +3938,7 @@ const reportBookings = useMemo(() => {
             <td>${escapePrintValue(booking.room?.type || booking.room?.name || "-")}</td>
             <td>${escapePrintValue(getBookingRoomUnit(booking))}</td>
             <td>${escapePrintValue(statusLabel)}</td>
-            <td>${escapePrintValue(formatDateTime(getOperationalCheckoutTime(booking)))}</td>
+            <td>${escapePrintValue(formatDateTime(getHousekeepingEventTime(booking)))}</td>
             <td>${escapePrintValue(formatDateTime(getHousekeepingStartTime(booking)))}</td>
             <td>${escapePrintValue(formatDateTime(getHousekeepingFinishTime(booking)))}</td>
             <td>${escapePrintValue(
@@ -4079,7 +4144,7 @@ const reportBookings = useMemo(() => {
                     <th>Tamu</th>
                     <th>Hotel</th>
                     <th>Tipe Kamar</th>
-                    <th>Unit</th>
+                    <th>Kamar</th>
                     <th>Status</th>
                     <th>Check-out</th>
                     <th>Mulai Cleaning</th>
@@ -4422,10 +4487,25 @@ const renderReadyRoomDatePickerPopup = (pickerKey) => {
   if (readyRoomDatePickerOpen !== pickerKey) return null;
 
   const isDateTime = readyRoomDateDraft.mode === "datetime";
+  const isPaidOperationalPicker = [
+    "paid-actual-check-in",
+    "paid-expected-check-out",
+  ].includes(pickerKey);
+  const paidPickerPlacementClass =
+    pickerKey === "paid-expected-check-out" ? "right-0" : "left-0";
+  const pickerPanelClass = isPaidOperationalPicker
+    ? `absolute ${paidPickerPlacementClass} top-[calc(100%+10px)] z-[120] w-[440px] max-w-[calc(100vw-56px)] rounded-[20px] border border-red-100 bg-white p-2.5 shadow-[0_22px_55px_rgba(15,23,42,0.24)]`
+    : "absolute left-0 top-[calc(100%+8px)] z-[120] w-[360px] max-w-[calc(100vw-48px)] rounded-[18px] border border-red-100 bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.20)]";
+  const pickerGridClass =
+    isDateTime && isPaidOperationalPicker
+      ? "grid-cols-[minmax(0,1fr)_136px]"
+      : isDateTime
+      ? "grid-cols-[minmax(0,1fr)_110px]"
+      : "grid-cols-1";
 
   return (
-    <div className="absolute left-0 top-[calc(100%+8px)] z-[120] w-[360px] max-w-[calc(100vw-48px)] rounded-[18px] border border-red-100 bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.20)]">
-      <div className={`grid gap-2 rounded-[14px] bg-gradient-to-br from-red-950 via-red-700 to-rose-500 p-2 text-white ${isDateTime ? "grid-cols-[minmax(0,1fr)_110px]" : "grid-cols-1"}`}>
+    <div className={pickerPanelClass}>
+      <div className={`grid gap-2 rounded-[14px] bg-gradient-to-br from-red-950 via-red-700 to-rose-500 p-2 text-white ${pickerGridClass}`}>
         <div className="flex min-w-0 items-center gap-2">
           <button
             type="button"
@@ -4461,7 +4541,7 @@ const renderReadyRoomDatePickerPopup = (pickerKey) => {
         )}
       </div>
 
-      <div className={`mt-2 grid gap-2 ${isDateTime ? "grid-cols-[minmax(0,1fr)_110px]" : "grid-cols-1"}`}>
+      <div className={`mt-2 grid gap-2 ${pickerGridClass}`}>
         <div className="rounded-[14px] bg-slate-50 p-1.5">
           <div className="grid grid-cols-7 gap-[3px] text-center">
             {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => (
@@ -5084,7 +5164,7 @@ const ReadyRoomDateField = ({
                                 {getBookingRoomUnit(booking) !== "Belum di-assign" && (
                                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700 shadow-sm">
                                     <DoorOpen size={12} />
-                                    Unit {getBookingRoomUnit(booking)}
+                                    Kamar {getBookingRoomUnit(booking)}
                                   </span>
                                 )}
 
@@ -6201,7 +6281,7 @@ const ReadyRoomDateField = ({
 
                               <div className="print-card rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                  Unit Kamar
+                                  Kamar
                                 </p>
                                 <p className="mt-2 text-lg font-black text-slate-900">
                                   {getBookingRoomUnit(selectedReceiptBooking)}
@@ -6506,7 +6586,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                   </button>
                 </div>
 
-                <div className="max-h-[75vh] space-y-5 overflow-y-auto px-6 py-6">
+                <div className="max-h-[75vh] space-y-5 overflow-y-auto overflow-x-hidden px-6 py-6">
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
@@ -6607,29 +6687,20 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-2 block text-sm font-semibold text-gray-700">Nominal Dibayar</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={paidAmountInput}
-                        onChange={(e) => setPaidAmountInput(e.target.value)}
-                        placeholder="Masukkan nominal"
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-semibold text-gray-700">Catatan Pembayaran</label>
-                      <input
-                        type="text"
-                        value={paymentNote}
-                        onChange={(e) => setPaymentNote(e.target.value)}
-                        placeholder="Opsional"
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-                      />
-                    </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Catatan Pembayaran
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentNote}
+                      onChange={(e) => setPaymentNote(e.target.value)}
+                      placeholder="Opsional"
+                      className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none shadow-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                    />
+                    <p className="mt-2 text-xs font-semibold text-gray-500">
+                      Nominal pembayaran otomatis mengikuti total tagihan booking.
+                    </p>
                   </div>
 
                   <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold leading-relaxed text-amber-800">
@@ -6767,7 +6838,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                   <th className="px-4 py-3 font-black">Kode</th>
                   <th className="px-4 py-3 font-black">Tamu</th>
                   <th className="px-4 py-3 font-black">Hotel</th>
-                  <th className="px-4 py-3 font-black">Kamar / Unit</th>
+                  <th className="px-4 py-3 font-black">Kamar</th>
                   <th className="px-4 py-3 font-black">Status</th>
                   <th className="px-4 py-3 font-black">Check-out</th>
                   <th className="px-4 py-3 font-black">Mulai Cleaning</th>
@@ -6791,7 +6862,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                         </td>
                         <td className="px-4 py-3 text-gray-700">{booking.hotel?.name || "-"}</td>
                         <td className="px-4 py-3 text-gray-700">
-                          {booking.room?.type || booking.room?.name || "-"} / Unit {getBookingRoomUnit(booking)}
+                          {booking.room?.type || booking.room?.name || "-"} / Kamar {getBookingRoomUnit(booking)}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`rounded-full px-3 py-1 text-xs font-black ${getStatusClass(booking.status)}`}>
@@ -6805,7 +6876,7 @@ Jika mengalami kendala atau keterlambatan, silakan hubungi admin cabang melalui 
                           </span>
                         </td>
                         <td className="px-4 py-3 text-gray-700">
-                          {formatDateTime(getOperationalCheckoutTime(booking))}
+                          {formatDateTime(getHousekeepingEventTime(booking))}
                         </td>
                         <td className="px-4 py-3 text-gray-700">
                           {formatDateTime(getHousekeepingStartTime(booking))}
