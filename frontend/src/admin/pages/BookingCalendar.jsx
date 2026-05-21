@@ -1054,7 +1054,7 @@ export default function BookingCalendar() {
         const dateA = toSafeDate(getCalendarCheckInTime(a));
         const dateB = toSafeDate(getCalendarCheckInTime(b));
 
-        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+        return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
       });
   };
 

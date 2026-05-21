@@ -315,44 +315,19 @@ export default function BookingList() {
     "Paket ini tidak tersedia untuk tipe kamar ini.";
 
   const bookingDangerStyle = `
-    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap");
-
-    .rr-booking-premium-shell,
-    .rr-booking-premium-shell *,
-    .rr-booking-premium-card,
-    .rr-booking-premium-card * {
+    .rr-booking-list-premium,
+    .rr-booking-list-premium * {
       font-family: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      -webkit-font-smoothing: antialiased;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
       text-rendering: geometricPrecision;
     }
 
-    .rr-booking-premium-card {
-      letter-spacing: -0.012em;
-    }
-
-    .rr-booking-premium-card p,
-    .rr-booking-premium-card span,
-    .rr-booking-premium-card button {
-      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    }
-
-    .rr-booking-premium-card p[class*="uppercase"],
-    .rr-booking-premium-card span[class*="uppercase"],
-    .rr-booking-premium-card div[class*="uppercase"] {
-      letter-spacing: 0.095em !important;
-      font-weight: 800 !important;
-    }
-
-    .rr-booking-premium-card [class*="text-\[10px\]"],
-    .rr-booking-premium-card [class*="text-\[11px\]"] {
-      line-height: 1.45;
-    }
-
-    .rr-booking-premium-card h1,
-    .rr-booking-premium-card h2,
-    .rr-booking-premium-card h3,
-    .rr-booking-premium-card .rr-booking-main-value {
+    .rr-booking-list-premium .rr-booking-code {
       letter-spacing: -0.035em;
+    }
+
+    .rr-booking-list-premium .rr-booking-label {
+      letter-spacing: 0.11em;
     }
 
     @keyframes rr-booking-danger-card {
@@ -3243,7 +3218,6 @@ const buildWhatsAppMessage = (booking) => {
 
   const canAddPenaltyToBooking = (booking) => {
     const status = String(booking?.status || "").toLowerCase();
-    const paymentStatus = String(booking?.payment_status || "").toLowerCase();
     const allowedPenaltyRoles = [
       "boss",
       "super_admin",
@@ -3252,18 +3226,17 @@ const buildWhatsAppMessage = (booking) => {
       "receptionist",
       "resepsionis",
     ];
-
-    const blockedPenaltyStatuses = [
-      "cancelled",
-      "canceled",
-      "rejected",
-      "refunded",
+    const allowedPenaltyStatuses = [
+      "confirmed",
+      "checked_in",
+      "checked_out",
+      "cleaning",
+      "completed",
     ];
 
     return (
       allowedPenaltyRoles.includes(currentAdminRole) &&
-      !blockedPenaltyStatuses.includes(status) &&
-      paymentStatus !== "refunded"
+      allowedPenaltyStatuses.includes(status)
     );
   };
 
@@ -3868,42 +3841,22 @@ const reportBookings = useMemo(() => {
     return (
       booking?.cleaning_started_at ||
       booking?.cleaning_start_at ||
-      booking?.cleaning_start_time ||
       booking?.started_cleaning_at ||
-      booking?.start_cleaning_at ||
-      booking?.cleaning_started_time ||
       booking?.cleaningStartedAt ||
       booking?.cleaning_started ||
-      booking?.cleaning?.started_at ||
-      booking?.housekeeping?.started_at ||
-      booking?.cleaningLog?.started_at ||
-      booking?.cleaning_log?.started_at ||
-      booking?.room_cleaning?.started_at ||
       null
     );
   };
 
   const getHousekeepingFinishTime = (booking) => {
-    const status = String(booking?.status || "").toLowerCase();
-
     return (
       booking?.cleaning_finished_at ||
       booking?.cleaning_completed_at ||
       booking?.cleaning_finish_at ||
-      booking?.cleaning_finish_time ||
       booking?.finished_cleaning_at ||
-      booking?.finish_cleaning_at ||
-      booking?.cleaning_finished_time ||
       booking?.cleaned_at ||
+      booking?.completed_at ||
       booking?.cleaningFinishedAt ||
-      booking?.cleaning_completed ||
-      booking?.cleaning_finished ||
-      booking?.cleaning?.finished_at ||
-      booking?.housekeeping?.finished_at ||
-      booking?.cleaningLog?.finished_at ||
-      booking?.cleaning_log?.finished_at ||
-      booking?.room_cleaning?.finished_at ||
-      (status === "completed" ? booking?.completed_at : null) ||
       null
     );
   };
@@ -4810,7 +4763,7 @@ const ReadyRoomDateField = ({
   };
 
   return (
-    <div className="rr-booking-premium-shell flex h-screen overflow-hidden bg-gray-100">
+    <div className="flex h-screen overflow-hidden bg-gray-100">
       {!isBookingListFullscreen && (
         <div className="h-screen shrink-0 overflow-y-auto overflow-x-hidden bg-slate-950">
           <Sidebar />
@@ -5132,6 +5085,12 @@ const ReadyRoomDateField = ({
                       ? "Login Tamu"
                       : booking.booking_source || null;
 
+                  const bookingHotelName =
+                    booking?.hotel?.name ||
+                    booking?.hotel_name ||
+                    booking?.hotel?.hotel_name ||
+                    null;
+
                   const discountPercent = Number(booking.discount_percent || 0);
                   const originalPrice =
                     discountPercent > 0
@@ -5180,7 +5139,7 @@ const ReadyRoomDateField = ({
                   return (
                     <div
                       key={booking.id}
-                      className={`rr-booking-premium-card group relative overflow-hidden rounded-[28px] border shadow-[0_18px_45px_rgba(15,23,42,0.055)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.09)] ${
+                      className={`rr-booking-list-premium group relative overflow-hidden rounded-[30px] border shadow-[0_18px_45px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)] ${
                         isOverdueCheckout
                           ? "rr-booking-danger-card border-red-500 bg-red-50/95 ring-2 ring-red-300 shadow-red-200"
                           : "border-slate-200 bg-white hover:border-red-100"
@@ -5193,262 +5152,130 @@ const ReadyRoomDateField = ({
                             : "from-red-600 via-red-500 to-rose-400"
                         }`}
                       />
-                      <div className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full bg-slate-50 blur-3xl transition group-hover:bg-red-50" />
-                      <div className="pointer-events-none absolute -bottom-24 left-1/3 h-44 w-44 rounded-full bg-emerald-50/70 blur-3xl" />
+                      <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-red-50 blur-3xl transition group-hover:bg-red-100" />
+                      <div className="pointer-events-none absolute -bottom-24 left-1/3 h-40 w-40 rounded-full bg-amber-50 blur-3xl" />
 
-                      <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_190px] xl:grid-cols-[minmax(0,1fr)_205px]">
+                      <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_190px] xl:grid-cols-[minmax(0,1fr)_200px]">
                         <div className="min-w-0 p-4 md:p-5 lg:p-6">
-                          <div className="mb-5 flex flex-wrap items-center gap-2">
-                            <h3 className="mr-1 text-xl font-black tracking-tight text-slate-950 md:text-2xl">
-                              {booking.booking_code || `Booking #${booking.id}`}
-                            </h3>
+                          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                            <div className="w-full min-w-0">
+                              <div className="mb-3 flex flex-wrap items-center gap-2">
+                                <h3 className="rr-booking-code mr-1 text-lg font-black tracking-tight text-slate-950 md:text-xl">
+                                  {booking.booking_code || `Booking #${booking.id}`}
+                                </h3>
 
-                            <span
-                              className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getStatusClass(
-                                booking.status
-                              )}`}
-                            >
-                              {getStatusLabel(booking.status)}
-                            </span>
+                                {bookingHotelName && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-[11px] font-extrabold tracking-[-0.01em] text-sky-700 shadow-sm">
+                                    <Hotel size={12} />
+                                    {bookingHotelName}
+                                  </span>
+                                )}
 
-                            <span
-                              className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getPaymentStatusClass(
-                                booking.payment_status
-                              )}`}
-                            >
-                              {getPaymentStatusLabel(booking.payment_status)}
-                            </span>
+                                <span
+                                  className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getPaymentStatusClass(
+                                    booking.payment_status
+                                  )}`}
+                                >
+                                  {getPaymentStatusLabel(booking.payment_status)}
+                                </span>
 
-                            {booking.payment_method && (
-                              <span
-                                className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getPaymentMethodClass(
-                                  booking.payment_method
-                                )}`}
-                              >
-                                {getPaymentMethodLabel(booking.payment_method)}
-                              </span>
-                            )}
+                                {booking.payment_method && (
+                                  <span
+                                    className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getPaymentMethodClass(
+                                      booking.payment_method
+                                    )}`}
+                                  >
+                                    {getPaymentMethodLabel(booking.payment_method)}
+                                  </span>
+                                )}
 
-                            {sourceLabel && (
-                              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-black text-slate-700 shadow-sm">
-                                {sourceLabel}
-                              </span>
-                            )}
+                                {sourceLabel && (
+                                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-black text-slate-700 shadow-sm">
+                                    {sourceLabel}
+                                  </span>
+                                )}
 
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-[11px] font-black text-red-700 shadow-sm">
-                              <Clock3 size={12} />
-                              {getBookingTypeLabel(booking.booking_type)}
-                              {booking.duration_hours
-                                ? ` • ${booking.duration_hours} jam`
-                                : !booking.duration_hours && Number(booking.duration_days || 0) > 0
-                                ? ` • ${booking.duration_days} hari`
-                                : ""}
-                            </span>
 
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-[11px] font-black text-sky-700 shadow-sm">
-                              <Building2 size={12} />
-                              {booking.hotel?.name || selectedFolderHotel?.name || "Cabang ReadyRoom"}
-                            </span>
+                                {isOverdueCheckout && (
+                                  <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full border border-red-200 bg-red-600 px-3 py-1 text-[11px] font-black text-white shadow-sm shadow-red-100">
+                                    <Clock3 size={12} />
+                                    Waktunya Check-out
+                                  </span>
+                                )}
+                              </div>
 
-                            {isOverdueCheckout && (
-                              <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full border border-red-200 bg-red-600 px-3 py-1 text-[11px] font-black text-white shadow-sm shadow-red-100">
-                                <Clock3 size={12} />
-                                Waktunya Check-out
-                              </span>
-                            )}
+                              {isOverdueCheckout && (
+                                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
+                                  <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                      <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
+                                        Peringatan Operasional
+                                      </p>
+                                      <p className="mt-1 font-black">
+                                        Booking ini sudah melewati waktu check-out. Mohon resepsionis segera cek kamar/tamu.
+                                      </p>
+                                    </div>
+                                    <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-red-700 shadow-sm ring-1 ring-red-100">
+                                      Jadwal Check-out: {formatDateTime(operationalCheckOut)}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="grid w-full grid-cols-1 gap-2.5 text-sm md:grid-cols-2 xl:grid-cols-[minmax(160px,1fr)_minmax(190px,1.05fr)_minmax(345px,1.9fr)_minmax(135px,0.82fr)] 2xl:grid-cols-[minmax(175px,1.05fr)_minmax(210px,1.12fr)_minmax(390px,2fr)_minmax(150px,0.85fr)]">
+                                <GuestMiniCard
+                                  icon={<User size={16} className="text-red-500" />}
+                                  name={getBookingCustomerName(booking)}
+                                  phone={customerPhone}
+                                />
+
+                                <RoomTypeMiniCard
+                                  icon={<DoorOpen size={16} className="text-red-500" />}
+                                  roomUnit={getBookingRoomUnit(booking)}
+                                  roomType={booking.room?.type || booking.room?.name || "-"}
+                                />
+
+                                <StayScheduleMiniCard
+                                  icon={<CalendarDays size={16} className="text-red-500" />}
+                                  checkIn={formatDateTime(booking.check_in)}
+                                  checkOut={formatDateTime(operationalCheckOut || booking.check_out)}
+                                  actualCheckIn={operationalMeta.actualCheckIn ? formatDateTime(operationalCheckIn) : ""}
+                                  actualCheckOut={actualCheckOut ? formatDateTime(actualCheckOut) : ""}
+                                  overdue={isOverdueCheckout}
+                                />
+
+                                <PriceMiniCard
+                                  icon={<Wallet size={16} className="text-red-500" />}
+                                  price={formatCurrency(booking.total_price)}
+                                  statusLabel={getStatusLabel(booking.status)}
+                                  statusClass={getStatusClass(booking.status)}
+                                  bookingTypeLabel={getBookingTypeLabel(booking.booking_type)}
+                                  durationText={
+                                    booking.duration_hours
+                                      ? `${booking.duration_hours} jam`
+                                      : !booking.duration_hours && Number(booking.duration_days || 0) > 0
+                                      ? `${booking.duration_days} hari`
+                                      : ""
+                                  }
+                                />
+                              </div>
+                            </div>
                           </div>
 
-                          {isOverdueCheckout && (
-                            <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div>
-                                  <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
-                                    Peringatan Operasional
-                                  </p>
-                                  <p className="mt-1 font-black">
-                                    Booking ini sudah melewati waktu check-out. Mohon resepsionis segera cek kamar/tamu.
-                                  </p>
-                                </div>
-                                <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-red-700 shadow-sm ring-1 ring-red-100">
-                                  Jadwal Check-out: {formatDateTime(operationalCheckOut)}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="grid w-full grid-cols-1 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm md:grid-cols-2 xl:grid-cols-[minmax(190px,1.02fr)_minmax(165px,0.82fr)_minmax(250px,1.32fr)_minmax(270px,1.45fr)_minmax(165px,0.78fr)] 2xl:grid-cols-[minmax(210px,1.05fr)_minmax(180px,0.86fr)_minmax(280px,1.35fr)_minmax(315px,1.55fr)_minmax(175px,0.82fr)]">
-                            <div className="min-w-0 border-b border-slate-100 p-4 md:border-r xl:border-b-0">
-                              <div className="flex items-start gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-                                  <User size={18} />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                    Nama Tamu
-                                  </p>
-                                  <p className="mt-2 truncate text-lg font-black leading-tight text-slate-950">
-                                    {getBookingCustomerName(booking)}
-                                  </p>
-                                  {customerPhone ? (
-                                    <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-100 bg-slate-50 px-2.5 py-1 text-sm font-black text-slate-700">
-                                      <Phone size={13} className="text-red-500" />
-                                      <span className="truncate">{customerPhone}</span>
-                                    </p>
-                                  ) : (
-                                    <p className="mt-2 text-xs font-bold text-slate-400">
-                                      Nomor HP belum tersedia
-                                    </p>
-                                  )}
-
-                                  {customerEmail && (
-                                    <p className="mt-1 flex max-w-full items-center gap-1.5 truncate text-xs font-semibold text-slate-500">
-                                      <Mail size={12} className="text-red-400" />
-                                      <span className="truncate">{customerEmail}</span>
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">
-                                  Total Harga
-                                </p>
-                                <p className="mt-1 text-xl font-black text-slate-950">
-                                  {formatCurrency(booking.total_price)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="min-w-0 border-b border-slate-100 p-4 md:border-r xl:border-b-0">
-                              <div className="flex items-start gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-                                  <DoorOpen size={18} />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                    No Kamar
-                                  </p>
-                                  <p className="mt-2 truncate text-xl font-black leading-tight text-slate-950">
-                                    Kamar {getBookingRoomUnit(booking)}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="mt-5 border-t border-slate-100 pt-4">
-                                <div className="flex items-start gap-3">
-                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
-                                    <BedDouble size={17} />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                      Tipe Kamar
-                                    </p>
-                                    <p className="mt-2 truncate text-lg font-black leading-tight text-slate-950">
-                                      {booking.room?.type || booking.room?.name || "-"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="min-w-0 border-b border-slate-100 p-4 md:border-r xl:border-b-0">
-                              <div className="mb-4 flex items-center gap-2">
-                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-                                  <CalendarDays size={17} />
-                                </div>
-                                <div>
-                                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                    Jadwal Tamu
-                                  </p>
-                                  <p className="text-xs font-bold text-slate-500">
-                                    Check-in & Check-out
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className={`space-y-3 rounded-2xl border px-3 py-3 ${
-                                isOverdueCheckout
-                                  ? "border-red-200 bg-red-50"
-                                  : "border-slate-100 bg-slate-50"
-                              }`}>
-                                <div>
-                                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-                                    Jadwal Check In
-                                  </p>
-                                  <p className="mt-1 text-base font-black leading-tight text-slate-950">
-                                    {formatDateTime(booking.check_in)}
-                                  </p>
-                                  {operationalMeta.actualCheckIn && (
-                                    <p className="mt-2 rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-black leading-snug text-emerald-700">
-                                      Aktual: {formatDateTime(operationalCheckIn)}
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div className="border-t border-slate-200/80 pt-3">
-                                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-                                    Jadwal Check Out
-                                  </p>
-                                  <p className="mt-1 text-base font-black leading-tight text-slate-950">
-                                    {formatDateTime(operationalCheckOut || booking.check_out)}
-                                  </p>
-                                  {actualCheckOut && (
-                                    <p className="mt-2 rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-black leading-snug text-emerald-700">
-                                      Aktual: {formatDateTime(actualCheckOut)}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="min-w-0 border-b border-slate-100 p-4 md:border-r xl:border-b-0">
-                              <div className="mb-3 flex items-center gap-2">
-                                <History size={15} className="text-red-500" />
-                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                                  Riwayat Booking
-                                </p>
-                              </div>
-
-                              <div className="space-y-2">
-                                {booking?.creator?.name && (
-                                  <HistoryPill label="Dibuat" value={getCreatedByName(booking)} />
-                                )}
-
-                                {booking?.editor?.name && (
-                                  <HistoryPill label="Diedit" value={getEditedByName(booking)} />
-                                )}
-
-                                {booking?.refunder?.name && (
-                                  <HistoryPill label="Refund" value={getRefundedByName(booking)} />
-                                )}
-
-                                {booking?.canceller?.name && (
-                                  <HistoryPill label="Batalkan" value={getCancelledByName(booking)} />
-                                )}
-
-                                {hasCleaningHistory && (
-                                  <HistoryPill label="Cleaning oleh" value={cleaningByName} />
-                                )}
-
-                                {!hasBookingHistory && (
-                                  <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-xs font-bold text-slate-400">
-                                    Belum ada riwayat tambahan.
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="min-w-0 p-4">
-                              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                Aksi Cepat
-                              </p>
-
-                              <div className="space-y-2">
+                          <div
+                            className={`mt-4 grid gap-3 ${
+                              hasBookingHistory
+                                ? "xl:grid-cols-[minmax(0,0.92fr)_minmax(280px,0.78fr)]"
+                                : "grid-cols-1"
+                            }`}
+                          >
+                            <div className="rounded-[18px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-red-50/40 px-3 py-2 shadow-sm">
+                              <div className="flex flex-wrap items-center gap-2 text-sm">
                                 {showNotifyButton && (
                                   <button
                                     type="button"
                                     onClick={() => handleNotifyWhatsApp(booking)}
-                                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-600 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg"
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg"
                                   >
                                     <MessageCircle size={15} />
                                     Kirim WA
@@ -5459,7 +5286,7 @@ const ReadyRoomDateField = ({
                                   <button
                                     type="button"
                                     onClick={() => handleEditClick(booking)}
-                                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-black text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-100"
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-100"
                                   >
                                     <Pencil size={15} />
                                     Ubah
@@ -5469,33 +5296,61 @@ const ReadyRoomDateField = ({
                                 <button
                                   type="button"
                                   onClick={() => handleOpenReceipt(booking)}
-                                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-950 px-3.5 py-2.5 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-black hover:shadow-lg"
+                                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-950 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-black hover:shadow-lg"
                                 >
                                   <ReceiptText size={15} />
                                   Kuitansi
                                 </button>
 
                                 {booking.status === "checked_out" && (
-                                  <span className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-100 bg-orange-50 px-3.5 py-2.5 text-center text-xs font-black text-orange-700 shadow-sm">
+                                  <span className="inline-flex items-center gap-2 rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-black text-orange-700 shadow-sm">
                                     <Clock3 size={15} />
                                     Kamar perlu dibersihkan
                                   </span>
                                 )}
 
                                 {booking.status === "cleaning" && (
-                                  <span className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-100 bg-orange-50 px-3.5 py-2.5 text-center text-xs font-black text-orange-700 shadow-sm">
+                                  <span className="inline-flex items-center gap-2 rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-black text-orange-700 shadow-sm">
                                     <Clock3 size={15} />
                                     Cleaning: {getCleaningStartedByName(booking)}
                                   </span>
                                 )}
 
-                                {!showNotifyButton && !canEditBooking && (
-                                  <span className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-3.5 py-2.5 text-center text-xs font-bold text-slate-400">
-                                    Aksi cepat tersedia sesuai status
+                                {customerEmail && (
+                                  <span className="inline-flex max-w-full items-center gap-2 rounded-xl border border-white bg-white px-3 py-2 font-semibold text-slate-600 shadow-sm">
+                                    <Mail size={14} className="text-red-500" />
+                                    <span className="truncate">{customerEmail}</span>
                                   </span>
                                 )}
+
                               </div>
                             </div>
+
+                            {hasBookingHistory && (
+                              <div className="rounded-[18px] border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  {booking?.creator?.name && (
+                                    <HistoryPill label="Dibuat" value={getCreatedByName(booking)} />
+                                  )}
+
+                                  {booking?.editor?.name && (
+                                    <HistoryPill label="Diedit" value={getEditedByName(booking)} />
+                                  )}
+
+                                  {booking?.refunder?.name && (
+                                    <HistoryPill label="Refund" value={getRefundedByName(booking)} />
+                                  )}
+
+                                  {booking?.canceller?.name && (
+                                    <HistoryPill label="Batalkan" value={getCancelledByName(booking)} />
+                                  )}
+
+                                  {hasCleaningHistory && (
+                                    <HistoryPill label="Cleaning oleh" value={cleaningByName} />
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {visiblePaymentNote && (
@@ -5535,23 +5390,44 @@ const ReadyRoomDateField = ({
                             </div>
                           )}
 
+                          {booking.payment_status === "refunded" && (
+                            <div className="mt-4 rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-700">
+                              <p>
+                                <strong>Refund:</strong>{" "}
+                                {formatCurrency(booking.refund_amount || 0)}
+                              </p>
+                              {booking.refund_reason && (
+                                <p className="mt-1">
+                                  <strong>Alasan Refund:</strong> {booking.refund_reason}
+                                </p>
+                              )}
+                              {booking.refunded_at && (
+                                <p className="mt-1">
+                                  <strong>Waktu Refund:</strong>{" "}
+                                  {formatDateTime(booking.refunded_at)}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
                           {hasPenalty && (
-                            <div className="mt-4 rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                              <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-800">
+                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                 <div>
-                                  <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-500">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-500">
                                     Denda Booking
                                   </p>
-                                  <p className="mt-1 text-base font-black text-rose-700">
+                                  <h4 className="mt-1 text-base font-bold text-rose-700">
                                     Total Denda: {formatCurrency(totalPenalty)}
-                                  </p>
-                                  <p className="mt-1 text-xs">
+                                  </h4>
+                                  <p className="mt-1 text-xs text-rose-600">
                                     Denda tambahan setelah check-out / saat proses cleaning.
                                   </p>
                                 </div>
-                                <span className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-black text-rose-600">
+
+                                <div className="inline-flex items-center rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700">
                                   {bookingPenalties.length} item denda
-                                </span>
+                                </div>
                               </div>
 
                               {bookingPenalties.length > 0 && (
@@ -5619,7 +5495,7 @@ const ReadyRoomDateField = ({
                             </div>
                           )}
 
-                          {booking.rejection_reason_customer && (
+                                                    {booking.rejection_reason_customer && (
                             <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                               <strong>Alasan untuk tamu:</strong>{" "}
                               {booking.rejection_reason_customer}
@@ -8231,12 +8107,12 @@ function StayScheduleMiniCard({
 }) {
   return (
     <div
-      className={`flex min-w-0 items-center gap-2 rounded-2xl border bg-white px-2.5 py-2.5 shadow-sm ${
+      className={`flex min-w-0 items-start gap-3 rounded-2xl border bg-white px-3.5 py-3 shadow-sm ${
         overdue ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"
       }`}
     >
       <div
-        className={`hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:flex ${
+        className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
           overdue ? "bg-red-100" : "bg-red-50"
         }`}
       >
@@ -8244,47 +8120,138 @@ function StayScheduleMiniCard({
       </div>
 
       <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2 py-2">
-          <p className="text-[8px] font-black uppercase leading-none tracking-wide text-slate-400">
+        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-2.5 py-2">
+          <p className="rr-booking-label text-[8px] font-black uppercase leading-none text-slate-400">
             Jadwal Check In
           </p>
-          <p className="mt-1.5 whitespace-normal break-words text-[11px] font-black leading-snug text-slate-950">
+          <p className="mt-1.5 whitespace-normal break-words text-[11.5px] font-black leading-snug tracking-tight text-slate-950">
             {checkIn || "-"}
           </p>
           {actualCheckIn && (
-            <p className="mt-1 rounded-lg bg-emerald-50 px-2 py-1 text-[9px] font-black leading-snug text-emerald-700">
+            <p className="mt-1 rounded-lg bg-emerald-50 px-2 py-1 text-[9.5px] font-black leading-snug text-emerald-700">
               Aktual: {actualCheckIn}
             </p>
           )}
         </div>
 
         <div
-          className={`min-w-0 rounded-xl border px-2 py-2 ${
+          className={`min-w-0 rounded-xl border px-2.5 py-2 ${
             overdue
               ? "border-red-200 bg-red-50"
               : "border-slate-100 bg-slate-50/80"
           }`}
         >
           <p
-            className={`text-[8px] font-black uppercase leading-none tracking-wide ${
+            className={`rr-booking-label text-[8px] font-black uppercase leading-none ${
               overdue ? "text-red-500" : "text-slate-400"
             }`}
           >
             Jadwal Check Out
           </p>
           <p
-            className={`mt-1.5 whitespace-normal break-words text-[11px] font-black leading-snug ${
+            className={`mt-1.5 whitespace-normal break-words text-[11.5px] font-black leading-snug tracking-tight ${
               overdue ? "text-red-700" : "text-slate-950"
             }`}
           >
             {checkOut || "-"}
           </p>
           {actualCheckOut && (
-            <p className="mt-1 rounded-lg bg-emerald-50 px-2 py-1 text-[9px] font-black leading-snug text-emerald-700">
+            <p className="mt-1 rounded-lg bg-emerald-50 px-2 py-1 text-[9.5px] font-black leading-snug text-emerald-700">
               Aktual: {actualCheckOut}
             </p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GuestMiniCard({ icon, name, phone }) {
+  return (
+    <div className="flex min-w-0 items-start gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 shadow-sm">
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="rr-booking-label text-[11px] font-black uppercase text-slate-400">
+          Nama Tamu
+        </p>
+        <p className="mt-1 truncate text-[14px] font-black leading-snug tracking-tight text-slate-950">
+          {name || "-"}
+        </p>
+        {phone ? (
+          <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-100 bg-slate-50 px-2.5 py-1 text-[11px] font-extrabold leading-none text-slate-600">
+            <Phone size={12} className="shrink-0 text-red-500" />
+            <span className="truncate">{phone}</span>
+          </p>
+        ) : (
+          <p className="mt-2 text-[11px] font-bold text-slate-400">
+            Nomor tamu belum ada
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RoomTypeMiniCard({ icon, roomUnit, roomType }) {
+  const hasRoomUnit = roomUnit && roomUnit !== "Belum di-assign";
+
+  return (
+    <div className="flex min-w-0 items-start gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 shadow-sm">
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="rr-booking-label text-[11px] font-black uppercase text-slate-400">
+          No & Tipe Kamar
+        </p>
+        <p className="mt-1 truncate text-[14px] font-black leading-snug tracking-tight text-slate-950">
+          {hasRoomUnit ? `Kamar ${roomUnit}` : "Belum di-assign"}
+        </p>
+        <p className="mt-1 truncate text-[12px] font-extrabold leading-snug text-slate-500">
+          {roomType || "-"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PriceMiniCard({
+  icon,
+  price,
+  statusLabel = "",
+  statusClass = "",
+  bookingTypeLabel,
+  durationText = "",
+}) {
+  return (
+    <div className="relative flex min-w-0 items-start gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 shadow-sm">
+      {statusLabel && (
+        <span
+          className={`absolute -top-8 right-3 z-20 whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide shadow-sm ring-1 ring-white/80 ${statusClass}`}
+        >
+          {statusLabel}
+        </span>
+      )}
+
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="rr-booking-label text-[11px] font-black uppercase text-slate-400">
+          Harga & Durasi
+        </p>
+        <p className="mt-1 truncate text-[14px] font-black leading-snug tracking-tight text-slate-950">
+          {price || "-"}
+        </p>
+        <span className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[10.5px] font-black leading-none text-red-700">
+          <Clock3 size={11} className="shrink-0" />
+          <span className="truncate">
+            {bookingTypeLabel || "-"}
+            {durationText ? ` • ${durationText}` : ""}
+          </span>
+        </span>
       </div>
     </div>
   );
@@ -8297,7 +8264,7 @@ function InfoMiniCard({ icon, label, value, strong = false }) {
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+        <p className="rr-booking-label text-[11px] font-black uppercase text-slate-400">
           {label}
         </p>
         <p
@@ -8314,13 +8281,11 @@ function InfoMiniCard({ icon, label, value, strong = false }) {
 
 function HistoryPill({ label, value }) {
   return (
-    <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
-      <span className="shrink-0 font-black uppercase tracking-wide text-slate-400">
+    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700">
+      <span className="font-black uppercase tracking-wide text-slate-400">
         {label}
       </span>
-      <span className="min-w-0 truncate text-right font-black text-slate-800">
-        {value || "-"}
-      </span>
+      <span className="font-bold text-slate-800">{value || "-"}</span>
     </div>
   );
 }
