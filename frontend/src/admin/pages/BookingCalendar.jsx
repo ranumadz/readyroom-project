@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import api from "../../services/api";
+import toast from "react-hot-toast";
 import {
   Phone,
   BedDouble,
@@ -111,6 +112,8 @@ export default function BookingCalendar() {
 
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [selectedCalendarCheckoutBooking, setSelectedCalendarCheckoutBooking] = useState(null);
+  const [calendarCheckoutProcessing, setCalendarCheckoutProcessing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -613,6 +616,50 @@ export default function BookingCalendar() {
     }
   };
 
+  const openCalendarCheckoutConfirmModal = (booking) => {
+    if (!booking?.id) return;
+
+    setSelectedCalendarCheckoutBooking(booking);
+  };
+
+  const closeCalendarCheckoutConfirmModal = () => {
+    if (calendarCheckoutProcessing) return;
+    setSelectedCalendarCheckoutBooking(null);
+  };
+
+  const confirmCalendarCheckoutFromModal = async () => {
+    if (!selectedCalendarCheckoutBooking || calendarCheckoutProcessing) return;
+
+    const checkoutBooking = selectedCalendarCheckoutBooking;
+    const actualCheckOutValue = normalizeBackendDateTime(
+      getDateTimeLocalInputValue(new Date())
+    );
+
+    try {
+      setCalendarCheckoutProcessing(true);
+
+      await api.post(`/admin/bookings/${checkoutBooking.id}/check-out`, {
+        actual_check_out: actualCheckOutValue,
+        checked_out_at: actualCheckOutValue,
+        check_out_actual: actualCheckOutValue,
+        checkout_at: actualCheckOutValue,
+      });
+
+      toast.success("Tamu berhasil check-out");
+      setSelectedCalendarCheckoutBooking(null);
+      setSelectedBooking(null);
+
+      await fetchCalendar(filtersRef.current, false);
+      fetchFolderBadgeData(filtersRef.current);
+      fetchMonitoringRoomUnitsForCalendar(filtersRef.current);
+    } catch (error) {
+      console.error("CHECK OUT FROM CALENDAR ERROR:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Gagal check-out tamu");
+    } finally {
+      setCalendarCheckoutProcessing(false);
+    }
+  };
+
   const isInteractiveCalendarTarget = (target) => {
     if (!target) return false;
 
@@ -717,6 +764,26 @@ export default function BookingCalendar() {
     return Number.isNaN(date.getTime()) ? null : date;
   };
 
+  const getDateTimeLocalInputValue = (value) => {
+    const date = value instanceof Date ? value : toSafeDate(value);
+    if (!date) return "";
+
+    const pad = (num) => String(num).padStart(2, "0");
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const normalizeBackendDateTime = (value) => {
+    if (!value) return null;
+
+    const [datePart, rawTimePart = "00:00"] = String(value).split("T");
+    const timePart = rawTimePart.length === 5 ? `${rawTimePart}:00` : rawTimePart;
+
+    return `${datePart} ${timePart}`;
+  };
+
   const getOperationalMetaFromNote = (note) => {
     const raw = String(note || "");
     const match = raw.match(
@@ -797,19 +864,23 @@ export default function BookingCalendar() {
     }
 
     if (booking.status === "checked_in") {
-      return "bg-green-500 border-green-600 text-white shadow-green-200";
+      return "bg-rose-400 border-rose-500 text-white shadow-rose-200";
     }
 
     if (booking.status === "cleaning") {
       return "bg-orange-500 border-orange-600 text-white shadow-orange-200";
     }
 
+    if (booking.status === "checked_out") {
+      return "bg-slate-400 border-slate-500 text-white shadow-slate-200";
+    }
+
     if (booking.status === "completed") {
-      return "bg-slate-500 border-slate-600 text-white shadow-slate-200";
+      return "bg-gray-400 border-gray-500 text-white shadow-gray-200";
     }
 
     if (booking.status === "confirmed") {
-      return "bg-amber-600 border-amber-700 text-white shadow-amber-200";
+      return "bg-blue-500 border-blue-600 text-white shadow-blue-200";
     }
 
     return "bg-gray-400 border-gray-500 text-white shadow-gray-200";
@@ -830,13 +901,15 @@ export default function BookingCalendar() {
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case "checked_in":
-        return "bg-green-100 text-green-700 border-green-200";
+        return "bg-rose-100 text-rose-700 border-rose-200";
       case "cleaning":
         return "bg-orange-100 text-orange-700 border-orange-200";
-      case "completed":
+      case "checked_out":
         return "bg-slate-100 text-slate-700 border-slate-200";
+      case "completed":
+        return "bg-gray-100 text-gray-700 border-gray-200";
       case "confirmed":
-        return "bg-amber-100 text-amber-700 border-amber-200";
+        return "bg-blue-100 text-blue-700 border-blue-200";
       default:
         return "bg-gray-100 text-gray-600 border-gray-200";
     }
@@ -1144,10 +1217,10 @@ export default function BookingCalendar() {
       occupied: {
         label: "Terisi",
         shortLabel: "Sedang Dipakai",
-        dotClass: "bg-green-500",
+        dotClass: "bg-rose-400",
         cardClass:
-          "border-green-200 bg-gradient-to-br from-green-50 to-white text-green-800",
-        badgeClass: "bg-green-100 text-green-700",
+          "border-rose-200 bg-gradient-to-br from-rose-50 to-white text-rose-800",
+        badgeClass: "bg-rose-100 text-rose-700",
         helper: "Ada tamu sedang check-in.",
       },
       reserved: {
@@ -1603,6 +1676,39 @@ export default function BookingCalendar() {
       : "max(430px, calc(100vh - 285px))",
   };
 
+  useEffect(() => {
+    if (loading) return undefined;
+    if (!calendarScrollRef.current) return undefined;
+
+    const isCurrentMonth =
+      Number(filters.year) === currentDate.getFullYear() &&
+      Number(filters.month) === currentDate.getMonth() + 1;
+
+    if (!isCurrentMonth) return undefined;
+
+    const timer = window.setTimeout(() => {
+      if (!calendarScrollRef.current) return;
+
+      const dayColumnWidth = 92;
+      const todayIndex = Math.max(0, currentDate.getDate() - 1);
+      const targetLeft = Math.max(0, todayIndex * dayColumnWidth);
+
+      calendarScrollRef.current.scrollTo({
+        left: targetLeft,
+        behavior: "smooth",
+      });
+    }, 160);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    loading,
+    filters.month,
+    filters.year,
+    calendarDays.length,
+    calendarDisplayRows.length,
+    currentDate.getDate(),
+  ]);
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       {!isCalendarFullscreen && <Sidebar />}
@@ -1787,13 +1893,11 @@ export default function BookingCalendar() {
               </button>
 
               <div className="flex flex-wrap items-center gap-1.5 lg:ml-auto">
-                <Legend color="bg-amber-600" label="Disetujui" />
-                <Legend color="bg-green-500" label="Check-in" />
+                <Legend color="bg-blue-500" label="Disetujui" />
+                <Legend color="bg-rose-400" label="Check-in" />
                 <Legend color="bg-orange-500" label="Pembersihan" />
-                <Legend color="bg-slate-500" label="Selesai" />
+                <Legend color="bg-gray-400" label="Selesai" />
                 <Legend color="bg-red-700" label="Waktunya Check-out" />
-                <Legend color="bg-slate-500" label="Maintenance" />
-                <Legend color="bg-gray-400" label="Nonaktif" />
               </div>
             </div>
           </div>
@@ -2052,6 +2156,7 @@ export default function BookingCalendar() {
               relatedBookings={selectedBookingRelated}
               onClose={() => setSelectedBooking(null)}
               onSelectBooking={setSelectedBooking}
+              onCheckoutBooking={openCalendarCheckoutConfirmModal}
               formatDateTime={formatDateTime}
               formatTimeRange={formatTimeRange}
               getHotelName={getHotelName}
@@ -2060,6 +2165,15 @@ export default function BookingCalendar() {
               getCalendarCheckInTime={getCalendarCheckInTime}
               getCalendarCheckOutTime={getCalendarCheckOutTime}
               isBookingCheckoutDanger={isBookingCheckoutDanger}
+            />
+          )}
+
+          {selectedCalendarCheckoutBooking && (
+            <CalendarCheckoutConfirmModal
+              booking={selectedCalendarCheckoutBooking}
+              processing={calendarCheckoutProcessing}
+              onClose={closeCalendarCheckoutConfirmModal}
+              onConfirm={confirmCalendarCheckoutFromModal}
             />
           )}
 
@@ -2084,9 +2198,9 @@ function BookingDetailModal({
   relatedBookings = [],
   onClose,
   onSelectBooking,
+  onCheckoutBooking,
   formatDateTime,
   formatTimeRange,
-  getHotelName,
   getStatusBadgeClass,
   getPaymentBadgeClass,
   getCalendarCheckInTime,
@@ -2109,12 +2223,15 @@ function BookingDetailModal({
     return bookingType || "-";
   };
 
-  const roomLabel = normalizeRoomTypeLabel(booking.room?.type || booking.room?.name || "Kamar");
-  const unitNumber = booking.room_unit?.room_number || booking.room_number || "-";
-  const roomUnitText = unitNumber === "-" ? roomLabel : `${roomLabel} / ${unitNumber}`;
-  const totalPriceText = booking.total_price
-    ? `Rp ${Number(booking.total_price).toLocaleString("id-ID")}`
-    : "-";
+  const roomLabel = normalizeRoomTypeLabel(
+    booking.room?.type || booking.room?.name || "Kamar"
+  );
+  const unitNumber =
+    booking.room_unit?.room_number ||
+    booking.roomUnit?.room_number ||
+    booking.room_number ||
+    "-";
+  const roomUnitText = unitNumber === "-" ? roomLabel : `${roomLabel} / Kamar ${unitNumber}`;
   const actualCheckInTime = getCalendarCheckInTime
     ? getCalendarCheckInTime(booking)
     : booking.check_in;
@@ -2124,6 +2241,48 @@ function BookingDetailModal({
   const checkoutDanger = isBookingCheckoutDanger
     ? isBookingCheckoutDanger(booking)
     : false;
+
+  const detailRows = [
+    {
+      label: "Nama Tamu",
+      value: booking.guest_name || "-",
+    },
+    {
+      label: "Nomor HP",
+      value: booking.guest_phone || "-",
+    },
+    {
+      label: "Kamar / Unit",
+      value: roomUnitText,
+    },
+    {
+      label: "Jam Masuk Tamu",
+      value: formatDateTime(actualCheckInTime),
+    },
+    {
+      label: "Target Check-out",
+      value: formatDateTime(targetCheckOutTime),
+    },
+    {
+      label: "Jadwal Booking Awal",
+      value: `${formatDateTime(booking.check_in)} - ${formatDateTime(
+        booking.check_out
+      )}`,
+    },
+  ];
+
+  const canCheckoutBooking = (item) => {
+    const status = String(item?.status || "").toLowerCase();
+    const paymentStatus = String(item?.payment_status || "").toLowerCase();
+
+    if (!item?.id) return false;
+    if (["completed", "cancelled", "rejected", "cleaning", "checked_out"].includes(status)) {
+      return false;
+    }
+    if (paymentStatus === "refunded") return false;
+
+    return true;
+  };
 
   const handlePickRelatedBooking = (item) => {
     if (!onSelectBooking) return;
@@ -2137,17 +2296,41 @@ function BookingDetailModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
       <div className="relative max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[26px] bg-white shadow-[0_20px_80px_rgba(15,23,42,0.28)]">
-        <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-wide text-red-600">
               Detail Booking
             </p>
-            <h3 className="mt-1 truncate text-2xl font-black text-gray-900">
-              {booking.booking_code || "-"}
-            </h3>
-            <p className="mt-1 text-xs font-medium text-gray-500">
-              Klik booking lain di bawah untuk melihat detailnya di sini.
-            </p>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold ${getStatusBadgeClass(
+                  booking.status
+                )}`}
+              >
+                Status: {booking.status || "-"}
+              </span>
+
+              <span
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold ${getPaymentBadgeClass(
+                  booking.payment_status
+                )}`}
+              >
+                Pembayaran: {booking.payment_status || "-"}
+              </span>
+
+              {booking.booking_type && (
+                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">
+                  Tipe: {getBookingTypeText(booking.booking_type)}
+                </span>
+              )}
+
+              {booking.duration_hours && (
+                <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-[11px] font-bold text-purple-700">
+                  Durasi: {booking.duration_hours} jam
+                </span>
+              )}
+            </div>
           </div>
 
           <button
@@ -2160,36 +2343,6 @@ function BookingDetailModal({
         </div>
 
         <div className="max-h-[calc(90vh-86px)] overflow-y-auto px-5 py-4">
-          <div className="mb-4 flex flex-wrap gap-2">
-            <span
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold ${getStatusBadgeClass(
-                booking.status
-              )}`}
-            >
-              Status: {booking.status || "-"}
-            </span>
-
-            <span
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold ${getPaymentBadgeClass(
-                booking.payment_status
-              )}`}
-            >
-              Pembayaran: {booking.payment_status || "-"}
-            </span>
-
-            {booking.booking_type && (
-              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">
-                Tipe: {getBookingTypeText(booking.booking_type)}
-              </span>
-            )}
-
-            {booking.duration_hours && (
-              <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-[11px] font-bold text-purple-700">
-                Durasi: {booking.duration_hours} jam
-              </span>
-            )}
-          </div>
-
           {checkoutDanger && (
             <div className="mb-4 rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-red-700">
               <p className="text-sm font-black uppercase tracking-wide">
@@ -2202,56 +2355,38 @@ function BookingDetailModal({
           )}
 
           <div className="rounded-[24px] border border-gray-100 bg-gray-50/70 p-3">
-            <div className="space-y-2">
-              <InfoCard
-                icon={<BadgeInfo size={17} className="text-red-500" />}
-                label="Nama Tamu"
-                value={booking.guest_name || "-"}
-              />
-
-              <InfoCard
-                icon={<Phone size={17} className="text-red-500" />}
-                label="Nomor HP"
-                value={booking.guest_phone || "-"}
-              />
-
-              <InfoCard
-                icon={<Hotel size={17} className="text-red-500" />}
-                label="Hotel"
-                value={booking.hotel?.name || getHotelName(booking.hotel_id) || "-"}
-              />
-
-              <InfoCard
-                icon={<BedDouble size={17} className="text-red-500" />}
-                label="Kamar / Unit"
-                value={roomUnitText}
-              />
-
-              <InfoCard
-                icon={<Clock3 size={17} className="text-red-500" />}
-                label="Jam Masuk Tamu"
-                value={formatDateTime(actualCheckInTime)}
-              />
-
-              <InfoCard
-                icon={<Clock3 size={17} className="text-red-500" />}
-                label="Target Check-out"
-                value={formatDateTime(targetCheckOutTime)}
-              />
-
-              <InfoCard
-                icon={<Clock3 size={17} className="text-red-500" />}
-                label="Jadwal Booking Awal"
-                value={`${formatDateTime(booking.check_in)} - ${formatDateTime(booking.check_out)}`}
-              />
-
-              <InfoCard
-                icon={<CreditCard size={17} className="text-red-500" />}
-                label="Total Harga"
-                value={totalPriceText}
-              />
+            <div className="overflow-hidden rounded-[20px] border border-gray-100 bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-2">
+                {detailRows.map((row, index) => (
+                  <div
+                    key={`${row.label}-${index}`}
+                    className={`border-gray-100 px-4 py-3 ${
+                      index % 2 === 0 ? "md:border-r" : ""
+                    } ${index < detailRows.length - 2 ? "border-b" : ""}`}
+                  >
+                    <p className="text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">
+                      {row.label}
+                    </p>
+                    <p className="mt-1 break-words text-sm font-black text-gray-900">
+                      {row.value || "-"}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+
+          {canCheckoutBooking(booking) && (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => onCheckoutBooking?.(booking)}
+                className="inline-flex items-center justify-center rounded-2xl bg-rose-500 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-rose-600"
+              >
+                Check-out tamu ini
+              </button>
+            </div>
+          )}
 
           {booking.admin_note && (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -2272,43 +2407,102 @@ function BookingDetailModal({
               <div className="mt-3 space-y-2">
                 {relatedBookings.map((item) => {
                   const active = String(item.id) === String(booking.id);
+                  const canCheckout = canCheckoutBooking(item);
 
                   return (
-                    <button
+                    <div
                       key={item.id}
-                      type="button"
-                      onClick={() => handlePickRelatedBooking(item)}
-                      className={`w-full rounded-2xl border px-4 py-3 text-left transition hover:border-red-200 hover:bg-red-50/70 ${
+                      className={`rounded-2xl border px-3 py-3 transition ${
                         active
                           ? "border-red-200 bg-red-50"
-                          : "border-gray-200 bg-white"
+                          : "border-gray-200 bg-white hover:border-red-200 hover:bg-red-50/70"
                       }`}
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="min-w-0">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <button
+                          type="button"
+                          onClick={() => handlePickRelatedBooking(item)}
+                          className="min-w-0 flex-1 text-left"
+                        >
                           <p className="truncate text-sm font-black text-gray-900">
-                            {item.guest_name || item.booking_code}
+                            {item.guest_name || "Tamu"}
                           </p>
-                          <p className="mt-0.5 text-xs font-medium text-gray-500">
-                            {item.guest_phone || "-"}
-                          </p>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-gray-800">
+                          <p className="mt-0.5 text-sm font-bold text-gray-700">
                             {formatTimeRange(item)}
                           </p>
-                          <p className="text-xs font-medium text-gray-500">
-                            {item.booking_code}
-                          </p>
-                        </div>
+                        </button>
+
+                        {canCheckout && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onCheckoutBooking?.(item);
+                            }}
+                            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-rose-500 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-rose-600"
+                          >
+                            Check-out tamu ini
+                          </button>
+                        )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CalendarCheckoutConfirmModal({ booking, processing, onClose, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]">
+      <div className="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-[0_24px_90px_rgba(15,23,42,0.32)]">
+        <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-rose-950 px-5 py-4 text-white">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/60">
+            Konfirmasi Check-out
+          </p>
+          <h3 className="mt-1 text-xl font-black">
+            Yakin tamu ini udah check-out?
+          </h3>
+        </div>
+
+        <div className="px-5 py-5">
+          <p className="text-sm font-semibold text-gray-600">
+            Cek dulu bestie, kalau tamunya sudah keluar kamar langsung gas 😄
+          </p>
+
+          <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
+            <p className="text-sm font-black text-gray-900">
+              {booking?.guest_name || "Tamu"}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-rose-700">
+              Setelah dikonfirmasi, booking masuk Check-out dan lanjut ke alur cleaning.
+            </p>
+          </div>
+
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={processing}
+              className="inline-flex justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Batal dulu
+            </button>
+
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={processing}
+              className="inline-flex justify-center rounded-2xl bg-rose-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {processing ? "Memproses..." : "Gas Check-out"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

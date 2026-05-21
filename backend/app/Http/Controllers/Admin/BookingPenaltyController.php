@@ -129,6 +129,7 @@ class BookingPenaltyController extends Controller
                 'room_name' => $booking->room?->name,
                 'room_number' => $booking->roomUnit?->room_number,
                 'status' => $booking->status,
+                'payment_status' => $booking->payment_status,
             ],
             'penalties' => $penalties,
             'total_penalty' => (float) $booking->penalties->sum('amount'),
@@ -136,7 +137,11 @@ class BookingPenaltyController extends Controller
     }
 
     /**
-     * Tambah denda baru ke booking
+     * Tambah denda baru ke booking.
+     *
+     * Revisi:
+     * - Denda boleh ditambahkan sebelum check-out, termasuk saat booking masih checked_in.
+     * - Tetap diblokir untuk booking cancelled / rejected / refunded agar data tidak kacau.
      */
     public function store(Request $request, $bookingId)
     {
@@ -158,9 +163,18 @@ class BookingPenaltyController extends Controller
             ], 403);
         }
 
-        if (!in_array($booking->status, ['checked_out', 'cleaning', 'completed'])) {
+        $bookingStatus = strtolower((string) $booking->status);
+        $paymentStatus = strtolower((string) ($booking->payment_status ?? ''));
+
+        if (in_array($bookingStatus, ['cancelled', 'rejected'], true)) {
             return response()->json([
-                'message' => 'Denda hanya boleh ditambahkan setelah booking check-out / cleaning',
+                'message' => 'Denda tidak bisa ditambahkan untuk booking yang sudah dibatalkan / ditolak.',
+            ], 422);
+        }
+
+        if ($paymentStatus === 'refunded') {
+            return response()->json([
+                'message' => 'Denda tidak bisa ditambahkan untuk booking yang sudah refund.',
             ], 422);
         }
 
@@ -195,7 +209,7 @@ class BookingPenaltyController extends Controller
     }
 
     /**
-     * Hapus denda
+     * Hapus denda.
      * Untuk sementara aman dipakai boss / super_admin / pengawas.
      */
     public function destroy(Request $request, $bookingId, $penaltyId)
