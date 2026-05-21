@@ -2235,9 +2235,13 @@ function BookingDetailModal({
   const actualCheckInTime = getCalendarCheckInTime
     ? getCalendarCheckInTime(booking)
     : booking.check_in;
-  const targetCheckOutTime = getCalendarCheckOutTime
-    ? getCalendarCheckOutTime(booking)
-    : booking.check_out;
+  const actualCheckOutTime =
+    booking?.actual_check_out ||
+    booking?.check_out_actual ||
+    booking?.actual_checkout_at ||
+    booking?.checked_out_at ||
+    booking?.checkout_at ||
+    null;
   const checkoutDanger = isBookingCheckoutDanger
     ? isBookingCheckoutDanger(booking)
     : false;
@@ -2248,25 +2252,19 @@ function BookingDetailModal({
       value: booking.guest_name || "-",
     },
     {
-      label: "Nomor HP",
-      value: booking.guest_phone || "-",
-    },
-    {
       label: "Kamar / Unit",
       value: roomUnitText,
     },
     {
-      label: "Jam Masuk Tamu",
-      value: formatDateTime(actualCheckInTime),
-    },
-    {
-      label: "Target Check-out",
-      value: formatDateTime(targetCheckOutTime),
-    },
-    {
       label: "Jadwal Booking Awal",
-      value: `${formatDateTime(booking.check_in)} - ${formatDateTime(
+      value: `${formatDateTime(booking.check_in)} → ${formatDateTime(
         booking.check_out
+      )}`,
+    },
+    {
+      label: "Check-in & Check-out Aktual",
+      value: `${formatDateTime(actualCheckInTime)} → ${formatDateTime(
+        actualCheckOutTime
       )}`,
     },
   ];
@@ -2375,18 +2373,6 @@ function BookingDetailModal({
               </div>
             </div>
           </div>
-
-          {canCheckoutBooking(booking) && (
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => onCheckoutBooking?.(booking)}
-                className="inline-flex items-center justify-center rounded-2xl bg-rose-500 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-rose-600"
-              >
-                Check-out tamu ini
-              </button>
-            </div>
-          )}
 
           {booking.admin_note && (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">

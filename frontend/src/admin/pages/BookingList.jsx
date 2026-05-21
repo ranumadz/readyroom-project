@@ -5117,7 +5117,8 @@ const ReadyRoomDateField = ({
 
                   const showCancelButton =
                     canCancelBooking &&
-                    ["confirmed", "checked_in"].includes(booking.status);
+                    String(booking?.status || "").toLowerCase() === "confirmed" &&
+                    String(booking?.payment_status || "").toLowerCase() !== "refunded";
 
                   const showAddPenaltyButton = canAddPenaltyToBooking(booking);
 
