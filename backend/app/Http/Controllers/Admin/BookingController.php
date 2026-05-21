@@ -860,7 +860,7 @@ class BookingController extends Controller
     }
 
     // 🔵 CHECK OUT
-    public function checkOut($id)
+    public function checkOut(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
 
@@ -870,13 +870,47 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $booking->update([
-            'status' => 'checked_out',
+        $request->validate([
+            'actual_check_out' => 'nullable|date',
+            'checked_out_at' => 'nullable|date',
+            'check_out_actual' => 'nullable|date',
+            'checkout_at' => 'nullable|date',
         ]);
+
+        $actualCheckOutValue =
+            $request->input('actual_check_out')
+            ?: $request->input('checked_out_at')
+            ?: $request->input('check_out_actual')
+            ?: $request->input('checkout_at')
+            ?: now();
+
+        $actualCheckOut = Carbon::parse($actualCheckOutValue);
+
+        $updatePayload = $this->buildSafeBookingUpdate([
+            'status' => 'checked_out',
+            'actual_check_out' => $actualCheckOut,
+            'checked_out_at' => $actualCheckOut,
+            'check_out_actual' => $actualCheckOut,
+            'checkout_at' => $actualCheckOut,
+        ]);
+
+        $booking->forceFill($updatePayload)->save();
+
+        $booking = Booking::with([
+            'user',
+            'creator',
+            'editor',
+            'refunder',
+            'canceller',
+            'hotel',
+            'room',
+            'roomUnit',
+            'penalties.creator',
+        ])->findOrFail($booking->id);
 
         return response()->json([
             'message' => 'Tamu berhasil check-out',
-            'data' => $booking->load(['user', 'creator', 'editor', 'refunder', 'canceller', 'hotel', 'room', 'roomUnit'])
+            'data' => $this->appendCleaningMeta($booking)
         ]);
     }
 
