@@ -5159,49 +5159,60 @@ const ReadyRoomDateField = ({
                         <div className="min-w-0 p-4 md:p-5 lg:p-6">
                           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                             <div className="w-full min-w-0">
-                              <div className="mb-3 flex flex-wrap items-center gap-2">
-                                <h3 className="rr-booking-code mr-1 text-lg font-black tracking-tight text-slate-950 md:text-xl">
-                                  {booking.booking_code || `Booking #${booking.id}`}
-                                </h3>
+                              <div className="mb-3 flex w-full flex-col gap-2 xl:flex-row xl:items-center">
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                  <h3 className="rr-booking-code mr-1 text-lg font-black tracking-tight text-slate-950 md:text-xl">
+                                    {booking.booking_code || `Booking #${booking.id}`}
+                                  </h3>
 
-                                {bookingHotelName && (
-                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-[11px] font-extrabold tracking-[-0.01em] text-sky-700 shadow-sm">
-                                    <Hotel size={12} />
-                                    {bookingHotelName}
-                                  </span>
-                                )}
+                                  {bookingHotelName && (
+                                    <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-sky-100 bg-sky-50 px-3 text-[11px] font-extrabold tracking-[-0.01em] text-sky-700 shadow-sm">
+                                      <Hotel size={12} />
+                                      {bookingHotelName}
+                                    </span>
+                                  )}
 
-                                <span
-                                  className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getPaymentStatusClass(
-                                    booking.payment_status
-                                  )}`}
-                                >
-                                  {getPaymentStatusLabel(booking.payment_status)}
-                                </span>
-
-                                {booking.payment_method && (
                                   <span
-                                    className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getPaymentMethodClass(
-                                      booking.payment_method
+                                    className={`inline-flex h-7 items-center rounded-full px-3 text-[11px] font-black uppercase tracking-wide ${getPaymentStatusClass(
+                                      booking.payment_status
                                     )}`}
                                   >
-                                    {getPaymentMethodLabel(booking.payment_method)}
+                                    {getPaymentStatusLabel(booking.payment_status)}
                                   </span>
-                                )}
 
-                                {sourceLabel && (
-                                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-black text-slate-700 shadow-sm">
-                                    {sourceLabel}
+                                  {booking.payment_method && (
+                                    <span
+                                      className={`inline-flex h-7 items-center rounded-full px-3 text-[11px] font-black uppercase tracking-wide ${getPaymentMethodClass(
+                                        booking.payment_method
+                                      )}`}
+                                    >
+                                      {getPaymentMethodLabel(booking.payment_method)}
+                                    </span>
+                                  )}
+
+                                  {isOverdueCheckout && (
+                                    <span className="inline-flex h-7 animate-pulse items-center gap-1.5 rounded-full border border-red-200 bg-red-600 px-3 text-[11px] font-black text-white shadow-sm shadow-red-100">
+                                      <Clock3 size={12} />
+                                      Waktunya Check-out
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex shrink-0 flex-wrap items-center gap-2 xl:ml-auto xl:justify-end">
+                                  {sourceLabel && (
+                                    <span className="inline-flex h-7 items-center whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 text-[11px] font-black tracking-[-0.01em] text-slate-700 shadow-sm ring-1 ring-white/80">
+                                      {sourceLabel}
+                                    </span>
+                                  )}
+
+                                  <span
+                                    className={`inline-flex h-7 items-center whitespace-nowrap rounded-full px-3 text-[11px] font-black uppercase tracking-wide shadow-sm ring-1 ring-white/80 ${getStatusClass(
+                                      booking.status
+                                    )}`}
+                                  >
+                                    {getStatusLabel(booking.status)}
                                   </span>
-                                )}
-
-
-                                {isOverdueCheckout && (
-                                  <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full border border-red-200 bg-red-600 px-3 py-1 text-[11px] font-black text-white shadow-sm shadow-red-100">
-                                    <Clock3 size={12} />
-                                    Waktunya Check-out
-                                  </span>
-                                )}
+                                </div>
                               </div>
 
                               {isOverdueCheckout && (
@@ -5247,8 +5258,6 @@ const ReadyRoomDateField = ({
                                 <PriceMiniCard
                                   icon={<Wallet size={16} className="text-red-500" />}
                                   price={formatCurrency(booking.total_price)}
-                                  statusLabel={getStatusLabel(booking.status)}
-                                  statusClass={getStatusClass(booking.status)}
                                   bookingTypeLabel={getBookingTypeLabel(booking.booking_type)}
                                   durationText={
                                     booking.duration_hours
@@ -8222,17 +8231,28 @@ function PriceMiniCard({
   price,
   statusLabel = "",
   statusClass = "",
+  sourceLabel = "",
   bookingTypeLabel,
   durationText = "",
 }) {
   return (
     <div className="relative flex min-w-0 items-start gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 shadow-sm">
-      {statusLabel && (
-        <span
-          className={`absolute -top-8 right-3 z-20 whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide shadow-sm ring-1 ring-white/80 ${statusClass}`}
-        >
-          {statusLabel}
-        </span>
+      {(sourceLabel || statusLabel) && (
+        <div className="absolute -top-8 right-3 z-20 flex items-center gap-1.5">
+          {sourceLabel && (
+            <span className="whitespace-nowrap rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black tracking-[-0.01em] text-slate-700 shadow-sm ring-1 ring-white/80">
+              {sourceLabel}
+            </span>
+          )}
+
+          {statusLabel && (
+            <span
+              className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide shadow-sm ring-1 ring-white/80 ${statusClass}`}
+            >
+              {statusLabel}
+            </span>
+          )}
+        </div>
       )}
 
       <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50">
